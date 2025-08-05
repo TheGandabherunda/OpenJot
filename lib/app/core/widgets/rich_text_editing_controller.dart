@@ -30,11 +30,11 @@ class StyleRange {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is StyleRange &&
-          runtimeType == other.runtimeType &&
-          style == other.style &&
-          range == other.range &&
-          textStyle == other.textStyle;
+          other is StyleRange &&
+              runtimeType == other.runtimeType &&
+              style == other.style &&
+              range == other.range &&
+              textStyle == other.textStyle;
 
   @override
   int get hashCode => style.hashCode ^ range.hashCode ^ textStyle.hashCode;
@@ -47,7 +47,7 @@ class RichTextEditingController extends TextEditingController {
 
   late final Map<String, TextStyle> _styleMap;
 
-  RichTextEditingController({required this.appThemeColors}) {
+  RichTextEditingController({required this.appThemeColors, String? text}) : super(text: text) {
     _styleMap = {
       'bold': const TextStyle(fontWeight: FontWeight.bold),
       'italic': const TextStyle(fontStyle: FontStyle.italic),
@@ -55,11 +55,14 @@ class RichTextEditingController extends TextEditingController {
       'strikethrough': const TextStyle(decoration: TextDecoration.lineThrough),
       'title': const TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
       'quote': TextStyle(
-        color: appThemeColors.grey2,
-        backgroundColor: appThemeColors.grey5,
-        fontStyle: FontStyle.italic
+          color: appThemeColors.grey2,
+          backgroundColor: appThemeColors.grey5,
+          fontStyle: FontStyle.italic
       ),
     };
+    if (this.text.isEmpty) {
+      _activeStyles.add('title');
+    }
   }
 
   TextStyle? _getStyle(String style) => _styleMap[style];
@@ -73,12 +76,15 @@ class RichTextEditingController extends TextEditingController {
       return;
     }
 
-    if (newValue.text != text) {
-      _onTextChanged(value, newValue);
-    }
-
     if (newValue.text.isEmpty) {
       clearStyles();
+    }
+
+    final oldValue = value;
+    if (newValue.text != text) {
+      if (_onTextChanged(oldValue, newValue)) {
+        return;
+      }
     }
 
     super.value = newValue;
@@ -88,39 +94,121 @@ class RichTextEditingController extends TextEditingController {
     }
   }
 
-  void _onTextChanged(TextEditingValue oldValue, TextEditingValue newValue) {
+  bool _onTextChanged(TextEditingValue oldValue, TextEditingValue newValue) {
     if (newValue.selection.start == -1 || newValue.selection.end == -1) {
-      return;
+      return false;
+    }
+
+    // Handle bullet points on Enter key press
+    final diff = newValue.text.length - oldValue.text.length;
+    if (diff > 0 && newValue.selection.isCollapsed) {
+      final changeStart = newValue.selection.start - diff;
+      final addedText = newValue.text.substring(changeStart, newValue.selection.start);
+
+      if (addedText == '\n') {
+        if (_activeStyles.contains('title')) {
+          _activeStyles.remove('title');
+        }
+
+        final lineStart = getLineStart(changeStart);
+        final line = oldValue.text.substring(lineStart, changeStart);
+
+        if (line.trim().startsWith('• ')) {
+          if (line.trim() == '•' || line.trim() == '• ') {
+            // Empty bullet line, remove bullet and insert a newline
+            final newText = oldValue.text.substring(0, lineStart) +
+                oldValue.text.substring(changeStart);
+            super.value = TextEditingValue(
+              text: newText,
+              selection: TextSelection.fromPosition(TextPosition(offset: lineStart)),
+            );
+            return true;
+          } else {
+            // Non-empty bullet line, add a new bullet on the new line
+            final textToInsert = '• ';
+            final newTextValue = newValue.text.substring(0, newValue.selection.start) +
+                textToInsert +
+                newValue.text.substring(newValue.selection.start);
+            final newSelection = TextSelection.fromPosition(
+              TextPosition(offset: newValue.selection.start + textToInsert.length),
+            );
+
+            super.value = TextEditingValue(
+              text: newTextValue,
+              selection: newSelection,
+            );
+            return true;
+          }
+        }
+      }
     }
 
     _updateStyleRangesOnTextChange(oldValue, newValue);
     _applyActiveStylesOnCharacterInsertion(oldValue, newValue);
-    _applyTitleStyle(newValue.text);
+    return false;
   }
 
   void _updateActiveStylesAtSelection() {
     _activeStyles.clear();
-    if (selection.isCollapsed && selection.start > 0) {
-      final position = selection.start;
-      final activeRanges = _styleRanges.where(
-        (range) =>
-            range.range.start <= position - 1 && range.range.end > position - 1,
-      );
-      for (final range in activeRanges) {
-        if (range.style == 'bold' ||
-            range.style == 'italic' ||
-            range.style == 'underline' ||
-            range.style == 'strikethrough') {
-          _activeStyles.add(range.style);
+    
+    if (text.isEmpty) {
+      _activeStyles.add('title');
+    }
+
+    if (selection.isCollapsed) {
+      // For collapsed selection, check styles at cursor position
+      if (selection.start > 0) {
+        final position = selection.start - 1;
+        final activeRanges = _styleRanges.where(
+              (range) => range.range.start <= position && range.range.end > position,
+        );
+        for (final range in activeRanges) {
+          if (['bold', 'italic', 'underline', 'strikethrough', 'title'].contains(range.style)) {
+            _activeStyles.add(range.style);
+          }
+        }
+      }
+    } else {
+      // For text selection, only mark styles as active if they cover the entire selection
+      for (final style in ['bold', 'italic', 'underline', 'strikethrough', 'title']) {
+        if (_isEntireSelectionStyled(style, selection)) {
+          _activeStyles.add(style);
         }
       }
     }
   }
 
+  bool _isEntireSelectionStyled(String style, TextRange selection) {
+    if (selection.isCollapsed) return false;
+
+    final relevantRanges = _styleRanges
+        .where((range) => range.style == style && range.range.overlaps(selection))
+        .toList();
+
+    if (relevantRanges.isEmpty) return false;
+
+    // Sort ranges by start position
+    relevantRanges.sort((a, b) => a.range.start.compareTo(b.range.start));
+
+    // Check if ranges cover the entire selection without gaps
+    int covered = selection.start;
+    for (final range in relevantRanges) {
+      final rangeStart = range.range.start.clamp(selection.start, selection.end);
+      final rangeEnd = range.range.end.clamp(selection.start, selection.end);
+
+      if (rangeStart > covered) {
+        return false; // Gap in coverage
+      }
+      covered = rangeEnd;
+    }
+
+    return covered >= selection.end;
+  }
+
   void _updateStyleRangesOnTextChange(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
     final oldText = oldValue.text;
     final newText = newValue.text;
     final selection = newValue.selection;
@@ -150,12 +238,12 @@ class RichTextEditingController extends TextEditingController {
   }
 
   TextRange? _adjustRange(
-    TextRange range,
-    int changeStart,
-    int addedLength,
-    int removedLength,
-    int newTextLength,
-  ) {
+      TextRange range,
+      int changeStart,
+      int addedLength,
+      int removedLength,
+      int newTextLength,
+      ) {
     final int start = range.start;
     final int end = range.end;
     final int delta = addedLength - removedLength;
@@ -165,46 +253,42 @@ class RichTextEditingController extends TextEditingController {
     int newEnd = end;
 
     if (changeStart >= end) {
-      // The change is completely after the range.
-      // But if it's an insertion right at the end, the range should expand.
-      if (changeStart == end && addedLength > 0) {
-        newEnd += addedLength;
-      }
+      // Change is after this range - no adjustment needed
+      return range;
     } else if (changeEnd <= start) {
-      // The change is completely before the range.
+      // Change is before this range - shift the entire range
       newStart += delta;
       newEnd += delta;
     } else {
-      // The change overlaps with the range.
+      // Change overlaps with this range
       if (start >= changeStart && end <= changeEnd) {
-        // The range is completely inside the changed (deleted) text.
-        return null; // The range is deleted.
+        // Range is completely within the changed area - remove it
+        return null;
       }
 
       if (start < changeStart) {
-        // The change starts after the range starts.
-        // The start of the range is not affected.
-        // The end of the range must be adjusted.
-        if (end < changeEnd) {
-          // The end of the range is inside the deleted text.
+        // Range starts before the change
+        if (end <= changeEnd) {
+          // Range ends within the change - truncate at changeStart
           newEnd = changeStart;
         } else {
+          // Range extends beyond the change - adjust end
           newEnd += delta;
         }
       } else {
-        // The change starts before or at the start of the range.
+        // Range starts within the change
         newStart = changeStart + addedLength;
-        if (end < changeEnd) {
-          // The end of the range is inside the deleted text.
+        if (end <= changeEnd) {
+          // Range ends within the change - collapse to changeStart
           newEnd = newStart;
         } else {
-          // The end of the range is after the deleted text.
+          // Range extends beyond the change - adjust end
           newEnd += delta;
         }
       }
     }
 
-    if (newStart >= newEnd) {
+    if (newStart >= newEnd || newStart < 0 || newEnd > newTextLength) {
       return null;
     }
 
@@ -215,9 +299,9 @@ class RichTextEditingController extends TextEditingController {
   }
 
   void _applyActiveStylesOnCharacterInsertion(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
     if (newValue.selection.isCollapsed && newValue.selection.start >= 0) {
       final diff = newValue.text.length - oldValue.text.length;
       if (diff > 0) {
@@ -225,6 +309,7 @@ class RichTextEditingController extends TextEditingController {
         final end = newValue.selection.start;
         final range = TextRange(start: start, end: end);
 
+        // Apply active styles to newly typed characters
         for (final style in _activeStyles) {
           final textStyle = _getStyle(style);
           if (textStyle != null) {
@@ -235,84 +320,64 @@ class RichTextEditingController extends TextEditingController {
     }
   }
 
-  void _applyTitleStyle(String text) {
-    final firstLineEnd = text.indexOf('\n');
-    final titleRange = TextRange(
-      start: 0,
-      end: firstLineEnd == -1 ? text.length : firstLineEnd,
-    );
-    _styleRanges.removeWhere((r) => r.style == 'title');
-    if (titleRange.end > 0) {
-      _addStyleInternal('title', _getStyle('title')!, titleRange);
-    }
-  }
-
   bool isStyleActive(String style) {
     if (style == 'quote') {
-      return _isBlockStyleActive('quote');
+      final start = getLineStart(selection.start);
+      final end = getLineEnd(selection.end);
+      return _isRangeStyleActive(style, TextRange(start: start, end: end));
     }
+
     if (style == 'bullet') {
       return _isBulletListActive();
     }
-    return _isCharacterStyleActive(style);
-  }
 
-  bool _isCharacterStyleActive(String style) {
     if (selection.isCollapsed) {
       return _activeStyles.contains(style);
     } else {
-      return _isRangeStyleActive(style, selection);
+      return _isEntireSelectionStyled(style, selection);
     }
-  }
-
-  bool _isBlockStyleActive(String style) {
-    return _isRangeStyleActive(style, selection);
   }
 
   bool _isRangeStyleActive(String style, TextRange range) {
     if (range.isCollapsed) {
-      final intersectingRanges = _styleRanges.where(
-        (r) =>
-            r.style == style &&
-            r.range.start <= range.start &&
-            r.range.end >= range.start,
-      );
-      return intersectingRanges.isNotEmpty;
+      return _styleRanges.any((r) =>
+      r.style == style && r.range.start <= range.start && r.range.end > range.start);
     }
-
-    final intersectingRanges = _styleRanges.where(
-      (r) => r.style == style && r.range.overlaps(range),
-    );
-
-    if (intersectingRanges.isEmpty) return false;
-
-    int coveredLength = 0;
-    for (final r in intersectingRanges) {
-      final intersectionStart = r.range.start > range.start
-          ? r.range.start
-          : range.start;
-      final intersectionEnd = r.range.end < range.end ? r.range.end : range.end;
-      coveredLength += intersectionEnd - intersectionStart;
-    }
-
-    return coveredLength >= (range.end - range.start);
+    return _isEntireSelectionStyled(style, range);
   }
 
   bool _isBulletListActive() {
-    final selectedLines = text
-        .substring(selection.start, selection.end)
-        .split('\n');
-    return selectedLines.every((line) => line.trimLeft().startsWith('• '));
+    if (selection.start == -1 || selection.end == -1) return false;
+
+    final lineStart = getLineStart(selection.start);
+    final lineEnd = getLineEnd(selection.start);
+    final currentLine = text.substring(lineStart, lineEnd);
+
+    return currentLine.trimLeft().startsWith('• ');
   }
 
   void _addStyleInternal(String style, TextStyle textStyle, TextRange range) {
     if (range.isCollapsed) return;
 
-    _styleRanges.removeWhere(
-      (r) => r.style == style && r.range.overlaps(range),
-    );
+    // Remove any existing overlapping ranges of the same style and merge
+    final overlappingRanges = _styleRanges
+        .where((r) => r.style == style &&
+        (r.range.overlaps(range) ||
+            r.range.start == range.end ||
+            r.range.end == range.start))
+        .toList();
+
+    TextRange mergedRange = range;
+    for (final overlapping in overlappingRanges) {
+      mergedRange = TextRange(
+        start: [mergedRange.start, overlapping.range.start].reduce((a, b) => a < b ? a : b),
+        end: [mergedRange.end, overlapping.range.end].reduce((a, b) => a > b ? a : b),
+      );
+      _styleRanges.remove(overlapping);
+    }
+
     _styleRanges.add(
-      StyleRange(style: style, range: range, textStyle: textStyle),
+      StyleRange(style: style, range: mergedRange, textStyle: textStyle),
     );
   }
 
@@ -328,28 +393,24 @@ class RichTextEditingController extends TextEditingController {
         .where((r) => r.style == style && r.range.overlaps(rangeToRemove))
         .toList();
 
-    _styleRanges.removeWhere((r) => overlappingRanges.contains(r));
+    for (final overlappingRange in overlappingRanges) {
+      _styleRanges.remove(overlappingRange);
+      final oldRange = overlappingRange.range;
 
-    for (final oldRange in overlappingRanges) {
-      final oldTextRange = oldRange.range;
-
-      // Part before the removed range
-      if (oldTextRange.start < rangeToRemove.start) {
+      // Add the part before the removal range
+      if (oldRange.start < rangeToRemove.start) {
         _styleRanges.add(
-          oldRange.copyWith(
-            range: TextRange(
-              start: oldTextRange.start,
-              end: rangeToRemove.start,
-            ),
+          overlappingRange.copyWith(
+            range: TextRange(start: oldRange.start, end: rangeToRemove.start),
           ),
         );
       }
 
-      // Part after the removed range
-      if (oldTextRange.end > rangeToRemove.end) {
+      // Add the part after the removal range
+      if (oldRange.end > rangeToRemove.end) {
         _styleRanges.add(
-          oldRange.copyWith(
-            range: TextRange(start: rangeToRemove.end, end: oldTextRange.end),
+          overlappingRange.copyWith(
+            range: TextRange(start: rangeToRemove.end, end: oldRange.end),
           ),
         );
       }
@@ -360,107 +421,140 @@ class RichTextEditingController extends TextEditingController {
   void clearStyles() {
     _styleRanges.clear();
     _activeStyles.clear();
+    if (text.isEmpty) {
+      _activeStyles.add('title');
+    }
     notifyListeners();
   }
 
-  void toggleStyle(String style, TextStyle textStyle) {
+  void toggleStyle(String style) {
+    final textStyle = _getStyle(style);
+    if (textStyle == null) return;
+
+    if (style == 'quote') {
+      _toggleLineStyle(style);
+      return;
+    }
+
+    if (style == 'bullet') {
+      toggleBulletPoints();
+      return;
+    }
+
     final currentSelection = selection;
     if (currentSelection.isCollapsed) {
+      // Toggle active style for future typing
       if (_activeStyles.contains(style)) {
         _activeStyles.remove(style);
       } else {
         _activeStyles.add(style);
       }
     } else {
-      final bool isActive = isStyleActive(style);
+      // Toggle style on selected text
+      final bool isActive = _isEntireSelectionStyled(style, currentSelection);
       if (isActive) {
         removeStyle(style, currentSelection);
+        // Update active styles after removal
+        _updateActiveStylesAtSelection();
       } else {
         addStyle(style, textStyle, currentSelection);
+        // Update active styles after addition
+        _updateActiveStylesAtSelection();
       }
     }
     notifyListeners();
   }
 
-  void toggleQuote() {
-    final currentSelection = selection;
-    final start = getLineStart(currentSelection.start);
-    final end = getLineEnd(currentSelection.end);
+  void _toggleLineStyle(String style) {
+    final textStyle = _getStyle(style);
+    if (textStyle == null) return;
+
+    final start = getLineStart(selection.start);
+    final end = getLineEnd(selection.end);
     final linesRange = TextRange(start: start, end: end);
 
-    if (linesRange.isCollapsed && text.substring(start, end).isEmpty) {
-      return; // Do nothing on empty line
+    if (text.substring(start, end).trim().isEmpty) {
+      return;
     }
 
-    final isActive = _isRangeStyleActive('quote', linesRange);
-    final quoteStyle = _getStyle('quote')!;
+    final isActive = _isRangeStyleActive(style, linesRange);
 
     if (isActive) {
-      removeStyle('quote', linesRange);
+      removeStyle(style, linesRange);
     } else {
-      addStyle('quote', quoteStyle, linesRange);
+      addStyle(style, textStyle, linesRange);
     }
+
+    // Update active styles after toggle
+    _updateActiveStylesAtSelection();
   }
 
   void toggleBulletPoints() {
     if (selection.isCollapsed &&
         getLineAtCursor(selection.start).trim().isEmpty) {
+      // Add bullet to empty line
       final currentLineStart = getLineStart(selection.start);
-      text = text.replaceRange(currentLineStart, currentLineStart, '• ');
-      selection = TextSelection.fromPosition(
-        TextPosition(offset: selection.start + 2),
+      final newText = text.replaceRange(currentLineStart, currentLineStart, '• ');
+      value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.fromPosition(
+          TextPosition(offset: selection.start + 2),
+        ),
       );
       return;
     }
 
-    final selectionStartLine = getLineAtCursor(selection.start);
     final selectedLinesRange = TextRange(
       start: getLineStart(selection.start),
       end: getLineEnd(selection.end),
     );
-    final selectedLines = text
-        .substring(selectedLinesRange.start, selectedLinesRange.end)
-        .split('\n');
+    final selectedText = text.substring(selectedLinesRange.start, selectedLinesRange.end);
+    final selectedLines = selectedText.split('\n');
 
     final bool areAllLinesBulleted = selectedLines.every(
-      (line) => line.trimLeft().startsWith('• '),
+          (line) => line.trimLeft().startsWith('• '),
     );
 
     String newText;
     int charDelta = 0;
 
     if (areAllLinesBulleted) {
+      // Remove bullets
       newText = selectedLines
           .map((line) {
-            final originalLength = line.length;
-            final newLine = line.replaceFirst(RegExp(r'^\s*•\s?'), '');
-            charDelta -= originalLength - newLine.length;
-            return newLine;
-          })
+        final originalLength = line.length;
+        final newLine = line.replaceFirst(RegExp(r'^\s*•\s?'), '');
+        charDelta += newLine.length - originalLength;
+        return newLine;
+      })
           .join('\n');
     } else {
+      // Add bullets
       newText = selectedLines
           .map((line) {
-            if (line.trim().isNotEmpty && !line.trimLeft().startsWith('• ')) {
-              final originalLength = line.length;
-              final newLine = '• $line';
-              charDelta += newLine.length - originalLength;
-              return newLine;
-            }
-            return line;
-          })
+        if (line.trim().isNotEmpty && !line.trimLeft().startsWith('• ')) {
+          final originalLength = line.length;
+          final newLine = '• $line';
+          charDelta += newLine.length - originalLength;
+          return newLine;
+        }
+        return line;
+      })
           .join('\n');
     }
 
-    text = text.replaceRange(
+    final newTextValue = text.replaceRange(
       selectedLinesRange.start,
       selectedLinesRange.end,
       newText,
     );
 
-    selection = TextSelection(
-      baseOffset: selection.start,
-      extentOffset: (selection.end + charDelta).clamp(0, text.length),
+    value = TextEditingValue(
+      text: newTextValue,
+      selection: TextSelection(
+        baseOffset: selection.start,
+        extentOffset: (selection.end + charDelta).clamp(0, newTextValue.length),
+      ),
     );
   }
 
@@ -468,6 +562,7 @@ class RichTextEditingController extends TextEditingController {
   void clear() {
     _styleRanges.clear();
     _activeStyles.clear();
+    _activeStyles.add('title');
     super.clear();
   }
 
@@ -482,36 +577,33 @@ class RichTextEditingController extends TextEditingController {
     final lines = plainText.split('\n');
     int start = 0;
 
-    for (final line in lines) {
+    for (int lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+      final line = lines[lineIndex];
       final end = start + line.length;
       final lineRange = TextRange(start: start, end: end);
+
       final isQuote = _styleRanges.any(
-        (r) =>
-            r.style == 'quote' &&
-            (r.range.overlaps(lineRange) ||
-                r.range.start == r.range.end &&
-                    r.range.start >= lineRange.start &&
-                    r.range.end <= lineRange.end ||
-                r.range.end == lineRange.start ||
-                r.range.start == lineRange.end),
+            (r) => r.style == 'quote' && r.range.overlaps(lineRange),
       );
 
       if (isQuote) {
         children.add(
           WidgetSpan(
             child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 4.0),
               decoration: BoxDecoration(
                 border: Border(
                   left: BorderSide(color: appThemeColors.grey5, width: 2.0),
                 ),
               ),
-              padding: const EdgeInsets.only(left: 4.0),
+              padding: const EdgeInsets.only(left: 8.0),
               child: Text.rich(
                 _buildTextSpanForRange(
                   TextRange(start: start, end: end),
                   style,
                   plainText,
                 ),
+                style: style,
               ),
             ),
           ),
@@ -525,7 +617,9 @@ class RichTextEditingController extends TextEditingController {
           ),
         );
       }
-      if (end < plainText.length || line.isEmpty && end == plainText.length) {
+
+      // Add newline except for the last line
+      if (lineIndex < lines.length - 1) {
         children.add(const TextSpan(text: '\n'));
       }
 
@@ -536,10 +630,10 @@ class RichTextEditingController extends TextEditingController {
   }
 
   TextSpan _buildTextSpanForRange(
-    TextRange range,
-    TextStyle? style,
-    String plainText,
-  ) {
+      TextRange range,
+      TextStyle? style,
+      String plainText,
+      ) {
     final Set<int> splitPoints = {range.start, range.end};
     for (final styleRange in _styleRanges) {
       if (styleRange.range.overlaps(range)) {
@@ -560,19 +654,27 @@ class RichTextEditingController extends TextEditingController {
       final double midpoint = start + (end - start) / 2;
       TextStyle combinedStyle = style ?? const TextStyle();
       final activeRanges = _styleRanges.where(
-        (range) => range.range.start <= midpoint && range.range.end > midpoint,
+            (range) => range.range.start <= midpoint && range.range.end > midpoint,
       );
 
       for (final range in activeRanges) {
-        if (range.style != 'quote') {
-          combinedStyle = combinedStyle.merge(range.textStyle);
-        } else {
-          combinedStyle = combinedStyle.merge(_getStyle('quote'));
-        }
+        combinedStyle = combinedStyle.merge(range.textStyle);
       }
+
+      if (text.isEmpty && _activeStyles.contains('title')) {
+        combinedStyle = combinedStyle.merge(_styleMap['title']);
+      }
+      
       spans.add(
         TextSpan(text: plainText.substring(start, end), style: combinedStyle),
       );
+    }
+    if (spans.isEmpty && range.start == range.end) {
+      TextStyle combinedStyle = style ?? const TextStyle();
+      if (text.isEmpty && _activeStyles.contains('title')) {
+        combinedStyle = combinedStyle.merge(_styleMap['title']);
+      }
+      return TextSpan(text: '', style: combinedStyle);
     }
     return TextSpan(children: spans, style: style);
   }

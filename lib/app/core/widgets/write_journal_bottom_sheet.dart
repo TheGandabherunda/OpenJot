@@ -33,8 +33,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   double? _activeSheetMinSize;
   double? _activeSheetInitialSize;
   bool _isTextSelected = false;
-  bool _isHandlingStyle = false;
-  bool _titleStyleManuallySet = false;
 
   // Configuration Constants
   static const double _maxChildSize = 0.7;
@@ -65,12 +63,10 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       _textController =
           RichTextEditingController(appThemeColors: appThemeColors);
       _textController.addListener(_handleTextSelectionChange);
-      _textController.addListener(_handleHeadingStyle);
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _focusNode.requestFocus();
-          _handleHeadingStyle(); // Initial style check
         }
       });
       _controllerInitialized = true;
@@ -80,7 +76,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   @override
   void dispose() {
     _textController.removeListener(_handleTextSelectionChange);
-    _textController.removeListener(_handleHeadingStyle);
     _textController.dispose();
     _focusNode.dispose();
     _sheetController.dispose();
@@ -95,50 +90,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     setState(() {
       _isTextSelected = isSelected;
     });
-  }
-
-  // ============================================================================
-  // HEADING STYLE HANDLER
-  // ============================================================================
-
-  void _handleHeadingStyle() {
-    if (_isHandlingStyle || _titleStyleManuallySet) return;
-    _isHandlingStyle = true;
-
-    try {
-      final text = _textController.text;
-      const style = 'title';
-      final titleStyle =
-          const TextStyle(fontSize: 24, fontWeight: FontWeight.w600);
-      final firstNewline = text.indexOf('\n');
-      final firstLineEnd = firstNewline == -1 ? text.length : firstNewline;
-      final firstLineRange = TextRange(start: 0, end: firstLineEnd);
-
-      // Add title style to the first line if it's not empty, or if the text is empty
-      // and the cursor is at the beginning (initial state).
-      if (firstLineRange.textInside(text).isNotEmpty ||
-          (text.isEmpty && _textController.selection.start == 0)) {
-        _textController.addStyle(style, titleStyle, firstLineRange);
-      } else {
-        // Remove the style if the first line is empty.
-        _textController.removeStyle(style, firstLineRange);
-      }
-
-      // Ensure text after the first line does not have the title style.
-      if (firstNewline != -1) {
-        final restOfTextRange =
-            TextRange(start: firstNewline, end: text.length);
-        if (restOfTextRange.textInside(text).isNotEmpty) {
-          _textController.removeStyle(style, restOfTextRange);
-        } else {
-          // If the user presses enter, ensure the new line doesn't carry over the title style.
-          _textController.removeStyle(
-              style, TextRange(start: firstNewline, end: firstNewline + 1));
-        }
-      }
-    } finally {
-      _isHandlingStyle = false;
-    }
   }
 
   // ============================================================================
@@ -250,52 +201,19 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   void _handleTextStylingToolbarItemTap(String style) {
-    final appThemeColors = AppTheme.colorsOf(context);
-    if (style == 'title') {
-      _titleStyleManuallySet = true;
-    }
     switch (style) {
       case 'bold':
-        _textController.toggleStyle(
-          'bold',
-          const TextStyle(fontWeight: FontWeight.bold),
-        );
-        break;
       case 'italic':
-        _textController.toggleStyle(
-          'italic',
-          const TextStyle(fontStyle: FontStyle.italic),
-        );
-        break;
       case 'underline':
-        _textController.toggleStyle(
-          'underline',
-          const TextStyle(decoration: TextDecoration.underline),
-        );
-        break;
       case 'strikethrough':
-        _textController.toggleStyle(
-          'strikethrough',
-          const TextStyle(decoration: TextDecoration.lineThrough),
-        );
+        _textController.toggleStyle(style);
         break;
       case 'bullet':
         _textController.toggleBulletPoints();
         break;
       case 'quote':
-        _textController.toggleStyle(
-          'quote',
-          TextStyle(
-            fontStyle: FontStyle.italic,
-            color: appThemeColors.grey1,
-          ),
-        );
-        break;
       case 'title':
-        _textController.toggleStyle(
-          'title',
-          const TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
-        );
+        _textController.toggleStyle(style);
         break;
     }
   }
