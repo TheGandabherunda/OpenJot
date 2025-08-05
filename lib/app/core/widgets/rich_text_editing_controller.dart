@@ -44,10 +44,12 @@ class RichTextEditingController extends TextEditingController {
   final AppThemeColors appThemeColors;
   final List<StyleRange> _styleRanges = [];
   final Set<String> _activeStyles = {};
+  bool _quoteMode = false; // Track persistent quote mode
 
   late final Map<String, TextStyle> _styleMap;
 
-  RichTextEditingController({required this.appThemeColors, String? text}) : super(text: text) {
+  RichTextEditingController({required this.appThemeColors, String? text})
+      : super(text: text) {
     _styleMap = {
       'bold': const TextStyle(fontWeight: FontWeight.bold),
       'italic': const TextStyle(fontStyle: FontStyle.italic),
@@ -55,9 +57,9 @@ class RichTextEditingController extends TextEditingController {
       'strikethrough': const TextStyle(decoration: TextDecoration.lineThrough),
       'title': const TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
       'quote': TextStyle(
-          color: appThemeColors.grey2,
-          backgroundColor: appThemeColors.grey5,
-          fontStyle: FontStyle.italic
+        color: appThemeColors.grey2,
+        backgroundColor: appThemeColors.grey5,
+        fontStyle: FontStyle.italic,
       ),
     };
     if (this.text.isEmpty) {
@@ -103,11 +105,19 @@ class RichTextEditingController extends TextEditingController {
     final diff = newValue.text.length - oldValue.text.length;
     if (diff > 0 && newValue.selection.isCollapsed) {
       final changeStart = newValue.selection.start - diff;
-      final addedText = newValue.text.substring(changeStart, newValue.selection.start);
+      final addedText = newValue.text.substring(
+        changeStart,
+        newValue.selection.start,
+      );
 
       if (addedText == '\n') {
         if (_activeStyles.contains('title')) {
           _activeStyles.remove('title');
+        }
+
+        // Handle quote mode persistence on new lines - quote mode stays active
+        if (_quoteMode) {
+          _activeStyles.add('quote');
         }
 
         final lineStart = getLineStart(changeStart);
@@ -116,21 +126,27 @@ class RichTextEditingController extends TextEditingController {
         if (line.trim().startsWith('• ')) {
           if (line.trim() == '•' || line.trim() == '• ') {
             // Empty bullet line, remove bullet and insert a newline
-            final newText = oldValue.text.substring(0, lineStart) +
-                oldValue.text.substring(changeStart);
+            final newText =
+                oldValue.text.substring(0, lineStart) +
+                    oldValue.text.substring(changeStart);
             super.value = TextEditingValue(
               text: newText,
-              selection: TextSelection.fromPosition(TextPosition(offset: lineStart)),
+              selection: TextSelection.fromPosition(
+                TextPosition(offset: lineStart),
+              ),
             );
             return true;
           } else {
             // Non-empty bullet line, add a new bullet on the new line
             final textToInsert = '• ';
-            final newTextValue = newValue.text.substring(0, newValue.selection.start) +
-                textToInsert +
-                newValue.text.substring(newValue.selection.start);
+            final newTextValue =
+                newValue.text.substring(0, newValue.selection.start) +
+                    textToInsert +
+                    newValue.text.substring(newValue.selection.start);
             final newSelection = TextSelection.fromPosition(
-              TextPosition(offset: newValue.selection.start + textToInsert.length),
+              TextPosition(
+                offset: newValue.selection.start + textToInsert.length,
+              ),
             );
 
             super.value = TextEditingValue(
@@ -150,9 +166,14 @@ class RichTextEditingController extends TextEditingController {
 
   void _updateActiveStylesAtSelection() {
     _activeStyles.clear();
-    
+
     if (text.isEmpty) {
       _activeStyles.add('title');
+    }
+
+    // Add quote to active styles if quote mode is enabled
+    if (_quoteMode) {
+      _activeStyles.add('quote');
     }
 
     if (selection.isCollapsed) {
@@ -160,17 +181,30 @@ class RichTextEditingController extends TextEditingController {
       if (selection.start > 0) {
         final position = selection.start - 1;
         final activeRanges = _styleRanges.where(
-              (range) => range.range.start <= position && range.range.end > position,
+              (range) =>
+          range.range.start <= position && range.range.end > position,
         );
         for (final range in activeRanges) {
-          if (['bold', 'italic', 'underline', 'strikethrough', 'title'].contains(range.style)) {
+          if ([
+            'bold',
+            'italic',
+            'underline',
+            'strikethrough',
+            'title',
+          ].contains(range.style)) {
             _activeStyles.add(range.style);
           }
         }
       }
     } else {
       // For text selection, only mark styles as active if they cover the entire selection
-      for (final style in ['bold', 'italic', 'underline', 'strikethrough', 'title']) {
+      for (final style in [
+        'bold',
+        'italic',
+        'underline',
+        'strikethrough',
+        'title',
+      ]) {
         if (_isEntireSelectionStyled(style, selection)) {
           _activeStyles.add(style);
         }
@@ -182,7 +216,9 @@ class RichTextEditingController extends TextEditingController {
     if (selection.isCollapsed) return false;
 
     final relevantRanges = _styleRanges
-        .where((range) => range.style == style && range.range.overlaps(selection))
+        .where(
+          (range) => range.style == style && range.range.overlaps(selection),
+    )
         .toList();
 
     if (relevantRanges.isEmpty) return false;
@@ -193,7 +229,10 @@ class RichTextEditingController extends TextEditingController {
     // Check if ranges cover the entire selection without gaps
     int covered = selection.start;
     for (final range in relevantRanges) {
-      final rangeStart = range.range.start.clamp(selection.start, selection.end);
+      final rangeStart = range.range.start.clamp(
+        selection.start,
+        selection.end,
+      );
       final rangeEnd = range.range.end.clamp(selection.start, selection.end);
 
       if (rangeStart > covered) {
@@ -322,9 +361,7 @@ class RichTextEditingController extends TextEditingController {
 
   bool isStyleActive(String style) {
     if (style == 'quote') {
-      final start = getLineStart(selection.start);
-      final end = getLineEnd(selection.end);
-      return _isRangeStyleActive(style, TextRange(start: start, end: end));
+      return _quoteMode || _hasQuoteStyleInSelection();
     }
 
     if (style == 'bullet') {
@@ -338,10 +375,20 @@ class RichTextEditingController extends TextEditingController {
     }
   }
 
+  bool _hasQuoteStyleInSelection() {
+    final start = getLineStart(selection.start);
+    final end = getLineEnd(selection.end);
+    return _isRangeStyleActive('quote', TextRange(start: start, end: end));
+  }
+
   bool _isRangeStyleActive(String style, TextRange range) {
     if (range.isCollapsed) {
-      return _styleRanges.any((r) =>
-      r.style == style && r.range.start <= range.start && r.range.end > range.start);
+      return _styleRanges.any(
+            (r) =>
+        r.style == style &&
+            r.range.start <= range.start &&
+            r.range.end > range.start,
+      );
     }
     return _isEntireSelectionStyled(style, range);
   }
@@ -361,17 +408,26 @@ class RichTextEditingController extends TextEditingController {
 
     // Remove any existing overlapping ranges of the same style and merge
     final overlappingRanges = _styleRanges
-        .where((r) => r.style == style &&
-        (r.range.overlaps(range) ||
-            r.range.start == range.end ||
-            r.range.end == range.start))
+        .where(
+          (r) =>
+      r.style == style &&
+          (r.range.overlaps(range) ||
+              r.range.start == range.end ||
+              r.range.end == range.start),
+    )
         .toList();
 
     TextRange mergedRange = range;
     for (final overlapping in overlappingRanges) {
       mergedRange = TextRange(
-        start: [mergedRange.start, overlapping.range.start].reduce((a, b) => a < b ? a : b),
-        end: [mergedRange.end, overlapping.range.end].reduce((a, b) => a > b ? a : b),
+        start: [
+          mergedRange.start,
+          overlapping.range.start,
+        ].reduce((a, b) => a < b ? a : b),
+        end: [
+          mergedRange.end,
+          overlapping.range.end,
+        ].reduce((a, b) => a > b ? a : b),
       );
       _styleRanges.remove(overlapping);
     }
@@ -421,6 +477,7 @@ class RichTextEditingController extends TextEditingController {
   void clearStyles() {
     _styleRanges.clear();
     _activeStyles.clear();
+    _quoteMode = false; // Reset quote mode when clearing styles
     if (text.isEmpty) {
       _activeStyles.add('title');
     }
@@ -432,7 +489,7 @@ class RichTextEditingController extends TextEditingController {
     if (textStyle == null) return;
 
     if (style == 'quote') {
-      _toggleLineStyle(style);
+      _toggleQuoteMode();
       return;
     }
 
@@ -465,28 +522,62 @@ class RichTextEditingController extends TextEditingController {
     notifyListeners();
   }
 
-  void _toggleLineStyle(String style) {
-    final textStyle = _getStyle(style);
+  void _toggleQuoteMode() {
+    final textStyle = _getStyle('quote');
     if (textStyle == null) return;
 
-    final start = getLineStart(selection.start);
-    final end = getLineEnd(selection.end);
-    final linesRange = TextRange(start: start, end: end);
+    if (selection.isCollapsed) {
+      // Toggle quote mode for cursor position
+      if (_quoteMode) {
+        // Turn off quote mode
+        _quoteMode = false;
+        _activeStyles.remove('quote');
+      } else {
+        // Turn on quote mode immediately - persistent across new lines
+        _quoteMode = true;
+        _activeStyles.add('quote');
 
-    if (text.substring(start, end).trim().isEmpty) {
-      return;
-    }
-
-    final isActive = _isRangeStyleActive(style, linesRange);
-
-    if (isActive) {
-      removeStyle(style, linesRange);
+        // If there's existing text at cursor, apply quote style to current line
+        if (text.isNotEmpty) {
+          final start = getLineStart(selection.start);
+          final end = getLineEnd(selection.start);
+          if (start < end) {
+            final lineRange = TextRange(start: start, end: end);
+            addStyle('quote', textStyle, lineRange);
+          }
+        }
+      }
     } else {
-      addStyle(style, textStyle, linesRange);
+      // Handle text selection - check if entire selection is quoted
+      final start = getLineStart(selection.start);
+      final end = getLineEnd(selection.end);
+      final linesRange = TextRange(start: start, end: end);
+
+      if (text.substring(start, end).trim().isEmpty) {
+        return;
+      }
+
+      final isEntireSelectionQuoted = _isEntireSelectionStyled(
+        'quote',
+        linesRange,
+      );
+
+      if (isEntireSelectionQuoted) {
+        // Remove quote from selected lines and disable quote mode
+        removeStyle('quote', linesRange);
+        _quoteMode = false;
+        _activeStyles.remove('quote');
+      } else {
+        // Add quote to selected lines and enable persistent quote mode
+        addStyle('quote', textStyle, linesRange);
+        _quoteMode = true;
+        _activeStyles.add('quote');
+      }
     }
 
     // Update active styles after toggle
     _updateActiveStylesAtSelection();
+    notifyListeners();
   }
 
   void toggleBulletPoints() {
@@ -494,7 +585,11 @@ class RichTextEditingController extends TextEditingController {
         getLineAtCursor(selection.start).trim().isEmpty) {
       // Add bullet to empty line
       final currentLineStart = getLineStart(selection.start);
-      final newText = text.replaceRange(currentLineStart, currentLineStart, '• ');
+      final newText = text.replaceRange(
+        currentLineStart,
+        currentLineStart,
+        '• ',
+      );
       value = TextEditingValue(
         text: newText,
         selection: TextSelection.fromPosition(
@@ -508,7 +603,10 @@ class RichTextEditingController extends TextEditingController {
       start: getLineStart(selection.start),
       end: getLineEnd(selection.end),
     );
-    final selectedText = text.substring(selectedLinesRange.start, selectedLinesRange.end);
+    final selectedText = text.substring(
+      selectedLinesRange.start,
+      selectedLinesRange.end,
+    );
     final selectedLines = selectedText.split('\n');
 
     final bool areAllLinesBulleted = selectedLines.every(
@@ -562,6 +660,7 @@ class RichTextEditingController extends TextEditingController {
   void clear() {
     _styleRanges.clear();
     _activeStyles.clear();
+    _quoteMode = false; // Reset quote mode when clearing
     _activeStyles.add('title');
     super.clear();
   }
@@ -582,9 +681,11 @@ class RichTextEditingController extends TextEditingController {
       final end = start + line.length;
       final lineRange = TextRange(start: start, end: end);
 
-      final isQuote = _styleRanges.any(
-            (r) => r.style == 'quote' && r.range.overlaps(lineRange),
-      );
+      final isQuote =
+          _styleRanges.any(
+                (r) => r.style == 'quote' && r.range.overlaps(lineRange),
+          ) ||
+              (_quoteMode && selection.start >= start && selection.start <= end);
 
       if (isQuote) {
         children.add(
@@ -661,10 +762,18 @@ class RichTextEditingController extends TextEditingController {
         combinedStyle = combinedStyle.merge(range.textStyle);
       }
 
+      // Apply quote style if in quote mode and cursor is in this range
+      if (_quoteMode && selection.start >= start && selection.start <= end) {
+        final quoteStyle = _styleMap['quote'];
+        if (quoteStyle != null) {
+          combinedStyle = combinedStyle.merge(quoteStyle);
+        }
+      }
+
       if (text.isEmpty && _activeStyles.contains('title')) {
         combinedStyle = combinedStyle.merge(_styleMap['title']);
       }
-      
+
       spans.add(
         TextSpan(text: plainText.substring(start, end), style: combinedStyle),
       );
@@ -673,6 +782,13 @@ class RichTextEditingController extends TextEditingController {
       TextStyle combinedStyle = style ?? const TextStyle();
       if (text.isEmpty && _activeStyles.contains('title')) {
         combinedStyle = combinedStyle.merge(_styleMap['title']);
+      }
+      // Apply quote style if in quote mode
+      if (_quoteMode) {
+        final quoteStyle = _styleMap['quote'];
+        if (quoteStyle != null) {
+          combinedStyle = combinedStyle.merge(quoteStyle);
+        }
       }
       return TextSpan(text: '', style: combinedStyle);
     }
