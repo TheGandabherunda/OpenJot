@@ -20,12 +20,13 @@ class WriteJournalBottomSheet extends StatefulWidget {
 
 class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   // Controllers and Focus
-  late final RichTextEditingController _textController;
+  late RichTextEditingController _textController;
   final _focusNode = FocusNode();
   final _sheetController = DraggableScrollableController();
   final _textFieldKey = GlobalKey();
 
   // State Variables
+  bool _controllerInitialized = false;
   bool _isDraggableSheetActive = false;
   IconData? _selectedToolbarIcon;
   bool _openingSheetViaToolbar = false;
@@ -59,15 +60,21 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final appThemeColors = AppTheme.colorsOf(context);
-    _textController = RichTextEditingController(appThemeColors: appThemeColors);
-    _textController.addListener(_handleTextSelectionChange);
-    _textController.addListener(_handleHeadingStyle);
+    if (!_controllerInitialized) {
+      final appThemeColors = AppTheme.colorsOf(context);
+      _textController =
+          RichTextEditingController(appThemeColors: appThemeColors);
+      _textController.addListener(_handleTextSelectionChange);
+      _textController.addListener(_handleHeadingStyle);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _focusNode.requestFocus();
-      _handleHeadingStyle(); // Initial style check
-    });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _focusNode.requestFocus();
+          _handleHeadingStyle(); // Initial style check
+        }
+      });
+      _controllerInitialized = true;
+    }
   }
 
   @override

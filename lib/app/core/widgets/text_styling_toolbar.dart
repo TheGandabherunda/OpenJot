@@ -64,7 +64,7 @@ class TextStylingToolbar extends StatelessWidget {
             ],
           ),
           _buildToolbarIcon(
-            Icons.push_pin_outlined,
+            Icons.attach_file_rounded,
             appThemeColors,
             0,
             false,
