@@ -1,0 +1,46 @@
+name: open_jot
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  get: ^4.6.6 # Add GetX for state management and routing
+  hive: ^2.2.3 # Add Hive for local NoSQL database
+  hive_flutter: ^1.1.0 # Add Hive Flutter for Flutter integration
+  smooth_corner: ^1.1.1
+  flutter_screenutil: ^5.9.3
+  flutter_svg: ^2.2.0
+  modal_bottom_sheet: ^3.0.0
+  flutter_quill: ^11.4.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  hive_generator: ^2.0.1 # Required for generating Hive adapters
+  build_runner: ^2.4.11 # Required for running code generators like hive_generator
+
+flutter:
+  uses-material-design: true
+
+  assets:
+      - assets/app_icon.svg
+
+
+  fonts:
+    - family: OpenRunde
+      fonts:
+        - asset: assets/fonts/OpenRunde-Regular.otf
+        - asset: assets/fonts/OpenRunde-Medium.otf
+          weight: 500
+        - asset: assets/fonts/OpenRunde-Semibold.otf
+          weight: 600
+        - asset: assets/fonts/OpenRunde-Bold.otf
+          weight: 700
