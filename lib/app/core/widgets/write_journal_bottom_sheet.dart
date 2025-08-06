@@ -1,12 +1,11 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../constants.dart';
 import '../theme.dart';
 import 'custom_button.dart';
-import 'rich_text_editing_controller.dart';
 import 'text_styling_toolbar.dart';
 import 'write_journal_toolbar.dart';
 import 'write_journal_toolbar_content.dart';
@@ -19,29 +18,24 @@ class WriteJournalBottomSheet extends StatefulWidget {
 }
 
 class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
-  // Controllers and Focus
-  late RichTextEditingController _textController;
+  late quill.QuillController _quillController;
   final _focusNode = FocusNode();
   final _sheetController = DraggableScrollableController();
+  final _editorScrollController = ScrollController();
   final _textFieldKey = GlobalKey();
 
-  // State Variables
-  bool _controllerInitialized = false;
   bool _isDraggableSheetActive = false;
   IconData? _selectedToolbarIcon;
   bool _openingSheetViaToolbar = false;
   double? _activeSheetMinSize;
   double? _activeSheetInitialSize;
-  bool _isTextSelected = false;
 
-  // Configuration Constants
   static const double _maxChildSize = 0.7;
   static const double _minFractionWithoutKeyboard = 0.2;
   static const double _initialFractionWithoutKeyboard = 0.38;
   static const double _keyboardVisibleMinFractionFactor = 1.0;
   static const double _keyboardVisibleInitialFractionFactor = 1.0;
 
-  // Toolbar Icons
   static const List<IconData> _toolbarIcons = [
     Icons.image_rounded,
     Icons.location_on_rounded,
@@ -53,53 +47,34 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   @override
   void initState() {
     super.initState();
-  }
+    _quillController = quill.QuillController.basic();
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_controllerInitialized) {
-      final appThemeColors = AppTheme.colorsOf(context);
-      _textController =
-          RichTextEditingController(appThemeColors: appThemeColors);
-      _textController.addListener(_handleTextSelectionChange);
+    _quillController.addListener(() {
+      if (mounted) {
+        setState(() {});
+      }
+    });
 
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _focusNode.requestFocus();
-        }
-      });
-      _controllerInitialized = true;
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _focusNode.requestFocus();
+      }
+    });
   }
 
   @override
   void dispose() {
-    _textController.removeListener(_handleTextSelectionChange);
-    _textController.dispose();
+    _quillController.dispose();
     _focusNode.dispose();
     _sheetController.dispose();
+    _editorScrollController.dispose();
     super.dispose();
   }
 
-  void _handleTextSelectionChange() {
-    final isSelected = _textController.selection.baseOffset !=
-        _textController.selection.extentOffset;
-
-    // Always call setState to rebuild the toolbar and reflect the current style.
-    setState(() {
-      _isTextSelected = isSelected;
-    });
-  }
-
-  // ============================================================================
-  // SIZE CALCULATION METHODS
-  // ============================================================================
-
   double _calculateInitialChildSize(
-    BuildContext context, {
-    bool afterKeyboardClose = false,
-  }) {
+      BuildContext context, {
+        bool afterKeyboardClose = false,
+      }) {
     final screenHeight = MediaQuery.of(context).size.height;
 
     if (afterKeyboardClose) {
@@ -127,9 +102,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   double _calculateMinChildSize(
-    BuildContext context, {
-    bool afterKeyboardClose = false,
-  }) {
+      BuildContext context, {
+        bool afterKeyboardClose = false,
+      }) {
     final screenHeight = MediaQuery.of(context).size.height;
 
     if (afterKeyboardClose) {
@@ -149,14 +124,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     return minSize.clamp(0.1, _maxChildSize);
   }
 
-  // ============================================================================
-  // TOOLBAR INTERACTION METHODS
-  // ============================================================================
-
   void _handleToolbarItemTap(IconData iconData) {
     final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
 
-    // Scenario 1: Tapping the same icon to close the sheet.
     if (_isDraggableSheetActive && _selectedToolbarIcon == iconData) {
       _closeSheet();
       if (isKeyboardVisible) {
@@ -165,15 +135,13 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       return;
     }
 
-    // Scenario 2: Switching to a different icon while a sheet is already active.
     if (_isDraggableSheetActive && _selectedToolbarIcon != iconData) {
       setState(() {
-        _selectedToolbarIcon = iconData; // Just update the content
+        _selectedToolbarIcon = iconData;
       });
       return;
     }
 
-    // Scenario 3: Opening the sheet from a closed state.
     if (isKeyboardVisible) {
       _handleSheetOpeningWithKeyboard(iconData);
     } else {
@@ -182,39 +150,96 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   void _handlePinTap() {
-    // Unfocusing the text field and clearing the selection will cause the
-    // main WriteJournalToolbar to be shown instead of the TextStylingToolbar.
     _focusNode.unfocus();
-    setState(() {
-      _isTextSelected = false;
-    });
-
-    // We add a short delay to allow the UI to update from showing the
-    // TextStylingToolbar to the WriteJournalToolbar before we initiate
-    // the bottom sheet opening. This prevents visual glitches.
     Future.delayed(const Duration(milliseconds: 50), () {
       if (mounted) {
-        // Call the existing handler for opening the sheet with the image icon.
         _handleToolbarItemTap(Icons.image_rounded);
       }
     });
   }
 
   void _handleTextStylingToolbarItemTap(String style) {
+    final selection = _quillController.selection;
+    final currentStyle = _quillController.getSelectionStyle();
+
+    if (selection.baseOffset < 0) return;
+
     switch (style) {
       case 'bold':
+        _toggleStyle(currentStyle, quill.Attribute.bold);
+        break;
       case 'italic':
+        _toggleStyle(currentStyle, quill.Attribute.italic);
+        break;
       case 'underline':
+        _toggleStyle(currentStyle, quill.Attribute.underline);
+        break;
       case 'strikethrough':
-        _textController.toggleStyle(style);
+        _toggleStyle(currentStyle, quill.Attribute.strikeThrough);
         break;
       case 'bullet':
-        _textController.toggleBulletPoints();
+        _toggleListStyle(currentStyle);
         break;
       case 'quote':
-      case 'title':
-        _textController.toggleStyle(style);
+        _toggleStyle(currentStyle, quill.Attribute.blockQuote);
         break;
+      case 'title':
+        _toggleHeaderStyle(currentStyle);
+        break;
+    }
+
+    if (!_focusNode.hasFocus) {
+      _focusNode.requestFocus();
+    }
+  }
+
+  void _toggleStyle(quill.Style currentStyle, quill.Attribute attribute) {
+    if (currentStyle.containsKey(attribute.key)) {
+      _quillController.formatSelection(quill.Attribute.clone(attribute, null));
+    } else {
+      _quillController.formatSelection(attribute);
+    }
+  }
+
+  void _toggleListStyle(quill.Style currentStyle) {
+    if (currentStyle.containsKey(quill.Attribute.ul.key)) {
+      _quillController.formatSelection(
+        quill.Attribute.clone(quill.Attribute.ul, null),
+      );
+    } else if (currentStyle.containsKey(quill.Attribute.ol.key)) {
+      _quillController.formatSelection(
+        quill.Attribute.clone(quill.Attribute.ol, null),
+      );
+      _quillController.formatSelection(quill.Attribute.ul);
+    } else {
+      _quillController.formatSelection(quill.Attribute.ul);
+    }
+  }
+
+  void _toggleHeaderStyle(quill.Style currentStyle) {
+    bool hasHeader =
+        currentStyle.containsKey(quill.Attribute.h1.key) ||
+            currentStyle.containsKey(quill.Attribute.h2.key) ||
+            currentStyle.containsKey(quill.Attribute.h3.key);
+
+    if (hasHeader) {
+      if (currentStyle.containsKey(quill.Attribute.h1.key)) {
+        _quillController.formatSelection(
+          quill.Attribute.clone(quill.Attribute.h1, null),
+        );
+      }
+      if (currentStyle.containsKey(quill.Attribute.h2.key)) {
+        _quillController.formatSelection(
+          quill.Attribute.clone(quill.Attribute.h2, null),
+        );
+      }
+      if (currentStyle.containsKey(quill.Attribute.h3.key)) {
+        _quillController.formatSelection(
+          quill.Attribute.clone(quill.Attribute.h3, null),
+        );
+      }
+    } else {
+      _quillController.formatSelection(quill.Attribute.h2);
     }
   }
 
@@ -229,9 +254,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   void _handleSheetOpeningWithKeyboard(IconData iconData) {
-    _focusNode.unfocus(); // Close keyboard
-
-    // Delay to allow keyboard to start closing
+    _focusNode.unfocus();
     Future.delayed(const Duration(milliseconds: 50), () {
       if (mounted) {
         _openSheet(iconData, afterKeyboardClose: true);
@@ -276,7 +299,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
         }
       }
     });
-
     _resetToolbarFlag(afterKeyboardClose ? 300 : 50);
   }
 
@@ -290,25 +312,17 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     });
   }
 
-  // ============================================================================
-  // SHEET NOTIFICATION HANDLER
-  // ============================================================================
-
   bool _handleSheetNotification(
-    DraggableScrollableNotification notification,
-    double screenHeight,
-  ) {
+      DraggableScrollableNotification notification,
+      double screenHeight,
+      ) {
     if (!mounted || !_isDraggableSheetActive || _activeSheetMinSize == null) {
       return true;
     }
-
-    // Handle sheet closing when dragged to minimum
     final minSizeForClosingCheck = _activeSheetMinSize!;
-
     if (notification.extent <= minSizeForClosingCheck + 0.01) {
       _scheduleSheetClose(minSizeForClosingCheck);
     }
-
     return true;
   }
 
@@ -327,10 +341,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       }
     });
   }
-
-  // ============================================================================
-  // KEYBOARD INTERACTION HANDLER
-  // ============================================================================
 
   void _handleKeyboardInteraction(bool isKeyboardVisible) {
     if (isKeyboardVisible &&
@@ -351,10 +361,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       });
     }
   }
-
-  // ============================================================================
-  // UI BUILDER METHODS
-  // ============================================================================
 
   Widget _buildHeader(AppThemeColors appThemeColors) {
     return Row(
@@ -386,32 +392,10 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
         color: Colors.transparent,
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 14.w),
-          child: TextField(
+          child: quill.QuillEditor.basic(
             key: _textFieldKey,
-            controller: _textController,
+            controller: _quillController,
             focusNode: _focusNode,
-            autofocus: true,
-            style: TextStyle(
-              color: appThemeColors.grey10,
-              fontSize: 18.sp,
-              fontFamily: AppConstants.font,
-              decoration: TextDecoration.none,
-            ),
-            cursorColor: appThemeColors.primary,
-            keyboardType: TextInputType.multiline,
-            maxLines: null,
-            decoration: InputDecoration(
-              hintText: 'Start writing...',
-              hintStyle: TextStyle(color: appThemeColors.grey3),
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              errorBorder: InputBorder.none,
-              disabledBorder: InputBorder.none,
-              focusedErrorBorder: InputBorder.none,
-              contentPadding: EdgeInsets.zero,
-            ),
-            expands: true,
           ),
         ),
       ),
@@ -419,10 +403,10 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   Widget _buildDraggableSheet(
-    double screenHeight,
-    double sheetMinSize,
-    double sheetInitialSize,
-  ) {
+      double screenHeight,
+      double sheetMinSize,
+      double sheetInitialSize,
+      ) {
     return Positioned.fill(
       child: Align(
         alignment: Alignment.bottomCenter,
@@ -432,12 +416,11 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
           child: DraggableScrollableSheet(
             controller: _sheetController,
             initialChildSize: _openingSheetViaToolbar
-                ? sheetInitialSize // Use passed-in fixed initial size
+                ? sheetInitialSize
                 : (_sheetController.isAttached
-                    ? _sheetController.size
-                    : sheetInitialSize),
+                ? _sheetController.size
+                : sheetInitialSize),
             minChildSize: sheetMinSize,
-            // Use passed-in fixed min size
             maxChildSize: _maxChildSize,
             expand: false,
             builder: (context, scrollController) =>
@@ -449,9 +432,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   Widget _buildSheetContainer(
-    BuildContext context,
-    ScrollController scrollController,
-  ) {
+      BuildContext context,
+      ScrollController scrollController,
+      ) {
     final sheetThemeColors = AppTheme.colorsOf(context);
     final sheetKeyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
@@ -494,23 +477,29 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     );
   }
 
-  // ============================================================================
-  // MAIN BUILD METHOD
-  // =================================_buildToolbar
-  // ============================================================================
-
   Widget _buildToolbar() {
     final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
-    if (isKeyboardVisible || _isTextSelected) {
+    final currentStyle = _quillController.getSelectionStyle();
+    final hasSelection = !_quillController.selection.isCollapsed;
+
+    if (isKeyboardVisible || hasSelection) {
       return TextStylingToolbar(
         onToolbarItemTap: _handleTextStylingToolbarItemTap,
         onPinTap: _handlePinTap,
-        isBoldActive: _textController.isStyleActive('bold'),
-        isItalicActive: _textController.isStyleActive('italic'),
-        isUnderlineActive: _textController.isStyleActive('underline'),
-        isStrikethroughActive: _textController.isStyleActive('strikethrough'),
-        isTitleActive: _textController.isStyleActive('title'),
-        isQuoteActive: _textController.isStyleActive('quote'),
+        isBoldActive: currentStyle.containsKey(quill.Attribute.bold.key),
+        isItalicActive: currentStyle.containsKey(quill.Attribute.italic.key),
+        isUnderlineActive: currentStyle.containsKey(
+          quill.Attribute.underline.key,
+        ),
+        isStrikethroughActive: currentStyle.containsKey(
+          quill.Attribute.strikeThrough.key,
+        ),
+        isTitleActive:
+        currentStyle.containsKey(quill.Attribute.h1.key) ||
+            currentStyle.containsKey(quill.Attribute.h2.key) ||
+            currentStyle.containsKey(quill.Attribute.h3.key),
+        isQuoteActive: currentStyle.containsKey(quill.Attribute.blockQuote.key),
+        isBulletActive: currentStyle.containsKey(quill.Attribute.ul.key),
       );
     } else {
       return WriteJournalToolbar(
@@ -526,15 +515,16 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
 
-    // Using a LayoutBuilder to get the screen height, which is more robust
-    // inside build methods than MediaQuery.
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenHeight = constraints.maxHeight;
 
         return AnimatedBuilder(
-          animation:
-              Listenable.merge([_sheetController, _focusNode, _textController]),
+          animation: Listenable.merge([
+            _sheetController,
+            _focusNode,
+            _quillController,
+          ]),
           builder: (context, child) {
             final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
             final isKeyboardVisible = keyboardHeight > 0;
@@ -542,9 +532,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
             _handleKeyboardInteraction(isKeyboardVisible);
 
             final sheetHeight =
-                (_isDraggableSheetActive && _sheetController.isAttached)
-                    ? _sheetController.size * screenHeight
-                    : 0.0;
+            (_isDraggableSheetActive && _sheetController.isAttached)
+                ? _sheetController.size * screenHeight
+                : 0.0;
 
             final bottomOffset = math.max(keyboardHeight, sheetHeight);
 

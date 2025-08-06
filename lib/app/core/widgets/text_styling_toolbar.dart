@@ -11,6 +11,7 @@ class TextStylingToolbar extends StatelessWidget {
   final bool isStrikethroughActive;
   final bool isTitleActive;
   final bool isQuoteActive;
+  final bool isBulletActive;
 
   const TextStylingToolbar({
     super.key,
@@ -22,6 +23,7 @@ class TextStylingToolbar extends StatelessWidget {
     this.isStrikethroughActive = false,
     this.isTitleActive = false,
     this.isQuoteActive = false,
+    this.isBulletActive = false,
   });
 
   @override
@@ -29,13 +31,13 @@ class TextStylingToolbar extends StatelessWidget {
     final appThemeColors = AppTheme.colorsOf(context);
 
     final Map<String, IconData> styleMap = {
+      'title': Icons.title,
       'bold': Icons.format_bold,
       'italic': Icons.format_italic,
       'underline': Icons.format_underline,
       'strikethrough': Icons.format_strikethrough,
       'bullet': Icons.format_list_bulleted,
       'quote': Icons.format_quote_rounded,
-      'title': Icons.title,
     };
 
     final List<String> styles = styleMap.keys.toList();
@@ -66,7 +68,7 @@ class TextStylingToolbar extends StatelessWidget {
           _buildToolbarIcon(
             Icons.attach_file_rounded,
             appThemeColors,
-            0,
+            0, // Index here is for the pin icon, doesn't affect style icons
             false,
             onPinTap,
             true,
@@ -90,6 +92,8 @@ class TextStylingToolbar extends StatelessWidget {
         return isTitleActive;
       case 'quote':
         return isQuoteActive;
+      case 'bullet':
+        return isBulletActive;
       default:
         return false;
     }
