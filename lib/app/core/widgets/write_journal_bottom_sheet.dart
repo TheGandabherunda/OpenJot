@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -29,6 +30,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   bool _openingSheetViaToolbar = false;
   double? _activeSheetMinSize;
   double? _activeSheetInitialSize;
+  bool _isFormatting = false;
 
   static const double _maxChildSize = 0.7;
   static const double _minFractionWithoutKeyboard = 0.2;
@@ -55,6 +57,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       }
     });
 
+    _quillController.document.changes.listen(_handleTextChange);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _focusNode.requestFocus();
@@ -64,11 +68,93 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
 
   @override
   void dispose() {
+    _quillController.document.changes.listen(null);
     _quillController.dispose();
     _focusNode.dispose();
     _sheetController.dispose();
     _editorScrollController.dispose();
     super.dispose();
+  }
+
+  void _handleTextChange(quill.DocChange docChange) {
+    if (docChange.source != quill.ChangeSource.remote || _isFormatting) {
+      return;
+    }
+
+    _isFormatting = true;
+    Future.microtask(() async {
+      try {
+        final insertedText = docChange.change
+            .toList()
+            .where((op) => op.isInsert && op.data is String)
+            .map((op) => op.data as String)
+            .join();
+
+        if (insertedText.isEmpty) {
+          return;
+        }
+
+        final urlRegExp = RegExp(
+          r'((https?:\/\/)|(www\.))[^\s]+',
+          caseSensitive: false,
+        );
+        final emailRegExp = RegExp(
+          r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}',
+          caseSensitive: false,
+        );
+        final phoneRegExp = RegExp(
+          r'(\+?\d{1,3}[-.\s]?)?(\(?\d{3}\)?[-.\s]?){1,2}\d{4,}',
+          caseSensitive: false,
+        );
+
+        final List<RegExpMatch> matches = [
+          ...urlRegExp.allMatches(insertedText),
+          ...emailRegExp.allMatches(insertedText),
+          ...phoneRegExp.allMatches(insertedText),
+        ];
+
+        if (matches.isEmpty) {
+          return;
+        }
+
+        matches.sort((a, b) => a.start.compareTo(b.start));
+
+        int offset = 0;
+        docChange.change.toList().where((op) => op.isInsert).forEach((op) {
+          if (op.data is String) {
+            final opText = op.data as String;
+            for (final match in matches) {
+              if (opText.contains(match.group(0)!)) {
+                final matchStart = opText.indexOf(match.group(0)!);
+                final matchedString = match.group(0)!;
+                String link;
+                if (urlRegExp.hasMatch(matchedString)) {
+                  link = matchedString.startsWith('http')
+                      ? matchedString
+                      : 'https://$matchedString';
+                } else if (emailRegExp.hasMatch(matchedString)) {
+                  link = 'mailto:$matchedString';
+                } else if (phoneRegExp.hasMatch(matchedString)) {
+                  link = 'tel:$matchedString';
+                } else {
+                  link = matchedString;
+                }
+
+                final style = quill.LinkAttribute(link);
+                _quillController.formatText(
+                  offset + matchStart,
+                  matchedString.length,
+                  style,
+                );
+              }
+            }
+          }
+          offset += op.length ?? 0;
+        });
+      } finally {
+        _isFormatting = false;
+      }
+    });
   }
 
   double _calculateInitialChildSize(
@@ -451,21 +537,19 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
               onTap: () {
                 _handlemoodTap();
               },
-              child: Container(
-                width: 40.w, // Adjust size as needed
-                height: 40.w, // Adjust size as needed
-                decoration: BoxDecoration(
-                  color: Colors.transparent, // Example background color
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: appThemeColors.grey4, // Example border color
-                    width: 2.w,
-                  ),
+              child: CustomPaint(
+                painter: DashedBorderPainter(
+                  color: appThemeColors.grey4,
+                  strokeWidth: 2.w,
                 ),
-                child: Icon(
-                  Icons.add_reaction_outlined, // "Add emoji" icon
-                  color: appThemeColors.grey1,
-                  size: 20.w, // Adjust icon size as needed
+                child: Container(
+                  width: 40.w, // Adjust size as needed
+                  height: 40.w, // Adjust size as needed
+                  child: Icon(
+                    Icons.add_reaction_outlined, // "Add emoji" icon
+                    color: appThemeColors.grey2,
+                    size: 20.w, // Adjust icon size as needed
+                  ),
                 ),
               ),
             ),
@@ -658,5 +742,49 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
         );
       },
     );
+  }
+}
+
+class DashedBorderPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double dashWidth;
+  final double dashSpace;
+
+  DashedBorderPainter({
+    required this.color,
+    required this.strokeWidth,
+    this.dashWidth = 4,
+    this.dashSpace = 4,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke;
+
+    final path = Path();
+    final centerX = size.width / 2;
+    final centerY = size.height / 2;
+    final radius = math.min(centerX, centerY);
+
+    for (double i = 0; i < 360; i += 15) {
+      final startAngle = (math.pi / 180) * i;
+      final endAngle = (math.pi / 180) * (i + 7.5);
+      path.addArc(
+        Rect.fromCircle(center: Offset(centerX, centerY), radius: radius),
+        startAngle,
+        endAngle - startAngle,
+      );
+    }
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) {
+    return false;
   }
 }
