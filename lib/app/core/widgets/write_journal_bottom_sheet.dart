@@ -673,75 +673,83 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final screenHeight = constraints.maxHeight;
-
-        return AnimatedBuilder(
-          animation: Listenable.merge([
-            _sheetController,
-            _focusNode,
-            _quillController,
-          ]),
-          builder: (context, child) {
-            final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
-            final isKeyboardVisible = keyboardHeight > 0;
-
-            _handleKeyboardInteraction(isKeyboardVisible);
-
-            final sheetHeight =
-                (_isDraggableSheetActive && _sheetController.isAttached)
-                ? _sheetController.size * screenHeight
-                : 0.0;
-
-            final bottomOffset = math.max(keyboardHeight, sheetHeight);
-
-            return Container(
-              color: appThemeColors.grey6,
-              child: Stack(
-                children: [
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: bottomOffset,
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        top: 16.h,
-                        left: 2.w,
-                        right: 2.w,
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 14.w),
-                            child: _buildHeader(appThemeColors),
-                          ),
-                          SizedBox(height: 32.h),
-                          _buildMoodField(appThemeColors),
-                          SizedBox(height: 32.h),
-                          _buildTextField(appThemeColors),
-                          SizedBox(height: 16.h),
-                          _buildToolbar(),
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (_isDraggableSheetActive &&
-                      _activeSheetMinSize != null &&
-                      _activeSheetInitialSize != null)
-                    _buildDraggableSheet(
-                      screenHeight,
-                      _activeSheetMinSize!,
-                      _activeSheetInitialSize!,
-                    ),
-                ],
-              ),
-            );
-          },
-        );
+    return PopScope(
+      canPop: !_isDraggableSheetActive,
+      onPopInvoked: (didPop) {
+        if (!didPop) {
+          _closeSheet();
+        }
       },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final screenHeight = constraints.maxHeight;
+
+          return AnimatedBuilder(
+            animation: Listenable.merge([
+              _sheetController,
+              _focusNode,
+              _quillController,
+            ]),
+            builder: (context, child) {
+              final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+              final isKeyboardVisible = keyboardHeight > 0;
+
+              _handleKeyboardInteraction(isKeyboardVisible);
+
+              final sheetHeight =
+                  (_isDraggableSheetActive && _sheetController.isAttached)
+                      ? _sheetController.size * screenHeight
+                      : 0.0;
+
+              final bottomOffset = math.max(keyboardHeight, sheetHeight);
+
+              return Container(
+                color: appThemeColors.grey6,
+                child: Stack(
+                  children: [
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: bottomOffset,
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          top: 16.h,
+                          left: 2.w,
+                          right: 2.w,
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 14.w),
+                              child: _buildHeader(appThemeColors),
+                            ),
+                            SizedBox(height: 32.h),
+                            _buildMoodField(appThemeColors),
+                            SizedBox(height: 32.h),
+                            _buildTextField(appThemeColors),
+                            SizedBox(height: 16.h),
+                            _buildToolbar(),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_isDraggableSheetActive &&
+                        _activeSheetMinSize != null &&
+                        _activeSheetInitialSize != null)
+                      _buildDraggableSheet(
+                        screenHeight,
+                        _activeSheetMinSize!,
+                        _activeSheetInitialSize!,
+                      ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }
