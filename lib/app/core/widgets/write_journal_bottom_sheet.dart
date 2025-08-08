@@ -541,10 +541,11 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                 painter: DashedBorderPainter(
                   color: appThemeColors.grey4,
                   strokeWidth: 2.w,
+                  fillColor: appThemeColors.grey5,
                 ),
                 child: Container(
                   width: 40.w, // Adjust size as needed
-                  height: 40.w, // Adjust size as needed
+                  height: 40.w,
                   child: Icon(
                     Icons.add_reaction_outlined, // "Add emoji" icon
                     color: appThemeColors.grey2,
@@ -750,25 +751,35 @@ class DashedBorderPainter extends CustomPainter {
   final double strokeWidth;
   final double dashWidth;
   final double dashSpace;
+  final Color? fillColor;
 
   DashedBorderPainter({
     required this.color,
     required this.strokeWidth,
     this.dashWidth = 4,
     this.dashSpace = 4,
+    this.fillColor,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
+    final centerX = size.width / 2;
+    final centerY = size.height / 2;
+    final radius = math.min(centerX, centerY);
+
+    if (fillColor != null) {
+      final fillPaint = Paint()
+        ..color = fillColor!
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(centerX, centerY), radius, fillPaint);
+    }
+
+    final dashPaint = Paint()
       ..color = color
       ..strokeWidth = strokeWidth
       ..style = PaintingStyle.stroke;
 
     final path = Path();
-    final centerX = size.width / 2;
-    final centerY = size.height / 2;
-    final radius = math.min(centerX, centerY);
 
     for (double i = 0; i < 360; i += 15) {
       final startAngle = (math.pi / 180) * i;
@@ -780,11 +791,15 @@ class DashedBorderPainter extends CustomPainter {
       );
     }
 
-    canvas.drawPath(path, paint);
+    canvas.drawPath(path, dashPaint);
   }
 
   @override
-  bool shouldRepaint(CustomPainter oldDelegate) {
-    return false;
+  bool shouldRepaint(covariant DashedBorderPainter oldDelegate) {
+    return oldDelegate.color != color ||
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.dashWidth != dashWidth ||
+        oldDelegate.dashSpace != dashSpace ||
+        oldDelegate.fillColor != fillColor;
   }
 }
