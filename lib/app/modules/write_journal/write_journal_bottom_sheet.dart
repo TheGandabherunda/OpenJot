@@ -661,6 +661,18 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
           scrollController: _editorScrollController,
           config: quill.QuillEditorConfig(
             placeholder: ' Start writing...',
+            customStyles: quill.DefaultStyles(
+              placeHolder: quill.DefaultTextBlockStyle(
+                TextStyle(
+                  fontSize: 16.sp,
+                  color: appThemeColors.grey2,
+                ),
+                quill.HorizontalSpacing.zero,
+                quill.VerticalSpacing.zero,
+                quill.VerticalSpacing.zero,
+                null,
+              ),
+            ),
           ),
         ),
       ),
@@ -821,7 +833,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
 
     return PopScope(
       canPop: !_isDraggableSheetActive,
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
           return;
         }
