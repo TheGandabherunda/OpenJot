@@ -668,28 +668,32 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     return Material(
       color: Colors.transparent,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 14.w),
-            // Center the content
+            padding: EdgeInsets.symmetric(horizontal: 12.w),
             child: GestureDetector(
               onTap: () {
                 _handlemoodTap();
               },
               child: CustomPaint(
                 painter: DashedBorderPainter(
-                  color: appThemeColors.grey4,
+                  color: appThemeColors.grey5,
                   strokeWidth: 2.w,
-                  fillColor: appThemeColors.grey5,
+                  fillColor: appThemeColors.grey6,
                 ),
                 child: SizedBox(
-                  width: 40.w, // Adjust size as needed
-                  height: 40.w,
-                  child: Icon(
-                    Icons.add_reaction_outlined, // "Add emoji" icon
-                    color: appThemeColors.grey2,
-                    size: 24.w, // Adjust icon size as needed
+                  width: 38.w,
+                  height: 38.w,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.add_reaction_outlined,
+                        color: appThemeColors.grey4,
+                        size: 28.w,
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -864,9 +868,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                               padding: EdgeInsets.symmetric(horizontal: 14.w),
                               child: _buildHeader(appThemeColors),
                             ),
-                            SizedBox(height: 16.h),
+                            SizedBox(height: 48.h),
                             _buildMoodField(appThemeColors),
-                            SizedBox(height: 8.h),
+                            SizedBox(height: 16.h),
                             _buildTextField(appThemeColors),
                             SizedBox(height: 16.h),
                             _buildToolbar(),
@@ -910,15 +914,16 @@ class DashedBorderPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final centerX = size.width / 2;
-    final centerY = size.height / 2;
-    final radius = math.min(centerX, centerY);
+    final RRect rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Radius.circular(size.height / 2),
+    );
 
     if (fillColor != null) {
       final fillPaint = Paint()
         ..color = fillColor!
         ..style = PaintingStyle.fill;
-      canvas.drawCircle(Offset(centerX, centerY), radius, fillPaint);
+      canvas.drawRRect(rrect, fillPaint);
     }
 
     final dashPaint = Paint()
@@ -926,19 +931,21 @@ class DashedBorderPainter extends CustomPainter {
       ..strokeWidth = strokeWidth
       ..style = PaintingStyle.stroke;
 
-    final path = Path();
+    final path = Path()..addRRect(rrect);
 
-    for (double i = 0; i < 360; i += 15) {
-      final startAngle = (math.pi / 180) * i;
-      final endAngle = (math.pi / 180) * (i + 7.5);
-      path.addArc(
-        Rect.fromCircle(center: Offset(centerX, centerY), radius: radius),
-        startAngle,
-        endAngle - startAngle,
-      );
+    final dashPath = Path();
+    for (final metric in path.computeMetrics()) {
+      double distance = 0;
+      while (distance < metric.length) {
+        dashPath.addPath(
+          metric.extractPath(distance, distance + dashWidth),
+          Offset.zero,
+        );
+        distance += dashWidth + dashSpace;
+      }
     }
 
-    canvas.drawPath(path, dashPaint);
+    canvas.drawPath(dashPath, dashPaint);
   }
 
   @override
