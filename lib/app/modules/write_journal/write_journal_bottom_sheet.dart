@@ -180,9 +180,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   double _calculateInitialChildSize(
-      BuildContext context, {
-        bool afterKeyboardClose = false,
-      }) {
+    BuildContext context, {
+    bool afterKeyboardClose = false,
+  }) {
     final screenHeight = MediaQuery.of(context).size.height;
 
     if (afterKeyboardClose) {
@@ -210,9 +210,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   double _calculateMinChildSize(
-      BuildContext context, {
-        bool afterKeyboardClose = false,
-      }) {
+    BuildContext context, {
+    bool afterKeyboardClose = false,
+  }) {
     final screenHeight = MediaQuery.of(context).size.height;
 
     if (afterKeyboardClose) {
@@ -429,9 +429,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   bool _handleSheetNotification(
-      DraggableScrollableNotification notification,
-      double screenHeight,
-      ) {
+    DraggableScrollableNotification notification,
+    double screenHeight,
+  ) {
     if (!mounted || !_isDraggableSheetActive || _activeSheetMinSize == null) {
       return true;
     }
@@ -509,7 +509,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
           child: GestureDetector(
             onTap: () {
               final RenderBox renderBox =
-              _dateMenuKey.currentContext!.findRenderObject() as RenderBox;
+                  _dateMenuKey.currentContext!.findRenderObject() as RenderBox;
               final position = renderBox.localToGlobal(Offset.zero);
               showMenu(
                 context: context,
@@ -519,10 +519,14 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                   borderRadius: BorderRadius.circular(16.r),
                 ),
                 position: RelativeRect.fromLTRB(
-                  position.dx,
+                  // Center the dropdown horizontally relative to the date container
+                  position.dx + (renderBox.size.width / 2) - 80.w,
+                  // Approximate dropdown half-width
                   position.dy + renderBox.size.height + 10.h,
-                  position.dx + renderBox.size.width,
-                  position.dy + renderBox.size.height * 2,
+                  MediaQuery.of(context).size.width -
+                      (position.dx + (renderBox.size.width / 2) - 80.w),
+                  // Right boundary
+                  position.dy + renderBox.size.height + 200.h,
                 ),
                 items: [
                   PopupMenuItem(
@@ -664,37 +668,32 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     return Material(
       color: Colors.transparent,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 14.w),
-                // Center the content
-                child: GestureDetector(
-                  onTap: () {
-                    _handlemoodTap();
-                  },
-                  child: CustomPaint(
-                    painter: DashedBorderPainter(
-                      color: appThemeColors.grey4,
-                      strokeWidth: 2.w,
-                      fillColor: appThemeColors.grey5,
-                    ),
-                    child: SizedBox(
-                      width: 40.w, // Adjust size as needed
-                      height: 40.w,
-                      child: Icon(
-                        Icons.add_reaction_outlined, // "Add emoji" icon
-                        color: appThemeColors.grey2,
-                        size: 20.w, // Adjust icon size as needed
-                      ),
-                    ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14.w),
+            // Center the content
+            child: GestureDetector(
+              onTap: () {
+                _handlemoodTap();
+              },
+              child: CustomPaint(
+                painter: DashedBorderPainter(
+                  color: appThemeColors.grey4,
+                  strokeWidth: 2.w,
+                  fillColor: appThemeColors.grey5,
+                ),
+                child: SizedBox(
+                  width: 40.w, // Adjust size as needed
+                  height: 40.w,
+                  child: Icon(
+                    Icons.add_reaction_outlined, // "Add emoji" icon
+                    color: appThemeColors.grey2,
+                    size: 24.w, // Adjust icon size as needed
                   ),
                 ),
               ),
-            ],
+            ),
           ),
         ],
       ),
@@ -702,10 +701,10 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   Widget _buildDraggableSheet(
-      double screenHeight,
-      double sheetMinSize,
-      double sheetInitialSize,
-      ) {
+    double screenHeight,
+    double sheetMinSize,
+    double sheetInitialSize,
+  ) {
     return Positioned.fill(
       child: Align(
         alignment: Alignment.bottomCenter,
@@ -717,8 +716,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
             initialChildSize: _openingSheetViaToolbar
                 ? sheetInitialSize
                 : (_sheetController.isAttached
-                ? _sheetController.size
-                : sheetInitialSize),
+                    ? _sheetController.size
+                    : sheetInitialSize),
             minChildSize: sheetMinSize,
             maxChildSize: _maxChildSize,
             expand: false,
@@ -731,9 +730,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   Widget _buildSheetContainer(
-      BuildContext context,
-      ScrollController scrollController,
-      ) {
+    BuildContext context,
+    ScrollController scrollController,
+  ) {
     final sheetThemeColors = AppTheme.colorsOf(context);
     final sheetKeyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
@@ -837,9 +836,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
               _handleKeyboardInteraction(isKeyboardVisible);
 
               final sheetHeight =
-              (_isDraggableSheetActive && _sheetController.isAttached)
-                  ? _sheetController.size * screenHeight
-                  : 0.0;
+                  (_isDraggableSheetActive && _sheetController.isAttached)
+                      ? _sheetController.size * screenHeight
+                      : 0.0;
 
               final bottomOffset = math.max(keyboardHeight, sheetHeight);
 
@@ -865,9 +864,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                               padding: EdgeInsets.symmetric(horizontal: 14.w),
                               child: _buildHeader(appThemeColors),
                             ),
-                            SizedBox(height: 32.h),
+                            SizedBox(height: 16.h),
                             _buildMoodField(appThemeColors),
-                            SizedBox(height: 32.h),
+                            SizedBox(height: 8.h),
                             _buildTextField(appThemeColors),
                             SizedBox(height: 16.h),
                             _buildToolbar(),
