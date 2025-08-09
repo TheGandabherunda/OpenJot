@@ -4,12 +4,14 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:intl/intl.dart';
 
-import '../theme.dart';
-import 'custom_button.dart';
-import 'text_styling_toolbar.dart';
-import 'write_journal_toolbar.dart';
-import 'write_journal_toolbar_content.dart';
+import '../../core/constants.dart';
+import '../../core/theme.dart';
+import '../../core/widgets/custom_button.dart';
+import '../../core/widgets/text_styling_toolbar.dart';
+import '../../core/widgets/write_journal_toolbar.dart';
+import '../../core/widgets/write_journal_toolbar_content.dart';
 
 class WriteJournalBottomSheet extends StatefulWidget {
   const WriteJournalBottomSheet({super.key});
@@ -24,7 +26,10 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   final _sheetController = DraggableScrollableController();
   final _editorScrollController = ScrollController();
   final _textFieldKey = GlobalKey();
+  final _dateMenuKey = GlobalKey();
 
+  DateTime? _selectedDate;
+  bool _isCustomDate = false;
   bool _isDraggableSheetActive = false;
   IconData? _selectedToolbarIcon;
   bool _openingSheetViaToolbar = false;
@@ -50,6 +55,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   void initState() {
     super.initState();
     _quillController = quill.QuillController.basic();
+    _selectedDate = DateTime.now();
 
     _quillController.addListener(() {
       if (mounted) {
@@ -157,10 +163,26 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     });
   }
 
+  Future<void> _showDatePicker() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+    );
+
+    if (pickedDate != null) {
+      setState(() {
+        _selectedDate = pickedDate;
+        _isCustomDate = true;
+      });
+    }
+  }
+
   double _calculateInitialChildSize(
-    BuildContext context, {
-    bool afterKeyboardClose = false,
-  }) {
+      BuildContext context, {
+        bool afterKeyboardClose = false,
+      }) {
     final screenHeight = MediaQuery.of(context).size.height;
 
     if (afterKeyboardClose) {
@@ -176,7 +198,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     if (keyboardHeight > 0 && _keyboardVisibleInitialFractionFactor < 1.0) {
       initialSize =
           (_keyboardVisibleInitialFractionFactor * keyboardHeight + 200.h) /
-          screenHeight;
+              screenHeight;
     } else {
       initialSize = _initialFractionWithoutKeyboard;
     }
@@ -188,9 +210,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   double _calculateMinChildSize(
-    BuildContext context, {
-    bool afterKeyboardClose = false,
-  }) {
+      BuildContext context, {
+        bool afterKeyboardClose = false,
+      }) {
     final screenHeight = MediaQuery.of(context).size.height;
 
     if (afterKeyboardClose) {
@@ -312,8 +334,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   void _toggleHeaderStyle(quill.Style currentStyle) {
-    bool hasHeader =
-        currentStyle.containsKey(quill.Attribute.h1.key) ||
+    bool hasHeader = currentStyle.containsKey(quill.Attribute.h1.key) ||
         currentStyle.containsKey(quill.Attribute.h2.key) ||
         currentStyle.containsKey(quill.Attribute.h3.key);
 
@@ -408,9 +429,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   bool _handleSheetNotification(
-    DraggableScrollableNotification notification,
-    double screenHeight,
-  ) {
+      DraggableScrollableNotification notification,
+      double screenHeight,
+      ) {
     if (!mounted || !_isDraggableSheetActive || _activeSheetMinSize == null) {
       return true;
     }
@@ -461,19 +482,161 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        CustomButton(
-          onPressed: () => Navigator.of(context).pop(),
-          text: 'Cancel',
-          color: Colors.transparent,
-          textColor: appThemeColors.grey1,
-          textSize: 16.sp,
-          textPadding: EdgeInsets.zero,
+        GestureDetector(
+          onTap: () {
+            _handlemoodTap();
+          },
+          child: Container(
+            width: 32.w, // Adjust size as needed
+            height: 32.w, // Adjust size as needed
+            decoration: BoxDecoration(
+              color: Colors.transparent, // Example background color
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.transparent, // Example border color
+                width: 2.w,
+              ),
+            ),
+            child: Icon(
+              Icons.bookmark_outline_rounded, // "Add emoji" icon
+              color: appThemeColors.grey2,
+              size: 28.w, // Adjust icon size as needed
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 14.w),
+          child: GestureDetector(
+            onTap: () {
+              final RenderBox renderBox =
+              _dateMenuKey.currentContext!.findRenderObject() as RenderBox;
+              final position = renderBox.localToGlobal(Offset.zero);
+              showMenu(
+                context: context,
+                color: appThemeColors.grey5,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16.r),
+                ),
+                position: RelativeRect.fromLTRB(
+                  position.dx,
+                  position.dy + renderBox.size.height + 10.h,
+                  position.dx + renderBox.size.width,
+                  position.dy + renderBox.size.height * 2,
+                ),
+                items: [
+                  PopupMenuItem(
+                    value: 'entry_date',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Today date',
+                            style: TextStyle(
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w400,
+                                fontFamily: AppConstants.font,
+                                color: appThemeColors.grey10)),
+                        Text(
+                          DateFormat('EEEE, MMM d').format(DateTime.now()),
+                          style: TextStyle(
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w400,
+                              fontFamily: AppConstants.font,
+                              color: appThemeColors.grey1),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    enabled: false,
+                    padding: EdgeInsets.zero,
+                    height: 4,
+                    child: Divider(
+                      color: appThemeColors.grey6,
+                      thickness: 1,
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'custom_date',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Custom Date',
+                            style: TextStyle(
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w400,
+                                fontFamily: AppConstants.font,
+                                color: appThemeColors.grey10)),
+                        if (_isCustomDate && _selectedDate != null)
+                          Text(
+                            DateFormat('EEEE, MMM d').format(_selectedDate!),
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                              color: appThemeColors.grey1,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    enabled: false,
+                    padding: EdgeInsets.zero,
+                    height: 4,
+                    child: Divider(
+                      color: appThemeColors.grey6,
+                      thickness: 1,
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'remove',
+                    child: Text(
+                      'Remove',
+                      style: TextStyle(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w400,
+                          fontFamily: AppConstants.font,
+                          color: appThemeColors.error),
+                    ),
+                  ),
+                ],
+              ).then((value) {
+                if (value == 'entry_date') {
+                  setState(() {
+                    _selectedDate = DateTime.now();
+                    _isCustomDate = false;
+                  });
+                } else if (value == 'custom_date') {
+                  _showDatePicker();
+                } else if (value == 'remove') {
+                  setState(() {
+                    _selectedDate = null;
+                    _isCustomDate = false;
+                  });
+                }
+              });
+            },
+            child: Container(
+              key: _dateMenuKey,
+              child: Text(
+                _selectedDate != null
+                    ? DateFormat('EEEE, MMM d').format(_selectedDate!)
+                    : 'Select Date',
+                style: TextStyle(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w500,
+                  fontFamily: AppConstants.font,
+                  color: appThemeColors.grey10.withOpacity(0.6),
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ),
+          ),
         ),
         CustomButton(
           onPressed: () => Navigator.of(context).pop(),
           text: 'Done',
           color: Colors.transparent,
-          textColor: appThemeColors.grey1,
+          textColor: appThemeColors.grey10,
           textSize: 16.sp,
           textPadding: EdgeInsets.zero,
         ),
@@ -501,59 +664,37 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     return Material(
       color: Colors.transparent,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 14.w),
-            // Center the content
-            child: GestureDetector(
-              onTap: () {
-                _handlemoodTap();
-              },
-              child: Container(
-                width: 32.w, // Adjust size as needed
-                height: 32.w, // Adjust size as needed
-                decoration: BoxDecoration(
-                  color: Colors.transparent, // Example background color
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.transparent, // Example border color
-                    width: 2.w,
-                  ),
-                ),
-                child: Icon(
-                  Icons.bookmark_outline_rounded, // "Add emoji" icon
-                  color: appThemeColors.grey2,
-                  size: 28.w, // Adjust icon size as needed
-                ),
-              ),
-            ),
-          ),
-
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 14.w),
-            // Center the content
-            child: GestureDetector(
-              onTap: () {
-                _handlemoodTap();
-              },
-              child: CustomPaint(
-                painter: DashedBorderPainter(
-                  color: appThemeColors.grey4,
-                  strokeWidth: 2.w,
-                  fillColor: appThemeColors.grey5,
-                ),
-                child: Container(
-                  width: 40.w, // Adjust size as needed
-                  height: 40.w,
-                  child: Icon(
-                    Icons.add_reaction_outlined, // "Add emoji" icon
-                    color: appThemeColors.grey2,
-                    size: 20.w, // Adjust icon size as needed
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 14.w),
+                // Center the content
+                child: GestureDetector(
+                  onTap: () {
+                    _handlemoodTap();
+                  },
+                  child: CustomPaint(
+                    painter: DashedBorderPainter(
+                      color: appThemeColors.grey4,
+                      strokeWidth: 2.w,
+                      fillColor: appThemeColors.grey5,
+                    ),
+                    child: SizedBox(
+                      width: 40.w, // Adjust size as needed
+                      height: 40.w,
+                      child: Icon(
+                        Icons.add_reaction_outlined, // "Add emoji" icon
+                        color: appThemeColors.grey2,
+                        size: 20.w, // Adjust icon size as needed
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
         ],
       ),
@@ -561,10 +702,10 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   Widget _buildDraggableSheet(
-    double screenHeight,
-    double sheetMinSize,
-    double sheetInitialSize,
-  ) {
+      double screenHeight,
+      double sheetMinSize,
+      double sheetInitialSize,
+      ) {
     return Positioned.fill(
       child: Align(
         alignment: Alignment.bottomCenter,
@@ -576,8 +717,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
             initialChildSize: _openingSheetViaToolbar
                 ? sheetInitialSize
                 : (_sheetController.isAttached
-                      ? _sheetController.size
-                      : sheetInitialSize),
+                ? _sheetController.size
+                : sheetInitialSize),
             minChildSize: sheetMinSize,
             maxChildSize: _maxChildSize,
             expand: false,
@@ -590,9 +731,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   Widget _buildSheetContainer(
-    BuildContext context,
-    ScrollController scrollController,
-  ) {
+      BuildContext context,
+      ScrollController scrollController,
+      ) {
     final sheetThemeColors = AppTheme.colorsOf(context);
     final sheetKeyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
@@ -652,8 +793,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
         isStrikethroughActive: currentStyle.containsKey(
           quill.Attribute.strikeThrough.key,
         ),
-        isTitleActive:
-            currentStyle.containsKey(quill.Attribute.h1.key) ||
+        isTitleActive: currentStyle.containsKey(quill.Attribute.h1.key) ||
             currentStyle.containsKey(quill.Attribute.h2.key) ||
             currentStyle.containsKey(quill.Attribute.h3.key),
         isQuoteActive: currentStyle.containsKey(quill.Attribute.blockQuote.key),
@@ -697,9 +837,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
               _handleKeyboardInteraction(isKeyboardVisible);
 
               final sheetHeight =
-                  (_isDraggableSheetActive && _sheetController.isAttached)
-                      ? _sheetController.size * screenHeight
-                      : 0.0;
+              (_isDraggableSheetActive && _sheetController.isAttached)
+                  ? _sheetController.size * screenHeight
+                  : 0.0;
 
               final bottomOffset = math.max(keyboardHeight, sheetHeight);
 

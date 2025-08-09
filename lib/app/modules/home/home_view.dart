@@ -4,7 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart'; // Import flutter_svg
 import 'package:get/get.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart'; // Still needed for CupertinoScaffold.showCupertinoModalBottomSheet
-import 'package:open_jot/app/core/widgets/write_journal_bottom_sheet.dart';
+import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
 
 import '../../core/constants.dart';
 import '../../core/theme.dart';

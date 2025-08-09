@@ -21,6 +21,7 @@ dependencies:
   flutter_svg: ^2.2.0
   modal_bottom_sheet: ^3.0.0
   flutter_quill: ^11.4.2
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:
