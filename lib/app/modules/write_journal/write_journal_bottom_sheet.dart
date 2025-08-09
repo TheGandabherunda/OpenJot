@@ -629,7 +629,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                   fontSize: 16.sp,
                   fontWeight: FontWeight.w500,
                   fontFamily: AppConstants.font,
-                  color: appThemeColors.grey10.withOpacity(0.6),
+                  color: appThemeColors.grey10.withAlpha((255 * 0.6).round()),
                   decoration: TextDecoration.none,
                 ),
               ),
@@ -650,18 +650,21 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
 
   Widget _buildTextField(AppThemeColors appThemeColors) {
     return Expanded(
-      child: Material(
-        color: Colors.transparent,
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 14.w),
-          child: quill.QuillEditor.basic(
-            key: _textFieldKey,
-            controller: _quillController,
-            focusNode: _focusNode,
+        child: Material(
+      color: Colors.transparent,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 14.w),
+        child: quill.QuillEditor.basic(
+          key: _textFieldKey,
+          controller: _quillController,
+          focusNode: _focusNode,
+          scrollController: _editorScrollController,
+          config: quill.QuillEditorConfig(
+            placeholder: ' Start writing...',
           ),
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildMoodField(AppThemeColors appThemeColors) {
@@ -819,9 +822,10 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     return PopScope(
       canPop: !_isDraggableSheetActive,
       onPopInvoked: (didPop) {
-        if (!didPop) {
-          _closeSheet();
+        if (didPop) {
+          return;
         }
+        _closeSheet();
       },
       child: LayoutBuilder(
         builder: (context, constraints) {
