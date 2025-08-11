@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/constants.dart';
 import '../../core/theme.dart';
@@ -37,6 +38,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   double? _activeSheetInitialSize;
   bool _isFormatting = false;
   bool _wasKeyboardVisible = false; // Track keyboard state
+
 
   static const double _maxChildSize = 0.7;
   static const double _minFractionWithoutKeyboard = 0.2;
@@ -233,7 +235,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     return minSize.clamp(0.1, _maxChildSize);
   }
 
-  void _handleToolbarItemTap(IconData iconData) {
+  // This is the new method that will handle all attachment-related taps
+  Future<void> _handleAttachmentTap(IconData iconData) async {
     final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
 
     if (_isDraggableSheetActive && _selectedToolbarIcon == iconData) {
@@ -251,6 +254,16 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       return;
     }
 
+    // Request permission before opening the sheet
+    if (iconData == Icons.image_rounded || iconData == Icons.camera_alt_rounded) {
+        var status = await Permission.photos.request();
+        if (status.isDenied) {
+            // Handle the case where the user denies the permission
+            return;
+        }
+    }
+
+
     if (isKeyboardVisible) {
       _handleSheetOpeningWithKeyboard(iconData);
     } else {
@@ -258,12 +271,43 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     }
   }
 
+  void _handleToolbarItemTap(IconData iconData) {
+      if (iconData == Icons.image_rounded ||
+          iconData == Icons.camera_alt_rounded ||
+          iconData == Icons.location_on_rounded ||
+          iconData == Icons.mic_rounded) {
+          _handleAttachmentTap(iconData);
+      } else {
+        final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+
+        if (_isDraggableSheetActive && _selectedToolbarIcon == iconData) {
+          _closeSheet();
+          if (isKeyboardVisible) {
+            _focusNode.requestFocus();
+          }
+          return;
+        }
+
+        if (_isDraggableSheetActive && _selectedToolbarIcon != iconData) {
+          setState(() {
+            _selectedToolbarIcon = iconData;
+          });
+          return;
+        }
+
+        if (isKeyboardVisible) {
+          _handleSheetOpeningWithKeyboard(iconData);
+        } else {
+          _handleSheetOpeningWithoutKeyboard(iconData);
+        }
+      }
+  }
+
   void _handlePinTap() {
     _focusNode.unfocus();
-    Future.delayed(const Duration(milliseconds: 250), () {
-      if (mounted) {
-        _handleToolbarItemTap(Icons.image_rounded);
-      }
+    // Use a short delay to allow the keyboard to start dismissing before checking permissions
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _handleAttachmentTap(Icons.image_rounded);
     });
   }
 
@@ -372,7 +416,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
 
   void _handleSheetOpeningWithKeyboard(IconData iconData) {
     _focusNode.unfocus();
-    Future.delayed(const Duration(milliseconds: 50), () {
+    // We need to wait for the keyboard to be fully dismissed before opening the sheet.
+    // The delay here is a bit of a hack, but it's the simplest way to ensure the animation is smooth.
+    Future.delayed(const Duration(milliseconds: 250), () {
       if (mounted) {
         _openSheet(iconData, afterKeyboardClose: true);
       }
@@ -855,7 +901,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
               final isKeyboardVisible = keyboardHeight > 0;
 
               _handleKeyboardInteraction(isKeyboardVisible);
-
+              
               final sheetHeight =
               (_isDraggableSheetActive && _sheetController.isAttached)
                   ? _sheetController.size * screenHeight
