@@ -39,7 +39,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   bool _isFormatting = false;
   bool _wasKeyboardVisible = false; // Track keyboard state
 
-
   static const double _maxChildSize = 0.7;
   static const double _minFractionWithoutKeyboard = 0.2;
   static const double _initialFractionWithoutKeyboard = 0.38;
@@ -183,9 +182,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   double _calculateInitialChildSize(
-      BuildContext context, {
-        bool afterKeyboardClose = false,
-      }) {
+    BuildContext context, {
+    bool afterKeyboardClose = false,
+  }) {
     final screenHeight = MediaQuery.of(context).size.height;
 
     if (afterKeyboardClose) {
@@ -213,9 +212,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   double _calculateMinChildSize(
-      BuildContext context, {
-        bool afterKeyboardClose = false,
-      }) {
+    BuildContext context, {
+    bool afterKeyboardClose = false,
+  }) {
     final screenHeight = MediaQuery.of(context).size.height;
 
     if (afterKeyboardClose) {
@@ -255,14 +254,14 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     }
 
     // Request permission before opening the sheet
-    if (iconData == Icons.image_rounded || iconData == Icons.camera_alt_rounded) {
-        var status = await Permission.photos.request();
-        if (status.isDenied) {
-            // Handle the case where the user denies the permission
-            return;
-        }
+    if (iconData == Icons.image_rounded ||
+        iconData == Icons.camera_alt_rounded) {
+      var status = await Permission.photos.request();
+      if (status.isDenied) {
+        // Handle the case where the user denies the permission
+        return;
+      }
     }
-
 
     if (isKeyboardVisible) {
       _handleSheetOpeningWithKeyboard(iconData);
@@ -272,35 +271,35 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   void _handleToolbarItemTap(IconData iconData) {
-      if (iconData == Icons.image_rounded ||
-          iconData == Icons.camera_alt_rounded ||
-          iconData == Icons.location_on_rounded ||
-          iconData == Icons.mic_rounded) {
-          _handleAttachmentTap(iconData);
-      } else {
-        final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+    if (iconData == Icons.image_rounded ||
+        iconData == Icons.camera_alt_rounded ||
+        iconData == Icons.location_on_rounded ||
+        iconData == Icons.mic_rounded) {
+      _handleAttachmentTap(iconData);
+    } else {
+      final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
 
-        if (_isDraggableSheetActive && _selectedToolbarIcon == iconData) {
-          _closeSheet();
-          if (isKeyboardVisible) {
-            _focusNode.requestFocus();
-          }
-          return;
-        }
-
-        if (_isDraggableSheetActive && _selectedToolbarIcon != iconData) {
-          setState(() {
-            _selectedToolbarIcon = iconData;
-          });
-          return;
-        }
-
+      if (_isDraggableSheetActive && _selectedToolbarIcon == iconData) {
+        _closeSheet();
         if (isKeyboardVisible) {
-          _handleSheetOpeningWithKeyboard(iconData);
-        } else {
-          _handleSheetOpeningWithoutKeyboard(iconData);
+          _focusNode.requestFocus();
         }
+        return;
       }
+
+      if (_isDraggableSheetActive && _selectedToolbarIcon != iconData) {
+        setState(() {
+          _selectedToolbarIcon = iconData;
+        });
+        return;
+      }
+
+      if (isKeyboardVisible) {
+        _handleSheetOpeningWithKeyboard(iconData);
+      } else {
+        _handleSheetOpeningWithoutKeyboard(iconData);
+      }
+    }
   }
 
   void _handlePinTap() {
@@ -477,9 +476,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   bool _handleSheetNotification(
-      DraggableScrollableNotification notification,
-      double screenHeight,
-      ) {
+    DraggableScrollableNotification notification,
+    double screenHeight,
+  ) {
     if (!mounted || !_isDraggableSheetActive || _activeSheetMinSize == null) {
       return true;
     }
@@ -553,7 +552,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
           child: GestureDetector(
             onTap: () {
               final RenderBox renderBox =
-              _dateMenuKey.currentContext!.findRenderObject() as RenderBox;
+                  _dateMenuKey.currentContext!.findRenderObject() as RenderBox;
               final position = renderBox.localToGlobal(Offset.zero);
               showMenu(
                 context: context,
@@ -695,32 +694,32 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   Widget _buildTextField(AppThemeColors appThemeColors) {
     return Expanded(
         child: Material(
-          color: Colors.transparent,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 14.w),
-            child: quill.QuillEditor.basic(
-              key: _textFieldKey,
-              controller: _quillController,
-              focusNode: _focusNode,
-              scrollController: _editorScrollController,
-              config: quill.QuillEditorConfig(
-                placeholder: ' Start writing...',
-                customStyles: quill.DefaultStyles(
-                  placeHolder: quill.DefaultTextBlockStyle(
-                    TextStyle(
-                      fontSize: 16.sp,
-                      color: appThemeColors.grey2,
-                    ),
-                    quill.HorizontalSpacing.zero,
-                    quill.VerticalSpacing.zero,
-                    quill.VerticalSpacing.zero,
-                    null,
-                  ),
+      color: Colors.transparent,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 14.w),
+        child: quill.QuillEditor.basic(
+          key: _textFieldKey,
+          controller: _quillController,
+          focusNode: _focusNode,
+          scrollController: _editorScrollController,
+          config: quill.QuillEditorConfig(
+            placeholder: ' Start writing...',
+            customStyles: quill.DefaultStyles(
+              placeHolder: quill.DefaultTextBlockStyle(
+                TextStyle(
+                  fontSize: 16.sp,
+                  color: appThemeColors.grey2,
                 ),
+                quill.HorizontalSpacing.zero,
+                quill.VerticalSpacing.zero,
+                quill.VerticalSpacing.zero,
+                null,
               ),
             ),
           ),
-        ));
+        ),
+      ),
+    ));
   }
 
   Widget _buildMoodField(AppThemeColors appThemeColors) {
@@ -764,10 +763,10 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   Widget _buildDraggableSheet(
-      double screenHeight,
-      double sheetMinSize,
-      double sheetInitialSize,
-      ) {
+    double screenHeight,
+    double sheetMinSize,
+    double sheetInitialSize,
+  ) {
     return Positioned.fill(
       child: Align(
         alignment: Alignment.bottomCenter,
@@ -779,8 +778,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
             initialChildSize: _openingSheetViaToolbar
                 ? sheetInitialSize
                 : (_sheetController.isAttached
-                ? _sheetController.size
-                : sheetInitialSize),
+                    ? _sheetController.size
+                    : sheetInitialSize),
             minChildSize: sheetMinSize,
             maxChildSize: _maxChildSize,
             expand: false,
@@ -793,9 +792,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   Widget _buildSheetContainer(
-      BuildContext context,
-      ScrollController scrollController,
-      ) {
+    BuildContext context,
+    ScrollController scrollController,
+  ) {
     final sheetThemeColors = AppTheme.colorsOf(context);
     final sheetKeyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
@@ -901,11 +900,11 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
               final isKeyboardVisible = keyboardHeight > 0;
 
               _handleKeyboardInteraction(isKeyboardVisible);
-              
+
               final sheetHeight =
-              (_isDraggableSheetActive && _sheetController.isAttached)
-                  ? _sheetController.size * screenHeight
-                  : 0.0;
+                  (_isDraggableSheetActive && _sheetController.isAttached)
+                      ? _sheetController.size * screenHeight
+                      : 0.0;
 
               final bottomOffset = math.max(keyboardHeight, sheetHeight);
 

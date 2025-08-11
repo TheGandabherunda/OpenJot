@@ -184,24 +184,30 @@ class _WriteJournalToolbarContentState
           final asset = _mediaAssets[index];
           if (asset.type == AssetType.audio) {
             return Container(
-              color: colors.grey3,
+              decoration: BoxDecoration(
+                color: colors.grey3,
+                borderRadius: BorderRadius.circular(8.r),
+              ),
               child: Icon(Icons.music_note, color: colors.grey10),
             );
           }
-          return FutureBuilder<Uint8List?>(
-            future: asset.thumbnailData,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.done &&
-                  snapshot.data != null) {
-                return Image.memory(
-                  snapshot.data!,
-                  fit: BoxFit.cover,
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(8.r),
+            child: FutureBuilder<Uint8List?>(
+              future: asset.thumbnailData,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.done &&
+                    snapshot.data != null) {
+                  return Image.memory(
+                    snapshot.data!,
+                    fit: BoxFit.cover,
+                  );
+                }
+                return Container(
+                  color: colors.grey3,
                 );
-              }
-              return Container(
-                color: colors.grey3,
-              );
-            },
+              },
+            ),
           );
         },
       );
