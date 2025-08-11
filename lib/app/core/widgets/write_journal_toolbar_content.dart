@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:open_jot/app/core/constants.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart';
 
@@ -143,7 +144,8 @@ class _WriteJournalToolbarContentState
         'March',
         'April',
         'May',
-        'June','July',
+        'June',
+        'July',
         'August',
         'September',
         'October',
@@ -176,7 +178,9 @@ class _WriteJournalToolbarContentState
             child: Text(
               contentText,
               style: TextStyle(
-                  color: colors.grey10, decoration: TextDecoration.none),
+                  color: colors.grey10,
+                  decoration: TextDecoration.none,
+                  fontFamily: AppConstants.font),
             ),
           ),
         ],
@@ -185,22 +189,59 @@ class _WriteJournalToolbarContentState
 
     return Column(
       children: [
-        CupertinoSlidingSegmentedControl<int>(
-          children: const {
-            0: Text('Photos',
-                style: TextStyle(decoration: TextDecoration.none)),
-            1: Text('Video', style: TextStyle(decoration: TextDecoration.none)),
-            2: Text('Music', style: TextStyle(decoration: TextDecoration.none)),
-          },
-          onValueChanged: (int? value) {
-            if (value != null) {
-              setState(() {
-                _selectedSegment = value;
-              });
-              _requestPermission();
-            }
-          },
-          groupValue: _selectedSegment,
+        SizedBox(
+          width: double.infinity,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            child: CupertinoSlidingSegmentedControl<int>(
+              backgroundColor: colors.grey3,
+              thumbColor: colors.grey5,
+              children: {
+                0: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.h),
+                  child: Text(
+                    'Photos',
+                    style: TextStyle(
+                        color: colors.grey10,
+                        decoration: TextDecoration.none,
+                        fontSize: 14.sp,
+                        fontFamily: AppConstants.font),
+                  ),
+                ),
+                1: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.h),
+                  child: Text(
+                    'Video',
+                    style: TextStyle(
+                        color: colors.grey10,
+                        decoration: TextDecoration.none,
+                        fontSize: 14.sp,
+                        fontFamily: AppConstants.font),
+                  ),
+                ),
+                2: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.h),
+                  child: Text(
+                    'Audio',
+                    style: TextStyle(
+                        color: colors.grey10,
+                        decoration: TextDecoration.none,
+                        fontSize: 14.sp,
+                        fontFamily: AppConstants.font),
+                  ),
+                ),
+              },
+              onValueChanged: (int? value) {
+                if (value != null) {
+                  setState(() {
+                    _selectedSegment = value;
+                  });
+                  _requestPermission();
+                }
+              },
+              groupValue: _selectedSegment,
+            ),
+          ),
         ),
         SizedBox(height: 16.h),
         Expanded(
@@ -225,7 +266,9 @@ class _WriteJournalToolbarContentState
           child: Text(
             'No ${_getTabName(_selectedSegment).toLowerCase()}s found.',
             style: TextStyle(
-                color: colors.grey10, decoration: TextDecoration.none),
+                color: colors.grey10,
+                decoration: TextDecoration.none,
+                fontFamily: AppConstants.font),
           ),
         );
       }
@@ -238,15 +281,15 @@ class _WriteJournalToolbarContentState
           for (final date in sortedDates) ...[
             SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(8.w, 16.h, 8.w, 8.h),
+                padding: EdgeInsets.fromLTRB(8.w, 32.h, 8.w, 8.h),
                 child: Text(
                   _formatDate(date),
                   style: TextStyle(
-                    color: colors.grey10,
-                    fontWeight: FontWeight.bold,
-                    decoration: TextDecoration.none,
-                    fontSize: 16.sp,
-                  ),
+                      color: colors.grey1,
+                      fontWeight: FontWeight.w500,
+                      decoration: TextDecoration.none,
+                      fontSize: 15.sp,
+                      fontFamily: AppConstants.font),
                 ),
               ),
             ),
@@ -259,12 +302,12 @@ class _WriteJournalToolbarContentState
                   mainAxisSpacing: 4.0,
                 ),
                 delegate: SliverChildBuilderDelegate(
-                      (context, index) {
+                  (context, index) {
                     final asset = _groupedAssets[date]![index];
                     if (asset.type == AssetType.audio) {
                       return Container(
                         decoration: BoxDecoration(
-                          color: colors.grey3,
+                          color: colors.grey4,
                           borderRadius: BorderRadius.circular(8.r),
                         ),
                         child: Stack(
@@ -278,7 +321,9 @@ class _WriteJournalToolbarContentState
                                   style: TextStyle(
                                       color: colors.grey10,
                                       fontSize: 12.sp,
-                                      decoration: TextDecoration.none),
+                                      fontWeight: FontWeight.normal,
+                                      decoration: TextDecoration.none,
+                                      fontFamily: AppConstants.font),
                                   maxLines: 2,
                                   textAlign: TextAlign.center,
                                   overflow: TextOverflow.ellipsis,
@@ -298,7 +343,8 @@ class _WriteJournalToolbarContentState
                                     style: TextStyle(
                                         color: colors.grey10,
                                         fontSize: 12.sp,
-                                        decoration: TextDecoration.none),
+                                        decoration: TextDecoration.none,
+                                        fontFamily: AppConstants.font),
                                   ),
                                 ],
                               ),
@@ -313,51 +359,45 @@ class _WriteJournalToolbarContentState
                         future: asset.thumbnailData,
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
-                              ConnectionState.done &&
+                                  ConnectionState.done &&
                               snapshot.data != null) {
                             Widget thumbnail = Image.memory(
                               snapshot.data!,
                               fit: BoxFit.cover,
                             );
                             if (asset.type == AssetType.video) {
-                              // Debug: Print the asset title to see what we're getting
-                              print('Video asset title: "${asset.title}"');
-
-                              // Check if it's a GIF by file extension immediately
-                              final isGif = asset.title?.toLowerCase().contains('gif') ?? false;
-                              print('Is GIF: $isGif');
+                              final isGif =
+                                  asset.title?.toLowerCase().contains('gif') ??
+                                      false;
 
                               return Stack(
                                 fit: StackFit.expand,
                                 children: [
                                   thumbnail,
                                   if (isGif) ...[
-                                    // GIF: Only show GIF icon, no duration, no overlay
                                     Positioned(
                                       bottom: 4.h,
                                       left: 4.w,
                                       child: Container(
                                         padding: EdgeInsets.symmetric(
-                                            horizontal: 6.w,
-                                            vertical: 2.h),
+                                            horizontal: 6.w, vertical: 2.h),
                                         decoration: BoxDecoration(
-                                          color: Colors.black
-                                              .withOpacity(0.7),
+                                          color:
+                                              colors.grey10.withOpacity(0.7),
                                           borderRadius:
-                                          BorderRadius.circular(4.r),
+                                              BorderRadius.circular(4.r),
                                         ),
                                         child: Icon(
                                           Icons.gif,
-                                          color: Colors.white,
+                                          color: colors.grey10,
                                           size: 14.sp,
                                         ),
                                       ),
                                     ),
                                   ] else ...[
-                                    // Regular video: Show overlay + video icon + duration
                                     Positioned.fill(
                                       child: Container(
-                                        color: Colors.black.withOpacity(0.3),
+                                        color: colors.grey5.withOpacity(0.3),
                                       ),
                                     ),
                                     Positioned(
@@ -367,19 +407,20 @@ class _WriteJournalToolbarContentState
                                         children: [
                                           Icon(
                                             Icons.videocam_rounded,
-                                            color: Colors.white,
+                                            color: colors.grey10,
                                             size: 16.sp,
                                           ),
                                           SizedBox(width: 4.w),
                                           Text(
                                             _formatDuration(asset.duration),
                                             style: TextStyle(
-                                                color: Colors.white,
+                                                color: colors.grey10,
                                                 fontSize: 12.sp,
-                                                fontWeight:
-                                                FontWeight.bold,
+                                                fontWeight: FontWeight.bold,
                                                 decoration:
-                                                TextDecoration.none),
+                                                    TextDecoration.none,
+                                                fontFamily:
+                                                    AppConstants.font),
                                           ),
                                         ],
                                       ),
@@ -413,7 +454,9 @@ class _WriteJournalToolbarContentState
               'Permission to access ${_getTabName(_selectedSegment).toLowerCase()} is required to display them.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                  color: colors.grey10, decoration: TextDecoration.none),
+                  color: colors.grey10,
+                  decoration: TextDecoration.none,
+                  fontFamily: AppConstants.font),
             ),
             SizedBox(height: 8.h),
             ElevatedButton(
@@ -422,7 +465,9 @@ class _WriteJournalToolbarContentState
               },
               child: const Text(
                 'Open Settings',
-                style: TextStyle(decoration: TextDecoration.none),
+                style: TextStyle(
+                    decoration: TextDecoration.none,
+                    fontFamily: AppConstants.font),
               ),
             ),
           ],
@@ -438,7 +483,7 @@ class _WriteJournalToolbarContentState
       case 1:
         return 'Video';
       case 2:
-        return 'Music';
+        return 'Audio';
       default:
         return '';
     }
