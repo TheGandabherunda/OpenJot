@@ -260,7 +260,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
 
   void _handlePinTap() {
     _focusNode.unfocus();
-    Future.delayed(const Duration(milliseconds: 50), () {
+    Future.delayed(const Duration(milliseconds: 250), () {
       if (mounted) {
         _handleToolbarItemTap(Icons.image_rounded);
       }
