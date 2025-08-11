@@ -415,7 +415,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
         }
       }
     });
-    _resetToolbarFlag(afterKeyboardClose ? 300 : 50);
+    _resetToolbarFlag(afterKeyboardClose ? 300 : 550);
   }
 
   void _resetToolbarFlag(int delayMs) {

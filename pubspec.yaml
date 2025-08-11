@@ -22,6 +22,8 @@ dependencies:
   modal_bottom_sheet: ^3.0.0
   flutter_quill: ^11.4.2
   intl: ^0.20.2
+  permission_handler: ^11.3.1
+  photo_manager: ^3.7.1
 
 dev_dependencies:
   flutter_test:
