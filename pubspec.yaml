@@ -24,6 +24,7 @@ dependencies:
   intl: ^0.20.2
   permission_handler: ^11.3.1
   photo_manager: ^3.7.1
+  shimmer: ^3.0.0
 
 dev_dependencies:
   flutter_test:

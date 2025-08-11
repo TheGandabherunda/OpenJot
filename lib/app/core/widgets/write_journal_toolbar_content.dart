@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:shimmer/shimmer.dart';
 
 import '../theme.dart';
 
@@ -251,9 +252,34 @@ class _WriteJournalToolbarContentState
     );
   }
 
+  Widget _buildSkeletonLoading(AppThemeColors colors) {
+    return Shimmer.fromColors(
+      baseColor: colors.grey3,
+      highlightColor: colors.grey4,
+      child: GridView.builder(
+        controller: widget.scrollController,
+        padding: EdgeInsets.symmetric(horizontal: 4.w),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          crossAxisSpacing: 4.0,
+          mainAxisSpacing: 4.0,
+        ),
+        itemCount: 15, // Display a decent number of placeholders
+        itemBuilder: (context, index) {
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(8.r),
+            child: Container(
+              color: colors.grey3,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildMediaGrid(AppThemeColors colors) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return _buildSkeletonLoading(colors);
     }
 
     if (_permissionStatus == null) {
