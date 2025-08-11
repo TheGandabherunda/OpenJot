@@ -100,6 +100,13 @@ class _WriteJournalToolbarContentState
     }
   }
 
+  String _formatDuration(int seconds) {
+    final duration = Duration(seconds: seconds);
+    final minutes = duration.inMinutes;
+    final remainingSeconds = duration.inSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = AppTheme.colorsOf(context);
@@ -188,7 +195,28 @@ class _WriteJournalToolbarContentState
                 color: colors.grey3,
                 borderRadius: BorderRadius.circular(8.r),
               ),
-              child: Icon(Icons.music_note, color: colors.grey10),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.music_note, color: colors.grey10),
+                  SizedBox(height: 4.h),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4.w),
+                    child: Text(
+                      asset.title ?? '',
+                      style: TextStyle(color: colors.grey10, fontSize: 12.sp),
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    _formatDuration(asset.duration),
+                    style: TextStyle(color: colors.grey10, fontSize: 12.sp),
+                  ),
+                ],
+              ),
             );
           }
           return ClipRRect(
@@ -198,10 +226,43 @@ class _WriteJournalToolbarContentState
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.done &&
                     snapshot.data != null) {
-                  return Image.memory(
+                  Widget thumbnail = Image.memory(
                     snapshot.data!,
                     fit: BoxFit.cover,
                   );
+                  if (asset.type == AssetType.video) {
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        thumbnail,
+                        Positioned.fill(
+                          child: Container(
+                            color: Colors.black.withOpacity(0.3),
+                          ),
+                        ),
+                        Center(
+                          child: Icon(
+                            Icons.play_circle_outline,
+                            color: Colors.white,
+                            size: 40.sp,
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 4.h,
+                          right: 4.w,
+                          child: Text(
+                            _formatDuration(asset.duration),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                  return thumbnail;
                 }
                 return Container(
                   color: colors.grey3,
