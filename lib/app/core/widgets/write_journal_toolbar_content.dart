@@ -885,8 +885,8 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
       children: [
         const Spacer(flex: 3),
         Container(
-          width: 72.w,
-          height: 72.w,
+          width: 120.w,
+          height: 120.w,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: colors.error,
@@ -924,8 +924,8 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 72.w,
-              height: 72.w,
+              width: 120.w,
+              height: 120.w,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: colors.grey3,
