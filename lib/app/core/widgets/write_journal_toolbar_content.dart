@@ -13,11 +13,13 @@ import '../theme.dart';
 class WriteJournalToolbarContent extends StatefulWidget {
   final IconData? selectedToolbarIcon;
   final ScrollController scrollController;
+  final Function(List<AssetEntity> assets)? onImagesSelected;
 
   const WriteJournalToolbarContent({
     super.key,
     required this.selectedToolbarIcon,
     required this.scrollController,
+    this.onImagesSelected,
   });
 
   @override
@@ -31,6 +33,7 @@ class _WriteJournalToolbarContentState
   PermissionStatus? _permissionStatus;
   Map<DateTime, List<AssetEntity>> _groupedAssets = {};
   bool _isLoading = false;
+  final List<AssetEntity> _selectedAssets = [];
 
   @override
   void initState() {
@@ -41,15 +44,18 @@ class _WriteJournalToolbarContentState
   Future<void> _requestPermission() async {
     final permission = _getPermissionForSegment(_selectedSegment);
     final status = await permission.request();
-    setState(() {
-      _permissionStatus = status;
-    });
-    if (status.isGranted) {
-      _fetchMedia();
+    if (mounted) {
+      setState(() {
+        _permissionStatus = status;
+      });
+      if (status.isGranted) {
+        _fetchMedia();
+      }
     }
   }
 
   Future<void> _fetchMedia() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _groupedAssets = {};
@@ -58,16 +64,19 @@ class _WriteJournalToolbarContentState
     final type = _getRequestTypeForSegment(_selectedSegment);
     final albums = await PhotoManager.getAssetPathList(type: type);
     if (albums.isEmpty) {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
       return;
     }
 
     final List<AssetEntity> assets = [];
     final Set<String> processedAssetIds = <String>{};
     for (final album in albums) {
-      final assetList = await album.getAssetListRange(start: 0, end: 1000);
+      // Consider loading in pages for very large galleries
+      final assetList = await album.getAssetListRange(start: 0, end: 2000);
       for (final asset in assetList) {
         if (processedAssetIds.add(asset.id)) {
           assets.add(asset);
@@ -84,16 +93,15 @@ class _WriteJournalToolbarContentState
         asset.createDateTime.month,
         asset.createDateTime.day,
       );
-      if (grouped[date] == null) {
-        grouped[date] = [];
-      }
-      grouped[date]!.add(asset);
+      grouped.putIfAbsent(date, () => []).add(asset);
     }
 
-    setState(() {
-      _groupedAssets = grouped;
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _groupedAssets = grouped;
+        _isLoading = false;
+      });
+    }
   }
 
   Permission _getPermissionForSegment(int segment) {
@@ -188,66 +196,88 @@ class _WriteJournalToolbarContentState
       );
     }
 
-    return Column(
+    return Stack(
       children: [
-        SizedBox(
-          width: double.infinity,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w),
-            child: CupertinoSlidingSegmentedControl<int>(
-              backgroundColor: colors.grey3,
-              thumbColor: colors.grey5,
-              children: {
-                0: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8.h),
-                  child: Text(
-                    'Photos',
-                    style: TextStyle(
-                        color: colors.grey10,
-                        decoration: TextDecoration.none,
-                        fontSize: 14.sp,
-                        fontFamily: AppConstants.font),
-                  ),
+        Column(
+          children: [
+            SizedBox(
+              width: double.infinity,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                child: CupertinoSlidingSegmentedControl<int>(
+                  backgroundColor: colors.grey3,
+                  thumbColor: colors.grey5,
+                  children: {
+                    0: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8.h),
+                      child: Text(
+                        'Photos',
+                        style: TextStyle(
+                            color: colors.grey10,
+                            decoration: TextDecoration.none,
+                            fontSize: 14.sp,
+                            fontFamily: AppConstants.font),
+                      ),
+                    ),
+                    1: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8.h),
+                      child: Text(
+                        'Video',
+                        style: TextStyle(
+                            color: colors.grey10,
+                            decoration: TextDecoration.none,
+                            fontSize: 14.sp,
+                            fontFamily: AppConstants.font),
+                      ),
+                    ),
+                    2: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8.h),
+                      child: Text(
+                        'Audio',
+                        style: TextStyle(
+                            color: colors.grey10,
+                            decoration: TextDecoration.none,
+                            fontSize: 14.sp,
+                            fontFamily: AppConstants.font),
+                      ),
+                    ),
+                  },
+                  onValueChanged: (int? value) {
+                    if (value != null) {
+                      setState(() {
+                        _selectedSegment = value;
+                        _selectedAssets.clear();
+                      });
+                      _requestPermission();
+                    }
+                  },
+                  groupValue: _selectedSegment,
                 ),
-                1: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8.h),
-                  child: Text(
-                    'Video',
-                    style: TextStyle(
-                        color: colors.grey10,
-                        decoration: TextDecoration.none,
-                        fontSize: 14.sp,
-                        fontFamily: AppConstants.font),
-                  ),
-                ),
-                2: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8.h),
-                  child: Text(
-                    'Audio',
-                    style: TextStyle(
-                        color: colors.grey10,
-                        decoration: TextDecoration.none,
-                        fontSize: 14.sp,
-                        fontFamily: AppConstants.font),
-                  ),
-                ),
+              ),
+            ),
+            SizedBox(height: 16.h),
+            Expanded(
+              child: _buildMediaGrid(colors),
+            ),
+          ],
+        ),
+        if (_selectedAssets.isNotEmpty)
+          Positioned(
+            bottom: 20.h,
+            left: 20.w,
+            right: 20.w,
+            child: FloatingActionButton.extended(
+              onPressed: () {
+                widget.onImagesSelected?.call(_selectedAssets);
+                setState(() {
+                  _selectedAssets.clear();
+                });
               },
-              onValueChanged: (int? value) {
-                if (value != null) {
-                  setState(() {
-                    _selectedSegment = value;
-                  });
-                  _requestPermission();
-                }
-              },
-              groupValue: _selectedSegment,
+              label: Text('Add ${_selectedAssets.length}'),
+              icon: const Icon(Icons.add),
+              backgroundColor: Theme.of(context).primaryColor,
             ),
           ),
-        ),
-        SizedBox(height: 16.h),
-        Expanded(
-          child: _buildMediaGrid(colors),
-        ),
       ],
     );
   }
@@ -264,7 +294,7 @@ class _WriteJournalToolbarContentState
           crossAxisSpacing: 4.0,
           mainAxisSpacing: 4.0,
         ),
-        itemCount: 15, // Display a decent number of placeholders
+        itemCount: 15,
         itemBuilder: (context, index) {
           return ClipRRect(
             borderRadius: BorderRadius.circular(8.r),
@@ -320,7 +350,8 @@ class _WriteJournalToolbarContentState
               ),
             ),
             SliverPadding(
-              padding: EdgeInsets.symmetric(horizontal: 4.w),
+              padding: EdgeInsets.fromLTRB(4.w, 0, 4.w, 80.h),
+              // Add bottom padding
               sliver: SliverGrid(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 3,
@@ -330,137 +361,45 @@ class _WriteJournalToolbarContentState
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
                     final asset = _groupedAssets[date]![index];
+                    final isSelected = _selectedAssets.contains(asset);
+
                     if (asset.type == AssetType.audio) {
-                      return Container(
-                        decoration: BoxDecoration(
-                          color: colors.grey4,
-                          borderRadius: BorderRadius.circular(8.r),
-                        ),
+                      return _buildAudioItem(asset, colors);
+                    }
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          if (isSelected) {
+                            _selectedAssets.remove(asset);
+                          } else {
+                            _selectedAssets.add(asset);
+                          }
+                        });
+                      },
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8.r),
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            Center(
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 4.w),
-                                child: Text(
-                                  asset.title ?? '',
-                                  style: TextStyle(
-                                      color: colors.grey10,
-                                      fontSize: 12.sp,
-                                      fontWeight: FontWeight.normal,
-                                      decoration: TextDecoration.none,
-                                      fontFamily: AppConstants.font),
-                                  maxLines: 2,
-                                  textAlign: TextAlign.center,
-                                  overflow: TextOverflow.ellipsis,
+                            _buildMediaThumbnail(asset, colors),
+                            if (isSelected)
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.5),
+                                  border: Border.all(
+                                    color: Theme.of(context).primaryColor,
+                                    width: 3,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8.r),
+                                ),
+                                child: Icon(
+                                  Icons.check_circle,
+                                  color: Colors.white,
+                                  size: 24.sp,
                                 ),
                               ),
-                            ),
-                            Positioned(
-                              bottom: 4.h,
-                              left: 4.w,
-                              child: Row(
-                                children: [
-                                  Icon(Icons.music_note,
-                                      color: colors.grey10, size: 16.sp),
-                                  SizedBox(width: 4.w),
-                                  Text(
-                                    _formatDuration(asset.duration),
-                                    style: TextStyle(
-                                        color: colors.grey10,
-                                        fontSize: 12.sp,
-                                        decoration: TextDecoration.none,
-                                        fontFamily: AppConstants.font),
-                                  ),
-                                ],
-                              ),
-                            ),
                           ],
                         ),
-                      );
-                    }
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(8.r),
-                      child: FutureBuilder<Uint8List?>(
-                        future: asset.thumbnailData,
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                                  ConnectionState.done &&
-                              snapshot.data != null) {
-                            Widget thumbnail = Image.memory(
-                              snapshot.data!,
-                              fit: BoxFit.cover,
-                            );
-                            if (asset.type == AssetType.video) {
-                              final isGif =
-                                  asset.title?.toLowerCase().contains('gif') ??
-                                      false;
-
-                              return Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  thumbnail,
-                                  if (isGif) ...[
-                                    Positioned(
-                                      bottom: 4.h,
-                                      left: 4.w,
-                                      child: Container(
-                                        padding: EdgeInsets.symmetric(
-                                            horizontal: 6.w, vertical: 2.h),
-                                        decoration: BoxDecoration(
-                                          color:
-                                              colors.grey10.withOpacity(0.7),
-                                          borderRadius:
-                                              BorderRadius.circular(4.r),
-                                        ),
-                                        child: Icon(
-                                          Icons.gif,
-                                          color: colors.grey10,
-                                          size: 14.sp,
-                                        ),
-                                      ),
-                                    ),
-                                  ] else ...[
-                                    Positioned.fill(
-                                      child: Container(
-                                        color: colors.grey5.withOpacity(0.3),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      bottom: 4.h,
-                                      left: 4.w,
-                                      child: Row(
-                                        children: [
-                                          Icon(
-                                            Icons.videocam_rounded,
-                                            color: colors.grey10,
-                                            size: 16.sp,
-                                          ),
-                                          SizedBox(width: 4.w),
-                                          Text(
-                                            _formatDuration(asset.duration),
-                                            style: TextStyle(
-                                                color: colors.grey10,
-                                                fontSize: 12.sp,
-                                                fontWeight: FontWeight.bold,
-                                                decoration:
-                                                    TextDecoration.none,
-                                                fontFamily:
-                                                    AppConstants.font),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              );
-                            }
-                            return thumbnail;
-                          }
-                          return Container(
-                            color: colors.grey3,
-                          );
-                        },
                       ),
                     );
                   },
@@ -472,34 +411,161 @@ class _WriteJournalToolbarContentState
         ],
       );
     } else {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'Permission to access ${_getTabName(_selectedSegment).toLowerCase()} is required to display them.',
-              textAlign: TextAlign.center,
+      return _buildPermissionDenied(colors);
+    }
+  }
+
+  Widget _buildMediaThumbnail(AssetEntity asset, AppThemeColors colors) {
+    return FutureBuilder<Uint8List?>(
+      future: asset.thumbnailData,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done &&
+            snapshot.data != null) {
+          Widget thumbnail = Image.memory(
+            snapshot.data!,
+            fit: BoxFit.cover,
+          );
+          if (asset.type == AssetType.video) {
+            return _buildVideoOverlay(asset, thumbnail, colors);
+          }
+          return thumbnail;
+        }
+        return Container(
+          color: colors.grey3,
+        );
+      },
+    );
+  }
+
+  Widget _buildVideoOverlay(
+      AssetEntity asset, Widget thumbnail, AppThemeColors colors) {
+    final isGif = asset.title?.toLowerCase().endsWith('.gif') ?? false;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        thumbnail,
+        if (isGif)
+          Positioned(
+            bottom: 4.h,
+            right: 4.w,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(4.r),
+              ),
+              child: Text(
+                'GIF',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.bold),
+              ),
+            ),
+          )
+        else
+          Positioned(
+            bottom: 4.h,
+            left: 4.w,
+            right: 4.w,
+            child: Row(
+              children: [
+                Icon(Icons.videocam_rounded, color: Colors.white, size: 16.sp),
+                SizedBox(width: 4.w),
+                Text(
+                  _formatDuration(asset.duration),
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.none,
+                      fontFamily: AppConstants.font),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildAudioItem(AssetEntity asset, AppThemeColors colors) {
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.grey4,
+        borderRadius: BorderRadius.circular(8.r),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4.w),
+              child: Text(
+                asset.title ?? '',
+                style: TextStyle(
+                    color: colors.grey10,
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.normal,
+                    decoration: TextDecoration.none,
+                    fontFamily: AppConstants.font),
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 4.h,
+            left: 4.w,
+            child: Row(
+              children: [
+                Icon(Icons.music_note, color: colors.grey10, size: 16.sp),
+                SizedBox(width: 4.w),
+                Text(
+                  _formatDuration(asset.duration),
+                  style: TextStyle(
+                      color: colors.grey10,
+                      fontSize: 12.sp,
+                      decoration: TextDecoration.none,
+                      fontFamily: AppConstants.font),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPermissionDenied(AppThemeColors colors) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'Permission to access ${_getTabName(_selectedSegment).toLowerCase()} is required to display them.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: colors.grey10,
+                decoration: TextDecoration.none,
+                fontFamily: AppConstants.font),
+          ),
+          SizedBox(height: 8.h),
+          ElevatedButton(
+            onPressed: () {
+              openAppSettings();
+            },
+            child: const Text(
+              'Open Settings',
               style: TextStyle(
-                  color: colors.grey10,
                   decoration: TextDecoration.none,
                   fontFamily: AppConstants.font),
             ),
-            SizedBox(height: 8.h),
-            ElevatedButton(
-              onPressed: () {
-                openAppSettings();
-              },
-              child: const Text(
-                'Open Settings',
-                style: TextStyle(
-                    decoration: TextDecoration.none,
-                    fontFamily: AppConstants.font),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+          ),
+        ],
+      ),
+    );
   }
 
   String _getTabName(int index) {

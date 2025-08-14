@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:photo_manager/photo_manager.dart';
 
 import '../../core/constants.dart';
 import '../../core/theme.dart';
@@ -37,7 +39,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   double? _activeSheetMinSize;
   double? _activeSheetInitialSize;
   bool _isFormatting = false;
-  bool _wasKeyboardVisible = false; // Track keyboard state
+  bool _wasKeyboardVisible = false;
+  List<AssetEntity> _previewImages = [];
 
   static const double _maxChildSize = 0.7;
   static const double _minFractionWithoutKeyboard = 0.2;
@@ -234,7 +237,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     return minSize.clamp(0.1, _maxChildSize);
   }
 
-  // This is the new method that will handle all attachment-related taps
   Future<void> _handleAttachmentTap(IconData iconData) async {
     final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
 
@@ -253,12 +255,11 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       return;
     }
 
-    // Request permission before opening the sheet
     if (iconData == Icons.image_rounded ||
         iconData == Icons.camera_alt_rounded) {
       var status = await Permission.photos.request();
-      if (status.isDenied) {
-        // Handle the case where the user denies the permission
+      if (!status.isGranted) {
+        // Optionally show a dialog to the user
         return;
       }
     }
@@ -304,7 +305,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
 
   void _handlePinTap() {
     _focusNode.unfocus();
-    // Use a short delay to allow the keyboard to start dismissing before checking permissions
     Future.delayed(const Duration(milliseconds: 100), () {
       _handleAttachmentTap(Icons.image_rounded);
     });
@@ -315,6 +315,15 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     Future.delayed(const Duration(milliseconds: 50), () {
       if (mounted) {
         _handleToolbarItemTap(Icons.sentiment_satisfied_rounded);
+      }
+    });
+  }
+
+  void _handlelocationTap() {
+    _focusNode.unfocus();
+    Future.delayed(const Duration(milliseconds: 50), () {
+      if (mounted) {
+        _handleToolbarItemTap(Icons.location_on_rounded);
       }
     });
   }
@@ -404,6 +413,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   void _closeSheet() {
+    if (!mounted) return;
     setState(() {
       _isDraggableSheetActive = false;
       _selectedToolbarIcon = null;
@@ -415,8 +425,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
 
   void _handleSheetOpeningWithKeyboard(IconData iconData) {
     _focusNode.unfocus();
-    // We need to wait for the keyboard to be fully dismissed before opening the sheet.
-    // The delay here is a bit of a hack, but it's the simplest way to ensure the animation is smooth.
     Future.delayed(const Duration(milliseconds: 250), () {
       if (mounted) {
         _openSheet(iconData, afterKeyboardClose: true);
@@ -448,7 +456,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       _activeSheetMinSize = newMinSize;
     });
 
-    // Ensure sheet appears immediately
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_sheetController.isAttached && mounted) {
         if (afterKeyboardClose) {
@@ -505,9 +512,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     });
   }
 
-  // Modified keyboard interaction handling
   void _handleKeyboardInteraction(bool isKeyboardVisible) {
-    // Only close the sheet when keyboard appears, not when it disappears
     if (isKeyboardVisible &&
         !_wasKeyboardVisible &&
         _isDraggableSheetActive &&
@@ -530,20 +535,20 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
             _handlemoodTap();
           },
           child: Container(
-            width: 32.w, // Adjust size as needed
-            height: 32.w, // Adjust size as needed
+            width: 32.w,
+            height: 32.w,
             decoration: BoxDecoration(
-              color: Colors.transparent, // Example background color
+              color: Colors.transparent,
               shape: BoxShape.circle,
               border: Border.all(
-                color: Colors.transparent, // Example border color
+                color: Colors.transparent,
                 width: 2.w,
               ),
             ),
             child: Icon(
-              Icons.bookmark_outline_rounded, // "Add emoji" icon
+              Icons.bookmark_outline_rounded,
               color: appThemeColors.grey2,
-              size: 28.w, // Adjust icon size as needed
+              size: 28.w,
             ),
           ),
         ),
@@ -562,13 +567,10 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                   borderRadius: BorderRadius.circular(16.r),
                 ),
                 position: RelativeRect.fromLTRB(
-                  // Center the dropdown horizontally relative to the date container
                   position.dx + (renderBox.size.width / 2) - 80.w,
-                  // Approximate dropdown half-width
                   position.dy + renderBox.size.height + 10.h,
                   MediaQuery.of(context).size.width -
                       (position.dx + (renderBox.size.width / 2) - 80.w),
-                  // Right boundary
                   position.dy + renderBox.size.height + 200.h,
                 ),
                 items: [
@@ -691,42 +693,177 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     );
   }
 
+  Widget _buildImagePreview() {
+    if (_previewImages.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final appThemeColors = AppTheme.colorsOf(context);
+    final double spacing = 2.w;
+
+    // Helper to build a single image container with a border and remove button
+    Widget buildImageContainer(AssetEntity asset, {Widget? overlay}) {
+      return Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: appThemeColors.grey3, width: 1.5),
+          borderRadius: BorderRadius.circular(12.r),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10.5.r),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              FutureBuilder<Uint8List?>(
+                future: asset.thumbnailDataWithSize(
+                  const ThumbnailSize(500, 500),
+                  quality: 95,
+                ),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.done &&
+                      snapshot.data != null) {
+                    return Image.memory(
+                      snapshot.data!,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                    );
+                  }
+                  return Container(color: appThemeColors.grey4);
+                },
+              ),
+              if (overlay != null) overlay,
+              Positioned(
+                top: 4.w,
+                right: 4.w,
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _previewImages.remove(asset);
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.6),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.close, color: Colors.white, size: 18.sp),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget content;
+    if (_previewImages.length == 1) {
+      content = SizedBox(
+        height: 250.h,
+        width: double.infinity,
+        child: buildImageContainer(_previewImages[0]),
+      );
+    } else if (_previewImages.length == 2) {
+      content = SizedBox(
+        height: 250.h,
+        child: Row(
+          children: [
+            Expanded(child: buildImageContainer(_previewImages[0])),
+            SizedBox(width: spacing),
+            Expanded(child: buildImageContainer(_previewImages[1])),
+          ],
+        ),
+      );
+    } else {
+      Widget? thirdImageOverlay;
+      if (_previewImages.length > 3) {
+        thirdImageOverlay = Container(
+          color: Colors.black.withOpacity(0.6),
+          child: Center(
+            child: Text(
+              '+${_previewImages.length - 3}',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 24.sp,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        );
+      }
+
+      content = SizedBox(
+        height: 250.h,
+        child: Row(
+          children: [
+            AspectRatio(
+              aspectRatio: 1.0,
+              child: buildImageContainer(_previewImages[0]),
+            ),
+            SizedBox(width: spacing),
+            Expanded(
+              child: Column(
+                children: [
+                  Expanded(child: buildImageContainer(_previewImages[1])),
+                  SizedBox(height: spacing),
+                  Expanded(
+                    child: buildImageContainer(
+                      _previewImages[2],
+                      overlay: thirdImageOverlay,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(14.w, 8.h, 14.w, 8.h),
+      child: content,
+    );
+  }
+
   Widget _buildTextField(AppThemeColors appThemeColors) {
     return Expanded(
-        child: Material(
-      color: Colors.transparent,
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 14.w),
-        child: quill.QuillEditor.basic(
-          key: _textFieldKey,
-          controller: _quillController,
-          focusNode: _focusNode,
-          scrollController: _editorScrollController,
-          config: quill.QuillEditorConfig(
-            placeholder: ' Start writing...',
-            customStyles: quill.DefaultStyles(
-              placeHolder: quill.DefaultTextBlockStyle(
-                TextStyle(
-                  fontSize: 16.sp,
-                  color: appThemeColors.grey2,
+      child: Material(
+        color: Colors.transparent,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 14.w),
+          child: quill.QuillEditor.basic(
+            key: _textFieldKey,
+            controller: _quillController,
+            focusNode: _focusNode,
+            scrollController: _editorScrollController,
+            config: quill.QuillEditorConfig(
+              placeholder: ' Start writing...',
+              customStyles: quill.DefaultStyles(
+                placeHolder: quill.DefaultTextBlockStyle(
+                  TextStyle(
+                    fontSize: 16.sp,
+                    color: appThemeColors.grey2,
+                  ),
+                  quill.HorizontalSpacing.zero,
+                  quill.VerticalSpacing.zero,
+                  quill.VerticalSpacing.zero,
+                  null,
                 ),
-                quill.HorizontalSpacing.zero,
-                quill.VerticalSpacing.zero,
-                quill.VerticalSpacing.zero,
-                null,
               ),
             ),
           ),
         ),
       ),
-    ));
+    );
   }
 
   Widget _buildMoodField(AppThemeColors appThemeColors) {
     return Material(
       color: Colors.transparent,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 12.w),
@@ -748,6 +885,35 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                     children: [
                       Icon(
                         Icons.add_reaction_outlined,
+                        color: appThemeColors.grey4,
+                        size: 28.w,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12.w),
+            child: GestureDetector(
+              onTap: () {
+                _handlelocationTap();
+              },
+              child: CustomPaint(
+                painter: DashedBorderPainter(
+                  color: appThemeColors.grey5,
+                  strokeWidth: 2.w,
+                  fillColor: appThemeColors.grey6,
+                ),
+                child: SizedBox(
+                  width: 38.w,
+                  height: 38.w,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.add_location_alt_outlined,
                         color: appThemeColors.grey4,
                         size: 28.w,
                       ),
@@ -816,6 +982,14 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
             child: WriteJournalToolbarContent(
               selectedToolbarIcon: _selectedToolbarIcon,
               scrollController: scrollController,
+              onImagesSelected: (assets) {
+                setState(() {
+                  final existingIds = _previewImages.map((e) => e.id).toSet();
+                  assets.removeWhere((asset) => existingIds.contains(asset.id));
+                  _previewImages.addAll(assets);
+                });
+                _closeSheet();
+              },
             ),
           ),
         ],
@@ -837,13 +1011,11 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     );
   }
 
-  // Modified toolbar logic for better behavior
   Widget _buildToolbar() {
     final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
     final currentStyle = _quillController.getSelectionStyle();
     final hasSelection = !_quillController.selection.isCollapsed;
 
-    // Show text styling toolbar when keyboard is visible OR when there's a selection
     if (isKeyboardVisible || hasSelection) {
       return TextStylingToolbar(
         onToolbarItemTap: _handleTextStylingToolbarItemTap,
@@ -863,7 +1035,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
         isBulletActive: currentStyle.containsKey(quill.Attribute.ul.key),
       );
     } else {
-      // Show media toolbar when keyboard is not visible
       return WriteJournalToolbar(
         toolbarIcons: _toolbarIcons,
         selectedToolbarIcon: _selectedToolbarIcon,
@@ -930,7 +1101,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                               padding: EdgeInsets.symmetric(horizontal: 14.w),
                               child: _buildHeader(appThemeColors),
                             ),
-                            SizedBox(height: 48.h),
+                            SizedBox(height: 16.h),
+                            _buildImagePreview(),
+                            SizedBox(height: 16.h),
                             _buildMoodField(appThemeColors),
                             SizedBox(height: 16.h),
                             _buildTextField(appThemeColors),
