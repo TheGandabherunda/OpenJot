@@ -927,8 +927,8 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
                       return Transform.scale(
                         scale: 1 + _animationController.value * 1.2,
                         child: Container(
-                          width: 120.w,
-                          height: 120.w,
+                          width: 80.w,
+                          height: 80.w,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: colors.error.withOpacity(
@@ -944,8 +944,8 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
                   onLongPressStart: (_) => _handleRecordPressStart(),
                   onLongPressEnd: (_) => _handleRecordPressEnd(),
                   child: Container(
-                    width: 120.w,
-                    height: 120.w,
+                    width: 80.w,
+                    height: 80.w,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: isActivelyRecording
@@ -985,7 +985,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
               fontFamily: AppConstants.font,
               fontWeight: FontWeight.w500,
               decoration: TextDecoration.none,
-              fontSize: 16.sp),
+              fontSize: 14.sp),
         ),
       ],
     );
@@ -998,8 +998,8 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 120.w,
-              height: 120.w,
+              width: 80.w,
+              height: 80.w,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: colors.grey3,
