@@ -698,10 +698,10 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       return const SizedBox.shrink();
     }
 
-    final appThemeColors = AppTheme.colorsOf(context);
     final double spacing = 2.w;
 
     Widget buildImageContainer(AssetEntity asset, {Widget? overlay}) {
+      final appThemeColors = AppTheme.colorsOf(context);
       return Container(
         decoration: BoxDecoration(
           border: Border.all(color: appThemeColors.grey3, width: 1.5),
@@ -712,24 +712,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              FutureBuilder<Uint8List?>(
-                future: asset.thumbnailDataWithSize(
-                  const ThumbnailSize(500, 500),
-                  quality: 95,
-                ),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.done &&
-                      snapshot.data != null) {
-                    return Image.memory(
-                      snapshot.data!,
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      height: double.infinity,
-                    );
-                  }
-                  return Container(color: appThemeColors.grey4);
-                },
-              ),
+              // MODIFICATION: Replaced FutureBuilder with SizedAssetThumbnail to prevent blinking
+              SizedAssetThumbnail(asset: asset),
               if (overlay != null) overlay,
               Positioned(
                 top: 4.w,
@@ -1230,6 +1214,73 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     );
   }
 }
+
+// NEW WIDGET to handle image loading efficiently and prevent blinking.
+class SizedAssetThumbnail extends StatefulWidget {
+  final AssetEntity asset;
+
+  const SizedAssetThumbnail({
+    Key? key,
+    required this.asset,
+  }) : super(key: key);
+
+  @override
+  _SizedAssetThumbnailState createState() => _SizedAssetThumbnailState();
+}
+
+class _SizedAssetThumbnailState extends State<SizedAssetThumbnail> {
+  Uint8List? _imageData;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImage();
+  }
+
+  @override
+  void didUpdateWidget(covariant SizedAssetThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.asset.id != oldWidget.asset.id) {
+      // If the asset entity itself changes, reload the image data.
+      setState(() {
+        _imageData = null;
+      });
+      _loadImage();
+    }
+  }
+
+  Future<void> _loadImage() async {
+    if (!mounted) return;
+    // Fetches the thumbnail data with a specific size and quality.
+    final data = await widget.asset.thumbnailDataWithSize(
+      const ThumbnailSize(500, 500),
+      quality: 95,
+    );
+    if (mounted) {
+      setState(() {
+        _imageData = data;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_imageData != null) {
+      // Display the image once loaded.
+      return Image.memory(
+        _imageData!,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        gaplessPlayback: true, // Ensures a smooth display without flickering.
+      );
+    }
+    // Show a placeholder while the image is loading.
+    final appThemeColors = AppTheme.colorsOf(context);
+    return Container(color: appThemeColors.grey4);
+  }
+}
+
 
 class DashedBorderPainter extends CustomPainter {
   final Color color;

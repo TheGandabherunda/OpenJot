@@ -365,7 +365,7 @@ class _WriteJournalToolbarContentState
                   mainAxisSpacing: 4.0,
                 ),
                 delegate: SliverChildBuilderDelegate(
-                  (context, index) {
+                      (context, index) {
                     final asset = _groupedAssets[date]![index];
                     final isSelected = _selectedAssets.contains(asset);
 
@@ -373,7 +373,8 @@ class _WriteJournalToolbarContentState
                     if (asset.type == AssetType.audio) {
                       child = _buildAudioItem(asset, colors, isSelected);
                     } else {
-                      child = _buildMediaThumbnail(asset, colors);
+                      // MODIFICATION: Use the new stateful widget to prevent rebuilding.
+                      child = AssetThumbnailItem(asset: asset, colors: colors);
                     }
 
                     return GestureDetector(
@@ -434,80 +435,6 @@ class _WriteJournalToolbarContentState
     } else {
       return _buildPermissionDenied(colors);
     }
-  }
-
-  Widget _buildMediaThumbnail(AssetEntity asset, AppThemeColors colors) {
-    return FutureBuilder<Uint8List?>(
-      future: asset.thumbnailData,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.done &&
-            snapshot.data != null) {
-          Widget thumbnail = Image.memory(
-            snapshot.data!,
-            fit: BoxFit.cover,
-          );
-          if (asset.type == AssetType.video) {
-            return _buildVideoOverlay(asset, thumbnail, colors);
-          }
-          return thumbnail;
-        }
-        return Container(
-          color: colors.grey3,
-        );
-      },
-    );
-  }
-
-  Widget _buildVideoOverlay(
-      AssetEntity asset, Widget thumbnail, AppThemeColors colors) {
-    final isGif = asset.title?.toLowerCase().endsWith('.gif') ?? false;
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        thumbnail,
-        if (isGif)
-          Positioned(
-            bottom: 4.h,
-            right: 4.w,
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
-                borderRadius: BorderRadius.circular(4.r),
-              ),
-              child: Text(
-                'GIF',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.bold),
-              ),
-            ),
-          )
-        else
-          Positioned(
-            bottom: 4.h,
-            left: 4.w,
-            right: 4.w,
-            child: Row(
-              children: [
-                Icon(Icons.videocam_rounded, color: Colors.white, size: 16.sp),
-                SizedBox(width: 4.w),
-                Text(
-                  _formatDuration(asset.duration),
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.bold,
-                      decoration: TextDecoration.none,
-                      fontFamily: AppConstants.font),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
   }
 
   Widget _buildAudioItem(
@@ -612,5 +539,119 @@ class _WriteJournalToolbarContentState
       default:
         return '';
     }
+  }
+}
+
+// NEW WIDGET to handle thumbnail loading efficiently and prevent blinking.
+class AssetThumbnailItem extends StatefulWidget {
+  final AssetEntity asset;
+  final AppThemeColors colors;
+
+  const AssetThumbnailItem({
+    Key? key,
+    required this.asset,
+    required this.colors,
+  }) : super(key: key);
+
+  @override
+  _AssetThumbnailItemState createState() => _AssetThumbnailItemState();
+}
+
+class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
+  Uint8List? _thumbnailData;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThumbnail();
+  }
+
+  Future<void> _loadThumbnail() async {
+    if (!mounted) return;
+    final data = await widget.asset.thumbnailData;
+    if (mounted) {
+      setState(() {
+        _thumbnailData = data;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_thumbnailData == null) {
+      // Show a placeholder while loading.
+      return Container(color: widget.colors.grey3);
+    }
+
+    // Once data is loaded, display the image.
+    final thumbnail = Image.memory(
+      _thumbnailData!,
+      fit: BoxFit.cover,
+      gaplessPlayback: true, // Ensures a smooth display without flickering.
+    );
+
+    if (widget.asset.type == AssetType.video) {
+      return _buildVideoOverlay(widget.asset, thumbnail);
+    }
+
+    return thumbnail;
+  }
+
+  String _formatDuration(int seconds) {
+    final duration = Duration(seconds: seconds);
+    final minutes = duration.inMinutes;
+    final remainingSeconds = duration.inSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildVideoOverlay(AssetEntity asset, Widget thumbnail) {
+    final isGif = asset.title?.toLowerCase().endsWith('.gif') ?? false;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        thumbnail,
+        if (isGif)
+          Positioned(
+            bottom: 4.h,
+            right: 4.w,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(4.r),
+              ),
+              child: Text(
+                'GIF',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.bold),
+              ),
+            ),
+          )
+        else
+          Positioned(
+            bottom: 4.h,
+            left: 4.w,
+            right: 4.w,
+            child: Row(
+              children: [
+                Icon(Icons.videocam_rounded, color: Colors.white, size: 16.sp),
+                SizedBox(width: 4.w),
+                Text(
+                  _formatDuration(asset.duration),
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.none,
+                      fontFamily: AppConstants.font),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
   }
 }
