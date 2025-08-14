@@ -848,7 +848,18 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
     return ListView(
       controller: widget.scrollController,
       children: [
-        SizedBox(height: 32.h),
+        SizedBox(height: 16.h),
+        if (_isStopped)
+          Text(
+            "Listen",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: colors.success,
+                fontFamily: AppConstants.font,
+                fontWeight: FontWeight.w600,
+                decoration: TextDecoration.none,
+                fontSize: 16.sp),
+          ),
         Text(
           _formatDuration(_recordingDuration),
           textAlign: TextAlign.center,
@@ -860,8 +871,9 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
             decoration: TextDecoration.none,
           ),
         ),
-        SizedBox(height: 32.h),
+        if (!_isStopped) SizedBox(height: 32.h),
         if (!_isStopped) _buildRecordingControls(colors),
+        if (_isStopped) SizedBox(height: 16.h),
         if (_isStopped) _buildPreviewControls(colors),
       ],
     );
@@ -871,7 +883,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Spacer(flex: 2),
+        const Spacer(flex: 3),
         Container(
           width: 72.w,
           height: 72.w,
@@ -882,14 +894,14 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
           child: IconButton(
             icon: Icon(
               _isRecording && !_isPaused ? Icons.pause : Icons.mic,
-              color: Colors.white,
+              color: colors.grey10,
               size: 36.sp,
             ),
             onPressed: _toggleRecording,
           ),
         ),
         Expanded(
-          flex: 2,
+          flex: 3,
           child: _isRecording
               ? Align(
                   alignment: Alignment.center,
@@ -911,26 +923,23 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
         Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            IconButton(
-              icon: Icon(
-                _isPlayingPreview
-                    ? Icons.pause_circle_filled
-                    : Icons.play_circle_fill,
-                color: colors.grey10,
-                size: 72.sp,
+            Container(
+              width: 72.w,
+              height: 72.w,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colors.grey3,
               ),
-              onPressed: _togglePreview,
-            ),
-            SizedBox(width: 16.w),
-            // Could add a waveform visualizer here in the future
-            Text(
-              "Playback",
-              style: TextStyle(
-                  color: colors.grey1,
-                  fontFamily: AppConstants.font,
-                  fontWeight: FontWeight.w400,
-                  decoration: TextDecoration.none,
-                  fontSize: 16.sp),
+              child: IconButton(
+                icon: Icon(
+                  _isPlayingPreview
+                      ? Icons.pause_rounded
+                      : Icons.play_arrow_rounded,
+                  color: colors.grey10,
+                  size: 36.sp,
+                ),
+                onPressed: _togglePreview,
+              ),
             ),
           ],
         ),
@@ -938,17 +947,23 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CustomButton(
-              onPressed: _discardRecording,
-              borderRadius: 56,
-              text: '',
-              icon: Icons.delete_outline,
-              iconSize: 24,
-              color: Colors.transparent,
-              textColor: colors.error,
-              textPadding:
-                  EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+            Container(
+              width: 44.w,
+              height: 44.w,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colors.grey3,
+              ),
+              child: IconButton(
+                icon: Icon(
+                  Icons.delete_outline_rounded,
+                  color: colors.error,
+                  size: 24.sp,
+                ),
+                onPressed: _discardRecording,
+              ),
             ),
+            SizedBox(width: 8.w),
             CustomButton(
               onPressed: _addRecording,
               borderRadius: 56,
