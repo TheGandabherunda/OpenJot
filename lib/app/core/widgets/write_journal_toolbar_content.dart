@@ -840,22 +840,45 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
   }
 
   void _discardRecording() {
-    _timer?.cancel();
-    _animationController.reset();
-    if (_isRecording) {
-      _audioRecorder.stop();
-    }
-    if (_isPlayingPreview) {
-      _audioPlayer.stop();
-    }
-    // Delete the file if it exists
-    if (_recordingPath != null) {
-      final file = File(_recordingPath!);
-      if (file.existsSync()) {
-        file.delete();
-      }
-    }
-    _resetStateForNewRecording();
+    // Show a confirmation dialog before discarding
+    showCupertinoDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) => CupertinoAlertDialog(
+        title: const Text('Delete Recording?'),
+        content: const Text('Are you sure you want to delete this recording?'),
+        actions: <CupertinoDialogAction>[
+          CupertinoDialogAction(
+            child: const Text('Cancel'),
+            onPressed: () {
+              Navigator.pop(dialogContext);
+            },
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            child: const Text('Discard'),
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              _timer?.cancel();
+              _animationController.reset();
+              if (_isRecording) {
+                _audioRecorder.stop();
+              }
+              if (_isPlayingPreview) {
+                _audioPlayer.stop();
+              }
+              // Delete the file if it exists
+              if (_recordingPath != null) {
+                final file = File(_recordingPath!);
+                if (file.existsSync()) {
+                  file.delete();
+                }
+              }
+              _resetStateForNewRecording();
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   void _resetStateForNewRecording() {
