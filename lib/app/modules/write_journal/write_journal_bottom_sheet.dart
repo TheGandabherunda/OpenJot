@@ -41,6 +41,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   bool _isFormatting = false;
   bool _wasKeyboardVisible = false;
   List<AssetEntity> _previewImages = [];
+  AssetEntity? _previewAudio;
 
   static const double _maxChildSize = 0.7;
   static const double _minFractionWithoutKeyboard = 0.2;
@@ -259,7 +260,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
         iconData == Icons.camera_alt_rounded) {
       var status = await Permission.photos.request();
       if (!status.isGranted) {
-        // Optionally show a dialog to the user
         return;
       }
     }
@@ -701,7 +701,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     final appThemeColors = AppTheme.colorsOf(context);
     final double spacing = 2.w;
 
-    // Helper to build a single image container with a border and remove button
     Widget buildImageContainer(AssetEntity asset, {Widget? overlay}) {
       return Container(
         decoration: BoxDecoration(
@@ -822,8 +821,61 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     }
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(14.w, 8.h, 14.w, 8.h),
+      padding: EdgeInsets.fromLTRB(0, 8.h, 0, 8.h),
       child: content,
+    );
+  }
+
+  Widget _buildAudioPreview() {
+    if (_previewAudio == null) {
+      return const SizedBox.shrink();
+    }
+
+    final appThemeColors = AppTheme.colorsOf(context);
+
+    return Container(
+      height: 40.h,
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 12.w),
+      decoration: BoxDecoration(
+        color: appThemeColors.grey4,
+        borderRadius: BorderRadius.circular(12.r),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.music_note_rounded,
+              color: appThemeColors.grey1, size: 24.sp),
+          SizedBox(width: 8.w),
+          Expanded(
+            child: Text(
+              _previewAudio!.title ?? 'Audio track',
+              style: TextStyle(
+                color: appThemeColors.grey10,
+                fontSize: 14.sp,
+                overflow: TextOverflow.ellipsis,
+                fontFamily: AppConstants.font,
+              ),
+              maxLines: 1,
+            ),
+          ),
+          SizedBox(width: 8.w),
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _previewAudio = null;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.6),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.close, color: Colors.white, size: 16.sp),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -982,11 +1034,24 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
             child: WriteJournalToolbarContent(
               selectedToolbarIcon: _selectedToolbarIcon,
               scrollController: scrollController,
-              onImagesSelected: (assets) {
+              onAssetsSelected: (assets) {
                 setState(() {
+                  final imagesAndVideos = assets
+                      .where((a) =>
+                          a.type == AssetType.image ||
+                          a.type == AssetType.video)
+                      .toList();
+                  final audios =
+                      assets.where((a) => a.type == AssetType.audio).toList();
+
                   final existingIds = _previewImages.map((e) => e.id).toSet();
-                  assets.removeWhere((asset) => existingIds.contains(asset.id));
-                  _previewImages.addAll(assets);
+                  imagesAndVideos
+                      .removeWhere((asset) => existingIds.contains(asset.id));
+                  _previewImages.addAll(imagesAndVideos);
+
+                  if (audios.isNotEmpty) {
+                    _previewAudio = audios.first;
+                  }
                 });
                 _closeSheet();
               },
@@ -1102,7 +1167,18 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                               child: _buildHeader(appThemeColors),
                             ),
                             SizedBox(height: 16.h),
-                            _buildImagePreview(),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 14.w),
+                              child: Column(
+                                children: [
+                                  _buildImagePreview(),
+                                  if (_previewImages.isNotEmpty &&
+                                      _previewAudio != null)
+                                    SizedBox(height: 2.h),
+                                  _buildAudioPreview(),
+                                ],
+                              ),
+                            ),
                             SizedBox(height: 16.h),
                             _buildMoodField(appThemeColors),
                             SizedBox(height: 16.h),

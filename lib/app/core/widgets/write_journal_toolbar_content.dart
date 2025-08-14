@@ -13,13 +13,13 @@ import '../theme.dart';
 class WriteJournalToolbarContent extends StatefulWidget {
   final IconData? selectedToolbarIcon;
   final ScrollController scrollController;
-  final Function(List<AssetEntity> assets)? onImagesSelected;
+  final Function(List<AssetEntity> assets)? onAssetsSelected;
 
   const WriteJournalToolbarContent({
     super.key,
     required this.selectedToolbarIcon,
     required this.scrollController,
-    this.onImagesSelected,
+    this.onAssetsSelected,
   });
 
   @override
@@ -39,6 +39,14 @@ class _WriteJournalToolbarContentState
   void initState() {
     super.initState();
     _requestPermission();
+  }
+
+  @override
+  void didUpdateWidget(covariant WriteJournalToolbarContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedToolbarIcon != oldWidget.selectedToolbarIcon) {
+      // Potentially reset state or fetch different content based on icon
+    }
   }
 
   Future<void> _requestPermission() async {
@@ -75,7 +83,6 @@ class _WriteJournalToolbarContentState
     final List<AssetEntity> assets = [];
     final Set<String> processedAssetIds = <String>{};
     for (final album in albums) {
-      // Consider loading in pages for very large galleries
       final assetList = await album.getAssetListRange(start: 0, end: 2000);
       for (final asset in assetList) {
         if (processedAssetIds.add(asset.id)) {
@@ -268,7 +275,7 @@ class _WriteJournalToolbarContentState
             right: 20.w,
             child: FloatingActionButton.extended(
               onPressed: () {
-                widget.onImagesSelected?.call(_selectedAssets);
+                widget.onAssetsSelected?.call(_selectedAssets);
                 setState(() {
                   _selectedAssets.clear();
                 });
@@ -320,7 +327,7 @@ class _WriteJournalToolbarContentState
       if (_groupedAssets.isEmpty) {
         return Center(
           child: Text(
-            'No ${_getTabName(_selectedSegment).toLowerCase()}s found.',
+            'No ${_getTabName(_selectedSegment).toLowerCase()} found.',
             style: TextStyle(
                 color: colors.grey10,
                 decoration: TextDecoration.none,
@@ -351,7 +358,6 @@ class _WriteJournalToolbarContentState
             ),
             SliverPadding(
               padding: EdgeInsets.fromLTRB(4.w, 0, 4.w, 80.h),
-              // Add bottom padding
               sliver: SliverGrid(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 3,
@@ -363,16 +369,31 @@ class _WriteJournalToolbarContentState
                     final asset = _groupedAssets[date]![index];
                     final isSelected = _selectedAssets.contains(asset);
 
+                    Widget child;
                     if (asset.type == AssetType.audio) {
-                      return _buildAudioItem(asset, colors);
+                      child = _buildAudioItem(asset, colors, isSelected);
+                    } else {
+                      child = _buildMediaThumbnail(asset, colors);
                     }
+
                     return GestureDetector(
                       onTap: () {
                         setState(() {
-                          if (isSelected) {
-                            _selectedAssets.remove(asset);
+                          if (_selectedSegment == 2) {
+                            // Audio tab: allow only one selection
+                            if (isSelected) {
+                              _selectedAssets.remove(asset);
+                            } else {
+                              _selectedAssets.clear();
+                              _selectedAssets.add(asset);
+                            }
                           } else {
-                            _selectedAssets.add(asset);
+                            // Photos/Videos tab: allow multiple selections
+                            if (isSelected) {
+                              _selectedAssets.remove(asset);
+                            } else {
+                              _selectedAssets.add(asset);
+                            }
                           }
                         });
                       },
@@ -381,8 +402,8 @@ class _WriteJournalToolbarContentState
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            _buildMediaThumbnail(asset, colors),
-                            if (isSelected)
+                            child,
+                            if (isSelected && asset.type != AssetType.audio)
                               Container(
                                 decoration: BoxDecoration(
                                   color: Colors.black.withOpacity(0.5),
@@ -489,11 +510,15 @@ class _WriteJournalToolbarContentState
     );
   }
 
-  Widget _buildAudioItem(AssetEntity asset, AppThemeColors colors) {
+  Widget _buildAudioItem(
+      AssetEntity asset, AppThemeColors colors, bool isSelected) {
     return Container(
       decoration: BoxDecoration(
         color: colors.grey4,
         borderRadius: BorderRadius.circular(8.r),
+        border: isSelected
+            ? Border.all(color: Theme.of(context).primaryColor, width: 3)
+            : null,
       ),
       child: Stack(
         fit: StackFit.expand,
@@ -533,6 +558,14 @@ class _WriteJournalToolbarContentState
               ],
             ),
           ),
+          if (isSelected)
+            Center(
+              child: Icon(
+                Icons.check_circle,
+                color: Colors.white.withOpacity(0.8),
+                size: 32.sp,
+              ),
+            ),
         ],
       ),
     );
@@ -571,11 +604,11 @@ class _WriteJournalToolbarContentState
   String _getTabName(int index) {
     switch (index) {
       case 0:
-        return 'Photo';
+        return 'Photos';
       case 1:
-        return 'Video';
+        return 'Videos';
       case 2:
-        return 'Audio';
+        return 'Audios';
       default:
         return '';
     }
