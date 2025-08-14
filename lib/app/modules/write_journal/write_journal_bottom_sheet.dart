@@ -186,9 +186,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   double _calculateInitialChildSize(
-    BuildContext context, {
-    bool afterKeyboardClose = false,
-  }) {
+      BuildContext context, {
+        bool afterKeyboardClose = false,
+      }) {
     final screenHeight = MediaQuery.of(context).size.height;
 
     if (afterKeyboardClose) {
@@ -216,9 +216,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   double _calculateMinChildSize(
-    BuildContext context, {
-    bool afterKeyboardClose = false,
-  }) {
+      BuildContext context, {
+        bool afterKeyboardClose = false,
+      }) {
     final screenHeight = MediaQuery.of(context).size.height;
 
     if (afterKeyboardClose) {
@@ -483,9 +483,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   bool _handleSheetNotification(
-    DraggableScrollableNotification notification,
-    double screenHeight,
-  ) {
+      DraggableScrollableNotification notification,
+      double screenHeight,
+      ) {
     if (!mounted || !_isDraggableSheetActive || _activeSheetMinSize == null) {
       return true;
     }
@@ -557,7 +557,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
           child: GestureDetector(
             onTap: () {
               final RenderBox renderBox =
-                  _dateMenuKey.currentContext!.findRenderObject() as RenderBox;
+              _dateMenuKey.currentContext!.findRenderObject() as RenderBox;
               final position = renderBox.localToGlobal(Offset.zero);
               showMenu(
                 context: context,
@@ -880,29 +880,27 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   Widget _buildTextField(AppThemeColors appThemeColors) {
-    return Expanded(
-      child: Material(
-        color: Colors.transparent,
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 14.w),
-          child: quill.QuillEditor.basic(
-            key: _textFieldKey,
-            controller: _quillController,
-            focusNode: _focusNode,
-            scrollController: _editorScrollController,
-            config: quill.QuillEditorConfig(
-              placeholder: ' Start writing...',
-              customStyles: quill.DefaultStyles(
-                placeHolder: quill.DefaultTextBlockStyle(
-                  TextStyle(
-                    fontSize: 16.sp,
-                    color: appThemeColors.grey2,
-                  ),
-                  quill.HorizontalSpacing.zero,
-                  quill.VerticalSpacing.zero,
-                  quill.VerticalSpacing.zero,
-                  null,
+    return Material(
+      color: Colors.transparent,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 14.w),
+        child: quill.QuillEditor.basic(
+          key: _textFieldKey,
+          controller: _quillController,
+          focusNode: _focusNode,
+          scrollController: _editorScrollController,
+          config: quill.QuillEditorConfig(
+            placeholder: ' Start writing...',
+            customStyles: quill.DefaultStyles(
+              placeHolder: quill.DefaultTextBlockStyle(
+                TextStyle(
+                  fontSize: 16.sp,
+                  color: appThemeColors.grey2,
                 ),
+                quill.HorizontalSpacing.zero,
+                quill.VerticalSpacing.zero,
+                quill.VerticalSpacing.zero,
+                null,
               ),
             ),
           ),
@@ -981,10 +979,10 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   Widget _buildDraggableSheet(
-    double screenHeight,
-    double sheetMinSize,
-    double sheetInitialSize,
-  ) {
+      double screenHeight,
+      double sheetMinSize,
+      double sheetInitialSize,
+      ) {
     return Positioned.fill(
       child: Align(
         alignment: Alignment.bottomCenter,
@@ -996,8 +994,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
             initialChildSize: _openingSheetViaToolbar
                 ? sheetInitialSize
                 : (_sheetController.isAttached
-                    ? _sheetController.size
-                    : sheetInitialSize),
+                ? _sheetController.size
+                : sheetInitialSize),
             minChildSize: sheetMinSize,
             maxChildSize: _maxChildSize,
             expand: false,
@@ -1010,9 +1008,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   Widget _buildSheetContainer(
-    BuildContext context,
-    ScrollController scrollController,
-  ) {
+      BuildContext context,
+      ScrollController scrollController,
+      ) {
     final sheetThemeColors = AppTheme.colorsOf(context);
     final sheetKeyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
@@ -1038,11 +1036,11 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                 setState(() {
                   final imagesAndVideos = assets
                       .where((a) =>
-                          a.type == AssetType.image ||
-                          a.type == AssetType.video)
+                  a.type == AssetType.image ||
+                      a.type == AssetType.video)
                       .toList();
                   final audios =
-                      assets.where((a) => a.type == AssetType.audio).toList();
+                  assets.where((a) => a.type == AssetType.audio).toList();
 
                   final existingIds = _previewImages.map((e) => e.id).toSet();
                   imagesAndVideos
@@ -1138,9 +1136,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
               _handleKeyboardInteraction(isKeyboardVisible);
 
               final sheetHeight =
-                  (_isDraggableSheetActive && _sheetController.isAttached)
-                      ? _sheetController.size * screenHeight
-                      : 0.0;
+              (_isDraggableSheetActive && _sheetController.isAttached)
+                  ? _sheetController.size * screenHeight
+                  : 0.0;
 
               final bottomOffset = math.max(keyboardHeight, sheetHeight);
 
@@ -1167,22 +1165,47 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                               child: _buildHeader(appThemeColors),
                             ),
                             SizedBox(height: 16.h),
-                            Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 14.w),
-                              child: Column(
-                                children: [
-                                  _buildImagePreview(),
-                                  if (_previewImages.isNotEmpty &&
-                                      _previewAudio != null)
-                                    SizedBox(height: 2.h),
-                                  _buildAudioPreview(),
-                                ],
+                            Expanded(
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  return SingleChildScrollView(
+                                    child: ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                          minHeight: constraints.maxHeight),
+                                      child: IntrinsicHeight(
+                                        child: Column(
+                                          children: <Widget>[
+                                            Padding(
+                                              padding: EdgeInsets.symmetric(
+                                                  horizontal: 14.w),
+                                              child: Column(
+                                                mainAxisSize:
+                                                MainAxisSize.min,
+                                                children: [
+                                                  _buildImagePreview(),
+                                                  if (_previewImages
+                                                      .isNotEmpty &&
+                                                      _previewAudio != null)
+                                                    SizedBox(height: 2.h),
+                                                  _buildAudioPreview(),
+                                                ],
+                                              ),
+                                            ),
+                                            SizedBox(height: 16.h),
+                                            _buildMoodField(appThemeColors),
+                                            SizedBox(height: 16.h),
+                                            Expanded(
+                                              child: _buildTextField(
+                                                  appThemeColors),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
                             ),
-                            SizedBox(height: 16.h),
-                            _buildMoodField(appThemeColors),
-                            SizedBox(height: 16.h),
-                            _buildTextField(appThemeColors),
                             SizedBox(height: 16.h),
                             _buildToolbar(),
                           ],
