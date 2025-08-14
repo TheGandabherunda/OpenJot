@@ -1023,7 +1023,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                   icon: Icon(Icons.close,
                       color: appThemeColors.grey1, size: 20.sp),
                   onPressed: () {
-
                     if (_currentlyPlayingPath == recording.path) {
                       _audioPlayer.stop();
                       _currentlyPlayingPath = null;
@@ -1032,7 +1031,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                       _previewRecordings.remove(recording);
                       // also delete the file
                       final file = File(recording.path);
-                      if(file.existsSync()){
+                      if (file.existsSync()) {
                         file.delete();
                       }
                     });

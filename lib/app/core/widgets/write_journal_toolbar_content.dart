@@ -908,7 +908,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
   Widget _buildPreviewControls(AppThemeColors colors) {
     return Column(
       children: [
-        Row(
+        Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             IconButton(
@@ -917,7 +917,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
                     ? Icons.pause_circle_filled
                     : Icons.play_circle_fill,
                 color: colors.grey10,
-                size: 48.sp,
+                size: 72.sp,
               ),
               onPressed: _togglePreview,
             ),
@@ -928,6 +928,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
               style: TextStyle(
                   color: colors.grey1,
                   fontFamily: AppConstants.font,
+                  fontWeight: FontWeight.w400,
                   decoration: TextDecoration.none,
                   fontSize: 16.sp),
             ),
@@ -935,20 +936,25 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
         ),
         SizedBox(height: 24.h),
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            TextButton.icon(
+            CustomButton(
               onPressed: _discardRecording,
-              icon: Icon(Icons.delete_outline, color: colors.error),
-              label: Text(
-                'Delete',
-                style: TextStyle(color: colors.error),
-              ),
+              borderRadius: 56,
+              text: '',
+              icon: Icons.delete_outline,
+              iconSize: 24,
+              color: Colors.transparent,
+              textColor: colors.error,
+              textPadding:
+                  EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
             ),
             CustomButton(
               onPressed: _addRecording,
+              borderRadius: 56,
               text: 'Add',
               icon: Icons.add,
+              iconSize: 24,
               color: Theme.of(context).primaryColor,
               textColor: colors.grey8,
               textPadding:
