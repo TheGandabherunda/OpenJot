@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
@@ -766,16 +767,27 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     } else {
       Widget? thirdImageOverlay;
       if (_previewImages.length > 3) {
-        thirdImageOverlay = Container(
-          color: overlayColor,
-          child: Center(
-            child: Text(
-              '+${_previewImages.length - 3}',
-              style: TextStyle(
-                  color: onOverlayColor,
-                  fontSize: 32.sp,
-                  fontWeight: FontWeight.bold,
-                  decoration: TextDecoration.none),
+        thirdImageOverlay = ClipRRect(
+          // Use ClipRRect to constrain the blur effect to the rounded corners.
+          borderRadius: BorderRadius.circular(10.5.r),
+          // Match the parent's border radius.
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 3.0, sigmaY: 3.0),
+            // This applies the blur. You can adjust the sigma values.
+            child: Container(
+              color: overlayColor,
+              // This color sits on top of the blurred image.
+              child: Center(
+                child: Text(
+                  '+${_previewImages.length - 3}',
+                  style: TextStyle(
+                      color: onOverlayColor,
+                      fontSize: 32.sp,
+                      fontFamily: AppConstants.font,
+                      fontWeight: FontWeight.w500,
+                      decoration: TextDecoration.none),
+                ),
+              ),
             ),
           ),
         );

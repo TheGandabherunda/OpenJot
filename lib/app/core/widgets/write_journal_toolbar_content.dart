@@ -423,15 +423,13 @@ class _WriteJournalToolbarContentState
                             fit: StackFit.expand,
                             children: [
                               child,
-                              // MODIFICATION: Unified selection overlay for all asset types.
-                              // The condition `&& asset.type != AssetType.audio` has been removed.
                               if (isSelected)
                                 Container(
                                   decoration: BoxDecoration(
                                     color: overlayColor,
                                     border: Border.all(
                                       color: Theme.of(context).primaryColor,
-                                      width: 3,
+                                      width: 1.5,
                                     ),
                                     borderRadius: BorderRadius.circular(8.r),
                                   ),
@@ -465,7 +463,6 @@ class _WriteJournalToolbarContentState
       decoration: BoxDecoration(
         color: colors.grey4,
         borderRadius: BorderRadius.circular(8.r),
-        // MODIFICATION: Removed border logic based on selection state.
       ),
       child: Stack(
         fit: StackFit.expand,
