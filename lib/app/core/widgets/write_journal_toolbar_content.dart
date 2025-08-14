@@ -9,6 +9,7 @@ import 'package:photo_manager/photo_manager.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../theme.dart';
+import 'custom_button.dart';
 
 class WriteJournalToolbarContent extends StatefulWidget {
   final IconData? selectedToolbarIcon;
@@ -175,6 +176,7 @@ class _WriteJournalToolbarContentState
   @override
   Widget build(BuildContext context) {
     final colors = AppTheme.colorsOf(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (widget.selectedToolbarIcon != Icons.image_rounded) {
       final Map<IconData, String> contentMap = {
@@ -271,18 +273,25 @@ class _WriteJournalToolbarContentState
         if (_selectedAssets.isNotEmpty)
           Positioned(
             bottom: 20.h,
-            left: 20.w,
-            right: 20.w,
-            child: FloatingActionButton.extended(
-              onPressed: () {
-                widget.onAssetsSelected?.call(_selectedAssets);
-                setState(() {
-                  _selectedAssets.clear();
-                });
-              },
-              label: Text('Add ${_selectedAssets.length}'),
-              icon: const Icon(Icons.add),
-              backgroundColor: Theme.of(context).primaryColor,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: CustomButton(
+                onPressed: () {
+                  widget.onAssetsSelected?.call(_selectedAssets);
+                  setState(() {
+                    _selectedAssets.clear();
+                  });
+                },
+                borderRadius: 56,
+                text: 'Add ${_selectedAssets.length}',
+                icon: Icons.add,
+                iconSize: 24,
+                color: Theme.of(context).primaryColor,
+                textColor: colors.grey8,
+                textPadding:
+                    EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+              ),
             ),
           ),
       ],
@@ -338,13 +347,13 @@ class _WriteJournalToolbarContentState
       final sortedDates = _groupedAssets.keys.toList()
         ..sort((a, b) => b.compareTo(a));
 
-      // MODIFICATION: Wrapped the CustomScrollView in a NotificationListener
-      // to correctly handle nested scrolling. This stops the parent sheet
-      // from moving when the inner grid is scrolled.
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      final overlayColor =
+          (isDark ? colors.grey7 : colors.grey10).withOpacity(0.5);
+      final onOverlayColor = isDark ? colors.grey10 : colors.grey7;
+
       return NotificationListener<ScrollNotification>(
         onNotification: (notification) {
-          // By returning true, we are consuming the scroll notification
-          // and preventing it from bubbling up to the DraggableScrollableSheet.
           return true;
         },
         child: CustomScrollView(
@@ -380,7 +389,8 @@ class _WriteJournalToolbarContentState
 
                       Widget child;
                       if (asset.type == AssetType.audio) {
-                        child = _buildAudioItem(asset, colors, isSelected);
+                        // MODIFICATION: No longer pass `isSelected`
+                        child = _buildAudioItem(asset, colors);
                       } else {
                         child =
                             AssetThumbnailItem(asset: asset, colors: colors);
@@ -413,10 +423,12 @@ class _WriteJournalToolbarContentState
                             fit: StackFit.expand,
                             children: [
                               child,
-                              if (isSelected && asset.type != AssetType.audio)
+                              // MODIFICATION: Unified selection overlay for all asset types.
+                              // The condition `&& asset.type != AssetType.audio` has been removed.
+                              if (isSelected)
                                 Container(
                                   decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.5),
+                                    color: overlayColor,
                                     border: Border.all(
                                       color: Theme.of(context).primaryColor,
                                       width: 3,
@@ -425,7 +437,7 @@ class _WriteJournalToolbarContentState
                                   ),
                                   child: Icon(
                                     Icons.check_circle,
-                                    color: Colors.white,
+                                    color: onOverlayColor,
                                     size: 24.sp,
                                   ),
                                 ),
@@ -447,15 +459,13 @@ class _WriteJournalToolbarContentState
     }
   }
 
-  Widget _buildAudioItem(
-      AssetEntity asset, AppThemeColors colors, bool isSelected) {
+  // MODIFICATION: `_buildAudioItem` no longer needs `isSelected` or to draw its own selection UI.
+  Widget _buildAudioItem(AssetEntity asset, AppThemeColors colors) {
     return Container(
       decoration: BoxDecoration(
         color: colors.grey4,
         borderRadius: BorderRadius.circular(8.r),
-        border: isSelected
-            ? Border.all(color: Theme.of(context).primaryColor, width: 3)
-            : null,
+        // MODIFICATION: Removed border logic based on selection state.
       ),
       child: Stack(
         fit: StackFit.expand,
@@ -495,14 +505,7 @@ class _WriteJournalToolbarContentState
               ],
             ),
           ),
-          if (isSelected)
-            Center(
-              child: Icon(
-                Icons.check_circle,
-                color: Colors.white.withOpacity(0.8),
-                size: 32.sp,
-              ),
-            ),
+          // MODIFICATION: Removed the standalone check circle icon from here.
         ],
       ),
     );
@@ -552,7 +555,6 @@ class _WriteJournalToolbarContentState
   }
 }
 
-// NEW WIDGET to handle thumbnail loading efficiently and prevent blinking.
 class AssetThumbnailItem extends StatefulWidget {
   final AssetEntity asset;
   final AppThemeColors colors;
@@ -589,19 +591,17 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
   @override
   Widget build(BuildContext context) {
     if (_thumbnailData == null) {
-      // Show a placeholder while loading.
       return Container(color: widget.colors.grey3);
     }
 
-    // Once data is loaded, display the image.
     final thumbnail = Image.memory(
       _thumbnailData!,
       fit: BoxFit.cover,
-      gaplessPlayback: true, // Ensures a smooth display without flickering.
+      gaplessPlayback: true,
     );
 
     if (widget.asset.type == AssetType.video) {
-      return _buildVideoOverlay(widget.asset, thumbnail);
+      return _buildVideoOverlay(context, widget.asset, thumbnail);
     }
 
     return thumbnail;
@@ -614,8 +614,13 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
     return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
-  Widget _buildVideoOverlay(AssetEntity asset, Widget thumbnail) {
+  Widget _buildVideoOverlay(
+      BuildContext context, AssetEntity asset, Widget thumbnail) {
     final isGif = asset.title?.toLowerCase().endsWith('.gif') ?? false;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final overlayColor =
+        (isDark ? widget.colors.grey7 : widget.colors.grey10).withOpacity(0.7);
+    final onOverlayColor = isDark ? widget.colors.grey10 : widget.colors.grey7;
 
     return Stack(
       fit: StackFit.expand,
@@ -628,13 +633,13 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
+                color: overlayColor,
                 borderRadius: BorderRadius.circular(4.r),
               ),
               child: Text(
                 'GIF',
                 style: TextStyle(
-                    color: Colors.white,
+                    color: onOverlayColor,
                     fontSize: 12.sp,
                     fontWeight: FontWeight.bold),
               ),
@@ -647,12 +652,13 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
             right: 4.w,
             child: Row(
               children: [
-                Icon(Icons.videocam_rounded, color: Colors.white, size: 16.sp),
+                Icon(Icons.videocam_rounded,
+                    color: onOverlayColor, size: 16.sp),
                 SizedBox(width: 4.w),
                 Text(
                   _formatDuration(asset.duration),
                   style: TextStyle(
-                      color: Colors.white,
+                      color: onOverlayColor,
                       fontSize: 12.sp,
                       fontWeight: FontWeight.bold,
                       decoration: TextDecoration.none,
