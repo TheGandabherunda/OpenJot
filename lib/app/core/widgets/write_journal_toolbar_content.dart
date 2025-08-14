@@ -1,11 +1,16 @@
+import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:open_jot/app/core/constants.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:record/record.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../theme.dart';
@@ -15,12 +20,14 @@ class WriteJournalToolbarContent extends StatefulWidget {
   final IconData? selectedToolbarIcon;
   final ScrollController scrollController;
   final Function(List<AssetEntity> assets)? onAssetsSelected;
+  final Function(String path, Duration duration)? onRecordingComplete;
 
   const WriteJournalToolbarContent({
     super.key,
     required this.selectedToolbarIcon,
     required this.scrollController,
     this.onAssetsSelected,
+    this.onRecordingComplete,
   });
 
   @override
@@ -176,13 +183,20 @@ class _WriteJournalToolbarContentState
   @override
   Widget build(BuildContext context) {
     final colors = AppTheme.colorsOf(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    if (widget.selectedToolbarIcon == Icons.mic_rounded) {
+      return AudioRecorderView(
+        scrollController: widget.scrollController,
+        onRecordingComplete: (path, duration) {
+          widget.onRecordingComplete?.call(path, duration);
+        },
+      );
+    }
 
     if (widget.selectedToolbarIcon != Icons.image_rounded) {
       final Map<IconData, String> contentMap = {
         Icons.location_on_rounded: 'Content for Location',
         Icons.camera_alt_rounded: 'Content for Camera',
-        Icons.mic_rounded: 'Content for Mic',
         Icons.format_quote_rounded: 'Content for Quote',
         Icons.sentiment_satisfied_rounded: 'Content for Emoji',
       };
@@ -290,7 +304,7 @@ class _WriteJournalToolbarContentState
                 color: Theme.of(context).primaryColor,
                 textColor: colors.grey8,
                 textPadding:
-                EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                    EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
               ),
             ),
           ),
@@ -349,7 +363,7 @@ class _WriteJournalToolbarContentState
 
       final isDark = Theme.of(context).brightness == Brightness.dark;
       final overlayColor =
-      (isDark ? colors.grey7 : colors.grey10).withOpacity(0.5);
+          (isDark ? colors.grey7 : colors.grey10).withOpacity(0.5);
       final onOverlayColor = isDark ? colors.grey10 : colors.grey7;
 
       return NotificationListener<ScrollNotification>(
@@ -383,7 +397,7 @@ class _WriteJournalToolbarContentState
                     mainAxisSpacing: 4.0,
                   ),
                   delegate: SliverChildBuilderDelegate(
-                        (context, index) {
+                    (context, index) {
                       final asset = _groupedAssets[date]![index];
                       final isSelected = _selectedAssets.contains(asset);
 
@@ -603,7 +617,7 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
     final isGif = asset.title?.toLowerCase().endsWith('.gif') ?? false;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final overlayColor =
-    (isDark ? widget.colors.grey7 : widget.colors.grey10).withOpacity(0.7);
+        (isDark ? widget.colors.grey7 : widget.colors.grey10).withOpacity(0.7);
     final onOverlayColor = isDark ? widget.colors.grey10 : widget.colors.grey7;
 
     return Stack(
@@ -651,6 +665,297 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
               ],
             ),
           ),
+      ],
+    );
+  }
+}
+
+// New Audio Recorder Widget
+class AudioRecorderView extends StatefulWidget {
+  final ScrollController scrollController;
+  final Function(String path, Duration duration) onRecordingComplete;
+
+  const AudioRecorderView({
+    super.key,
+    required this.scrollController,
+    required this.onRecordingComplete,
+  });
+
+  @override
+  State<AudioRecorderView> createState() => _AudioRecorderViewState();
+}
+
+class _AudioRecorderViewState extends State<AudioRecorderView> {
+  final AudioRecorder _audioRecorder = AudioRecorder();
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  bool _isRecording = false;
+  bool _isPaused = false;
+  bool _isStopped = false;
+  bool _isPlayingPreview = false;
+  String? _recordingPath;
+  Duration _recordingDuration = Duration.zero;
+  Timer? _timer;
+  StreamSubscription? _playerStateSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _playerStateSubscription =
+        _audioPlayer.onPlayerStateChanged.listen((state) {
+      if (mounted && state == PlayerState.completed) {
+        setState(() {
+          _isPlayingPreview = false;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _audioRecorder.dispose();
+    _audioPlayer.dispose();
+    _playerStateSubscription?.cancel();
+    super.dispose();
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$minutes:$seconds';
+  }
+
+  Future<void> _toggleRecording() async {
+    if (_isRecording && !_isPaused) {
+      await _pauseRecording();
+    } else if (_isRecording && _isPaused) {
+      await _resumeRecording();
+    } else {
+      await _startRecording();
+    }
+  }
+
+  Future<void> _startRecording() async {
+    final hasPermission = await _audioRecorder.hasPermission();
+    if (!hasPermission) {
+      // Handle permission denial
+      return;
+    }
+    final dir = await getApplicationDocumentsDirectory();
+    final path =
+        '${dir.path}/OpenJot_recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
+
+    await _audioRecorder.start(const RecordConfig(), path: path);
+    setState(() {
+      _isRecording = true;
+      _isPaused = false;
+      _isStopped = false;
+      _recordingDuration = Duration.zero;
+    });
+    _startTimer();
+  }
+
+  Future<void> _pauseRecording() async {
+    _timer?.cancel();
+    await _audioRecorder.pause();
+    setState(() {
+      _isPaused = true;
+    });
+  }
+
+  Future<void> _resumeRecording() async {
+    await _audioRecorder.resume();
+    setState(() {
+      _isPaused = false;
+    });
+    _startTimer();
+  }
+
+  Future<void> _stopRecording() async {
+    _timer?.cancel();
+    final path = await _audioRecorder.stop();
+    setState(() {
+      _isRecording = false;
+      _isPaused = false;
+      _isStopped = true;
+      _recordingPath = path;
+    });
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (Timer t) {
+      setState(() {
+        _recordingDuration += const Duration(seconds: 1);
+      });
+    });
+  }
+
+  void _togglePreview() {
+    if (_isPlayingPreview) {
+      _audioPlayer.pause();
+      setState(() {
+        _isPlayingPreview = false;
+      });
+    } else if (_recordingPath != null) {
+      _audioPlayer.play(DeviceFileSource(_recordingPath!));
+      setState(() {
+        _isPlayingPreview = true;
+      });
+    }
+  }
+
+  void _addRecording() {
+    if (_recordingPath != null) {
+      widget.onRecordingComplete(_recordingPath!, _recordingDuration);
+      _resetStateForNewRecording();
+    }
+  }
+
+  void _discardRecording() {
+    _timer?.cancel();
+    if (_isRecording) {
+      _audioRecorder.stop();
+    }
+    if (_isPlayingPreview) {
+      _audioPlayer.stop();
+    }
+    // Delete the file if it exists
+    if (_recordingPath != null) {
+      final file = File(_recordingPath!);
+      if (file.existsSync()) {
+        file.delete();
+      }
+    }
+    _resetStateForNewRecording();
+  }
+
+  void _resetStateForNewRecording() {
+    setState(() {
+      _isRecording = false;
+      _isPaused = false;
+      _isStopped = false;
+      _isPlayingPreview = false;
+      _recordingPath = null;
+      _recordingDuration = Duration.zero;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
+    return ListView(
+      controller: widget.scrollController,
+      children: [
+        SizedBox(height: 32.h),
+        Text(
+          _formatDuration(_recordingDuration),
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontFamily: AppConstants.font,
+            fontSize: 48.sp,
+            color: colors.grey10,
+            fontWeight: FontWeight.w600,
+            decoration: TextDecoration.none,
+          ),
+        ),
+        SizedBox(height: 32.h),
+        if (!_isStopped) _buildRecordingControls(colors),
+        if (_isStopped) _buildPreviewControls(colors),
+      ],
+    );
+  }
+
+  Widget _buildRecordingControls(AppThemeColors colors) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Spacer(flex: 2),
+        Container(
+          width: 72.w,
+          height: 72.w,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: colors.error,
+          ),
+          child: IconButton(
+            icon: Icon(
+              _isRecording && !_isPaused ? Icons.pause : Icons.mic,
+              color: Colors.white,
+              size: 36.sp,
+            ),
+            onPressed: _toggleRecording,
+          ),
+        ),
+        Expanded(
+          flex: 2,
+          child: _isRecording
+              ? Align(
+                  alignment: Alignment.center,
+                  child: IconButton(
+                    icon: Icon(Icons.stop_circle_outlined,
+                        color: colors.grey10, size: 40.sp),
+                    onPressed: _stopRecording,
+                  ),
+                )
+              : const SizedBox(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPreviewControls(AppThemeColors colors) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              icon: Icon(
+                _isPlayingPreview
+                    ? Icons.pause_circle_filled
+                    : Icons.play_circle_fill,
+                color: colors.grey10,
+                size: 48.sp,
+              ),
+              onPressed: _togglePreview,
+            ),
+            SizedBox(width: 16.w),
+            // Could add a waveform visualizer here in the future
+            Text(
+              "Playback",
+              style: TextStyle(
+                  color: colors.grey1,
+                  fontFamily: AppConstants.font,
+                  decoration: TextDecoration.none,
+                  fontSize: 16.sp),
+            ),
+          ],
+        ),
+        SizedBox(height: 24.h),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            TextButton.icon(
+              onPressed: _discardRecording,
+              icon: Icon(Icons.delete_outline, color: colors.error),
+              label: Text(
+                'Delete',
+                style: TextStyle(color: colors.error),
+              ),
+            ),
+            CustomButton(
+              onPressed: _addRecording,
+              text: 'Add',
+              icon: Icons.add,
+              color: Theme.of(context).primaryColor,
+              textColor: colors.grey8,
+              textPadding:
+                  EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+            ),
+          ],
+        )
       ],
     );
   }

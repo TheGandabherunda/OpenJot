@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -16,6 +18,15 @@ import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/text_styling_toolbar.dart';
 import '../../core/widgets/write_journal_toolbar.dart';
 import '../../core/widgets/write_journal_toolbar_content.dart';
+
+class RecordedAudio {
+  final String path;
+  final String name;
+  final Duration duration;
+
+  RecordedAudio(
+      {required this.path, required this.name, required this.duration});
+}
 
 class WriteJournalBottomSheet extends StatefulWidget {
   const WriteJournalBottomSheet({super.key});
@@ -43,6 +54,12 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   bool _wasKeyboardVisible = false;
   List<AssetEntity> _previewImages = [];
   List<AssetEntity> _previewAudios = [];
+  List<RecordedAudio> _previewRecordings = [];
+
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  String? _currentlyPlayingPath;
+  PlayerState? _playerState;
+  StreamSubscription? _playerStateSubscription;
 
   static const double _maxChildSize = 0.7;
   static const double _minFractionWithoutKeyboard = 0.2;
@@ -72,6 +89,18 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
 
     _quillController.document.changes.listen(_handleTextChange);
 
+    _playerStateSubscription =
+        _audioPlayer.onPlayerStateChanged.listen((state) {
+      if (mounted) {
+        setState(() {
+          _playerState = state;
+          if (state == PlayerState.completed) {
+            _currentlyPlayingPath = null;
+          }
+        });
+      }
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _focusNode.requestFocus();
@@ -86,6 +115,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     _focusNode.dispose();
     _sheetController.dispose();
     _editorScrollController.dispose();
+    _playerStateSubscription?.cancel();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -272,7 +303,15 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     }
   }
 
-  void _handleToolbarItemTap(IconData iconData) {
+  void _handleToolbarItemTap(IconData iconData) async {
+    if (iconData == Icons.mic_rounded) {
+      var status = await Permission.microphone.request();
+      if (!status.isGranted) {
+        // Optionally show a message to the user
+        return;
+      }
+    }
+
     if (iconData == Icons.image_rounded ||
         iconData == Icons.camera_alt_rounded ||
         iconData == Icons.location_on_rounded ||
@@ -895,6 +934,118 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     );
   }
 
+  String _formatPreviewDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$minutes:$seconds';
+  }
+
+  Widget _buildRecordingsPreview() {
+    if (_previewRecordings.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final appThemeColors = AppTheme.colorsOf(context);
+
+    return Column(
+      children: _previewRecordings.map((recording) {
+        final isPlaying = _currentlyPlayingPath == recording.path &&
+            _playerState == PlayerState.playing;
+        final isPaused = _currentlyPlayingPath == recording.path &&
+            _playerState == PlayerState.paused;
+
+        return Padding(
+          padding: EdgeInsets.only(bottom: 4.h),
+          child: Container(
+            height: 50.h,
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(horizontal: 12.w),
+            decoration: BoxDecoration(
+              color: appThemeColors.grey4,
+              borderRadius: BorderRadius.circular(12.r),
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: Icon(
+                    isPlaying
+                        ? Icons.pause_circle_filled_rounded
+                        : Icons.play_circle_fill_rounded,
+                    color: appThemeColors.grey1,
+                    size: 28.sp,
+                  ),
+                  onPressed: () {
+                    if (isPlaying) {
+                      _audioPlayer.pause();
+                    } else if (isPaused) {
+                      _audioPlayer.resume();
+                    } else {
+                      _audioPlayer.play(DeviceFileSource(recording.path));
+                      setState(() {
+                        _currentlyPlayingPath = recording.path;
+                      });
+                    }
+                  },
+                ),
+                SizedBox(width: 4.w),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        recording.name,
+                        style: TextStyle(
+                          color: appThemeColors.grey10,
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.none,
+                          overflow: TextOverflow.ellipsis,
+                          fontFamily: AppConstants.font,
+                        ),
+                        maxLines: 1,
+                      ),
+                      Text(
+                        _formatPreviewDuration(recording.duration),
+                        style: TextStyle(
+                          color: appThemeColors.grey1,
+                          fontSize: 12.sp,
+                          decoration: TextDecoration.none,
+                          fontFamily: AppConstants.font,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 8.w),
+                IconButton(
+                  icon: Icon(Icons.close,
+                      color: appThemeColors.grey1, size: 20.sp),
+                  onPressed: () {
+
+                    if (_currentlyPlayingPath == recording.path) {
+                      _audioPlayer.stop();
+                      _currentlyPlayingPath = null;
+                    }
+                    setState(() {
+                      _previewRecordings.remove(recording);
+                      // also delete the file
+                      final file = File(recording.path);
+                      if(file.existsSync()){
+                        file.delete();
+                      }
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildTextField(AppThemeColors appThemeColors) {
     return Material(
       color: Colors.transparent,
@@ -1048,6 +1199,15 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
             child: WriteJournalToolbarContent(
               selectedToolbarIcon: _selectedToolbarIcon,
               scrollController: scrollController,
+              onRecordingComplete: (path, duration) {
+                setState(() {
+                  final recordingName =
+                      'OpenJot recording (${_previewRecordings.length + 1})';
+                  _previewRecordings.add(RecordedAudio(
+                      path: path, name: recordingName, duration: duration));
+                });
+                _closeSheet();
+              },
               onAssetsSelected: (assets) {
                 setState(() {
                   final imagesAndVideos = assets
@@ -1206,6 +1366,14 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                                                       _previewAudios.isNotEmpty)
                                                     SizedBox(height: 2.h),
                                                   _buildAudioPreview(),
+                                                  if ((_previewImages
+                                                              .isNotEmpty ||
+                                                          _previewAudios
+                                                              .isNotEmpty) &&
+                                                      _previewRecordings
+                                                          .isNotEmpty)
+                                                    SizedBox(height: 2.h),
+                                                  _buildRecordingsPreview(),
                                                 ],
                                               ),
                                             ),
