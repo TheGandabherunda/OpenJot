@@ -42,7 +42,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   bool _isFormatting = false;
   bool _wasKeyboardVisible = false;
   List<AssetEntity> _previewImages = [];
-  AssetEntity? _previewAudio;
+  List<AssetEntity> _previewAudios = [];
 
   static const double _maxChildSize = 0.7;
   static const double _minFractionWithoutKeyboard = 0.2;
@@ -828,7 +828,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   Widget _buildAudioPreview() {
-    if (_previewAudio == null) {
+    if (_previewAudios.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -839,49 +839,59 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     final onOverlayColor =
         isDark ? appThemeColors.grey10 : appThemeColors.grey7;
 
-    return Container(
-      height: 40.h,
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 12.w),
-      decoration: BoxDecoration(
-        color: appThemeColors.grey4,
-        borderRadius: BorderRadius.circular(12.r),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.music_note_rounded,
-              color: appThemeColors.grey1, size: 24.sp),
-          SizedBox(width: 8.w),
-          Expanded(
-            child: Text(
-              _previewAudio!.title ?? 'Audio track',
-              style: TextStyle(
-                color: appThemeColors.grey10,
-                fontSize: 14.sp,
-                overflow: TextOverflow.ellipsis,
-                fontFamily: AppConstants.font,
-              ),
-              maxLines: 1,
+    return Column(
+      children: _previewAudios.map((audio) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: 4.h),
+          child: Container(
+            height: 40.h,
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(horizontal: 12.w),
+            decoration: BoxDecoration(
+              color: appThemeColors.grey4,
+              borderRadius: BorderRadius.circular(12.r),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.music_note_rounded,
+                    color: appThemeColors.grey1, size: 24.sp),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: Text(
+                    audio.title ?? 'Audio track',
+                    style: TextStyle(
+                      color: appThemeColors.grey10,
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.none,
+                      overflow: TextOverflow.ellipsis,
+                      fontFamily: AppConstants.font,
+                    ),
+                    maxLines: 1,
+                  ),
+                ),
+                SizedBox(width: 8.w),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _previewAudios.remove(audio);
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: overlayColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child:
+                        Icon(Icons.close, color: onOverlayColor, size: 16.sp),
+                  ),
+                ),
+              ],
             ),
           ),
-          SizedBox(width: 8.w),
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                _previewAudio = null;
-              });
-            },
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: overlayColor,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.close, color: onOverlayColor, size: 16.sp),
-            ),
-          ),
-        ],
-      ),
+        );
+      }).toList(),
     );
   }
 
@@ -1048,14 +1058,17 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                   final audios =
                       assets.where((a) => a.type == AssetType.audio).toList();
 
-                  final existingIds = _previewImages.map((e) => e.id).toSet();
-                  imagesAndVideos
-                      .removeWhere((asset) => existingIds.contains(asset.id));
+                  final existingImageIds =
+                      _previewImages.map((e) => e.id).toSet();
+                  imagesAndVideos.removeWhere(
+                      (asset) => existingImageIds.contains(asset.id));
                   _previewImages.addAll(imagesAndVideos);
 
-                  if (audios.isNotEmpty) {
-                    _previewAudio = audios.first;
-                  }
+                  final existingAudioIds =
+                      _previewAudios.map((e) => e.id).toSet();
+                  audios.removeWhere(
+                      (asset) => existingAudioIds.contains(asset.id));
+                  _previewAudios.addAll(audios);
                 });
                 _closeSheet();
               },
@@ -1190,7 +1203,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                                                   _buildImagePreview(),
                                                   if (_previewImages
                                                           .isNotEmpty &&
-                                                      _previewAudio != null)
+                                                      _previewAudios.isNotEmpty)
                                                     SizedBox(height: 2.h),
                                                   _buildAudioPreview(),
                                                 ],

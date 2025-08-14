@@ -290,7 +290,7 @@ class _WriteJournalToolbarContentState
                 color: Theme.of(context).primaryColor,
                 textColor: colors.grey8,
                 textPadding:
-                    EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
               ),
             ),
           ),
@@ -349,7 +349,7 @@ class _WriteJournalToolbarContentState
 
       final isDark = Theme.of(context).brightness == Brightness.dark;
       final overlayColor =
-          (isDark ? colors.grey7 : colors.grey10).withOpacity(0.5);
+      (isDark ? colors.grey7 : colors.grey10).withOpacity(0.5);
       final onOverlayColor = isDark ? colors.grey10 : colors.grey7;
 
       return NotificationListener<ScrollNotification>(
@@ -383,13 +383,12 @@ class _WriteJournalToolbarContentState
                     mainAxisSpacing: 4.0,
                   ),
                   delegate: SliverChildBuilderDelegate(
-                    (context, index) {
+                        (context, index) {
                       final asset = _groupedAssets[date]![index];
                       final isSelected = _selectedAssets.contains(asset);
 
                       Widget child;
                       if (asset.type == AssetType.audio) {
-                        // MODIFICATION: No longer pass `isSelected`
                         child = _buildAudioItem(asset, colors);
                       } else {
                         child =
@@ -399,21 +398,11 @@ class _WriteJournalToolbarContentState
                       return GestureDetector(
                         onTap: () {
                           setState(() {
-                            if (_selectedSegment == 2) {
-                              // Audio tab: allow only one selection
-                              if (isSelected) {
-                                _selectedAssets.remove(asset);
-                              } else {
-                                _selectedAssets.clear();
-                                _selectedAssets.add(asset);
-                              }
+                            // MODIFICATION: Allow multiple selections for all types
+                            if (isSelected) {
+                              _selectedAssets.remove(asset);
                             } else {
-                              // Photos/Videos tab: allow multiple selections
-                              if (isSelected) {
-                                _selectedAssets.remove(asset);
-                              } else {
-                                _selectedAssets.add(asset);
-                              }
+                              _selectedAssets.add(asset);
                             }
                           });
                         },
@@ -457,7 +446,6 @@ class _WriteJournalToolbarContentState
     }
   }
 
-  // MODIFICATION: `_buildAudioItem` no longer needs `isSelected` or to draw its own selection UI.
   Widget _buildAudioItem(AssetEntity asset, AppThemeColors colors) {
     return Container(
       decoration: BoxDecoration(
@@ -502,7 +490,6 @@ class _WriteJournalToolbarContentState
               ],
             ),
           ),
-          // MODIFICATION: Removed the standalone check circle icon from here.
         ],
       ),
     );
@@ -616,7 +603,7 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
     final isGif = asset.title?.toLowerCase().endsWith('.gif') ?? false;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final overlayColor =
-        (isDark ? widget.colors.grey7 : widget.colors.grey10).withOpacity(0.7);
+    (isDark ? widget.colors.grey7 : widget.colors.grey10).withOpacity(0.7);
     final onOverlayColor = isDark ? widget.colors.grey10 : widget.colors.grey7;
 
     return Stack(
