@@ -685,7 +685,8 @@ class AudioRecorderView extends StatefulWidget {
   State<AudioRecorderView> createState() => _AudioRecorderViewState();
 }
 
-class _AudioRecorderViewState extends State<AudioRecorderView> {
+class _AudioRecorderViewState extends State<AudioRecorderView>
+    with TickerProviderStateMixin {
   final AudioRecorder _audioRecorder = AudioRecorder();
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isRecording = false;
@@ -696,6 +697,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
   Duration _recordingDuration = Duration.zero;
   Timer? _timer;
   StreamSubscription? _playerStateSubscription;
+  late final AnimationController _animationController;
 
   @override
   void initState() {
@@ -708,6 +710,11 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
         });
       }
     });
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
   }
 
   @override
@@ -716,6 +723,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
     _audioRecorder.dispose();
     _audioPlayer.dispose();
     _playerStateSubscription?.cancel();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -736,6 +744,20 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
     }
   }
 
+  Future<void> _handleRecordPressStart() async {
+    if (_isRecording && _isPaused) {
+      await _resumeRecording();
+    } else if (!_isRecording) {
+      await _startRecording();
+    }
+  }
+
+  Future<void> _handleRecordPressEnd() async {
+    if (_isRecording && !_isPaused) {
+      await _pauseRecording();
+    }
+  }
+
   Future<void> _startRecording() async {
     final hasPermission = await _audioRecorder.hasPermission();
     if (!hasPermission) {
@@ -753,6 +775,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
       _isStopped = false;
       _recordingDuration = Duration.zero;
     });
+    _animationController.repeat();
     _startTimer();
   }
 
@@ -762,6 +785,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
     setState(() {
       _isPaused = true;
     });
+    _animationController.stop();
   }
 
   Future<void> _resumeRecording() async {
@@ -769,11 +793,13 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
     setState(() {
       _isPaused = false;
     });
+    _animationController.repeat();
     _startTimer();
   }
 
   Future<void> _stopRecording() async {
     _timer?.cancel();
+    _animationController.reset();
     final path = await _audioRecorder.stop();
     setState(() {
       _isRecording = false;
@@ -815,6 +841,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
 
   void _discardRecording() {
     _timer?.cancel();
+    _animationController.reset();
     if (_isRecording) {
       _audioRecorder.stop();
     }
@@ -832,6 +859,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
   }
 
   void _resetStateForNewRecording() {
+    _animationController.reset();
     setState(() {
       _isRecording = false;
       _isPaused = false;
@@ -880,38 +908,84 @@ class _AudioRecorderViewState extends State<AudioRecorderView> {
   }
 
   Widget _buildRecordingControls(AppThemeColors colors) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    final bool isActivelyRecording = _isRecording && !_isPaused;
+
+    return Column(
       children: [
-        const Spacer(flex: 3),
-        Container(
-          width: 120.w,
-          height: 120.w,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: colors.error,
-          ),
-          child: IconButton(
-            icon: Icon(
-              _isRecording && !_isPaused ? Icons.pause : Icons.mic,
-              color: colors.grey10,
-              size: 36.sp,
-            ),
-            onPressed: _toggleRecording,
-          ),
-        ),
-        Expanded(
-          flex: 3,
-          child: _isRecording
-              ? Align(
-                  alignment: Alignment.center,
-                  child: IconButton(
-                    icon: Icon(Icons.stop_circle_outlined,
-                        color: colors.grey10, size: 40.sp),
-                    onPressed: _stopRecording,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Spacer(flex: 3),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                // Wave animation
+                if (isActivelyRecording)
+                  AnimatedBuilder(
+                    animation: _animationController,
+                    builder: (context, child) {
+                      return Transform.scale(
+                        scale: 1 + _animationController.value * 1.2,
+                        child: Container(
+                          width: 120.w,
+                          height: 120.w,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: colors.error.withOpacity(
+                                0.4 - (_animationController.value * 0.4)),
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                )
-              : const SizedBox(),
+                // The button itself
+                GestureDetector(
+                  onTap: _toggleRecording,
+                  onLongPressStart: (_) => _handleRecordPressStart(),
+                  onLongPressEnd: (_) => _handleRecordPressEnd(),
+                  child: Container(
+                    width: 120.w,
+                    height: 120.w,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isActivelyRecording
+                          ? colors.error.withOpacity(0.7)
+                          : colors.error,
+                    ),
+                    child: Icon(
+                      isActivelyRecording ? Icons.pause : Icons.mic,
+                      color: colors.grey10,
+                      size: 36.sp,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            Expanded(
+              flex: 3,
+              child: _isRecording
+                  ? Align(
+                      alignment: Alignment.center,
+                      child: IconButton(
+                        icon: Icon(Icons.stop_circle_outlined,
+                            color: colors.grey10, size: 40.sp),
+                        onPressed: _stopRecording,
+                      ),
+                    )
+                  : const SizedBox(),
+            ),
+          ],
+        ),
+        SizedBox(height: 16.h),
+        Text(
+          "tap  &  hold",
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              color: colors.grey1,
+              fontFamily: AppConstants.font,
+              fontWeight: FontWeight.w500,
+              decoration: TextDecoration.none,
+              fontSize: 16.sp),
         ),
       ],
     );
