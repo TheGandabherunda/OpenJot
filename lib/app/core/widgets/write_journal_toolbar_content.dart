@@ -338,99 +338,109 @@ class _WriteJournalToolbarContentState
       final sortedDates = _groupedAssets.keys.toList()
         ..sort((a, b) => b.compareTo(a));
 
-      return CustomScrollView(
-        controller: widget.scrollController,
-        slivers: [
-          for (final date in sortedDates) ...[
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(8.w, 32.h, 8.w, 8.h),
-                child: Text(
-                  _formatDate(date),
-                  style: TextStyle(
-                      color: colors.grey1,
-                      fontWeight: FontWeight.w500,
-                      decoration: TextDecoration.none,
-                      fontSize: 15.sp,
-                      fontFamily: AppConstants.font),
+      // MODIFICATION: Wrapped the CustomScrollView in a NotificationListener
+      // to correctly handle nested scrolling. This stops the parent sheet
+      // from moving when the inner grid is scrolled.
+      return NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          // By returning true, we are consuming the scroll notification
+          // and preventing it from bubbling up to the DraggableScrollableSheet.
+          return true;
+        },
+        child: CustomScrollView(
+          controller: widget.scrollController,
+          slivers: [
+            for (final date in sortedDates) ...[
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(8.w, 32.h, 8.w, 8.h),
+                  child: Text(
+                    _formatDate(date),
+                    style: TextStyle(
+                        color: colors.grey1,
+                        fontWeight: FontWeight.w500,
+                        decoration: TextDecoration.none,
+                        fontSize: 15.sp,
+                        fontFamily: AppConstants.font),
+                  ),
                 ),
               ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(4.w, 0, 4.w, 80.h),
-              sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 4.0,
-                  mainAxisSpacing: 4.0,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                    final asset = _groupedAssets[date]![index];
-                    final isSelected = _selectedAssets.contains(asset);
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(4.w, 0, 4.w, 80.h),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 4.0,
+                    mainAxisSpacing: 4.0,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final asset = _groupedAssets[date]![index];
+                      final isSelected = _selectedAssets.contains(asset);
 
-                    Widget child;
-                    if (asset.type == AssetType.audio) {
-                      child = _buildAudioItem(asset, colors, isSelected);
-                    } else {
-                      // MODIFICATION: Use the new stateful widget to prevent rebuilding.
-                      child = AssetThumbnailItem(asset: asset, colors: colors);
-                    }
+                      Widget child;
+                      if (asset.type == AssetType.audio) {
+                        child = _buildAudioItem(asset, colors, isSelected);
+                      } else {
+                        child =
+                            AssetThumbnailItem(asset: asset, colors: colors);
+                      }
 
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          if (_selectedSegment == 2) {
-                            // Audio tab: allow only one selection
-                            if (isSelected) {
-                              _selectedAssets.remove(asset);
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            if (_selectedSegment == 2) {
+                              // Audio tab: allow only one selection
+                              if (isSelected) {
+                                _selectedAssets.remove(asset);
+                              } else {
+                                _selectedAssets.clear();
+                                _selectedAssets.add(asset);
+                              }
                             } else {
-                              _selectedAssets.clear();
-                              _selectedAssets.add(asset);
+                              // Photos/Videos tab: allow multiple selections
+                              if (isSelected) {
+                                _selectedAssets.remove(asset);
+                              } else {
+                                _selectedAssets.add(asset);
+                              }
                             }
-                          } else {
-                            // Photos/Videos tab: allow multiple selections
-                            if (isSelected) {
-                              _selectedAssets.remove(asset);
-                            } else {
-                              _selectedAssets.add(asset);
-                            }
-                          }
-                        });
-                      },
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8.r),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            child,
-                            if (isSelected && asset.type != AssetType.audio)
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.5),
-                                  border: Border.all(
-                                    color: Theme.of(context).primaryColor,
-                                    width: 3,
+                          });
+                        },
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8.r),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              child,
+                              if (isSelected && asset.type != AssetType.audio)
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.5),
+                                    border: Border.all(
+                                      color: Theme.of(context).primaryColor,
+                                      width: 3,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8.r),
                                   ),
-                                  borderRadius: BorderRadius.circular(8.r),
+                                  child: Icon(
+                                    Icons.check_circle,
+                                    color: Colors.white,
+                                    size: 24.sp,
+                                  ),
                                 ),
-                                child: Icon(
-                                  Icons.check_circle,
-                                  color: Colors.white,
-                                  size: 24.sp,
-                                ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                  childCount: _groupedAssets[date]!.length,
+                      );
+                    },
+                    childCount: _groupedAssets[date]!.length,
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       );
     } else {
       return _buildPermissionDenied(colors);
