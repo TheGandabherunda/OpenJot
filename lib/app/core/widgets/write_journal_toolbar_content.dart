@@ -1026,12 +1026,12 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
               height: 44.w,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: colors.grey3,
+                color: colors.error,
               ),
               child: IconButton(
                 icon: Icon(
                   Icons.delete_outline_rounded,
-                  color: colors.error,
+                  color: colors.grey10,
                   size: 24.sp,
                 ),
                 onPressed: _discardRecording,
