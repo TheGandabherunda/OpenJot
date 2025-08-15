@@ -34,6 +34,8 @@ dependencies:
   latlong2: ^0.9.0    # Utility for lat/long coordinates
   geolocator: ^12.0.0 # Get current location
   url_launcher: ^6.3.0 # Launch map link
+  path: ^1.9.0
+  camera: ^0.11.2
 
 dev_dependencies:
   flutter_test:

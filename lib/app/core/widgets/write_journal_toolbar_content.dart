@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:camera/camera.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -15,6 +16,7 @@ import 'package:shimmer/shimmer.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../theme.dart';
+import 'camera_view.dart';
 import 'custom_button.dart';
 import 'location_map_view.dart'; // NEW IMPORT
 
@@ -24,6 +26,7 @@ class WriteJournalToolbarContent extends StatefulWidget {
   final Function(List<AssetEntity> assets)? onAssetsSelected;
   final Function(String path, Duration duration)? onRecordingComplete;
   final Function(LatLng location)? onLocationSelected; // NEW CALLBACK
+  final Function(XFile photo)? onPhotoTaken;
 
   const WriteJournalToolbarContent({
     super.key,
@@ -32,6 +35,7 @@ class WriteJournalToolbarContent extends StatefulWidget {
     this.onAssetsSelected,
     this.onRecordingComplete,
     this.onLocationSelected, // NEW PARAMETER
+    this.onPhotoTaken,
   });
 
   @override
@@ -197,6 +201,15 @@ class _WriteJournalToolbarContentState
       );
     }
 
+    if (widget.selectedToolbarIcon == Icons.camera_alt_rounded) {
+      return CameraView(
+        scrollController: widget.scrollController,
+        onPhotoTaken: (photo) {
+          widget.onPhotoTaken?.call(photo);
+        },
+      );
+    }
+
     // NEW CONDITIONAL WIDGET FOR LOCATION
     if (widget.selectedToolbarIcon == Icons.location_on_rounded) {
       return LocationMapView(
@@ -210,7 +223,6 @@ class _WriteJournalToolbarContentState
     if (widget.selectedToolbarIcon != Icons.image_rounded) {
       final Map<IconData, String> contentMap = {
         Icons.location_on_rounded: 'Content for Location',
-        Icons.camera_alt_rounded: 'Content for Camera',
         Icons.format_quote_rounded: 'Content for Quote',
         Icons.sentiment_satisfied_rounded: 'Content for Emoji',
       };
