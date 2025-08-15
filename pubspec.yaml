@@ -29,7 +29,11 @@ dependencies:
   record: ^6.0.0
   audioplayers: ^6.5.0
   path_provider: ^2.1.5
-
+  # Added for location and maps
+  flutter_map: ^6.1.0  # OpenStreetMap widget
+  latlong2: ^0.9.0    # Utility for lat/long coordinates
+  geolocator: ^12.0.0 # Get current location
+  url_launcher: ^6.3.0 # Launch map link
 
 dev_dependencies:
   flutter_test:

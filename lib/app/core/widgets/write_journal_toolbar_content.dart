@@ -9,18 +9,21 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:photo_manager/photo_manager.dart';
+import 'package:photo_manager/photo_manager.dart' hide LatLng;
 import 'package:record/record.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../theme.dart';
 import 'custom_button.dart';
+import 'location_map_view.dart'; // NEW IMPORT
 
 class WriteJournalToolbarContent extends StatefulWidget {
   final IconData? selectedToolbarIcon;
   final ScrollController scrollController;
   final Function(List<AssetEntity> assets)? onAssetsSelected;
   final Function(String path, Duration duration)? onRecordingComplete;
+  final Function(LatLng location)? onLocationSelected; // NEW CALLBACK
 
   const WriteJournalToolbarContent({
     super.key,
@@ -28,6 +31,7 @@ class WriteJournalToolbarContent extends StatefulWidget {
     required this.scrollController,
     this.onAssetsSelected,
     this.onRecordingComplete,
+    this.onLocationSelected, // NEW PARAMETER
   });
 
   @override
@@ -193,6 +197,16 @@ class _WriteJournalToolbarContentState
       );
     }
 
+    // NEW CONDITIONAL WIDGET FOR LOCATION
+    if (widget.selectedToolbarIcon == Icons.location_on_rounded) {
+      return LocationMapView(
+        scrollController: widget.scrollController,
+        onLocationSelected: (location) {
+          widget.onLocationSelected?.call(location);
+        },
+      );
+    }
+
     if (widget.selectedToolbarIcon != Icons.image_rounded) {
       final Map<IconData, String> contentMap = {
         Icons.location_on_rounded: 'Content for Location',
@@ -304,7 +318,7 @@ class _WriteJournalToolbarContentState
                 color: Theme.of(context).primaryColor,
                 textColor: colors.grey8,
                 textPadding:
-                    EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
               ),
             ),
           ),
@@ -363,7 +377,7 @@ class _WriteJournalToolbarContentState
 
       final isDark = Theme.of(context).brightness == Brightness.dark;
       final overlayColor =
-          (isDark ? colors.grey7 : colors.grey10).withOpacity(0.5);
+      (isDark ? colors.grey7 : colors.grey10).withOpacity(0.5);
       final onOverlayColor = isDark ? colors.grey10 : colors.grey7;
 
       return NotificationListener<ScrollNotification>(
@@ -397,7 +411,7 @@ class _WriteJournalToolbarContentState
                     mainAxisSpacing: 4.0,
                   ),
                   delegate: SliverChildBuilderDelegate(
-                    (context, index) {
+                        (context, index) {
                       final asset = _groupedAssets[date]![index];
                       final isSelected = _selectedAssets.contains(asset);
 
@@ -576,6 +590,18 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
     _loadThumbnail();
   }
 
+  @override
+  void didUpdateWidget(covariant AssetThumbnailItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.asset.id != oldWidget.asset.id) {
+      // If the asset entity itself changes, reload the image data.
+      setState(() {
+        _thumbnailData = null;
+      });
+      _loadThumbnail();
+    }
+  }
+
   Future<void> _loadThumbnail() async {
     if (!mounted) return;
     final data = await widget.asset.thumbnailData;
@@ -617,7 +643,7 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
     final isGif = asset.title?.toLowerCase().endsWith('.gif') ?? false;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final overlayColor =
-        (isDark ? widget.colors.grey7 : widget.colors.grey10).withOpacity(0.7);
+    (isDark ? widget.colors.grey7 : widget.colors.grey10).withOpacity(0.7);
     final onOverlayColor = isDark ? widget.colors.grey10 : widget.colors.grey7;
 
     return Stack(
@@ -704,12 +730,12 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
     super.initState();
     _playerStateSubscription =
         _audioPlayer.onPlayerStateChanged.listen((state) {
-      if (mounted && state == PlayerState.completed) {
-        setState(() {
-          _isPlayingPreview = false;
+          if (mounted && state == PlayerState.completed) {
+            setState(() {
+              _isPlayingPreview = false;
+            });
+          }
         });
-      }
-    });
 
     _animationController = AnimationController(
       vsync: this,
@@ -988,13 +1014,13 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
               flex: 3,
               child: _isRecording
                   ? Align(
-                      alignment: Alignment.center,
-                      child: IconButton(
-                        icon: Icon(Icons.stop_circle_outlined,
-                            color: colors.grey10, size: 40.sp),
-                        onPressed: _stopRecording,
-                      ),
-                    )
+                alignment: Alignment.center,
+                child: IconButton(
+                  icon: Icon(Icons.stop_circle_outlined,
+                      color: colors.grey10, size: 40.sp),
+                  onPressed: _stopRecording,
+                ),
+              )
                   : const SizedBox(),
             ),
           ],
@@ -1070,7 +1096,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
               color: Theme.of(context).primaryColor,
               textColor: colors.grey8,
               textPadding:
-                  EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+              EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
             ),
           ],
         )

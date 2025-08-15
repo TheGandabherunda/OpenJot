@@ -2,15 +2,18 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
-import 'dart:ui';
+import 'dart:ui' as ui;
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/cupertino.dart' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:photo_manager/photo_manager.dart';
+import 'package:photo_manager/photo_manager.dart' hide LatLng;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants.dart';
 import '../../core/theme.dart';
@@ -28,6 +31,13 @@ class RecordedAudio {
       {required this.path, required this.name, required this.duration});
 }
 
+class SelectedLocation {
+  final LatLng coordinates;
+  final String link;
+
+  SelectedLocation({required this.coordinates, required this.link});
+}
+
 class WriteJournalBottomSheet extends StatefulWidget {
   const WriteJournalBottomSheet({super.key});
 
@@ -42,6 +52,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   final _editorScrollController = ScrollController();
   final _textFieldKey = GlobalKey();
   final _dateMenuKey = GlobalKey();
+  final _locationMenuKey =
+      GlobalKey(); // ADDED: New key for the location dropdown
 
   DateTime? _selectedDate;
   bool _isCustomDate = false;
@@ -55,6 +67,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   List<AssetEntity> _previewImages = [];
   List<AssetEntity> _previewAudios = [];
   List<RecordedAudio> _previewRecordings = [];
+  SelectedLocation? _selectedLocation;
+  String? _selectedMoodEmoji; // NEW STATE VARIABLE FOR MOOD EMOJI
 
   final AudioPlayer _audioPlayer = AudioPlayer();
   String? _currentlyPlayingPath;
@@ -296,6 +310,14 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       }
     }
 
+    // NEW LOCATION PERMISSION CHECK
+    if (iconData == Icons.location_on_rounded) {
+      var status = await Permission.locationWhenInUse.request();
+      if (!status.isGranted) {
+        return;
+      }
+    }
+
     if (isKeyboardVisible) {
       _handleSheetOpeningWithKeyboard(iconData);
     } else {
@@ -366,6 +388,21 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
         _handleToolbarItemTap(Icons.location_on_rounded);
       }
     });
+  }
+
+  // NEW FUNCTION TO LAUNCH LOCATION LINK
+  Future<void> _launchLocationLink() async {
+    if (_selectedLocation != null) {
+      final Uri uri = Uri.parse(_selectedLocation!.link);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        // Handle error, e.g., show a snackbar
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open map link.')),
+        );
+      }
+    }
   }
 
   void _handleTextStylingToolbarItemTap(String style) {
@@ -572,7 +609,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       children: [
         GestureDetector(
           onTap: () {
-            _handlemoodTap();
+            //TO-DO
           },
           child: Container(
             width: 32.w,
@@ -810,8 +847,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
           // Use ClipRRect to constrain the blur effect to the rounded corners.
           borderRadius: BorderRadius.circular(10.5.r),
           // Match the parent's border radius.
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 3.0, sigmaY: 3.0),
+          child: ui.BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 3.0, sigmaY: 3.0),
             // This applies the blur. You can adjust the sigma values.
             child: Container(
               color: overlayColor,
@@ -1112,31 +1149,125 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
           ),
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 12.w),
-            child: GestureDetector(
-              onTap: () {
-                _handlelocationTap();
-              },
-              child: CustomPaint(
-                painter: DashedBorderPainter(
-                  color: appThemeColors.grey5,
-                  strokeWidth: 2.w,
-                  fillColor: appThemeColors.grey6,
-                ),
-                child: SizedBox(
-                  width: 38.w,
-                  height: 38.w,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.add_location_alt_outlined,
-                        color: appThemeColors.grey4,
-                        size: 28.w,
-                      ),
-                    ],
-                  ),
-                ),
+            child: CustomPaint(
+              painter: DashedBorderPainter(
+                color: appThemeColors.grey5,
+                strokeWidth: 2.w,
+                fillColor: appThemeColors.grey6,
               ),
+              child: _selectedLocation != null
+                  ? GestureDetector(
+                      // MODIFIED: Replaced PopupMenuButton with a GestureDetector
+                      key:
+                          _locationMenuKey, // ADDED: Key for positioning the menu
+                      onTap: () {
+                        // MODIFIED: Logic to show the menu, similar to the date selection
+                        final RenderBox renderBox =
+                            _locationMenuKey.currentContext!.findRenderObject()
+                                as RenderBox;
+                        final position = renderBox.localToGlobal(Offset.zero);
+                        showMenu<String>(
+                          context: context,
+                          color: appThemeColors.grey5,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16.r),
+                          ),
+                          position: RelativeRect.fromLTRB(
+                            position.dx,
+                            position.dy + renderBox.size.height + 10.h,
+                            position.dx + renderBox.size.width,
+                            position.dy + renderBox.size.height + 200.h,
+                          ),
+                          items: [
+                            PopupMenuItem(
+                              value: 'open',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.open_in_new,
+                                      color: appThemeColors.grey10),
+                                  SizedBox(width: 8.w),
+                                  Text('Open in Maps',
+                                      style: TextStyle(
+                                          color: appThemeColors.grey10)),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'edit',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.edit,
+                                      color: appThemeColors.grey10),
+                                  SizedBox(width: 8.w),
+                                  Text('Change Location',
+                                      style: TextStyle(
+                                          color: appThemeColors.grey10)),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'remove',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete_outline_outlined,
+                                      color: appThemeColors.error),
+                                  SizedBox(width: 8.w),
+                                  Text('Remove',
+                                      style: TextStyle(
+                                          color: appThemeColors.error)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ).then((value) {
+                          if (value == 'open') {
+                            _launchLocationLink();
+                          } else if (value == 'edit') {
+                            _handlelocationTap();
+                          } else if (value == 'remove') {
+                            // ADDED: Handle the remove action
+                            setState(() {
+                              _selectedLocation = null;
+                            });
+                          }
+                        });
+                      },
+                      child: Container(
+                        height: 38.w,
+                        padding: EdgeInsets.symmetric(horizontal: 16.w),
+                        child: Center(
+                          child: Text(
+                            '${_selectedLocation!.coordinates.latitude.toStringAsFixed(4)}, ${_selectedLocation!.coordinates.longitude.toStringAsFixed(4)}',
+                            style: TextStyle(
+                              color: appThemeColors.grey10,
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                              fontFamily: AppConstants.font,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                  : SizedBox(
+                      width: 38.w,
+                      height: 38.w,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          GestureDetector(
+                            onTap: _handlelocationTap,
+                            child: Icon(
+                              Icons.add_location_alt_outlined,
+                              color: appThemeColors.grey4,
+                              size: 28.w,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
             ),
           ),
         ],
@@ -1228,6 +1359,15 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                   audios.removeWhere(
                       (asset) => existingAudioIds.contains(asset.id));
                   _previewAudios.addAll(audios);
+                });
+                _closeSheet();
+              },
+              onLocationSelected: (location) {
+                setState(() {
+                  final link =
+                      'geo:${location.latitude},${location.longitude}?q=${location.latitude},${location.longitude}'; // MODIFIED GEO URI
+                  _selectedLocation =
+                      SelectedLocation(coordinates: location, link: link);
                 });
                 _closeSheet();
               },
@@ -1498,33 +1638,33 @@ class DashedBorderPainter extends CustomPainter {
   });
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final RRect rrect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      Radius.circular(size.height / 2),
+  void paint(Canvas canvas, ui.Size size) {
+    final RRect rrect = ui.RRect.fromRectAndRadius(
+      ui.Rect.fromLTWH(0, 0, size.width, size.height),
+      ui.Radius.circular(size.height / 2),
     );
 
     if (fillColor != null) {
-      final fillPaint = Paint()
+      final fillPaint = ui.Paint()
         ..color = fillColor!
-        ..style = PaintingStyle.fill;
+        ..style = ui.PaintingStyle.fill;
       canvas.drawRRect(rrect, fillPaint);
     }
 
-    final dashPaint = Paint()
+    final dashPaint = ui.Paint()
       ..color = color
       ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke;
+      ..style = ui.PaintingStyle.stroke;
 
-    final path = Path()..addRRect(rrect);
+    final path = ui.Path()..addRRect(rrect);
 
-    final dashPath = Path();
+    final dashPath = ui.Path();
     for (final metric in path.computeMetrics()) {
       double distance = 0;
       while (distance < metric.length) {
         dashPath.addPath(
           metric.extractPath(distance, distance + dashWidth),
-          Offset.zero,
+          ui.Offset.zero,
         );
         distance += dashWidth + dashSpace;
       }
