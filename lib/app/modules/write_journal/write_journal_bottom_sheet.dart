@@ -61,7 +61,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   final _textFieldKey = GlobalKey();
   final _dateMenuKey = GlobalKey();
   final _locationMenuKey =
-      GlobalKey(); // ADDED: New key for the location dropdown
+  GlobalKey(); // ADDED: New key for the location dropdown
 
   DateTime? _selectedDate;
   bool _isCustomDate = false;
@@ -77,7 +77,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   List<AssetEntity> _previewAudios = [];
   List<RecordedAudio> _previewRecordings = [];
   SelectedLocation? _selectedLocation;
-  String? _selectedMoodEmoji; // NEW STATE VARIABLE FOR MOOD EMOJI
+  int? _selectedMoodIndex;
 
   final AudioPlayer _audioPlayer = AudioPlayer();
   String? _currentlyPlayingPath;
@@ -98,6 +98,14 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     Icons.sentiment_satisfied_rounded,
   ];
 
+  static const List<Map<String, String>> _moods = [
+    {'emoji': '😖', 'label': 'Very Unpleasant'},
+    {'emoji': '🙁', 'label': 'Unpleasant'},
+    {'emoji': '😐', 'label': 'Neutral'},
+    {'emoji': '🙂', 'label': 'Pleasant'},
+    {'emoji': '😄', 'label': 'Very Pleasant'},
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -114,15 +122,15 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
 
     _playerStateSubscription =
         _audioPlayer.onPlayerStateChanged.listen((state) {
-      if (mounted) {
-        setState(() {
-          _playerState = state;
-          if (state == PlayerState.completed) {
-            _currentlyPlayingPath = null;
+          if (mounted) {
+            setState(() {
+              _playerState = state;
+              if (state == PlayerState.completed) {
+                _currentlyPlayingPath = null;
+              }
+            });
           }
         });
-      }
-    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -241,9 +249,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   double _calculateInitialChildSize(
-    BuildContext context, {
-    bool afterKeyboardClose = false,
-  }) {
+      BuildContext context, {
+        bool afterKeyboardClose = false,
+      }) {
     final screenHeight = MediaQuery.of(context).size.height;
 
     if (afterKeyboardClose) {
@@ -271,9 +279,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   double _calculateMinChildSize(
-    BuildContext context, {
-    bool afterKeyboardClose = false,
-  }) {
+      BuildContext context, {
+        bool afterKeyboardClose = false,
+      }) {
     final screenHeight = MediaQuery.of(context).size.height;
 
     if (afterKeyboardClose) {
@@ -575,9 +583,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   bool _handleSheetNotification(
-    DraggableScrollableNotification notification,
-    double screenHeight,
-  ) {
+      DraggableScrollableNotification notification,
+      double screenHeight,
+      ) {
     if (!mounted || !_isDraggableSheetActive || _activeSheetMinSize == null) {
       return true;
     }
@@ -649,7 +657,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
           child: GestureDetector(
             onTap: () {
               final RenderBox renderBox =
-                  _dateMenuKey.currentContext!.findRenderObject() as RenderBox;
+              _dateMenuKey.currentContext!.findRenderObject() as RenderBox;
               final position = renderBox.localToGlobal(Offset.zero);
               showMenu(
                 context: context,
@@ -797,7 +805,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     final overlayColor = (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
         .withOpacity(0.6);
     final onOverlayColor =
-        isDark ? appThemeColors.grey10 : appThemeColors.grey7;
+    isDark ? appThemeColors.grey10 : appThemeColors.grey7;
 
     Widget buildImageContainer(dynamic image, {Widget? overlay}) {
       return Container(
@@ -835,7 +843,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                       shape: BoxShape.circle,
                     ),
                     child:
-                        Icon(Icons.close, color: onOverlayColor, size: 18.sp),
+                    Icon(Icons.close, color: onOverlayColor, size: 18.sp),
                   ),
                 ),
               ),
@@ -932,7 +940,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     final overlayColor = (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
         .withOpacity(0.6);
     final onOverlayColor =
-        isDark ? appThemeColors.grey10 : appThemeColors.grey7;
+    isDark ? appThemeColors.grey10 : appThemeColors.grey7;
 
     return Column(
       children: _previewAudios.map((audio) {
@@ -979,7 +987,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                       shape: BoxShape.circle,
                     ),
                     child:
-                        Icon(Icons.close, color: onOverlayColor, size: 16.sp),
+                    Icon(Icons.close, color: onOverlayColor, size: 16.sp),
                   ),
                 ),
               ],
@@ -1140,10 +1148,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 12.w),
             child: GestureDetector(
-              onTap: () {
-                _handlemoodTap();
-              },
-              child: CustomPaint(
+              onTap: _handlemoodTap,
+              child: _selectedMoodIndex == null
+                  ? CustomPaint(
                 painter: DashedBorderPainter(
                   color: appThemeColors.grey5,
                   strokeWidth: 2.w,
@@ -1152,15 +1159,24 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                 child: SizedBox(
                   width: 38.w,
                   height: 38.w,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.add_reaction_outlined,
-                        color: appThemeColors.grey4,
-                        size: 28.w,
-                      ),
-                    ],
+                  child: Icon(
+                    Icons.add_reaction_outlined,
+                    color: appThemeColors.grey4,
+                    size: 28.w,
+                  ),
+                ),
+              )
+                  : Container(
+                width: 38.w,
+                height: 38.w,
+                decoration: BoxDecoration(
+                  color: appThemeColors.grey6,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    _moods[_selectedMoodIndex!]['emoji']!,
+                    style: TextStyle(fontSize: 24.sp),
                   ),
                 ),
               ),
@@ -1168,143 +1184,143 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
           ),
           _selectedLocation != null
               ? Padding(
-                  padding: EdgeInsets.only(right: 12.w),
-                  child: GestureDetector(
-                    key: _locationMenuKey,
-                    onTap: () {
-                      final RenderBox renderBox =
-                          _locationMenuKey.currentContext!.findRenderObject()
-                              as RenderBox;
-                      final position = renderBox.localToGlobal(Offset.zero);
-                      showMenu<String>(
-                        context: context,
-                        color: appThemeColors.grey5,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16.r),
-                        ),
-                        position: RelativeRect.fromLTRB(
-                          position.dx,
-                          position.dy + renderBox.size.height + 10.h,
-                          position.dx + renderBox.size.width,
-                          position.dy + renderBox.size.height + 200.h,
-                        ),
-                        items: [
-                          PopupMenuItem(
-                            value: 'open',
-                            child: Row(
-                              children: [
-                                Icon(Icons.open_in_new,
-                                    color: appThemeColors.grey10),
-                                SizedBox(width: 8.w),
-                                Text('Open in Maps',
-                                    style: TextStyle(
-                                        color: appThemeColors.grey10)),
-                              ],
-                            ),
-                          ),
-                          PopupMenuDivider(
-                            height: 1,
-                            color: appThemeColors.grey6,
-                          ),
-                          PopupMenuItem(
-                            value: 'edit',
-                            child: Row(
-                              children: [
-                                Icon(Icons.edit, color: appThemeColors.grey10),
-                                SizedBox(width: 8.w),
-                                Text('Change Location',
-                                    style: TextStyle(
-                                        color: appThemeColors.grey10)),
-                              ],
-                            ),
-                          ),
-                          PopupMenuDivider(
-                            height: 1,
-                            color: appThemeColors.grey6,
-                          ),
-                          PopupMenuItem(
-                            value: 'remove',
-                            child: Row(
-                              children: [
-                                Icon(Icons.delete_outline_outlined,
-                                    color: appThemeColors.error),
-                                SizedBox(width: 8.w),
-                                Text('Remove',
-                                    style:
-                                        TextStyle(color: appThemeColors.error)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ).then((value) {
-                        if (value == 'open') {
-                          _launchLocationLink();
-                        } else if (value == 'edit') {
-                          _handlelocationTap();
-                        } else if (value == 'remove') {
-                          setState(() {
-                            _selectedLocation = null;
-                          });
-                        }
-                      });
-                    },
-                    child: Container(
-                      height: 38.w,
-                      padding: EdgeInsets.symmetric(horizontal: 16.w),
-                      child: Center(
-                        child: Text(
-                          '${_selectedLocation!.coordinates.latitude.toStringAsFixed(4)}, ${_selectedLocation!.coordinates.longitude.toStringAsFixed(4)}',
-                          style: TextStyle(
-                            color: appThemeColors.grey1,
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.none,
-                            fontFamily: AppConstants.font,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ),
+            padding: EdgeInsets.only(right: 12.w),
+            child: GestureDetector(
+              key: _locationMenuKey,
+              onTap: () {
+                final RenderBox renderBox =
+                _locationMenuKey.currentContext!.findRenderObject()
+                as RenderBox;
+                final position = renderBox.localToGlobal(Offset.zero);
+                showMenu<String>(
+                  context: context,
+                  color: appThemeColors.grey5,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16.r),
                   ),
-                )
-              : Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12.w),
-                  child: CustomPaint(
-                    painter: DashedBorderPainter(
-                      color: appThemeColors.grey5,
-                      strokeWidth: 2.w,
-                      fillColor: appThemeColors.grey6,
-                    ),
-                    child: SizedBox(
-                      width: 38.w,
-                      height: 38.w,
+                  position: RelativeRect.fromLTRB(
+                    position.dx,
+                    position.dy + renderBox.size.height + 10.h,
+                    position.dx + renderBox.size.width,
+                    position.dy + renderBox.size.height + 200.h,
+                  ),
+                  items: [
+                    PopupMenuItem(
+                      value: 'open',
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          GestureDetector(
-                            onTap: _handlelocationTap,
-                            child: Icon(
-                              Icons.add_location_alt_outlined,
-                              color: appThemeColors.grey4,
-                              size: 28.w,
-                            ),
-                          ),
+                          Icon(Icons.open_in_new,
+                              color: appThemeColors.grey10),
+                          SizedBox(width: 8.w),
+                          Text('Open in Maps',
+                              style: TextStyle(
+                                  color: appThemeColors.grey10)),
                         ],
                       ),
+                    ),
+                    PopupMenuDivider(
+                      height: 1,
+                      color: appThemeColors.grey6,
+                    ),
+                    PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit, color: appThemeColors.grey10),
+                          SizedBox(width: 8.w),
+                          Text('Change Location',
+                              style: TextStyle(
+                                  color: appThemeColors.grey10)),
+                        ],
+                      ),
+                    ),
+                    PopupMenuDivider(
+                      height: 1,
+                      color: appThemeColors.grey6,
+                    ),
+                    PopupMenuItem(
+                      value: 'remove',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline_outlined,
+                              color: appThemeColors.error),
+                          SizedBox(width: 8.w),
+                          Text('Remove',
+                              style:
+                              TextStyle(color: appThemeColors.error)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ).then((value) {
+                  if (value == 'open') {
+                    _launchLocationLink();
+                  } else if (value == 'edit') {
+                    _handlelocationTap();
+                  } else if (value == 'remove') {
+                    setState(() {
+                      _selectedLocation = null;
+                    });
+                  }
+                });
+              },
+              child: Container(
+                height: 38.w,
+                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                child: Center(
+                  child: Text(
+                    '${_selectedLocation!.coordinates.latitude.toStringAsFixed(4)}, ${_selectedLocation!.coordinates.longitude.toStringAsFixed(4)}',
+                    style: TextStyle(
+                      color: appThemeColors.grey1,
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.none,
+                      fontFamily: AppConstants.font,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ),
+              ),
+            ),
+          )
+              : Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12.w),
+            child: CustomPaint(
+              painter: DashedBorderPainter(
+                color: appThemeColors.grey5,
+                strokeWidth: 2.w,
+                fillColor: appThemeColors.grey6,
+              ),
+              child: SizedBox(
+                width: 38.w,
+                height: 38.w,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    GestureDetector(
+                      onTap: _handlelocationTap,
+                      child: Icon(
+                        Icons.add_location_alt_outlined,
+                        color: appThemeColors.grey4,
+                        size: 28.w,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildDraggableSheet(
-    double screenHeight,
-    double sheetMinSize,
-    double sheetInitialSize,
-  ) {
+      double screenHeight,
+      double sheetMinSize,
+      double sheetInitialSize,
+      ) {
     return Positioned.fill(
       child: Align(
         alignment: Alignment.bottomCenter,
@@ -1316,8 +1332,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
             initialChildSize: _openingSheetViaToolbar
                 ? sheetInitialSize
                 : (_sheetController.isAttached
-                    ? _sheetController.size
-                    : sheetInitialSize),
+                ? _sheetController.size
+                : sheetInitialSize),
             minChildSize: sheetMinSize,
             maxChildSize: _maxChildSize,
             expand: false,
@@ -1330,9 +1346,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   Widget _buildSheetContainer(
-    BuildContext context,
-    ScrollController scrollController,
-  ) {
+      BuildContext context,
+      ScrollController scrollController,
+      ) {
     final sheetThemeColors = AppTheme.colorsOf(context);
     final sheetKeyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
@@ -1367,22 +1383,22 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                 setState(() {
                   final imagesAndVideos = assets
                       .where((a) =>
-                          a.type == AssetType.image ||
-                          a.type == AssetType.video)
+                  a.type == AssetType.image ||
+                      a.type == AssetType.video)
                       .toList();
                   final audios =
-                      assets.where((a) => a.type == AssetType.audio).toList();
+                  assets.where((a) => a.type == AssetType.audio).toList();
 
                   final existingImageIds =
-                      _previewImages.map((e) => e.id).toSet();
+                  _previewImages.map((e) => e.id).toSet();
                   imagesAndVideos.removeWhere(
-                      (asset) => existingImageIds.contains(asset.id));
+                          (asset) => existingImageIds.contains(asset.id));
                   _previewImages.addAll(imagesAndVideos);
 
                   final existingAudioIds =
-                      _previewAudios.map((e) => e.id).toSet();
+                  _previewAudios.map((e) => e.id).toSet();
                   audios.removeWhere(
-                      (asset) => existingAudioIds.contains(asset.id));
+                          (asset) => existingAudioIds.contains(asset.id));
                   _previewAudios.addAll(audios);
                 });
                 _closeSheet();
@@ -1404,6 +1420,11 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                       .add(CapturedPhoto(file: photo, name: photoName));
                 });
                 _closeSheet();
+              },
+              onMoodChanged: (index) {
+                setState(() {
+                  _selectedMoodIndex = index;
+                });
               },
             ),
           ),
@@ -1488,9 +1509,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
               _handleKeyboardInteraction(isKeyboardVisible);
 
               final sheetHeight =
-                  (_isDraggableSheetActive && _sheetController.isAttached)
-                      ? _sheetController.size * screenHeight
-                      : 0.0;
+              (_isDraggableSheetActive && _sheetController.isAttached)
+                  ? _sheetController.size * screenHeight
+                  : 0.0;
 
               final bottomOffset = math.max(keyboardHeight, sheetHeight);
 
@@ -1535,18 +1556,18 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                                                 children: [
                                                   _buildImagePreview(),
                                                   if ((_previewImages
-                                                              .isNotEmpty ||
-                                                          _previewPhotos
-                                                              .isNotEmpty) &&
+                                                      .isNotEmpty ||
+                                                      _previewPhotos
+                                                          .isNotEmpty) &&
                                                       _previewAudios.isNotEmpty)
                                                     SizedBox(height: 2.h),
                                                   _buildAudioPreview(),
                                                   if ((_previewImages
-                                                              .isNotEmpty ||
-                                                          _previewPhotos
-                                                              .isNotEmpty ||
-                                                          _previewAudios
-                                                              .isNotEmpty) &&
+                                                      .isNotEmpty ||
+                                                      _previewPhotos
+                                                          .isNotEmpty ||
+                                                      _previewAudios
+                                                          .isNotEmpty) &&
                                                       _previewRecordings
                                                           .isNotEmpty)
                                                     SizedBox(height: 2.h),

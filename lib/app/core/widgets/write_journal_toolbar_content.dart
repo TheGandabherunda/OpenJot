@@ -18,6 +18,7 @@ import 'package:latlong2/latlong.dart';
 import '../theme.dart';
 import 'camera_view.dart';
 import 'custom_button.dart';
+import 'custom_slider.dart';
 import 'location_map_view.dart'; // NEW IMPORT
 
 class WriteJournalToolbarContent extends StatefulWidget {
@@ -27,6 +28,7 @@ class WriteJournalToolbarContent extends StatefulWidget {
   final Function(String path, Duration duration)? onRecordingComplete;
   final Function(LatLng location)? onLocationSelected; // NEW CALLBACK
   final Function(XFile photo)? onPhotoTaken;
+  final Function(int moodIndex)? onMoodChanged;
 
   const WriteJournalToolbarContent({
     super.key,
@@ -36,6 +38,7 @@ class WriteJournalToolbarContent extends StatefulWidget {
     this.onRecordingComplete,
     this.onLocationSelected, // NEW PARAMETER
     this.onPhotoTaken,
+    this.onMoodChanged,
   });
 
   @override
@@ -210,7 +213,6 @@ class _WriteJournalToolbarContentState
       );
     }
 
-    // NEW CONDITIONAL WIDGET FOR LOCATION
     if (widget.selectedToolbarIcon == Icons.location_on_rounded) {
       return LocationMapView(
         scrollController: widget.scrollController,
@@ -220,11 +222,16 @@ class _WriteJournalToolbarContentState
       );
     }
 
+    if (widget.selectedToolbarIcon == Icons.sentiment_satisfied_rounded) {
+      return _MoodSelectorView(
+        scrollController: widget.scrollController,
+        onMoodChanged: widget.onMoodChanged,
+      );
+    }
+
     if (widget.selectedToolbarIcon != Icons.image_rounded) {
       final Map<IconData, String> contentMap = {
-        Icons.location_on_rounded: 'Content for Location',
         Icons.format_quote_rounded: 'Content for Quote',
-        Icons.sentiment_satisfied_rounded: 'Content for Emoji',
       };
       final contentText =
           contentMap[widget.selectedToolbarIcon] ?? 'No content selected.';
@@ -1112,6 +1119,85 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
             ),
           ],
         )
+      ],
+    );
+  }
+}
+
+class _MoodSelectorView extends StatefulWidget {
+  final ScrollController scrollController;
+  final Function(int moodIndex)? onMoodChanged;
+
+  const _MoodSelectorView({
+    required this.scrollController,
+    this.onMoodChanged,
+  });
+
+  @override
+  State<_MoodSelectorView> createState() => _MoodSelectorViewState();
+}
+
+class _MoodSelectorViewState extends State<_MoodSelectorView> {
+  double _currentSliderValue = 2; // Start with Neutral
+
+  static const List<Map<String, String>> _moods = [
+    {'emoji': '😖', 'label': 'Very Unpleasant'},
+    {'emoji': '🙁', 'label': 'Unpleasant'},
+    {'emoji': '😐', 'label': 'Neutral'},
+    {'emoji': '�', 'label': 'Pleasant'},
+    {'emoji': '😄', 'label': 'Very Pleasant'},
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
+    final moodIndex = _currentSliderValue.round().clamp(0, _moods.length - 1);
+    final selectedMood = _moods[moodIndex];
+
+    return ListView(
+      controller: widget.scrollController,
+      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 32.h),
+      children: [
+        Center(
+          child: Text(
+            selectedMood['emoji']!,
+            style: TextStyle(fontSize: 48.sp),
+          ),
+        ),
+        SizedBox(height: 16.h),
+        Center(
+          child: Text(
+            selectedMood['label']!,
+            style: TextStyle(
+              color: colors.grey10,
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w600,
+              fontFamily: AppConstants.font,
+              decoration: TextDecoration.none,
+            ),
+          ),
+        ),
+        SizedBox(height: 32.h),
+        CustomSliderWithTooltip(
+          min: 0,
+          max: 4,
+          initialValue: _currentSliderValue,
+          showValueTooltip: false, // As requested
+          activeColor: Theme.of(context).primaryColor,
+          unfocusedActiveColor: colors.grey1,
+          inactiveColor: colors.grey3,
+          focusedTrackHeight: 12.h,
+          unfocusedTrackHeight: 8.h,
+          onChanged: (value) {
+            final newIndex = value.round();
+            if (newIndex != _currentSliderValue.round()) {
+              widget.onMoodChanged?.call(newIndex);
+            }
+            setState(() {
+              _currentSliderValue = value;
+            });
+          },
+        ),
       ],
     );
   }
