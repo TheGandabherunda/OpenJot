@@ -180,8 +180,8 @@ class _LocationMapViewState extends State<LocationMapView> {
                                 height: 80.w,
                                 point: _selectedLocation!,
                                 child: Icon(
-                                  Icons.location_on_rounded,
-                                  color: colors.aBlue[1],
+                                  Icons.location_pin,
+                                  color: colors.aOrange[1],
                                   size: 40.sp,
                                 ),
                               ),

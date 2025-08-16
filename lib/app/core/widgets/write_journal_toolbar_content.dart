@@ -7,13 +7,14 @@ import 'package:camera/camera.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart'; // ADD THIS IMPORT
+import 'package:latlong2/latlong.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart' hide LatLng;
 import 'package:record/record.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../theme.dart';
 import 'camera_view.dart';
@@ -337,7 +338,7 @@ class _WriteJournalToolbarContentState
                 color: Theme.of(context).primaryColor,
                 textColor: colors.grey8,
                 textPadding:
-                EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                    EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
               ),
             ),
           ),
@@ -396,7 +397,7 @@ class _WriteJournalToolbarContentState
 
       final isDark = Theme.of(context).brightness == Brightness.dark;
       final overlayColor =
-      (isDark ? colors.grey7 : colors.grey10).withOpacity(0.5);
+          (isDark ? colors.grey7 : colors.grey10).withOpacity(0.5);
       final onOverlayColor = isDark ? colors.grey10 : colors.grey7;
 
       return NotificationListener<ScrollNotification>(
@@ -430,7 +431,7 @@ class _WriteJournalToolbarContentState
                     mainAxisSpacing: 4.0,
                   ),
                   delegate: SliverChildBuilderDelegate(
-                        (context, index) {
+                    (context, index) {
                       final asset = _groupedAssets[date]![index];
                       final isSelected = _selectedAssets.contains(asset);
 
@@ -662,7 +663,7 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
     final isGif = asset.title?.toLowerCase().endsWith('.gif') ?? false;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final overlayColor =
-    (isDark ? widget.colors.grey7 : widget.colors.grey10).withOpacity(0.7);
+        (isDark ? widget.colors.grey7 : widget.colors.grey10).withOpacity(0.7);
     final onOverlayColor = isDark ? widget.colors.grey10 : widget.colors.grey7;
 
     return Stack(
@@ -749,12 +750,12 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
     super.initState();
     _playerStateSubscription =
         _audioPlayer.onPlayerStateChanged.listen((state) {
-          if (mounted && state == PlayerState.completed) {
-            setState(() {
-              _isPlayingPreview = false;
-            });
-          }
+      if (mounted && state == PlayerState.completed) {
+        setState(() {
+          _isPlayingPreview = false;
         });
+      }
+    });
 
     _animationController = AnimationController(
       vsync: this,
@@ -1033,13 +1034,13 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
               flex: 3,
               child: _isRecording
                   ? Align(
-                alignment: Alignment.center,
-                child: IconButton(
-                  icon: Icon(Icons.stop_circle_outlined,
-                      color: colors.grey10, size: 40.sp),
-                  onPressed: _stopRecording,
-                ),
-              )
+                      alignment: Alignment.center,
+                      child: IconButton(
+                        icon: Icon(Icons.stop_circle_outlined,
+                            color: colors.grey10, size: 40.sp),
+                        onPressed: _stopRecording,
+                      ),
+                    )
                   : const SizedBox(),
             ),
           ],
@@ -1115,7 +1116,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
               color: Theme.of(context).primaryColor,
               textColor: colors.grey8,
               textPadding:
-              EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                  EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
             ),
           ],
         )
@@ -1140,12 +1141,13 @@ class _MoodSelectorView extends StatefulWidget {
 class _MoodSelectorViewState extends State<_MoodSelectorView> {
   double _currentSliderValue = 2; // Start with Neutral
 
+  // UPDATED: Use SVG paths instead of emojis
   static const List<Map<String, String>> _moods = [
-    {'emoji': '😖', 'label': 'Very Unpleasant'},
-    {'emoji': '🙁', 'label': 'Unpleasant'},
-    {'emoji': '😐', 'label': 'Neutral'},
-    {'emoji': '�', 'label': 'Pleasant'},
-    {'emoji': '😄', 'label': 'Very Pleasant'},
+    {'svg': 'assets/1.svg', 'label': 'Very Unpleasant'},
+    {'svg': 'assets/2.svg', 'label': 'Unpleasant'},
+    {'svg': 'assets/3.svg', 'label': 'Neutral'},
+    {'svg': 'assets/4.svg', 'label': 'Pleasant'},
+    {'svg': 'assets/5.svg', 'label': 'Very Pleasant'},
   ];
 
   @override
@@ -1154,51 +1156,87 @@ class _MoodSelectorViewState extends State<_MoodSelectorView> {
     final moodIndex = _currentSliderValue.round().clamp(0, _moods.length - 1);
     final selectedMood = _moods[moodIndex];
 
-    return ListView(
-      controller: widget.scrollController,
-      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 32.h),
-      children: [
-        Center(
-          child: Text(
-            selectedMood['emoji']!,
-            style: TextStyle(fontSize: 48.sp),
-          ),
-        ),
-        SizedBox(height: 16.h),
-        Center(
-          child: Text(
-            selectedMood['label']!,
-            style: TextStyle(
-              color: colors.grey10,
-              fontSize: 18.sp,
-              fontWeight: FontWeight.w600,
-              fontFamily: AppConstants.font,
-              decoration: TextDecoration.none,
+    // Define color palettes for different moods
+    final List<Color> backgroundColors = [
+      colors.aRed[2],
+      colors.aOrange[2],
+      colors.aYellow[2],
+      colors.aGreen[2],
+      colors.aTeal[2],
+    ];
+
+    final List<Color> sliderAndTextColors = [
+      colors.aRed[0],
+      colors.aOrange[0],
+      colors.aYellow[0],
+      colors.aGreen[0],
+      colors.aTeal[0],
+    ];
+
+    // Get the current colors based on the slider's value
+    final currentBackgroundColor = backgroundColors[moodIndex];
+    final currentSliderAndTextColor = sliderAndTextColors[moodIndex];
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      color: currentBackgroundColor,
+      child: ListView(
+        controller: widget.scrollController,
+        padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 32.h),
+        children: [
+          Center(
+            // Use SvgPicture.asset to display the mood icon
+            child: SvgPicture.asset(
+              selectedMood['svg']!,
+              width: 72.w,
+              height: 72.h,
             ),
           ),
-        ),
-        SizedBox(height: 32.h),
-        CustomSliderWithTooltip(
-          min: 0,
-          max: 4,
-          initialValue: _currentSliderValue,
-          showValueTooltip: false, // As requested
-          activeColor: Theme.of(context).primaryColor,
-          unfocusedActiveColor: colors.grey1,
-          inactiveColor: colors.grey3,
-          focusedTrackHeight: 12.h,
-          unfocusedTrackHeight: 8.h,
-          onChanged: (value) {
-            final newIndex = value.round();
-            if (newIndex != _currentSliderValue.round()) {
-              widget.onMoodChanged?.call(newIndex);
-            }
-            setState(() {
-              _currentSliderValue = value;
-            });
-          },
-        ),
-      ],
+          SizedBox(height: 24.h),
+          Center(
+            child: SizedBox(
+              height: 32.h,
+              child: Text(
+                selectedMood['label']!,
+                style: TextStyle(
+                  // Apply the dynamic color to the text
+                  color: currentSliderAndTextColor,
+                  fontSize: 20.sp,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: AppConstants.font,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(height: 24.h),
+          SizedBox(
+            height: 28.h,
+            child: CustomSliderWithTooltip(
+              min: 0,
+              max: 4,
+              initialValue: _currentSliderValue,
+              showValueTooltip: false,
+              // As requested
+              // Apply the dynamic color to the slider
+              activeColor: currentSliderAndTextColor,
+              unfocusedActiveColor: currentSliderAndTextColor.withOpacity(0.7),
+              inactiveColor: colors.grey3,
+              focusedTrackHeight: 12.h,
+              unfocusedTrackHeight: 8.h,
+              onChanged: (value) {
+                final newIndex = value.round();
+                if (newIndex != _currentSliderValue.round()) {
+                  widget.onMoodChanged?.call(newIndex);
+                }
+                setState(() {
+                  _currentSliderValue = value;
+                });
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

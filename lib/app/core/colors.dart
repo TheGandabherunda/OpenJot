@@ -35,59 +35,59 @@ class AppColors {
 
   // Accent Colors (Light Theme) - [Darkest, Base, Lightest]
   static const List<Color> aLIndigo = [
-    Color(0xFF0A0B1A), // Almost black with indigo tint
-    Color(0xFF5856D6), // Apple Indigo
-    Color(0xFFF7F7FF), // Almost white with indigo tint
+    Color(0xFF1E1A4D), // Almost black with indigo tint
+    Color(0xFF615FFF), // Apple Indigo
+    Color(0xFFEEF2FF), // Almost white with indigo tint
   ];
   static const List<Color> aLPurple = [
-    Color(0xFF1A0A1A), // Almost black with purple tint
-    Color(0xFFAF52DE), // Apple Purple
-    Color(0xFFFFF7FF), // Almost white with purple tint
+    Color(0xFF3C0366), // Almost black with purple tint
+    Color(0xFFAD46FF), // Apple Purple
+    Color(0xFFFAF5FF), // Almost white with purple tint
   ];
   static const List<Color> aLBlue = [
-    Color(0xFF0A0F1A), // Almost black with blue tint
-    Color(0xFF007AFF), // Apple Blue
-    Color(0xFFF7FAFF), // Almost white with blue tint
+    Color(0xFF052F4A), // Almost black with blue tint
+    Color(0xFF00A6F4), // Apple Blue
+    Color(0xFFF0F9FF), // Almost white with blue tint
   ];
   static const List<Color> aLCyan = [
-    Color(0xFF0A1A1A), // Almost black with cyan tint
-    Color(0xFF32D74B), // Apple Cyan (adjusted to be more cyan-like)
-    Color(0xFFF7FFFF), // Almost white with cyan tint
+    Color(0xFF053345), // Almost black with cyan tint
+    Color(0xFF00B8DB), // Apple Cyan (adjusted to be more cyan-like)
+    Color(0xFFECFEFF), // Almost white with cyan tint
   ];
   static const List<Color> aLTeal = [
-    Color(0xFF0A1A18), // Almost black with teal tint
-    Color(0xFF30B0C7), // Apple Teal
-    Color(0xFFF7FFFC), // Almost white with teal tint
+    Color(0xFF032F2E), // Almost black with teal tint
+    Color(0xFF00BBA7), // Apple Teal
+    Color(0xFFF0FDFA), // Almost white with teal tint
   ];
   static const List<Color> aLMint = [
-    Color(0xFF0F1A14), // Almost black with mint tint
-    Color(0xFF00C7BE), // Apple Mint
-    Color(0xFFF7FFFC), // Almost white with mint tint
+    Color(0xFF002C22), // Almost black with mint tint
+    Color(0xFF00BC7D), // Apple Mint
+    Color(0xFFECFDF5), // Almost white with mint tint
   ];
   static const List<Color> aLGreen = [
-    Color(0xFF0F1A0A), // Almost black with green tint
-    Color(0xFF34C759), // Apple Green
-    Color(0xFFF7FFF7), // Almost white with green tint
+    Color(0xFF032E15), // Almost black with green tint
+    Color(0xFF00C950), // Apple Green
+    Color(0xFFF0FDF4), // Almost white with green tint
   ];
   static const List<Color> aLRed = [
-    Color(0xFF1A0A0A), // Almost black with red tint
-    Color(0xFFFF3B30), // Apple Red
-    Color(0xFFFFF7F7), // Almost white with red tint
+    Color(0xFF460809), // Almost black with red tint
+    Color(0xFFFB2C36), // Apple Red
+    Color(0xFFFEF2F2), // Almost white with red tint
   ];
   static const List<Color> aLYellow = [
     Color(0xFF1A1A0A), // Almost black with yellow tint
-    Color(0xFFFFCC00), // Apple Yellow
+    Color(0xFFF0B100), // Apple Yellow
     Color(0xFFFFFFF7), // Almost white with yellow tint
   ];
   static const List<Color> aLPink = [
-    Color(0xFF1A0F14), // Almost black with pink tint
-    Color(0xFFFF2D92), // Apple Pink
-    Color(0xFFFFF7FC), // Almost white with pink tint
+    Color(0xFF510424), // Almost black with pink tint
+    Color(0xFFF6339A), // Apple Pink
+    Color(0xFFFDF2F8), // Almost white with pink tint
   ];
   static const List<Color> aLOrange = [
-    Color(0xFF1A0F0A), // Almost black with orange tint
-    Color(0xFFFF9500), // Apple Orange
-    Color(0xFFFFF9F7), // Almost white with orange tint
+    Color(0xFF441306), // Almost black with orange tint
+    Color(0xFFFF5A1F), // Apple Orange
+    Color(0xFFFFF8F1), // Almost white with orange tint
   ];
   static const List<Color> aLBrown = [
     Color(0xFF1A1614), // Almost black with brown tint
@@ -102,63 +102,63 @@ class AppColors {
 
   // Accent Colors (Dark Theme) - [Lightest, Base, Darkest]
   static const List<Color> aDIndigo = [
-    Color(0xFFF7F7FF), // Almost white with indigo tint
-    Color(0xFF5856D6), // Apple Indigo
-    Color(0xFF0A0B1A), // Almost black with indigo tint
+    Color(0xFFEEF2FF), // Almost white with indigo tint
+    Color(0xFF615FFF), // Apple Indigo
+    Color(0xFF1E1A4D), // Almost black with indigo tint
   ];
   static const List<Color> aDPurple = [
-    Color(0xFFFFF7FF), // Almost white with purple tint
-    Color(0xFFAF52DE), // Apple Purple
-    Color(0xFF1A0A1A), // Almost black with purple tint
+    Color(0xFFFAF5FF), // Almost white with purple tint
+    Color(0xFFAD46FF), // Apple Purple
+    Color(0xFF3C0366), // Almost black with purple tint
   ];
   static const List<Color> aDBlue = [
-    Color(0xFFF7FAFF), // Almost white with blue tint
-    Color(0xFF007AFF), // Apple Blue
-    Color(0xFF0A0F1A), // Almost black with blue tint
+    Color(0xFFF0F9FF), // Almost white with blue tint
+    Color(0xFF00A6F4), // Apple Blue
+    Color(0xFF052F4A), // Almost black with blue tint
   ];
   static const List<Color> aDCyan = [
-    Color(0xFFF7FFFF), // Almost white with cyan tint
-    Color(0xFF64D2FF), // Apple Cyan (brighter for dark theme)
-    Color(0xFF0A1A1A), // Almost black with cyan tint
+    Color(0xFFECFEFF), // Almost white with cyan tint
+    Color(0xFF00B8DB), // Apple Cyan (adjusted to be more cyan-like)
+    Color(0xFF053345), // Almost black with cyan tint
   ];
   static const List<Color> aDTeal = [
-    Color(0xFFF7FFFC), // Almost white with teal tint
-    Color(0xFF6AC4DC), // Apple Teal (brighter for dark theme)
-    Color(0xFF0A1A18), // Almost black with teal tint
+    Color(0xFFF0FDFA), // Almost white with teal tint
+    Color(0xFF00BBA7), // Apple Teal
+    Color(0xFF032F2E), // Almost black with teal tint
   ];
   static const List<Color> aDMint = [
-    Color(0xFFF7FFFC), // Almost white with mint tint
-    Color(0xFF63E6E2), // Apple Mint (brighter for dark theme)
-    Color(0xFF0F1A14), // Almost black with mint tint
+    Color(0xFFECFDF5), // Almost white with mint tint
+    Color(0xFF00BC7D), // Apple Mint
+    Color(0xFF002C22), // Almost black with mint tint
   ];
   static const List<Color> aDGreen = [
-    Color(0xFFF7FFF7), // Almost white with green tint
-    Color(0xFF30D158), // Apple Green (brighter for dark theme)
-    Color(0xFF0F1A0A), // Almost black with green tint
+    Color(0xFFF0FDF4), // Almost white with green tint
+    Color(0xFF00C950), // Apple Green
+    Color(0xFF032E15), // Almost black with green tint
   ];
   static const List<Color> aDRed = [
-    Color(0xFFFFF7F7), // Almost white with red tint
-    Color(0xFFFF453A), // Apple Red (brighter for dark theme)
-    Color(0xFF1A0A0A), // Almost black with red tint
+    Color(0xFFFEF2F2), // Almost white with red tint
+    Color(0xFFFB2C36), // Apple Red
+    Color(0xFF460809), // Almost black with red tint
   ];
   static const List<Color> aDYellow = [
     Color(0xFFFFFFF7), // Almost white with yellow tint
-    Color(0xFFFFD60A), // Apple Yellow (brighter for dark theme)
+    Color(0xFFF0B100), // Apple Yellow
     Color(0xFF1A1A0A), // Almost black with yellow tint
   ];
   static const List<Color> aDPink = [
-    Color(0xFFFFF7FC), // Almost white with pink tint
-    Color(0xFFFF375F), // Apple Pink (brighter for dark theme)
-    Color(0xFF1A0F14), // Almost black with pink tint
+    Color(0xFFFDF2F8), // Almost white with pink tint
+    Color(0xFFF6339A), // Apple Pink
+    Color(0xFF510424), // Almost black with pink tint
   ];
   static const List<Color> aDOrange = [
-    Color(0xFFFFF9F7), // Almost white with orange tint
-    Color(0xFFFF9F0A), // Apple Orange (brighter for dark theme)
-    Color(0xFF1A0F0A), // Almost black with orange tint
+    Color(0xFFFFF8F1), // Almost white with orange tint
+    Color(0xFFFF5A1F), // Apple Orange
+    Color(0xFF441306), // Almost black with orange tint
   ];
   static const List<Color> aDBrown = [
     Color(0xFFFFFDF9), // Almost white with brown tint
-    Color(0xFFAC8E68), // Apple Brown (brighter for dark theme)
+    Color(0xFFA2845E), // Apple Brown
     Color(0xFF1A1614), // Almost black with brown tint
   ];
   static const List<Color> aDNeutral = [
