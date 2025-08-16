@@ -1138,8 +1138,10 @@ class _MoodSelectorView extends StatefulWidget {
   State<_MoodSelectorView> createState() => _MoodSelectorViewState();
 }
 
-class _MoodSelectorViewState extends State<_MoodSelectorView> {
+class _MoodSelectorViewState extends State<_MoodSelectorView>
+    with TickerProviderStateMixin {
   double _currentSliderValue = 2; // Start with Neutral
+  late final AnimationController _rotationController;
 
   // UPDATED: Use SVG paths instead of emojis
   static const List<Map<String, String>> _moods = [
@@ -1149,6 +1151,27 @@ class _MoodSelectorViewState extends State<_MoodSelectorView> {
     {'svg': 'assets/4.svg', 'label': 'Pleasant'},
     {'svg': 'assets/5.svg', 'label': 'Very Pleasant'},
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _rotationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      // Quick rotation with slow end
+      vsync: this,
+    );
+  }
+
+  @override
+  void dispose() {
+    _rotationController.dispose();
+    super.dispose();
+  }
+
+  void _triggerRotationAnimation() {
+    _rotationController.reset();
+    _rotationController.forward();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1185,11 +1208,23 @@ class _MoodSelectorViewState extends State<_MoodSelectorView> {
         padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 32.h),
         children: [
           Center(
-            // Use SvgPicture.asset to display the mood icon
-            child: SvgPicture.asset(
-              selectedMood['svg']!,
-              width: 72.w,
-              height: 72.h,
+            // Wrap SvgPicture.asset with AnimatedBuilder for rotation animation
+            child: AnimatedBuilder(
+              animation: _rotationController,
+              builder: (context, child) {
+                // Bounce curve for rotation - quick start, slow end
+                final bounceAnimation =
+                    Curves.easeOutBack.transform(_rotationController.value);
+                return Transform.rotate(
+                  angle: bounceAnimation * 2 * 3.14159,
+                  // One full rotation (2π)
+                  child: SvgPicture.asset(
+                    selectedMood['svg']!,
+                    width: 72.w,
+                    height: 72.h,
+                  ),
+                );
+              },
             ),
           ),
           SizedBox(height: 24.h),
@@ -1228,6 +1263,7 @@ class _MoodSelectorViewState extends State<_MoodSelectorView> {
                 final newIndex = value.round();
                 if (newIndex != _currentSliderValue.round()) {
                   widget.onMoodChanged?.call(newIndex);
+                  _triggerRotationAnimation(); // Trigger rotation animation when mood changes
                 }
                 setState(() {
                   _currentSliderValue = value;
