@@ -1246,7 +1246,7 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
           ),
           SizedBox(height: 24.h),
           SizedBox(
-            height: 28.h,
+            height: 40.h,
             child: CustomSliderWithTooltip(
               min: 0,
               max: 4,
@@ -1257,8 +1257,8 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
               activeColor: currentSliderAndTextColor,
               unfocusedActiveColor: currentSliderAndTextColor.withOpacity(0.7),
               inactiveColor: colors.grey3,
-              focusedTrackHeight: 12.h,
-              unfocusedTrackHeight: 8.h,
+              focusedTrackHeight: 20.h,
+              unfocusedTrackHeight: 16.h,
               onChanged: (value) {
                 final newIndex = value.round();
                 if (newIndex != _currentSliderValue.round()) {
