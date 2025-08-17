@@ -1287,7 +1287,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                   ),
                 ),
           Padding(
-            padding: EdgeInsets.only(right: 12.w),
+            padding: EdgeInsets.only(right: 12.w,left: 12.w),
             child: GestureDetector(
               onTap: _handlemoodTap,
               child: _selectedMoodIndex == null
