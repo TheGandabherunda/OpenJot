@@ -241,11 +241,46 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   Future<void> _showDatePicker() async {
+    final appThemeColors = AppTheme.colorsOf(context);
     final pickedDate = await showDatePicker(
       context: context,
       initialDate: _selectedDate ?? DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
+      builder: (BuildContext context, Widget? child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            // Use DatePickerThemeData for more specific control
+            datePickerTheme: DatePickerThemeData(
+              backgroundColor: appThemeColors.grey6,
+              headerBackgroundColor: appThemeColors.grey5,
+              headerForegroundColor: appThemeColors.grey10,
+              surfaceTintColor: Colors.transparent,
+              // Removes unwanted tint
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16.r),
+              ),
+            ),
+            // Also update the colorScheme for text, selections, and buttons
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+                  surface: appThemeColors.grey5,
+                  onSurface: appThemeColors.grey10, // Text color for dates
+                  primary: appThemeColors.primary, // Selected date background
+                  onPrimary: appThemeColors.onPrimary, // Selected date text
+                ),
+            // And the main dialog background
+            dialogBackgroundColor: appThemeColors.grey5,
+            // And the button theme
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor:
+                    appThemeColors.primary, // OK/Cancel button text
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
 
     if (pickedDate != null) {
@@ -1287,7 +1322,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                   ),
                 ),
           Padding(
-            padding: EdgeInsets.only(right: 12.w,left: 12.w),
+            padding: EdgeInsets.only(right: 12.w, left: 12.w),
             child: GestureDetector(
               onTap: _handlemoodTap,
               child: _selectedMoodIndex == null
