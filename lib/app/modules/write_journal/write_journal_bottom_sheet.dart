@@ -10,42 +10,22 @@ import 'package:flutter/cupertino.dart' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart'; // ADD THIS IMPORT
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart' hide LatLng;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/constants.dart';
+import '../../core/models/journal_entry.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/text_styling_toolbar.dart';
 import '../../core/widgets/write_journal_toolbar.dart';
 import '../../core/widgets/write_journal_toolbar_content.dart';
-
-class RecordedAudio {
-  final String path;
-  final String name;
-  final Duration duration;
-
-  RecordedAudio(
-      {required this.path, required this.name, required this.duration});
-}
-
-class CapturedPhoto {
-  final XFile file;
-  final String name;
-
-  CapturedPhoto({required this.file, required this.name});
-}
-
-class SelectedLocation {
-  final LatLng coordinates;
-  final String link;
-
-  SelectedLocation({required this.coordinates, required this.link});
-}
 
 class WriteJournalBottomSheet extends StatefulWidget {
   const WriteJournalBottomSheet({super.key});
@@ -54,7 +34,6 @@ class WriteJournalBottomSheet extends StatefulWidget {
   WriteJournalBottomSheetState createState() => WriteJournalBottomSheetState();
 }
 
-// NEW ENUM to manage the state of the bottom sheet transition
 enum _SheetTransitionState { none, opening, open }
 
 class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
@@ -64,11 +43,11 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   final _editorScrollController = ScrollController();
   final _textFieldKey = GlobalKey();
   final _dateMenuKey = GlobalKey();
-  final _locationMenuKey =
-      GlobalKey(); // ADDED: New key for the location dropdown
+  final _locationMenuKey = GlobalKey();
 
-  DateTime? _selectedDate;
+  DateTime _selectedDate = DateTime.now();
   bool _isCustomDate = false;
+  bool _isBookmarked = false;
   bool _isDraggableSheetActive = false;
   IconData? _selectedToolbarIcon;
   bool _openingSheetViaToolbar = false;
@@ -83,7 +62,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   SelectedLocation? _selectedLocation;
   int? _selectedMoodIndex;
 
-  // NEW state variable to handle the transition from keyboard to sheet
   _SheetTransitionState _sheetState = _SheetTransitionState.none;
 
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -105,7 +83,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     Icons.sentiment_satisfied_rounded,
   ];
 
-  // UPDATED: Use SVG paths instead of emojis
   static const List<Map<String, String>> _moods = [
     {'svg': 'assets/1.svg', 'label': 'Very Unpleasant'},
     {'svg': 'assets/2.svg', 'label': 'Unpleasant'},
@@ -118,28 +95,23 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   void initState() {
     super.initState();
     _quillController = quill.QuillController.basic();
-    _selectedDate = DateTime.now();
-
     _quillController.addListener(() {
       if (mounted) {
         setState(() {});
       }
     });
-
     _quillController.document.changes.listen(_handleTextChange);
-
     _playerStateSubscription =
         _audioPlayer.onPlayerStateChanged.listen((state) {
-      if (mounted) {
-        setState(() {
-          _playerState = state;
-          if (state == PlayerState.completed) {
-            _currentlyPlayingPath = null;
+          if (mounted) {
+            setState(() {
+              _playerState = state;
+              if (state == PlayerState.completed) {
+                _currentlyPlayingPath = null;
+              }
+            });
           }
         });
-      }
-    });
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _focusNode.requestFocus();
@@ -159,11 +131,29 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     super.dispose();
   }
 
+  void _onDonePressed() {
+    final homeController = Get.find<HomeController>();
+    final newEntry = JournalEntry(
+      id: const Uuid().v4(),
+      content: _quillController.document,
+      createdAt: _selectedDate,
+      isBookmarked: _isBookmarked,
+      moodIndex: _selectedMoodIndex,
+      location: _selectedLocation,
+      galleryImages: _previewImages,
+      cameraPhotos: _previewPhotos,
+      galleryAudios: _previewAudios,
+      recordings: _previewRecordings,
+    );
+
+    homeController.addJournalEntry(newEntry);
+    Navigator.of(context).pop();
+  }
+
   void _handleTextChange(quill.DocChange docChange) {
     if (docChange.source != quill.ChangeSource.remote || _isFormatting) {
       return;
     }
-
     _isFormatting = true;
     Future.microtask(() async {
       try {
@@ -172,11 +162,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
             .where((op) => op.isInsert && op.data is String)
             .map((op) => op.data as String)
             .join();
-
         if (insertedText.isEmpty) {
           return;
         }
-
         final urlRegExp = RegExp(
           r'((https?:\/\/)|(www\.))[^\s]+',
           caseSensitive: false,
@@ -189,19 +177,15 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
           r'(\+?\d{1,3}[-.\s]?)?(\(?\d{3}\)?[-.\s]?){1,2}\d{4,}',
           caseSensitive: false,
         );
-
         final List<RegExpMatch> matches = [
           ...urlRegExp.allMatches(insertedText),
           ...emailRegExp.allMatches(insertedText),
           ...phoneRegExp.allMatches(insertedText),
         ];
-
         if (matches.isEmpty) {
           return;
         }
-
         matches.sort((a, b) => a.start.compareTo(b.start));
-
         int offset = 0;
         docChange.change.toList().where((op) => op.isInsert).forEach((op) {
           if (op.data is String) {
@@ -222,7 +206,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                 } else {
                   link = matchedString;
                 }
-
                 final style = quill.LinkAttribute(link);
                 _quillController.formatText(
                   offset + matchStart,
@@ -244,37 +227,31 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     final appThemeColors = AppTheme.colorsOf(context);
     final pickedDate = await showDatePicker(
       context: context,
-      initialDate: _selectedDate ?? DateTime.now(),
+      initialDate: _selectedDate,
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
       builder: (BuildContext context, Widget? child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            // Use DatePickerThemeData for more specific control
             datePickerTheme: DatePickerThemeData(
               backgroundColor: appThemeColors.grey6,
               headerBackgroundColor: appThemeColors.grey5,
               headerForegroundColor: appThemeColors.grey10,
               surfaceTintColor: Colors.transparent,
-              // Removes unwanted tint
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16.r),
               ),
             ),
-            // Also update the colorScheme for text, selections, and buttons
             colorScheme: Theme.of(context).colorScheme.copyWith(
-                  surface: appThemeColors.grey5,
-                  onSurface: appThemeColors.grey10, // Text color for dates
-                  primary: appThemeColors.primary, // Selected date background
-                  onPrimary: appThemeColors.onPrimary, // Selected date text
-                ),
-            // And the main dialog background
+              surface: appThemeColors.grey5,
+              onSurface: appThemeColors.grey10,
+              primary: appThemeColors.primary,
+              onPrimary: appThemeColors.onPrimary,
+            ),
             dialogBackgroundColor: appThemeColors.grey5,
-            // And the button theme
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(
-                foregroundColor:
-                    appThemeColors.primary, // OK/Cancel button text
+                foregroundColor: appThemeColors.primary,
               ),
             ),
           ),
@@ -282,7 +259,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
         );
       },
     );
-
     if (pickedDate != null) {
       setState(() {
         _selectedDate = pickedDate;
@@ -292,21 +268,18 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   double _calculateInitialChildSize(
-    BuildContext context, {
-    bool afterKeyboardClose = false,
-  }) {
+      BuildContext context, {
+        bool afterKeyboardClose = false,
+      }) {
     final screenHeight = MediaQuery.of(context).size.height;
-
     if (afterKeyboardClose) {
       return _initialFractionWithoutKeyboard.clamp(
         _minFractionWithoutKeyboard,
         _maxChildSize,
       );
     }
-
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
     double initialSize;
-
     if (keyboardHeight > 0 && _keyboardVisibleInitialFractionFactor < 1.0) {
       initialSize =
           (_keyboardVisibleInitialFractionFactor * keyboardHeight + 200.h) /
@@ -314,7 +287,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     } else {
       initialSize = _initialFractionWithoutKeyboard;
     }
-
     return initialSize.clamp(
       _calculateMinChildSize(context, afterKeyboardClose: afterKeyboardClose),
       _maxChildSize,
@@ -322,31 +294,26 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   double _calculateMinChildSize(
-    BuildContext context, {
-    bool afterKeyboardClose = false,
-  }) {
+      BuildContext context, {
+        bool afterKeyboardClose = false,
+      }) {
     final screenHeight = MediaQuery.of(context).size.height;
-
     if (afterKeyboardClose) {
       return _minFractionWithoutKeyboard.clamp(0.1, _maxChildSize);
     }
-
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
     double minSize;
-
     if (keyboardHeight > 0 && _keyboardVisibleMinFractionFactor < 1.0) {
       minSize =
           (_keyboardVisibleMinFractionFactor * keyboardHeight) / screenHeight;
     } else {
       minSize = _minFractionWithoutKeyboard;
     }
-
     return minSize.clamp(0.1, _maxChildSize);
   }
 
   Future<void> _handleAttachmentTap(IconData iconData) async {
     final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
-
     if (_isDraggableSheetActive && _selectedToolbarIcon == iconData) {
       _closeSheet();
       if (isKeyboardVisible) {
@@ -354,36 +321,30 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       }
       return;
     }
-
     if (_isDraggableSheetActive && _selectedToolbarIcon != iconData) {
       setState(() {
         _selectedToolbarIcon = iconData;
       });
       return;
     }
-
     if (iconData == Icons.image_rounded) {
       var status = await Permission.photos.request();
       if (!status.isGranted) {
         return;
       }
     }
-
     if (iconData == Icons.camera_alt_rounded) {
       var status = await Permission.camera.request();
       if (!status.isGranted) {
         return;
       }
     }
-
-    // NEW LOCATION PERMISSION CHECK
     if (iconData == Icons.location_on_rounded) {
       var status = await Permission.locationWhenInUse.request();
       if (!status.isGranted) {
         return;
       }
     }
-
     if (isKeyboardVisible) {
       _handleSheetOpeningWithKeyboard(iconData);
     } else {
@@ -395,11 +356,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     if (iconData == Icons.mic_rounded) {
       var status = await Permission.microphone.request();
       if (!status.isGranted) {
-        // Optionally show a message to the user
         return;
       }
     }
-
     if (iconData == Icons.image_rounded ||
         iconData == Icons.camera_alt_rounded ||
         iconData == Icons.location_on_rounded ||
@@ -407,7 +366,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       _handleAttachmentTap(iconData);
     } else {
       final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
-
       if (_isDraggableSheetActive && _selectedToolbarIcon == iconData) {
         _closeSheet();
         if (isKeyboardVisible) {
@@ -415,14 +373,12 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
         }
         return;
       }
-
       if (_isDraggableSheetActive && _selectedToolbarIcon != iconData) {
         setState(() {
           _selectedToolbarIcon = iconData;
         });
         return;
       }
-
       if (isKeyboardVisible) {
         _handleSheetOpeningWithKeyboard(iconData);
       } else {
@@ -456,14 +412,12 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     });
   }
 
-  // NEW FUNCTION TO LAUNCH LOCATION LINK
   Future<void> _launchLocationLink() async {
     if (_selectedLocation != null) {
       final Uri uri = Uri.parse(_selectedLocation!.link);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri);
       } else {
-        // Handle error, e.g., show a snackbar
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Could not open map link.')),
         );
@@ -474,9 +428,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   void _handleTextStylingToolbarItemTap(String style) {
     final selection = _quillController.selection;
     final currentStyle = _quillController.getSelectionStyle();
-
     if (selection.baseOffset < 0) return;
-
     switch (style) {
       case 'bold':
         _toggleStyle(currentStyle, quill.Attribute.bold);
@@ -500,7 +452,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
         _toggleHeaderStyle(currentStyle);
         break;
     }
-
     if (!_focusNode.hasFocus) {
       _focusNode.requestFocus();
     }
@@ -533,7 +484,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     bool hasHeader = currentStyle.containsKey(quill.Attribute.h1.key) ||
         currentStyle.containsKey(quill.Attribute.h2.key) ||
         currentStyle.containsKey(quill.Attribute.h3.key);
-
     if (hasHeader) {
       if (currentStyle.containsKey(quill.Attribute.h1.key)) {
         _quillController.formatSelection(
@@ -563,18 +513,15 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       _openingSheetViaToolbar = false;
       _activeSheetMinSize = null;
       _activeSheetInitialSize = null;
-      _sheetState = _SheetTransitionState.none; // UPDATED: Reset state
+      _sheetState = _SheetTransitionState.none;
     });
   }
 
-  // UPDATED: No more Future.delayed. This method now uses the state machine.
   void _handleSheetOpeningWithKeyboard(IconData iconData) {
     _focusNode.unfocus();
-    // Set the state to 'opening'. The build method will detect when the keyboard
-    // is gone and trigger the _openSheet method.
     setState(() {
       _sheetState = _SheetTransitionState.opening;
-      _selectedToolbarIcon = iconData; // Store the icon for later
+      _selectedToolbarIcon = iconData;
     });
   }
 
@@ -584,7 +531,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
 
   void _openSheet(IconData iconData, {bool afterKeyboardClose = false}) {
     if (!mounted) return;
-
     final newInitialSize = _calculateInitialChildSize(
       context,
       afterKeyboardClose: afterKeyboardClose,
@@ -593,7 +539,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       context,
       afterKeyboardClose: afterKeyboardClose,
     );
-
     setState(() {
       _openingSheetViaToolbar = true;
       _selectedToolbarIcon = iconData;
@@ -601,7 +546,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       _activeSheetInitialSize = newInitialSize;
       _activeSheetMinSize = newMinSize;
     });
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_sheetController.isAttached && mounted) {
         if (afterKeyboardClose) {
@@ -629,9 +573,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   bool _handleSheetNotification(
-    DraggableScrollableNotification notification,
-    double screenHeight,
-  ) {
+      DraggableScrollableNotification notification,
+      double screenHeight,
+      ) {
     if (!mounted || !_isDraggableSheetActive || _activeSheetMinSize == null) {
       return true;
     }
@@ -653,7 +597,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
           _selectedToolbarIcon = null;
           _activeSheetMinSize = null;
           _activeSheetInitialSize = null;
-          _sheetState = _SheetTransitionState.none; // UPDATED: Reset state
+          _sheetState = _SheetTransitionState.none;
         });
       }
     });
@@ -679,7 +623,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       children: [
         GestureDetector(
           onTap: () {
-            //TO-DO
+            setState(() {
+              _isBookmarked = !_isBookmarked;
+            });
           },
           child: Container(
             width: 32.w,
@@ -693,8 +639,12 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
               ),
             ),
             child: Icon(
-              Icons.bookmark_outline_rounded,
-              color: appThemeColors.grey2,
+              _isBookmarked
+                  ? Icons.bookmark_rounded
+                  : Icons.bookmark_outline_rounded,
+              color: _isBookmarked
+                  ? appThemeColors.primary
+                  : appThemeColors.grey2,
               size: 28.w,
             ),
           ),
@@ -704,7 +654,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
           child: GestureDetector(
             onTap: () {
               final RenderBox renderBox =
-                  _dateMenuKey.currentContext!.findRenderObject() as RenderBox;
+              _dateMenuKey.currentContext!.findRenderObject() as RenderBox;
               final position = renderBox.localToGlobal(Offset.zero);
               showMenu(
                 context: context,
@@ -763,35 +713,15 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                                 fontWeight: FontWeight.w400,
                                 fontFamily: AppConstants.font,
                                 color: appThemeColors.grey10)),
-                        if (_isCustomDate && _selectedDate != null)
+                        if (_isCustomDate)
                           Text(
-                            DateFormat('EEEE, MMM d').format(_selectedDate!),
+                            DateFormat('EEEE, MMM d').format(_selectedDate),
                             style: TextStyle(
                               fontSize: 14.sp,
                               color: appThemeColors.grey1,
                             ),
                           ),
                       ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    enabled: false,
-                    padding: EdgeInsets.zero,
-                    height: 4,
-                    child: Divider(
-                      color: appThemeColors.grey6,
-                      thickness: 1,
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'remove',
-                    child: Text(
-                      'Remove',
-                      style: TextStyle(
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w400,
-                          fontFamily: AppConstants.font,
-                          color: appThemeColors.error),
                     ),
                   ),
                 ],
@@ -803,20 +733,13 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                   });
                 } else if (value == 'custom_date') {
                   _showDatePicker();
-                } else if (value == 'remove') {
-                  setState(() {
-                    _selectedDate = null;
-                    _isCustomDate = false;
-                  });
                 }
               });
             },
             child: Container(
               key: _dateMenuKey,
               child: Text(
-                _selectedDate != null
-                    ? DateFormat('EEEE, MMM d').format(_selectedDate!)
-                    : 'Select Date',
+                DateFormat('EEEE, MMM d').format(_selectedDate),
                 style: TextStyle(
                   fontSize: 16.sp,
                   fontWeight: FontWeight.w500,
@@ -829,7 +752,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
           ),
         ),
         CustomButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _onDonePressed,
           text: 'Done',
           color: Colors.transparent,
           textColor: appThemeColors.grey10,
@@ -845,15 +768,13 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     if (allImages.isEmpty) {
       return const SizedBox.shrink();
     }
-
     final double spacing = 2.w;
     final appThemeColors = AppTheme.colorsOf(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final overlayColor = (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
         .withOpacity(0.6);
     final onOverlayColor =
-        isDark ? appThemeColors.grey10 : appThemeColors.grey7;
-
+    isDark ? appThemeColors.grey10 : appThemeColors.grey7;
     Widget buildImageContainer(dynamic image, {Widget? overlay}) {
       return Container(
         decoration: BoxDecoration(
@@ -890,7 +811,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                       shape: BoxShape.circle,
                     ),
                     child:
-                        Icon(Icons.close, color: onOverlayColor, size: 18.sp),
+                    Icon(Icons.close, color: onOverlayColor, size: 18.sp),
                   ),
                 ),
               ),
@@ -899,7 +820,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
         ),
       );
     }
-
     Widget content;
     if (allImages.length == 1) {
       content = SizedBox(
@@ -942,7 +862,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
           ),
         );
       }
-
       content = SizedBox(
         height: 250.h,
         child: Row(
@@ -970,7 +889,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
         ),
       );
     }
-
     return Padding(
       padding: EdgeInsets.fromLTRB(0, 8.h, 0, 8.h),
       child: content,
@@ -981,14 +899,12 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     if (_previewAudios.isEmpty) {
       return const SizedBox.shrink();
     }
-
     final appThemeColors = AppTheme.colorsOf(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final overlayColor = (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
         .withOpacity(0.6);
     final onOverlayColor =
-        isDark ? appThemeColors.grey10 : appThemeColors.grey7;
-
+    isDark ? appThemeColors.grey10 : appThemeColors.grey7;
     return Column(
       children: _previewAudios.map((audio) {
         return Padding(
@@ -1034,7 +950,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                       shape: BoxShape.circle,
                     ),
                     child:
-                        Icon(Icons.close, color: onOverlayColor, size: 16.sp),
+                    Icon(Icons.close, color: onOverlayColor, size: 16.sp),
                   ),
                 ),
               ],
@@ -1056,16 +972,13 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     if (_previewRecordings.isEmpty) {
       return const SizedBox.shrink();
     }
-
     final appThemeColors = AppTheme.colorsOf(context);
-
     return Column(
       children: _previewRecordings.map((recording) {
         final isPlaying = _currentlyPlayingPath == recording.path &&
             _playerState == PlayerState.playing;
         final isPaused = _currentlyPlayingPath == recording.path &&
             _playerState == PlayerState.paused;
-
         return Padding(
           padding: EdgeInsets.only(bottom: 4.h),
           child: Container(
@@ -1140,7 +1053,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                     }
                     setState(() {
                       _previewRecordings.remove(recording);
-                      // also delete the file
                       final file = File(recording.path);
                       if (file.existsSync()) {
                         file.delete();
@@ -1194,180 +1106,179 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
         children: [
           _selectedLocation != null
               ? Padding(
-                  padding: EdgeInsets.only(right: 12.w),
-                  child: GestureDetector(
-                    key: _locationMenuKey,
-                    onTap: () {
-                      final RenderBox renderBox =
-                          _locationMenuKey.currentContext!.findRenderObject()
-                              as RenderBox;
-                      final position = renderBox.localToGlobal(Offset.zero);
-                      showMenu<String>(
-                        context: context,
-                        color: appThemeColors.grey5,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16.r),
-                        ),
-                        position: RelativeRect.fromLTRB(
-                          position.dx,
-                          position.dy + renderBox.size.height + 10.h,
-                          position.dx + renderBox.size.width,
-                          position.dy + renderBox.size.height + 200.h,
-                        ),
-                        items: [
-                          PopupMenuItem(
-                            value: 'open',
-                            child: Row(
-                              children: [
-                                Icon(Icons.open_in_new,
-                                    color: appThemeColors.grey10),
-                                SizedBox(width: 8.w),
-                                Text('Open in Maps',
-                                    style: TextStyle(
-                                        color: appThemeColors.grey10)),
-                              ],
-                            ),
-                          ),
-                          PopupMenuDivider(
-                            height: 1,
-                            color: appThemeColors.grey6,
-                          ),
-                          PopupMenuItem(
-                            value: 'edit',
-                            child: Row(
-                              children: [
-                                Icon(Icons.edit, color: appThemeColors.grey10),
-                                SizedBox(width: 8.w),
-                                Text('Change Location',
-                                    style: TextStyle(
-                                        color: appThemeColors.grey10)),
-                              ],
-                            ),
-                          ),
-                          PopupMenuDivider(
-                            height: 1,
-                            color: appThemeColors.grey6,
-                          ),
-                          PopupMenuItem(
-                            value: 'remove',
-                            child: Row(
-                              children: [
-                                Icon(Icons.delete_outline_outlined,
-                                    color: appThemeColors.error),
-                                SizedBox(width: 8.w),
-                                Text('Remove',
-                                    style:
-                                        TextStyle(color: appThemeColors.error)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ).then((value) {
-                        if (value == 'open') {
-                          _launchLocationLink();
-                        } else if (value == 'edit') {
-                          _handlelocationTap();
-                        } else if (value == 'remove') {
-                          setState(() {
-                            _selectedLocation = null;
-                          });
-                        }
-                      });
-                    },
-                    child: Container(
-                      height: 38.w,
-                      padding: EdgeInsets.only(right: 12.w),
-                      child: ui.Row(
-                        children: [
-                          Icon(
-                            Icons.location_on_rounded,
-                            color: appThemeColors.grey3,
-                            size: 20.w,
-                          ),
-                          SizedBox(
-                            width: 6.w,
-                          ),
-                          Text(
-                            '${_selectedLocation!.coordinates.latitude.toStringAsFixed(4)}, ${_selectedLocation!.coordinates.longitude.toStringAsFixed(4)}',
-                            style: TextStyle(
-                              color: appThemeColors.grey1,
-                              fontSize: 14.sp,
-                              fontWeight: FontWeight.w600,
-                              decoration: TextDecoration.none,
-                              fontFamily: AppConstants.font,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+            padding: EdgeInsets.only(right: 12.w),
+            child: GestureDetector(
+              key: _locationMenuKey,
+              onTap: () {
+                final RenderBox renderBox =
+                _locationMenuKey.currentContext!.findRenderObject()
+                as RenderBox;
+                final position = renderBox.localToGlobal(Offset.zero);
+                showMenu<String>(
+                  context: context,
+                  color: appThemeColors.grey5,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16.r),
                   ),
-                )
-              : Padding(
-                  padding: EdgeInsets.only(right: 12.w),
-                  child: CustomPaint(
-                    painter: DashedBorderPainter(
-                      color: appThemeColors.grey5,
-                      strokeWidth: 2.w,
-                      fillColor: appThemeColors.grey6,
-                    ),
-                    child: SizedBox(
-                      width: 38.w,
-                      height: 38.w,
+                  position: RelativeRect.fromLTRB(
+                    position.dx,
+                    position.dy + renderBox.size.height + 10.h,
+                    position.dx + renderBox.size.width,
+                    position.dy + renderBox.size.height + 200.h,
+                  ),
+                  items: [
+                    PopupMenuItem(
+                      value: 'open',
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          GestureDetector(
-                            onTap: _handlelocationTap,
-                            child: Icon(
-                              Icons.add_location_alt_outlined,
-                              color: appThemeColors.grey4,
-                              size: 28.w,
-                            ),
-                          ),
+                          Icon(Icons.open_in_new,
+                              color: appThemeColors.grey10),
+                          SizedBox(width: 8.w),
+                          Text('Open in Maps',
+                              style: TextStyle(
+                                  color: appThemeColors.grey10)),
                         ],
                       ),
                     ),
-                  ),
+                    PopupMenuDivider(
+                      height: 1,
+                      color: appThemeColors.grey6,
+                    ),
+                    PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit, color: appThemeColors.grey10),
+                          SizedBox(width: 8.w),
+                          Text('Change Location',
+                              style: TextStyle(
+                                  color: appThemeColors.grey10)),
+                        ],
+                      ),
+                    ),
+                    PopupMenuDivider(
+                      height: 1,
+                      color: appThemeColors.grey6,
+                    ),
+                    PopupMenuItem(
+                      value: 'remove',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline_outlined,
+                              color: appThemeColors.error),
+                          SizedBox(width: 8.w),
+                          Text('Remove',
+                              style:
+                              TextStyle(color: appThemeColors.error)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ).then((value) {
+                  if (value == 'open') {
+                    _launchLocationLink();
+                  } else if (value == 'edit') {
+                    _handlelocationTap();
+                  } else if (value == 'remove') {
+                    setState(() {
+                      _selectedLocation = null;
+                    });
+                  }
+                });
+              },
+              child: Container(
+                height: 38.w,
+                padding: EdgeInsets.only(right: 12.w),
+                child: ui.Row(
+                  children: [
+                    Icon(
+                      Icons.location_on_rounded,
+                      color: appThemeColors.grey3,
+                      size: 20.w,
+                    ),
+                    SizedBox(
+                      width: 6.w,
+                    ),
+                    Text(
+                      '${_selectedLocation!.coordinates.latitude.toStringAsFixed(4)}, ${_selectedLocation!.coordinates.longitude.toStringAsFixed(4)}',
+                      style: TextStyle(
+                        color: appThemeColors.grey1,
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.none,
+                        fontFamily: AppConstants.font,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+            ),
+          )
+              : Padding(
+            padding: EdgeInsets.only(right: 12.w),
+            child: CustomPaint(
+              painter: DashedBorderPainter(
+                color: appThemeColors.grey5,
+                strokeWidth: 2.w,
+                fillColor: appThemeColors.grey6,
+              ),
+              child: SizedBox(
+                width: 38.w,
+                height: 38.w,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    GestureDetector(
+                      onTap: _handlelocationTap,
+                      child: Icon(
+                        Icons.add_location_alt_outlined,
+                        color: appThemeColors.grey4,
+                        size: 28.w,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
           Padding(
             padding: EdgeInsets.only(right: 12.w, left: 12.w),
             child: GestureDetector(
               onTap: _handlemoodTap,
               child: _selectedMoodIndex == null
                   ? CustomPaint(
-                      painter: DashedBorderPainter(
-                        color: appThemeColors.grey5,
-                        strokeWidth: 2.w,
-                        fillColor: appThemeColors.grey6,
-                      ),
-                      child: SizedBox(
-                        width: 38.w,
-                        height: 38.w,
-                        child: Icon(
-                          Icons.add_reaction_outlined,
-                          color: appThemeColors.grey4,
-                          size: 28.w,
-                        ),
-                      ),
-                    )
+                painter: DashedBorderPainter(
+                  color: appThemeColors.grey5,
+                  strokeWidth: 2.w,
+                  fillColor: appThemeColors.grey6,
+                ),
+                child: SizedBox(
+                  width: 38.w,
+                  height: 38.w,
+                  child: Icon(
+                    Icons.add_reaction_outlined,
+                    color: appThemeColors.grey4,
+                    size: 28.w,
+                  ),
+                ),
+              )
                   : Container(
-                      width: 38.w,
-                      height: 38.w,
-                      decoration: BoxDecoration(
-                        color: appThemeColors.grey6,
-                        shape: BoxShape.circle,
-                      ),
-                      // UPDATED: Use SvgPicture.asset to display the selected mood
-                      child: Center(
-                        child: SvgPicture.asset(
-                          _moods[_selectedMoodIndex!]['svg']!,
-                          width: 28.w,
-                          height: 28.h,
-                        ),
-                      ),
-                    ),
+                width: 38.w,
+                height: 38.w,
+                decoration: BoxDecoration(
+                  color: appThemeColors.grey6,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: SvgPicture.asset(
+                    _moods[_selectedMoodIndex!]['svg']!,
+                    width: 28.w,
+                    height: 28.h,
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -1376,10 +1287,10 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   Widget _buildDraggableSheet(
-    double screenHeight,
-    double sheetMinSize,
-    double sheetInitialSize,
-  ) {
+      double screenHeight,
+      double sheetMinSize,
+      double sheetInitialSize,
+      ) {
     return Positioned.fill(
       child: Align(
         alignment: Alignment.bottomCenter,
@@ -1391,8 +1302,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
             initialChildSize: _openingSheetViaToolbar
                 ? sheetInitialSize
                 : (_sheetController.isAttached
-                    ? _sheetController.size
-                    : sheetInitialSize),
+                ? _sheetController.size
+                : sheetInitialSize),
             minChildSize: sheetMinSize,
             maxChildSize: _maxChildSize,
             expand: false,
@@ -1405,12 +1316,11 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   Widget _buildSheetContainer(
-    BuildContext context,
-    ScrollController scrollController,
-  ) {
+      BuildContext context,
+      ScrollController scrollController,
+      ) {
     final sheetThemeColors = AppTheme.colorsOf(context);
     final sheetKeyboardHeight = MediaQuery.of(context).viewInsets.bottom;
-
     return Container(
       decoration: BoxDecoration(
         color: sheetThemeColors.grey5,
@@ -1442,22 +1352,20 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                 setState(() {
                   final imagesAndVideos = assets
                       .where((a) =>
-                          a.type == AssetType.image ||
-                          a.type == AssetType.video)
+                  a.type == AssetType.image ||
+                      a.type == AssetType.video)
                       .toList();
                   final audios =
-                      assets.where((a) => a.type == AssetType.audio).toList();
-
+                  assets.where((a) => a.type == AssetType.audio).toList();
                   final existingImageIds =
-                      _previewImages.map((e) => e.id).toSet();
+                  _previewImages.map((e) => e.id).toSet();
                   imagesAndVideos.removeWhere(
-                      (asset) => existingImageIds.contains(asset.id));
+                          (asset) => existingImageIds.contains(asset.id));
                   _previewImages.addAll(imagesAndVideos);
-
                   final existingAudioIds =
-                      _previewAudios.map((e) => e.id).toSet();
+                  _previewAudios.map((e) => e.id).toSet();
                   audios.removeWhere(
-                      (asset) => existingAudioIds.contains(asset.id));
+                          (asset) => existingAudioIds.contains(asset.id));
                   _previewAudios.addAll(audios);
                 });
                 _closeSheet();
@@ -1465,7 +1373,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
               onLocationSelected: (location) {
                 setState(() {
                   final link =
-                      'geo:${location.latitude},${location.longitude}?q=${location.latitude},${location.longitude}'; // MODIFIED GEO URI
+                      'geo:${location.latitude},${location.longitude}?q=${location.latitude},${location.longitude}';
                   _selectedLocation =
                       SelectedLocation(coordinates: location, link: link);
                 });
@@ -1506,25 +1414,22 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     );
   }
 
-  // UPDATED: Wrapped the toolbars in an AnimatedSwitcher for smooth transitions.
   Widget _buildToolbar() {
     final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
     final currentStyle = _quillController.getSelectionStyle();
     final hasSelection = !_quillController.selection.isCollapsed;
-
     Widget toolbar;
     if (isKeyboardVisible || hasSelection) {
       toolbar = TextStylingToolbar(
         key: const ValueKey('TextStylingToolbar'),
-        // Add a key for the switcher
         onToolbarItemTap: _handleTextStylingToolbarItemTap,
         onPinTap: _handlePinTap,
         isBoldActive: currentStyle.containsKey(quill.Attribute.bold.key),
         isItalicActive: currentStyle.containsKey(quill.Attribute.italic.key),
         isUnderlineActive:
-            currentStyle.containsKey(quill.Attribute.underline.key),
+        currentStyle.containsKey(quill.Attribute.underline.key),
         isStrikethroughActive:
-            currentStyle.containsKey(quill.Attribute.strikeThrough.key),
+        currentStyle.containsKey(quill.Attribute.strikeThrough.key),
         isTitleActive: currentStyle.containsKey(quill.Attribute.h1.key) ||
             currentStyle.containsKey(quill.Attribute.h2.key) ||
             currentStyle.containsKey(quill.Attribute.h3.key),
@@ -1534,14 +1439,12 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     } else {
       toolbar = WriteJournalToolbar(
         key: const ValueKey('WriteJournalToolbar'),
-        // Add a key for the switcher
         toolbarIcons: _toolbarIcons,
         selectedToolbarIcon: _selectedToolbarIcon,
         isDraggableSheetActive: _isDraggableSheetActive,
         onToolbarItemTap: _handleToolbarItemTap,
       );
     }
-
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 200),
       switchInCurve: Curves.easeInOut,
@@ -1563,7 +1466,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
-
     return PopScope(
       canPop: !_isDraggableSheetActive,
       onPopInvokedWithResult: (didPop, _) {
@@ -1575,7 +1477,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final screenHeight = constraints.maxHeight;
-
           return AnimatedBuilder(
             animation: Listenable.merge([
               _sheetController,
@@ -1585,9 +1486,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
             builder: (context, child) {
               final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
               final isKeyboardVisible = keyboardHeight > 0;
-
-              // NEW: This logic now handles opening the sheet reactively
-              // after the keyboard has fully closed, preventing the glitch.
               if (_sheetState == _SheetTransitionState.opening &&
                   !isKeyboardVisible &&
                   mounted) {
@@ -1600,16 +1498,12 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                   }
                 });
               }
-
               _handleKeyboardInteraction(isKeyboardVisible);
-
               final sheetHeight =
-                  (_isDraggableSheetActive && _sheetController.isAttached)
-                      ? _sheetController.size * screenHeight
-                      : 0.0;
-
+              (_isDraggableSheetActive && _sheetController.isAttached)
+                  ? _sheetController.size * screenHeight
+                  : 0.0;
               final bottomOffset = math.max(keyboardHeight, sheetHeight);
-
               return Container(
                 color: appThemeColors.grey6,
                 child: Stack(
@@ -1651,18 +1545,18 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                                                 children: [
                                                   _buildImagePreview(),
                                                   if ((_previewImages
-                                                              .isNotEmpty ||
-                                                          _previewPhotos
-                                                              .isNotEmpty) &&
+                                                      .isNotEmpty ||
+                                                      _previewPhotos
+                                                          .isNotEmpty) &&
                                                       _previewAudios.isNotEmpty)
                                                     SizedBox(height: 2.h),
                                                   _buildAudioPreview(),
                                                   if ((_previewImages
-                                                              .isNotEmpty ||
-                                                          _previewPhotos
-                                                              .isNotEmpty ||
-                                                          _previewAudios
-                                                              .isNotEmpty) &&
+                                                      .isNotEmpty ||
+                                                      _previewPhotos
+                                                          .isNotEmpty ||
+                                                      _previewAudios
+                                                          .isNotEmpty) &&
                                                       _previewRecordings
                                                           .isNotEmpty)
                                                     SizedBox(height: 2.h),
@@ -1710,7 +1604,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 }
 
-// NEW WIDGET to handle image loading efficiently and prevent blinking.
 class SizedAssetThumbnail extends StatefulWidget {
   final AssetEntity asset;
 
@@ -1736,7 +1629,6 @@ class _SizedAssetThumbnailState extends State<SizedAssetThumbnail> {
   void didUpdateWidget(covariant SizedAssetThumbnail oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.asset.id != oldWidget.asset.id) {
-      // If the asset entity itself changes, reload the image data.
       setState(() {
         _imageData = null;
       });
@@ -1746,7 +1638,6 @@ class _SizedAssetThumbnailState extends State<SizedAssetThumbnail> {
 
   Future<void> _loadImage() async {
     if (!mounted) return;
-    // Fetches the thumbnail data with a specific size and quality.
     final data = await widget.asset.thumbnailDataWithSize(
       const ThumbnailSize(500, 500),
       quality: 95,
@@ -1761,16 +1652,14 @@ class _SizedAssetThumbnailState extends State<SizedAssetThumbnail> {
   @override
   Widget build(BuildContext context) {
     if (_imageData != null) {
-      // Display the image once loaded.
       return Image.memory(
         _imageData!,
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
-        gaplessPlayback: true, // Ensures a smooth display without flickering.
+        gaplessPlayback: true,
       );
     }
-    // Show a placeholder while the image is loading.
     final appThemeColors = AppTheme.colorsOf(context);
     return Container(color: appThemeColors.grey4);
   }
@@ -1797,21 +1686,17 @@ class DashedBorderPainter extends CustomPainter {
       ui.Rect.fromLTWH(0, 0, size.width, size.height),
       ui.Radius.circular(size.height / 2),
     );
-
     if (fillColor != null) {
       final fillPaint = ui.Paint()
         ..color = fillColor!
         ..style = ui.PaintingStyle.fill;
       canvas.drawRRect(rrect, fillPaint);
     }
-
     final dashPaint = ui.Paint()
       ..color = color
       ..strokeWidth = strokeWidth
       ..style = ui.PaintingStyle.stroke;
-
     final path = ui.Path()..addRRect(rrect);
-
     final dashPath = ui.Path();
     for (final metric in path.computeMetrics()) {
       double distance = 0;
@@ -1823,7 +1708,6 @@ class DashedBorderPainter extends CustomPainter {
         distance += dashWidth + dashSpace;
       }
     }
-
     canvas.drawPath(dashPath, dashPaint);
   }
 

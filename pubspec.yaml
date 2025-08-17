@@ -36,6 +36,9 @@ dependencies:
   url_launcher: ^6.3.0 # Launch map link
   path: ^1.9.0
   camera: ^0.11.2
+  flutter_staggered_grid_view: ^0.7.0
+  uuid: ^4.2.1
+  progressive_blur: ^0.0.2
 
 dev_dependencies:
   flutter_test:
