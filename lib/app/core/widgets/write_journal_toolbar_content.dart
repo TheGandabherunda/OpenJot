@@ -1220,8 +1220,8 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
                   // One full rotation (2π)
                   child: SvgPicture.asset(
                     selectedMood['svg']!,
-                    width: 72.w,
-                    height: 72.h,
+                    width: 80.w,
+                    height: 80.h,
                   ),
                 );
               },
