@@ -75,7 +75,8 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
 
     _slideAnimationController = AnimationController(
       duration: const Duration(milliseconds: 500),
-      reverseDuration: const Duration(milliseconds: 700), // Longer exit duration
+      reverseDuration:
+      const Duration(milliseconds: 700), // Longer exit duration
       vsync: this,
     );
 
@@ -94,7 +95,8 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     ).animate(CurvedAnimation(
       parent: _slideAnimationController,
       curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
-      reverseCurve: const Interval(0.0, 0.8, curve: Curves.easeOut), // Longer fade out
+      reverseCurve:
+      const Interval(0.0, 0.8, curve: Curves.easeOut), // Longer fade out
     ));
 
     _scaleAnimation = Tween<double>(
@@ -122,8 +124,9 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       return;
     }
 
-    int index =
-    (offset / (_tileHeightEstimate + 32.h)).floor().clamp(0, totalEntries - 1);
+    int index = (offset / (_tileHeightEstimate + 32.h))
+        .floor()
+        .clamp(0, totalEntries - 1);
     if (_topEntryIndex != index) {
       setState(() {
         _topEntryIndex = index;
@@ -174,7 +177,8 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
             return false;
           },
           child: NestedScrollView(
-            headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
+            headerSliverBuilder:
+                (BuildContext context, bool innerBoxIsScrolled) {
               return <Widget>[
                 SliverAppBar(
                   backgroundColor: Colors.transparent,
@@ -183,33 +187,39 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                   expandedHeight: 72.h,
                   floating: false,
                   pinned: true,
-                  flexibleSpace: ClipRect(
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              appThemeColors.grey7,
-                              appThemeColors.grey7.withOpacity(0.6),
-                            ],
-                            stops: const [0.0, 1.0],
-                          ),
-                        ),
-                        child: FlexibleSpaceBar(
-                          title: Text(
-                            AppConstants.appTitle,
-                            style: TextStyle(
-                              fontFamily: AppConstants.font,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 24.sp,
-                              color: appThemeColors.grey10,
+                  flexibleSpace: RepaintBoundary(
+                    // OPTIMIZATION: Wrapping the expensive BackdropFilter in a RepaintBoundary.
+                    // This caches the blurred app bar and prevents it from being re-rendered
+                    // on every scroll frame, which is a major performance boost.
+                    child: ClipRect(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                appThemeColors.grey7,
+                                appThemeColors.grey7.withOpacity(0.6),
+                              ],
+                              stops: const [0.0, 1.0],
                             ),
                           ),
-                          titlePadding: EdgeInsets.only(left: 16.w, bottom: 16.h),
-                          expandedTitleScale: 28.sp / 24.sp,
+                          child: FlexibleSpaceBar(
+                            title: Text(
+                              AppConstants.appTitle,
+                              style: TextStyle(
+                                fontFamily: AppConstants.font,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 24.sp,
+                                color: appThemeColors.grey10,
+                              ),
+                            ),
+                            titlePadding:
+                            EdgeInsets.only(left: 16.w, bottom: 16.h),
+                            expandedTitleScale: 28.sp / 24.sp,
+                          ),
                         ),
                       ),
                     ),
@@ -235,7 +245,8 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          SvgPicture.asset('assets/app_icon.svg', height: 48.sp),
+                          SvgPicture.asset('assets/app_icon.svg',
+                              height: 48.sp),
                           SizedBox(height: 24.h),
                           Text(
                             'Jot Your Thoughts',
@@ -302,13 +313,17 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                     child: Center(
                       child: (_showChip && _currentMonthYear != null)
                           ? Container(
-                        padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 5.h), // Slightly more padding
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 9.w,
+                            vertical: 5.h), // Slightly more padding
                         decoration: BoxDecoration(
                           color: appThemeColors.grey5,
-                          borderRadius: BorderRadius.circular(6.r), // More rounded corners
+                          borderRadius: BorderRadius.circular(
+                              6.r), // More rounded corners
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.12), // Slightly more shadow
+                              color: Colors.black
+                                  .withOpacity(0.12), // Slightly more shadow
                               offset: const Offset(0, 2),
                             ),
                           ],

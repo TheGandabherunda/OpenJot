@@ -338,7 +338,7 @@ class _WriteJournalToolbarContentState
                 color: Theme.of(context).primaryColor,
                 textColor: colors.grey8,
                 textPadding:
-                    EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
               ),
             ),
           ),
@@ -397,7 +397,7 @@ class _WriteJournalToolbarContentState
 
       final isDark = Theme.of(context).brightness == Brightness.dark;
       final overlayColor =
-          (isDark ? colors.grey7 : colors.grey10).withOpacity(0.5);
+      (isDark ? colors.grey7 : colors.grey10).withOpacity(0.5);
       final onOverlayColor = isDark ? colors.grey10 : colors.grey7;
 
       return NotificationListener<ScrollNotification>(
@@ -431,7 +431,7 @@ class _WriteJournalToolbarContentState
                     mainAxisSpacing: 4.0,
                   ),
                   delegate: SliverChildBuilderDelegate(
-                    (context, index) {
+                        (context, index) {
                       final asset = _groupedAssets[date]![index];
                       final isSelected = _selectedAssets.contains(asset);
 
@@ -592,10 +592,10 @@ class AssetThumbnailItem extends StatefulWidget {
   final AppThemeColors colors;
 
   const AssetThumbnailItem({
-    Key? key,
+    super.key,
     required this.asset,
     required this.colors,
-  }) : super(key: key);
+  });
 
   @override
   _AssetThumbnailItemState createState() => _AssetThumbnailItemState();
@@ -644,11 +644,17 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
       gaplessPlayback: true,
     );
 
-    if (widget.asset.type == AssetType.video) {
-      return _buildVideoOverlay(context, widget.asset, thumbnail);
-    }
+    // OPTIMIZATION: Wrapping the thumbnail in a RepaintBoundary.
+    // This caches the loaded image and prevents it from being repainted
+    // when other parts of the grid update (e.g., when another item is selected).
+    final content = RepaintBoundary(
+      child:
+      widget.asset.type == AssetType.video
+          ? _buildVideoOverlay(context, widget.asset, thumbnail)
+          : thumbnail,
+    );
 
-    return thumbnail;
+    return content;
   }
 
   String _formatDuration(int seconds) {
@@ -663,7 +669,7 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
     final isGif = asset.title?.toLowerCase().endsWith('.gif') ?? false;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final overlayColor =
-        (isDark ? widget.colors.grey7 : widget.colors.grey10).withOpacity(0.7);
+    (isDark ? widget.colors.grey7 : widget.colors.grey10).withOpacity(0.7);
     final onOverlayColor = isDark ? widget.colors.grey10 : widget.colors.grey7;
 
     return Stack(
@@ -750,12 +756,12 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
     super.initState();
     _playerStateSubscription =
         _audioPlayer.onPlayerStateChanged.listen((state) {
-      if (mounted && state == PlayerState.completed) {
-        setState(() {
-          _isPlayingPreview = false;
+          if (mounted && state == PlayerState.completed) {
+            setState(() {
+              _isPlayingPreview = false;
+            });
+          }
         });
-      }
-    });
 
     _animationController = AnimationController(
       vsync: this,
@@ -1034,13 +1040,13 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
               flex: 3,
               child: _isRecording
                   ? Align(
-                      alignment: Alignment.center,
-                      child: IconButton(
-                        icon: Icon(Icons.stop_circle_outlined,
-                            color: colors.grey10, size: 40.sp),
-                        onPressed: _stopRecording,
-                      ),
-                    )
+                alignment: Alignment.center,
+                child: IconButton(
+                  icon: Icon(Icons.stop_circle_outlined,
+                      color: colors.grey10, size: 40.sp),
+                  onPressed: _stopRecording,
+                ),
+              )
                   : const SizedBox(),
             ),
           ],
@@ -1116,7 +1122,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
               color: Theme.of(context).primaryColor,
               textColor: colors.grey8,
               textPadding:
-                  EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+              EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
             ),
           ],
         )
@@ -1214,7 +1220,7 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
               builder: (context, child) {
                 // Bounce curve for rotation - quick start, slow end
                 final bounceAnimation =
-                    Curves.easeOutBack.transform(_rotationController.value);
+                Curves.easeOutBack.transform(_rotationController.value);
                 return Transform.rotate(
                   angle: bounceAnimation * 2 * 3.14159,
                   // One full rotation (2π)

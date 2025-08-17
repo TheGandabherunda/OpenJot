@@ -31,53 +31,58 @@ class JournalTile extends StatelessWidget {
     final hasMedia =
         entry.galleryImages.isNotEmpty || entry.cameraPhotos.isNotEmpty;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: appThemeColors.grey6,
-        borderRadius: BorderRadius.circular(16.r),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Media/Text Content Container
-        Container(
-          padding: EdgeInsets.all(2.w),
-          decoration: BoxDecoration(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(16.r),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (hasMedia) _buildMediaPreview(context),
-              if (plainText.isNotEmpty)
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                      10.w, hasMedia ? 10.h : 12.h, 10.w, 8.h),
-                  child: Text(
-                    plainText,
-                    maxLines: 5,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: AppConstants.font,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 17.sp,
-                      color: appThemeColors.grey1,
+    // OPTIMIZATION: Wrapping the entire tile in a RepaintBoundary.
+    // This is highly effective for list items. It caches the rendered output of the tile,
+    // so Flutter doesn't have to repaint its complex content during scrolling.
+    return RepaintBoundary(
+      child: Container(
+        decoration: BoxDecoration(
+          color: appThemeColors.grey6,
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // Media/Text Content Container
+          Container(
+            padding: EdgeInsets.all(2.w),
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(16.r),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (hasMedia) _buildMediaPreview(context),
+                if (plainText.isNotEmpty)
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                        10.w, hasMedia ? 10.h : 12.h, 10.w, 8.h),
+                    child: Text(
+                      plainText,
+                      maxLines: 5,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppConstants.font,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 17.sp,
+                        color: appThemeColors.grey1,
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
-        ),
-        SizedBox(height: 8.h),
-        // Footer Container
-        Container(
-          padding: EdgeInsets.all(2.w),
-          decoration: BoxDecoration(
-            color: appThemeColors.grey6,
-            borderRadius: BorderRadius.circular(16.r),
+          SizedBox(height: 8.h),
+          // Footer Container
+          Container(
+            padding: EdgeInsets.all(2.w),
+            decoration: BoxDecoration(
+              color: appThemeColors.grey6,
+              borderRadius: BorderRadius.circular(16.r),
+            ),
+            child: _buildFooter(appThemeColors),
           ),
-          child: _buildFooter(appThemeColors),
-        ),
-      ]),
+        ]),
+      ),
     );
   }
 
@@ -90,10 +95,11 @@ class JournalTile extends StatelessWidget {
     final double spacing = 2.w;
     final appThemeColors = AppTheme.colorsOf(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final overlayColor = (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
+    final overlayColor =
+    (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
         .withOpacity(0.6);
     final onOverlayColor =
-        isDark ? appThemeColors.grey10 : appThemeColors.grey7;
+    isDark ? appThemeColors.grey10 : appThemeColors.grey7;
 
     Widget buildImageContainer(dynamic image, {Widget? overlay}) {
       return Container(
@@ -213,7 +219,7 @@ class JournalTile extends StatelessWidget {
               if (entry.isBookmarked)
                 Padding(
                   padding:
-                      EdgeInsets.only(left: entry.moodIndex != null ? 8.w : 0),
+                  EdgeInsets.only(left: entry.moodIndex != null ? 8.w : 0),
                   child: Icon(
                     Icons.bookmark_rounded,
                     color: appThemeColors.grey2,
