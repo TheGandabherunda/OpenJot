@@ -54,6 +54,9 @@ class WriteJournalBottomSheet extends StatefulWidget {
   WriteJournalBottomSheetState createState() => WriteJournalBottomSheetState();
 }
 
+// NEW ENUM to manage the state of the bottom sheet transition
+enum _SheetTransitionState { none, opening, open }
+
 class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   late quill.QuillController _quillController;
   final _focusNode = FocusNode();
@@ -79,6 +82,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   List<RecordedAudio> _previewRecordings = [];
   SelectedLocation? _selectedLocation;
   int? _selectedMoodIndex;
+
+  // NEW state variable to handle the transition from keyboard to sheet
+  _SheetTransitionState _sheetState = _SheetTransitionState.none;
 
   final AudioPlayer _audioPlayer = AudioPlayer();
   String? _currentlyPlayingPath;
@@ -522,15 +528,18 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       _openingSheetViaToolbar = false;
       _activeSheetMinSize = null;
       _activeSheetInitialSize = null;
+      _sheetState = _SheetTransitionState.none; // UPDATED: Reset state
     });
   }
 
+  // UPDATED: No more Future.delayed. This method now uses the state machine.
   void _handleSheetOpeningWithKeyboard(IconData iconData) {
     _focusNode.unfocus();
-    Future.delayed(const Duration(milliseconds: 250), () {
-      if (mounted) {
-        _openSheet(iconData, afterKeyboardClose: true);
-      }
+    // Set the state to 'opening'. The build method will detect when the keyboard
+    // is gone and trigger the _openSheet method.
+    setState(() {
+      _sheetState = _SheetTransitionState.opening;
+      _selectedToolbarIcon = iconData; // Store the icon for later
     });
   }
 
@@ -609,6 +618,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
           _selectedToolbarIcon = null;
           _activeSheetMinSize = null;
           _activeSheetInitialSize = null;
+          _sheetState = _SheetTransitionState.none; // UPDATED: Reset state
         });
       }
     });
@@ -1451,23 +1461,25 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     );
   }
 
+  // UPDATED: Wrapped the toolbars in an AnimatedSwitcher for smooth transitions.
   Widget _buildToolbar() {
     final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
     final currentStyle = _quillController.getSelectionStyle();
     final hasSelection = !_quillController.selection.isCollapsed;
 
+    Widget toolbar;
     if (isKeyboardVisible || hasSelection) {
-      return TextStylingToolbar(
+      toolbar = TextStylingToolbar(
+        key: const ValueKey('TextStylingToolbar'),
+        // Add a key for the switcher
         onToolbarItemTap: _handleTextStylingToolbarItemTap,
         onPinTap: _handlePinTap,
         isBoldActive: currentStyle.containsKey(quill.Attribute.bold.key),
         isItalicActive: currentStyle.containsKey(quill.Attribute.italic.key),
-        isUnderlineActive: currentStyle.containsKey(
-          quill.Attribute.underline.key,
-        ),
-        isStrikethroughActive: currentStyle.containsKey(
-          quill.Attribute.strikeThrough.key,
-        ),
+        isUnderlineActive:
+            currentStyle.containsKey(quill.Attribute.underline.key),
+        isStrikethroughActive:
+            currentStyle.containsKey(quill.Attribute.strikeThrough.key),
         isTitleActive: currentStyle.containsKey(quill.Attribute.h1.key) ||
             currentStyle.containsKey(quill.Attribute.h2.key) ||
             currentStyle.containsKey(quill.Attribute.h3.key),
@@ -1475,13 +1487,32 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
         isBulletActive: currentStyle.containsKey(quill.Attribute.ul.key),
       );
     } else {
-      return WriteJournalToolbar(
+      toolbar = WriteJournalToolbar(
+        key: const ValueKey('WriteJournalToolbar'),
+        // Add a key for the switcher
         toolbarIcons: _toolbarIcons,
         selectedToolbarIcon: _selectedToolbarIcon,
         isDraggableSheetActive: _isDraggableSheetActive,
         onToolbarItemTap: _handleToolbarItemTap,
       );
     }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      switchInCurve: Curves.easeInOut,
+      switchOutCurve: Curves.easeInOut,
+      transitionBuilder: (child, animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: SizeTransition(
+            sizeFactor: animation,
+            axis: Axis.horizontal,
+            child: child,
+          ),
+        );
+      },
+      child: toolbar,
+    );
   }
 
   @override
@@ -1509,6 +1540,21 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
             builder: (context, child) {
               final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
               final isKeyboardVisible = keyboardHeight > 0;
+
+              // NEW: This logic now handles opening the sheet reactively
+              // after the keyboard has fully closed, preventing the glitch.
+              if (_sheetState == _SheetTransitionState.opening &&
+                  !isKeyboardVisible &&
+                  mounted) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted && _sheetState == _SheetTransitionState.opening) {
+                    _openSheet(_selectedToolbarIcon!, afterKeyboardClose: true);
+                    setState(() {
+                      _sheetState = _SheetTransitionState.open;
+                    });
+                  }
+                });
+              }
 
               _handleKeyboardInteraction(isKeyboardVisible);
 
