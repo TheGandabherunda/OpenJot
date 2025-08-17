@@ -1278,18 +1278,28 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                     child: Container(
                       height: 38.w,
                       padding: EdgeInsets.only(right: 12.w),
-                      child: Center(
-                        child: Text(
-                          '${_selectedLocation!.coordinates.latitude.toStringAsFixed(4)}, ${_selectedLocation!.coordinates.longitude.toStringAsFixed(4)}',
-                          style: TextStyle(
-                            color: appThemeColors.grey1,
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.none,
-                            fontFamily: AppConstants.font,
-                            overflow: TextOverflow.ellipsis,
+                      child: ui.Row(
+                        children: [
+                          Icon(
+                            Icons.location_on_rounded,
+                            color: appThemeColors.grey3,
+                            size: 20.w,
                           ),
-                        ),
+                          SizedBox(
+                            width: 6.w,
+                          ),
+                          Text(
+                            '${_selectedLocation!.coordinates.latitude.toStringAsFixed(4)}, ${_selectedLocation!.coordinates.longitude.toStringAsFixed(4)}',
+                            style: TextStyle(
+                              color: appThemeColors.grey1,
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.none,
+                              fontFamily: AppConstants.font,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
