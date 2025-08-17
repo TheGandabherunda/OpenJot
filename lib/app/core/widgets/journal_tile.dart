@@ -60,7 +60,6 @@ class JournalTile extends StatelessWidget {
                       fontFamily: AppConstants.font,
                       fontWeight: FontWeight.w500,
                       fontSize: 17.sp,
-                      height: 1.4,
                       color: appThemeColors.grey1,
                     ),
                   ),

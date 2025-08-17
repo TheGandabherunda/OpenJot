@@ -132,6 +132,18 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   void _onDonePressed() {
+    final isTextEmpty = _quillController.document.toPlainText().trim().isEmpty;
+    final isMediaEmpty = _previewImages.isEmpty &&
+        _previewPhotos.isEmpty &&
+        _previewAudios.isEmpty &&
+        _previewRecordings.isEmpty;
+
+    // If there is no text and no media, just close the bottom sheet without saving.
+    if (isTextEmpty && isMediaEmpty) {
+      Navigator.of(context).pop();
+      return;
+    }
+
     final homeController = Get.find<HomeController>();
     final newEntry = JournalEntry(
       id: const Uuid().v4(),
