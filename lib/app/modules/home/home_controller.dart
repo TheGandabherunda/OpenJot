@@ -12,10 +12,10 @@ class HomeController extends GetxController {
   final Map<String, String> _sortTypeDisplayNames = {
     'time': 'Entry time',
     'bookmark': 'Bookmark first',
-    'media': 'Media only first',
+    'media': 'With media first',
     'text': 'Text only first',
-    'location': 'Location only first',
-    'mood': 'Mood only first',
+    'location': 'With location first',
+    'mood': 'With mood first',
   };
 
   // 3. Add a getter for the current sort type's display name.

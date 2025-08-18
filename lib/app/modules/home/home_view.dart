@@ -269,7 +269,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'media',
-          child: Text("Media only first",
+          child: Text("With Media first",
               style: TextStyle(color: appThemeColors.grey10)),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
@@ -281,13 +281,13 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'location',
-          child: Text("Location only first",
+          child: Text("With location first",
               style: TextStyle(color: appThemeColors.grey10)),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'mood',
-          child: Text("Mood only first",
+          child: Text("With mood first",
               style: TextStyle(color: appThemeColors.grey10)),
         ),
       ],

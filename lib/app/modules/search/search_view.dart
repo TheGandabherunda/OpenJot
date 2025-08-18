@@ -172,7 +172,7 @@ class _SearchViewState extends State<SearchView> {
                           _applyFilters();
                         });
                       }),
-                      _buildFilterChip('Media Only', _isMediaOnly, (selected) {
+                      _buildFilterChip('With Media', _isMediaOnly, (selected) {
                         setState(() {
                           _isMediaOnly = selected;
                           _applyFilters();
