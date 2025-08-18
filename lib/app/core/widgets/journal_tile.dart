@@ -1,9 +1,14 @@
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
+import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
 import 'package:photo_manager/photo_manager.dart';
 
@@ -11,11 +16,19 @@ import '../constants.dart';
 import '../models/journal_entry.dart';
 import '../theme.dart';
 
-class JournalTile extends StatelessWidget {
+class JournalTile extends StatefulWidget {
   final JournalEntry entry;
   final VoidCallback? onTap;
 
   const JournalTile({super.key, required this.entry, this.onTap});
+
+  @override
+  State<JournalTile> createState() => _JournalTileState();
+}
+
+class _JournalTileState extends State<JournalTile> {
+  final GlobalKey _menuKey = GlobalKey();
+  late bool _isBookmarked;
 
   static const List<Map<String, String>> _moods = [
     {'svg': 'assets/1.svg', 'label': 'Very Unpleasant'},
@@ -26,26 +39,74 @@ class JournalTile extends StatelessWidget {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _isBookmarked = widget.entry.isBookmarked;
+  }
+
+  /// Shows the bottom sheet for editing a journal entry.
+  void _onEditPressed() {
+    showCupertinoModalBottomSheet(
+      context: context,
+      expand: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => SafeArea(
+        child: WriteJournalBottomSheet(entry: widget.entry),
+      ),
+    );
+  }
+
+  /// Shows a confirmation dialog before deleting a journal entry.
+  void _onDeletePressed() {
+    showCupertinoDialog(
+      context: context,
+      builder: (BuildContext ctx) {
+        return CupertinoAlertDialog(
+          title: const Text('Please Confirm'),
+          content: const Text(
+              'Are you sure you want to delete this journal entry? This action is irreversible.'),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+              },
+              isDefaultAction: false,
+              isDestructiveAction: false,
+              child: const Text('Cancel'),
+            ),
+            CupertinoDialogAction(
+              onPressed: () {
+                // Find the controller and delete the entry
+                Get.find<HomeController>().deleteJournalEntry(widget.entry.id);
+                Navigator.of(ctx).pop();
+              },
+              isDefaultAction: true,
+              isDestructiveAction: true,
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
-    final plainText = entry.content.toPlainText().trim();
-    final hasMedia =
-        entry.galleryImages.isNotEmpty || entry.cameraPhotos.isNotEmpty;
+    final plainText = widget.entry.content.toPlainText().trim();
+    final hasMedia = widget.entry.galleryImages.isNotEmpty ||
+        widget.entry.cameraPhotos.isNotEmpty;
 
-    // OPTIMIZATION: Wrapping the entire tile in a RepaintBoundary.
-    // This is highly effective for list items. It caches the rendered output of the tile,
-    // so Flutter doesn't have to repaint its complex content during scrolling.
     return RepaintBoundary(
       child: GestureDetector(
-        onTap: onTap,
+        onTap: widget.onTap,
         child: Container(
           decoration: BoxDecoration(
             color: appThemeColors.grey6,
             borderRadius: BorderRadius.circular(16.r),
           ),
           child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Media/Text Content Container
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Container(
               padding: EdgeInsets.all(2.w),
               decoration: BoxDecoration(
@@ -55,7 +116,12 @@ class JournalTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (hasMedia) _buildMediaPreview(context),
+                  if (hasMedia)
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                          0.w, 0.h, 0.w, (plainText.isNotEmpty) ? 8.h : 0.h),
+                      child: _buildMediaPreview(context),
+                    ),
                   if (plainText.isNotEmpty)
                     Padding(
                       padding: EdgeInsets.fromLTRB(
@@ -76,33 +142,34 @@ class JournalTile extends StatelessWidget {
               ),
             ),
             SizedBox(height: 8.h),
-            // Footer Container
-                Container(
-                  padding: EdgeInsetsGeometry.fromLTRB(2.w,4.h,2.w,0.h),
-                  decoration: BoxDecoration(
-                    color: appThemeColors.grey6,
-                    borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(16.r),
-                      bottomRight: Radius.circular(16.r),
-                    ),
-                    border: Border(
-                      top: BorderSide(
-                        color: appThemeColors.grey5, // choose stroke color
-                        width: 1, // stroke thickness
-                      ),
-                    ),
-                  ),
-                  child: _buildFooter(appThemeColors),
+            Container(
+              padding: EdgeInsetsGeometry.fromLTRB(2.w, 4.h, 2.w, 0.h),
+              decoration: BoxDecoration(
+                color: appThemeColors.grey6,
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(16.r),
+                  bottomRight: Radius.circular(16.r),
                 ),
-
-              ]),
+                border: Border(
+                  top: BorderSide(
+                    color: appThemeColors.grey5,
+                    width: 1,
+                  ),
+                ),
+              ),
+              child: _buildFooter(appThemeColors, context),
+            ),
+          ]),
         ),
       ),
     );
   }
 
   Widget _buildMediaPreview(BuildContext context) {
-    final allImages = [...entry.galleryImages, ...entry.cameraPhotos];
+    final allImages = [
+      ...widget.entry.galleryImages,
+      ...widget.entry.cameraPhotos
+    ];
     if (allImages.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -110,10 +177,11 @@ class JournalTile extends StatelessWidget {
     final double spacing = 2.w;
     final appThemeColors = AppTheme.colorsOf(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final overlayColor = (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
+    final overlayColor =
+    (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
         .withOpacity(0.6);
     final onOverlayColor =
-        isDark ? appThemeColors.grey10 : appThemeColors.grey7;
+    isDark ? appThemeColors.grey10 : appThemeColors.grey7;
 
     Widget buildImageContainer(dynamic image, {Widget? overlay}) {
       return Container(
@@ -207,49 +275,208 @@ class JournalTile extends StatelessWidget {
     return content;
   }
 
-  Widget _buildFooter(AppThemeColors appThemeColors) {
+  Widget _buildFooter(AppThemeColors appThemeColors, BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(10.w, 4.h, 10.w, 8.h),
-      child: IntrinsicHeight(
-        child: Row(
-          children: [
-            Text(
-              DateFormat('h:mm a, MMM d').format(entry.createdAt),
-              style: TextStyle(
-                fontFamily: AppConstants.font,
-                fontWeight: FontWeight.w500,
-                fontSize: 13.sp,
-                color: appThemeColors.grey3,
-              ),
-            ),
-            VerticalDivider(
-              color: appThemeColors.grey5,
-              thickness: 1.w,
-              width: 16.w, // spacing
-            ),
-            Row(
-              children: [
-                if (entry.moodIndex != null)
-                  SvgPicture.asset(
-                    _moods[entry.moodIndex!]['svg']!,
-                    width: 20.w,
-                    height: 20.h,
-                  ),
-                if (entry.isBookmarked)
-                  Padding(
-                    padding: EdgeInsets.only(left: entry.moodIndex != null ? 8.w : 0),
-                    child: Icon(
-                      Icons.bookmark_rounded,
-                      color: appThemeColors.grey2,
-                      size: 20.w,
+        padding: EdgeInsets.fromLTRB(10.w, 4.h, 10.w, 8.h),
+        child: IntrinsicHeight(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    DateFormat('MMM d  •  h:mm a')
+                        .format(widget.entry.createdAt),
+                    style: TextStyle(
+                      fontFamily: AppConstants.font,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 13.sp,
+                      color: appThemeColors.grey3,
                     ),
                   ),
-              ],
-            ),
-          ],
-        ),
-      )
+                  VerticalDivider(
+                    color: appThemeColors.grey5,
+                    thickness: 1.w,
+                    width: 16.w,
+                  ),
+                  Row(
+                    children: [
+                      if (widget.entry.moodIndex != null)
+                        SvgPicture.asset(
+                          _moods[widget.entry.moodIndex!]['svg']!,
+                          width: 22.w,
+                          height: 22.h,
+                        ),
+                      if (_isBookmarked)
+                        Padding(
+                          padding: EdgeInsets.only(
+                              left: widget.entry.moodIndex != null ? 8.w : 0),
+                          child: Icon(
+                            Icons.bookmark_rounded,
+                            color: appThemeColors.grey2,
+                            size: 22.w,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+              GestureDetector(
+                key: _menuKey,
+                onTap: () {
+                  final RenderBox renderBox =
+                  _menuKey.currentContext!.findRenderObject() as RenderBox;
+                  final position = renderBox.localToGlobal(Offset.zero);
+                  showMenu<String>(
+                    context: context,
+                    color: appThemeColors.grey5,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16.r),
+                    ),
+                    position: RelativeRect.fromLTRB(
+                      position.dx - renderBox.size.width * 2,
+                      position.dy + renderBox.size.height,
+                      position.dx,
+                      position.dy + renderBox.size.height * 2,
+                    ),
+                    items: [
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, color: appThemeColors.grey10),
+                            SizedBox(width: 8.w),
+                            Text('Edit',
+                                style:
+                                TextStyle(color: appThemeColors.grey10)),
+                          ],
+                        ),
+                      ),
+                      PopupMenuDivider(
+                          height: 1, color: appThemeColors.grey6),
+                      PopupMenuItem(
+                        value: 'bookmark',
+                        child: Row(
+                          children: [
+                            Icon(
+                              _isBookmarked
+                                  ? Icons.bookmark_remove_rounded
+                                  : Icons.bookmark_add_outlined,
+                              color: appThemeColors.grey10,
+                            ),
+                            SizedBox(width: 8.w),
+                            Text(
+                              _isBookmarked ? 'Remove Bookmark' : 'Bookmark',
+                              style: TextStyle(color: appThemeColors.grey10),
+                            ),
+                          ],
+                        ),
+                      ),
+                      PopupMenuDivider(
+                          height: 1, color: appThemeColors.grey6),
+                      PopupMenuItem(
+                        value: 'pdf',
+                        child: Row(
+                          children: [
+                            Icon(Icons.save_outlined,
+                                color: appThemeColors.grey10),
+                            SizedBox(width: 8.w),
+                            Text('Save as PDF',
+                                style:
+                                TextStyle(color: appThemeColors.grey10)),
+                          ],
+                        ),
+                      ),
+                      PopupMenuDivider(
+                          height: 1, color: appThemeColors.grey6),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline_outlined,
+                                color: appThemeColors.error),
+                            SizedBox(width: 8.w),
+                            Text('Delete',
+                                style: TextStyle(color: appThemeColors.error)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ).then((value) {
+                    if (value == 'edit') {
+                      _onEditPressed();
+                    } else if (value == 'bookmark') {
+                      setState(() {
+                        _isBookmarked = !_isBookmarked;
+                      });
+                    } else if (value == 'pdf') {
+                      // Handle Save as PDF
+                    } else if (value == 'delete') {
+                      _onDeletePressed();
+                    }
+                  });
+                },
+                child: Icon(
+                  Icons.more_horiz_rounded,
+                  color: appThemeColors.grey1,
+                  size: 28.w,
+                ),
+              ),
+            ],
+          ),
+        ));
+  }
+}
 
-    );
+// OPTIMIZATION: Converted to a StatefulWidget to fetch and cache the thumbnail data once.
+// This prevents the image from reloading every time the widget rebuilds.
+class SizedAssetThumbnail extends StatefulWidget {
+  final AssetEntity asset;
+
+  const SizedAssetThumbnail({Key? key, required this.asset}) : super(key: key);
+
+  @override
+  State<SizedAssetThumbnail> createState() => _SizedAssetThumbnailState();
+}
+
+class _SizedAssetThumbnailState extends State<SizedAssetThumbnail> {
+  Uint8List? _thumbnailData;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThumbnail();
+  }
+
+  Future<void> _loadThumbnail() async {
+    // Fetches the thumbnail data as bytes.
+    final data = await widget.asset.thumbnailData;
+    if (mounted) {
+      // Stores the data in the state to be used by the build method.
+      setState(() {
+        _thumbnailData = data;
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant SizedAssetThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If the asset has changed, reload the thumbnail.
+    if (widget.asset.id != oldWidget.asset.id) {
+      _thumbnailData = null; // Clear old data
+      _loadThumbnail();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Now, instead of a FutureBuilder, we just check if our data is ready.
+    if (_thumbnailData != null) {
+      return Image.memory(_thumbnailData!, fit: BoxFit.cover);
+    }
+    // Show a loading indicator while the thumbnail is fetched in initState.
+    return const Center(child: CircularProgressIndicator());
   }
 }

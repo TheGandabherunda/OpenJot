@@ -18,4 +18,8 @@ class HomeController extends GetxController {
       journalEntries.refresh();
     }
   }
+
+  void deleteJournalEntry(String entryId) {
+    journalEntries.removeWhere((entry) => entry.id == entryId);
+  }
 }

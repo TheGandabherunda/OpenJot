@@ -174,12 +174,16 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
 
     final homeController = Get.find<HomeController>();
 
+    // *** FIX: Create a new, clean Document from JSON data to save in the state.
+    // This decouples the saved document from this widget's controller, which is about to be disposed.
+    final documentJson = _quillController.document.toDelta().toJson();
+    final cleanDocument = quill.Document.fromJson(documentJson);
+
     if (widget.entry != null) {
       // Update existing entry.
       final updatedEntry = JournalEntry(
         id: widget.entry!.id,
-        // Keep the original ID.
-        content: _quillController.document,
+        content: cleanDocument, // Use the clean document
         createdAt: _selectedDate,
         isBookmarked: _isBookmarked,
         moodIndex: _selectedMoodIndex,
@@ -194,7 +198,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       // Add new entry.
       final newEntry = JournalEntry(
         id: const Uuid().v4(),
-        content: _quillController.document,
+        content: cleanDocument, // Use the clean document
         createdAt: _selectedDate,
         isBookmarked: _isBookmarked,
         moodIndex: _selectedMoodIndex,

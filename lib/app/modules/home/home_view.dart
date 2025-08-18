@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -28,10 +29,10 @@ class HomeView extends GetView<HomeController> {
     final SystemUiOverlayStyle systemUiOverlayStyle = SystemUiOverlayStyle(
       statusBarColor: appThemeColors.grey7,
       statusBarIconBrightness:
-          brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      brightness == Brightness.dark ? Brightness.light : Brightness.dark,
       systemNavigationBarColor: appThemeColors.grey7,
       systemNavigationBarIconBrightness:
-          brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      brightness == Brightness.dark ? Brightness.light : Brightness.dark,
     );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -62,9 +63,11 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     with TickerProviderStateMixin {
   double _lastOffset = 0.0;
   static const double _tileHeightEstimate = 100;
-  String? _currentMonthYear;
-  bool _showChip = false;
   int _topEntryIndex = 0;
+
+  // OPTIMIZATION: Use ValueNotifiers to update the chip without rebuilding the entire list.
+  late final ValueNotifier<String?> _currentMonthYearNotifier;
+  late final ValueNotifier<bool> _showChipNotifier;
 
   late AnimationController _slideAnimationController;
   late Animation<Offset> _slideAnimation;
@@ -75,10 +78,14 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
   void initState() {
     super.initState();
 
+    // OPTIMIZATION: Initialize notifiers.
+    _currentMonthYearNotifier = ValueNotifier<String?>(null);
+    _showChipNotifier = ValueNotifier<bool>(false);
+
     _slideAnimationController = AnimationController(
       duration: const Duration(milliseconds: 500),
       reverseDuration:
-          const Duration(milliseconds: 700), // Longer exit duration
+      const Duration(milliseconds: 700), // Longer exit duration
       vsync: this,
     );
 
@@ -98,7 +105,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       parent: _slideAnimationController,
       curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
       reverseCurve:
-          const Interval(0.0, 0.8, curve: Curves.easeOut), // Longer fade out
+      const Interval(0.0, 0.8, curve: Curves.easeOut), // Longer fade out
     ));
 
     _scaleAnimation = Tween<double>(
@@ -113,14 +120,19 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
 
   @override
   void dispose() {
+    // OPTIMIZATION: Dispose notifiers to prevent memory leaks.
+    _currentMonthYearNotifier.dispose();
+    _showChipNotifier.dispose();
     _slideAnimationController.dispose();
     super.dispose();
   }
 
+  // OPTIMIZATION: Removed setState from the scroll listener.
+  // This now updates the notifiers, which only rebuilds the chip widget.
   void _onScroll(double offset, int totalEntries, List entries) {
     if (entries.isEmpty) {
-      if (_showChip) {
-        setState(() => _showChip = false);
+      if (_showChipNotifier.value) {
+        _showChipNotifier.value = false;
         _slideAnimationController.reverse();
       }
       return;
@@ -130,11 +142,9 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         .floor()
         .clamp(0, totalEntries - 1);
     if (_topEntryIndex != index) {
-      setState(() {
-        _topEntryIndex = index;
-        final dt = entries[index].createdAt;
-        _currentMonthYear = DateFormat('MMM, yyyy').format(dt);
-      });
+      _topEntryIndex = index;
+      final dt = entries[index].createdAt;
+      _currentMonthYearNotifier.value = DateFormat('MMM, yyyy').format(dt);
     }
 
     // Wider threshold gap for smoother transitions
@@ -142,14 +152,14 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     final hideThreshold = (_tileHeightEstimate + 32.h) * 0.2;
 
     bool shouldShow;
-    if (_showChip) {
+    if (_showChipNotifier.value) {
       shouldShow = offset > hideThreshold;
     } else {
       shouldShow = offset > showThreshold;
     }
 
-    if (_showChip != shouldShow) {
-      setState(() => _showChip = shouldShow);
+    if (_showChipNotifier.value != shouldShow) {
+      _showChipNotifier.value = shouldShow;
 
       if (shouldShow) {
         _slideAnimationController.forward();
@@ -190,9 +200,6 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                   floating: false,
                   pinned: true,
                   flexibleSpace: RepaintBoundary(
-                    // OPTIMIZATION: Wrapping the expensive BackdropFilter in a RepaintBoundary.
-                    // This caches the blurred app bar and prevents it from being re-rendered
-                    // on every scroll frame, which is a major performance boost.
                     child: ClipRect(
                       child: BackdropFilter(
                         filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
@@ -219,7 +226,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                               ),
                             ),
                             titlePadding:
-                                EdgeInsets.only(left: 16.w, bottom: 16.h),
+                            EdgeInsets.only(left: 16.w, bottom: 16.h),
                             expandedTitleScale: 28.sp / 24.sp,
                           ),
                         ),
@@ -294,7 +301,6 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                             context: context,
                             expand: true,
                             backgroundColor: Colors.transparent,
-                            // Make background transparent for blur effect
                             builder: (modalContext) {
                               return SafeArea(
                                 child: ReadJournalBottomSheet(entry: entry),
@@ -313,7 +319,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
             ),
           ),
         ),
-        // Fixed position chip with improved animations
+        // OPTIMIZATION: Wrap the chip in builders that listen to the notifiers.
         Positioned(
           left: 0,
           right: 0,
@@ -328,35 +334,44 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                   child: FadeTransition(
                     opacity: _opacityAnimation,
                     child: Center(
-                      child: (_showChip && _currentMonthYear != null)
-                          ? Container(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 9.w,
-                                  vertical: 5.h), // Slightly more padding
-                              decoration: BoxDecoration(
-                                color: appThemeColors.grey5,
-                                borderRadius: BorderRadius.circular(
-                                    6.r), // More rounded corners
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(
-                                        0.12), // Slightly more shadow
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Text(
-                                _currentMonthYear!,
-                                style: TextStyle(
-                                  fontFamily: AppConstants.font,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.2.sp,
-                                  fontSize: 14.sp,
-                                  color: appThemeColors.grey10,
+                      child: ValueListenableBuilder<bool>(
+                        valueListenable: _showChipNotifier,
+                        builder: (context, showChip, _) {
+                          return ValueListenableBuilder<String?>(
+                            valueListenable: _currentMonthYearNotifier,
+                            builder: (context, currentMonthYear, _) {
+                              return (showChip && currentMonthYear != null)
+                                  ? Container(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 9.w, vertical: 5.h),
+                                decoration: BoxDecoration(
+                                  color: appThemeColors.grey5,
+                                  borderRadius:
+                                  BorderRadius.circular(6.r),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color:
+                                      Colors.black.withOpacity(0.12),
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            )
-                          : const SizedBox.shrink(),
+                                child: Text(
+                                  currentMonthYear,
+                                  style: TextStyle(
+                                    fontFamily: AppConstants.font,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.2.sp,
+                                    fontSize: 14.sp,
+                                    color: appThemeColors.grey10,
+                                  ),
+                                ),
+                              )
+                                  : const SizedBox.shrink();
+                            },
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -380,13 +395,10 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                   iconColor: appThemeColors.onPrimary,
                   onPressed: () {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
-                      // FIXED: Use proper stacked presentation for WriteJournal
                       showCupertinoModalBottomSheet(
                         context: innerContext,
                         expand: true,
-                        // Remove transparent background to enable stacked presentation
                         backgroundColor: null,
-                        // Add these properties for proper stacked presentation
                         bounce: true,
                         animationCurve: Curves.easeOutCubic,
                         duration: const Duration(milliseconds: 400),

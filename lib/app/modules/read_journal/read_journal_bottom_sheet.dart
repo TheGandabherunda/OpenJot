@@ -51,10 +51,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
   void initState() {
     super.initState();
     _currentEntry = widget.entry;
-    _quillController = quill.QuillController(
-      document: _currentEntry.content,
-      selection: const TextSelection.collapsed(offset: 0),
-    );
+    _initializeController();
     _playerStateSubscription =
         _audioPlayer.onPlayerStateChanged.listen((state) {
           if (mounted) {
@@ -68,6 +65,15 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
         });
   }
 
+  void _initializeController() {
+    // Create a new document from the entry's JSON to ensure it's a fresh instance.
+    final document = quill.Document.fromJson(_currentEntry.content.toDelta().toJson());
+    _quillController = quill.QuillController(
+      document: document,
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+  }
+
   @override
   void dispose() {
     _quillController.dispose();
@@ -77,43 +83,34 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
   }
 
   void _onEditPressed() async {
-    // Find the latest version of the entry from the controller.
     final homeController = Get.find<HomeController>();
     final entryToEdit = homeController.journalEntries
         .firstWhere((e) => e.id == _currentEntry.id, orElse: () => _currentEntry);
 
-    // Show the WriteJournalBottomSheet on top of this one.
     await showCupertinoModalBottomSheet(
       context: context,
       expand: true,
-      backgroundColor: Colors.transparent, // Allows for stacked modal effect
+      backgroundColor: Colors.transparent,
       builder: (context) => SafeArea(
         child: WriteJournalBottomSheet(entry: entryToEdit),
       ),
     );
 
-    // After the edit sheet is closed, this code runs.
-    // We update the state to reflect any changes.
     if (mounted) {
       final latestEntry = homeController.journalEntries.firstWhere(
             (e) => e.id == widget.entry.id,
-        orElse: () => _currentEntry, // Fallback to the current entry
+        orElse: () => _currentEntry,
       );
 
+      // *** FIX: Dispose the old controller and create a new one with the updated document. ***
+      // This ensures a clean state and prevents using a disposed document.
       setState(() {
         _currentEntry = latestEntry;
-        // The controller's document is final, but we can replace its content.
-        final delta = _currentEntry.content.toDelta();
-        _quillController.replaceText(
-          0,
-          _quillController.document.length,
-          delta,
-          const TextSelection.collapsed(offset: 0),
-        );
+        _quillController.dispose(); // Dispose the old controller
+        _initializeController(); // Create a new one
       });
     }
   }
-
 
   Future<void> _launchLocationLink() async {
     if (_currentEntry.location != null) {
@@ -135,7 +132,6 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
       if (m is AssetEntity) {
         return MediaItem(asset: m, type: m.type, id: m.id);
       } else if (m is CapturedPhoto) {
-        // CapturedPhoto is always an image.
         return MediaItem(asset: m, type: AssetType.image, id: m.file.path);
       }
       return null;
@@ -146,7 +142,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
     showCupertinoModalBottomSheet(
       context: context,
       expand: true,
-      backgroundColor: Colors.transparent, // Important for gradient background
+      backgroundColor: Colors.transparent,
       builder: (context) => MediaPreviewBottomSheet(
         mediaItems: mediaItems,
         initialIndex: initialIndex,
@@ -271,7 +267,6 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
                 else if (media is CapturedPhoto)
                   Image.file(File(media.file.path), fit: BoxFit.cover),
                 if (overlay != null) overlay,
-                // Video play icon overlay
                 if (media is AssetEntity && media.type == AssetType.video)
                   Center(
                     child: Icon(
