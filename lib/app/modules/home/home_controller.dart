@@ -22,4 +22,33 @@ class HomeController extends GetxController {
   void deleteJournalEntry(String entryId) {
     journalEntries.removeWhere((entry) => entry.id == entryId);
   }
+
+  // Computed property for total entries this year
+  int get totalEntriesThisYear {
+    final currentYear = DateTime.now().year;
+    return journalEntries
+        .where((entry) => entry.createdAt.year == currentYear)
+        .length;
+  }
+
+  // Computed property for total words written
+  int get totalWordsWritten {
+    return journalEntries.fold<int>(0, (sum, entry) {
+      final text = entry.content.toPlainText().trim();
+      if (text.isEmpty) return sum;
+      // Simple word count by splitting on whitespace
+      return sum + text.split(RegExp(r'\s+')).length;
+    });
+  }
+
+  // Computed property for unique days journaled
+  int get daysJournaled {
+    if (journalEntries.isEmpty) return 0;
+    final uniqueDays = journalEntries.map((entry) {
+      final date = entry.createdAt;
+      // Normalize to the start of the day to count unique days
+      return DateTime(date.year, date.month, date.day);
+    }).toSet();
+    return uniqueDays.length;
+  }
 }

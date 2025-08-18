@@ -106,7 +106,7 @@ class _JournalTileState extends State<JournalTile> {
             borderRadius: BorderRadius.circular(16.r),
           ),
           child:
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Container(
               padding: EdgeInsets.all(2.w),
               decoration: BoxDecoration(
@@ -133,8 +133,8 @@ class _JournalTileState extends State<JournalTile> {
                         style: TextStyle(
                           fontFamily: AppConstants.font,
                           fontWeight: FontWeight.w500,
-                          fontSize: 15.sp,
-                          color: appThemeColors.grey1,
+                          fontSize: 16.sp,
+                          color: appThemeColors.grey10,
                         ),
                       ),
                     ),
@@ -177,11 +177,10 @@ class _JournalTileState extends State<JournalTile> {
     final double spacing = 2.w;
     final appThemeColors = AppTheme.colorsOf(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final overlayColor =
-    (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
+    final overlayColor = (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
         .withOpacity(0.6);
     final onOverlayColor =
-    isDark ? appThemeColors.grey10 : appThemeColors.grey7;
+        isDark ? appThemeColors.grey10 : appThemeColors.grey7;
 
     Widget buildImageContainer(dynamic image, {Widget? overlay}) {
       return Container(
@@ -290,7 +289,7 @@ class _JournalTileState extends State<JournalTile> {
                     style: TextStyle(
                       fontFamily: AppConstants.font,
                       fontWeight: FontWeight.w500,
-                      fontSize: 13.sp,
+                      fontSize: 14.sp,
                       color: appThemeColors.grey3,
                     ),
                   ),
@@ -325,7 +324,7 @@ class _JournalTileState extends State<JournalTile> {
                 key: _menuKey,
                 onTap: () {
                   final RenderBox renderBox =
-                  _menuKey.currentContext!.findRenderObject() as RenderBox;
+                      _menuKey.currentContext!.findRenderObject() as RenderBox;
                   final position = renderBox.localToGlobal(Offset.zero);
                   showMenu<String>(
                     context: context,
@@ -348,13 +347,11 @@ class _JournalTileState extends State<JournalTile> {
                             Icon(Icons.edit, color: appThemeColors.grey10),
                             SizedBox(width: 8.w),
                             Text('Edit',
-                                style:
-                                TextStyle(color: appThemeColors.grey10)),
+                                style: TextStyle(color: appThemeColors.grey10)),
                           ],
                         ),
                       ),
-                      PopupMenuDivider(
-                          height: 1, color: appThemeColors.grey6),
+                      PopupMenuDivider(height: 1, color: appThemeColors.grey6),
                       PopupMenuItem(
                         value: 'bookmark',
                         child: Row(
@@ -373,8 +370,7 @@ class _JournalTileState extends State<JournalTile> {
                           ],
                         ),
                       ),
-                      PopupMenuDivider(
-                          height: 1, color: appThemeColors.grey6),
+                      PopupMenuDivider(height: 1, color: appThemeColors.grey6),
                       PopupMenuItem(
                         value: 'pdf',
                         child: Row(
@@ -383,13 +379,11 @@ class _JournalTileState extends State<JournalTile> {
                                 color: appThemeColors.grey10),
                             SizedBox(width: 8.w),
                             Text('Save as PDF',
-                                style:
-                                TextStyle(color: appThemeColors.grey10)),
+                                style: TextStyle(color: appThemeColors.grey10)),
                           ],
                         ),
                       ),
-                      PopupMenuDivider(
-                          height: 1, color: appThemeColors.grey6),
+                      PopupMenuDivider(height: 1, color: appThemeColors.grey6),
                       PopupMenuItem(
                         value: 'delete',
                         child: Row(

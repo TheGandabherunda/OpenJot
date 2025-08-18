@@ -169,6 +169,47 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     }
   }
 
+  // Helper widget to build each statistic item
+  Widget _buildStatItem(String label, String value, IconData icon) {
+    final appThemeColors = AppTheme.colorsOf(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color: appThemeColors.grey2,
+              size: 24.sp,
+            ),
+            SizedBox(width: 8.w),
+            Text(
+              value,
+              style: TextStyle(
+                fontFamily: AppConstants.font,
+                fontWeight: FontWeight.bold,
+                fontSize: 20.sp,
+                color: appThemeColors.grey10,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 4.h),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: AppConstants.font,
+            fontWeight: FontWeight.w500,
+            fontSize: 12.sp,
+            color: appThemeColors.grey2,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
@@ -284,35 +325,83 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                     ),
                   );
                 } else {
-                  return ListView.separated(
-                    padding: EdgeInsets.only(
-                      left: 16.w,
-                      right: 16.w,
-                      top: 16.h,
-                      bottom: 140.h,
-                    ),
-                    itemCount: entries.length,
-                    itemBuilder: (context, index) {
-                      final entry = entries[index];
-                      return JournalTile(
-                        entry: entry,
-                        onTap: () {
-                          showCupertinoModalBottomSheet(
-                            context: context,
-                            expand: true,
-                            backgroundColor: Colors.transparent,
-                            builder: (modalContext) {
-                              return SafeArea(
-                                child: ReadJournalBottomSheet(entry: entry),
-                              );
+                  return CustomScrollView(
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 16.h),
+                          child: IntrinsicHeight(
+                            child: Row(
+                              children: [
+                                Expanded(
+                                    child: _buildStatItem(
+                                        'Entries This Year',
+                                        widget.controller.totalEntriesThisYear
+                                            .toString(),
+                                        Icons.horizontal_split_rounded)),
+                                VerticalDivider(
+                                  color: appThemeColors.grey5,
+                                  thickness: 1.w,
+                                ),
+                                Expanded(
+                                    child: _buildStatItem(
+                                        'Words Written',
+                                        widget.controller.totalWordsWritten
+                                            .toString(),
+                                        Icons.format_quote_rounded)),
+                                VerticalDivider(
+                                  color: appThemeColors.grey5,
+                                  thickness: 1.w,
+                                ),
+                                Expanded(
+                                    child: _buildStatItem(
+                                        'Days Journaled',
+                                        widget.controller.daysJournaled
+                                            .toString(),
+                                        Icons.calendar_today_rounded)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      SliverPadding(
+                        padding: EdgeInsets.only(
+                          left: 16.w,
+                          right: 16.w,
+                          top: 16.h,
+                          bottom: 140.h,
+                        ),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                                (context, index) {
+                              final itemIndex = index ~/ 2;
+                              if (index.isEven) {
+                                final entry = entries[itemIndex];
+                                return JournalTile(
+                                  entry: entry,
+                                  onTap: () {
+                                    showCupertinoModalBottomSheet(
+                                      context: context,
+                                      expand: true,
+                                      backgroundColor: Colors.transparent,
+                                      builder: (modalContext) {
+                                        return SafeArea(
+                                          child: ReadJournalBottomSheet(
+                                              entry: entry),
+                                        );
+                                      },
+                                    );
+                                  },
+                                );
+                              }
+                              return SizedBox(height: 32.h);
                             },
-                          );
-                        },
-                      );
-                    },
-                    separatorBuilder: (BuildContext context, int index) {
-                      return SizedBox(height: 32.h);
-                    },
+                            childCount:
+                            entries.isEmpty ? 0 : entries.length * 2 - 1,
+                          ),
+                        ),
+                      ),
+                    ],
                   );
                 }
               }),
