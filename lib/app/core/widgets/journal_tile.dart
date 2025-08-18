@@ -11,7 +11,6 @@ import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
 import 'package:photo_manager/photo_manager.dart';
-// TODO: Add the 'share_plus' package to your pubspec.yaml file
 import 'package:share_plus/share_plus.dart';
 
 import '../constants.dart';
@@ -30,7 +29,6 @@ class JournalTile extends StatefulWidget {
 
 class _JournalTileState extends State<JournalTile> {
   final GlobalKey _menuKey = GlobalKey();
-  late bool _isBookmarked;
 
   static const List<Map<String, String>> _moods = [
     {'svg': 'assets/1.svg', 'label': 'Very Unpleasant'},
@@ -39,12 +37,6 @@ class _JournalTileState extends State<JournalTile> {
     {'svg': 'assets/4.svg', 'label': 'Pleasant'},
     {'svg': 'assets/5.svg', 'label': 'Very Pleasant'},
   ];
-
-  @override
-  void initState() {
-    super.initState();
-    _isBookmarked = widget.entry.isBookmarked;
-  }
 
   /// Shows the bottom sheet for editing a journal entry.
   void _onEditPressed() {
@@ -63,7 +55,8 @@ class _JournalTileState extends State<JournalTile> {
     final plainText = widget.entry.content.toPlainText().trim();
 
     // Asynchronously get all file paths from gallery images.
-    final galleryFileFutures = widget.entry.galleryImages.map((asset) => asset.file).toList();
+    final galleryFileFutures =
+    widget.entry.galleryImages.map((asset) => asset.file).toList();
     final galleryFiles = await Future.wait(galleryFileFutures);
 
     // Get all valid file paths.
@@ -86,14 +79,14 @@ class _JournalTileState extends State<JournalTile> {
       // Convert string paths to XFile objects for sharing.
       final imageXFiles = imagePaths.map((path) => XFile(path)).toList();
       // Pass null for text if it's empty to avoid crashing the share plugin.
-      await Share.shareXFiles(imageXFiles, text: plainText.isNotEmpty ? plainText : null);
+      await Share.shareXFiles(imageXFiles,
+          text: plainText.isNotEmpty ? plainText : null);
     } else if (plainText.isNotEmpty) {
       // Share text only if no images are present.
       await Share.share(plainText);
     }
     // If there is nothing to share, do nothing.
   }
-
 
   /// Shows a confirmation dialog before deleting a journal entry.
   void _onDeletePressed() {
@@ -345,7 +338,7 @@ class _JournalTileState extends State<JournalTile> {
                           width: 22.w,
                           height: 22.h,
                         ),
-                      if (_isBookmarked)
+                      if (widget.entry.isBookmarked)
                         Padding(
                           padding: EdgeInsets.only(
                               left: widget.entry.moodIndex != null ? 8.w : 0),
@@ -396,14 +389,14 @@ class _JournalTileState extends State<JournalTile> {
                         child: Row(
                           children: [
                             Icon(
-                              _isBookmarked
+                              widget.entry.isBookmarked
                                   ? Icons.bookmark_remove_rounded
                                   : Icons.bookmark_add_outlined,
                               color: appThemeColors.grey10,
                             ),
                             SizedBox(width: 8.w),
                             Text(
-                              _isBookmarked ? 'Remove Bookmark' : 'Bookmark',
+                              widget.entry.isBookmarked ? 'Remove Bookmark' : 'Bookmark',
                               style: TextStyle(color: appThemeColors.grey10),
                             ),
                           ],
@@ -414,7 +407,8 @@ class _JournalTileState extends State<JournalTile> {
                         value: 'share',
                         child: Row(
                           children: [
-                            Icon(Icons.share_outlined, color: appThemeColors.grey10),
+                            Icon(Icons.share_outlined,
+                                color: appThemeColors.grey10),
                             SizedBox(width: 8.w),
                             Text('Share',
                                 style: TextStyle(color: appThemeColors.grey10)),
@@ -452,9 +446,9 @@ class _JournalTileState extends State<JournalTile> {
                     if (value == 'edit') {
                       _onEditPressed();
                     } else if (value == 'bookmark') {
-                      setState(() {
-                        _isBookmarked = !_isBookmarked;
-                      });
+                      // Call the controller to toggle the bookmark status.
+                      Get.find<HomeController>()
+                          .toggleBookmarkStatus(widget.entry.id);
                     } else if (value == 'share') {
                       _onSharePressed();
                     } else if (value == 'pdf') {

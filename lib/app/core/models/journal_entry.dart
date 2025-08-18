@@ -50,4 +50,31 @@ class JournalEntry {
     this.galleryAudios = const [],
     this.recordings = const [],
   });
+
+  /// Creates a copy of this JournalEntry but with the given fields replaced with the new values.
+  JournalEntry copyWith({
+    String? id,
+    Document? content,
+    DateTime? createdAt,
+    bool? isBookmarked,
+    int? moodIndex,
+    SelectedLocation? location,
+    List<AssetEntity>? galleryImages,
+    List<CapturedPhoto>? cameraPhotos,
+    List<AssetEntity>? galleryAudios,
+    List<RecordedAudio>? recordings,
+  }) {
+    return JournalEntry(
+      id: id ?? this.id,
+      content: content ?? this.content,
+      createdAt: createdAt ?? this.createdAt,
+      isBookmarked: isBookmarked ?? this.isBookmarked,
+      moodIndex: moodIndex ?? this.moodIndex,
+      location: location ?? this.location,
+      galleryImages: galleryImages ?? this.galleryImages,
+      cameraPhotos: cameraPhotos ?? this.cameraPhotos,
+      galleryAudios: galleryAudios ?? this.galleryAudios,
+      recordings: recordings ?? this.recordings,
+    );
+  }
 }

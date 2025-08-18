@@ -151,11 +151,16 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
                   },
                   itemBuilder: (context, index) {
                     final item = widget.mediaItems[index];
+                    Widget mediaContent;
                     if (item.type == AssetType.video) {
-                      return Center(child: VideoPlayerItem(asset: item.asset));
+                      mediaContent = VideoPlayerItem(asset: item.asset);
                     } else {
-                      return Center(child: _buildImageItem(item));
+                      mediaContent = _buildImageItem(item);
                     }
+                    return Padding(
+                      padding: EdgeInsets.all(24.w),
+                      child: Center(child: mediaContent),
+                    );
                   },
                 ),
                 // Close button
@@ -164,7 +169,7 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
                   left: 10.w,
                   child: IconButton(
                     icon:
-                    const Icon(Icons.close, color: Colors.white, size: 28),
+                        const Icon(Icons.close, color: Colors.white, size: 28),
                     onPressed: () => Navigator.of(context).pop(),
                     style: ButtonStyle(
                       backgroundColor: WidgetStateProperty.all(
@@ -212,7 +217,7 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
             child: CircularProgressIndicator(
               value: loadingProgress.expectedTotalBytes != null
                   ? loadingProgress.cumulativeBytesLoaded /
-                  loadingProgress.expectedTotalBytes!
+                      loadingProgress.expectedTotalBytes!
                   : null,
             ),
           );

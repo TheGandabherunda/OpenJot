@@ -29,10 +29,10 @@ class HomeView extends GetView<HomeController> {
     final SystemUiOverlayStyle systemUiOverlayStyle = SystemUiOverlayStyle(
       statusBarColor: appThemeColors.grey7,
       statusBarIconBrightness:
-      brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+          brightness == Brightness.dark ? Brightness.light : Brightness.dark,
       systemNavigationBarColor: appThemeColors.grey7,
       systemNavigationBarIconBrightness:
-      brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+          brightness == Brightness.dark ? Brightness.light : Brightness.dark,
     );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -74,6 +74,9 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
   late Animation<double> _opacityAnimation;
   late Animation<double> _scaleAnimation;
 
+  // Key for the menu button
+  final GlobalKey _menuKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -85,7 +88,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     _slideAnimationController = AnimationController(
       duration: const Duration(milliseconds: 500),
       reverseDuration:
-      const Duration(milliseconds: 700), // Longer exit duration
+          const Duration(milliseconds: 700), // Longer exit duration
       vsync: this,
     );
 
@@ -105,7 +108,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       parent: _slideAnimationController,
       curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
       reverseCurve:
-      const Interval(0.0, 0.8, curve: Curves.easeOut), // Longer fade out
+          const Interval(0.0, 0.8, curve: Curves.easeOut), // Longer fade out
     ));
 
     _scaleAnimation = Tween<double>(
@@ -125,6 +128,201 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     _showChipNotifier.dispose();
     _slideAnimationController.dispose();
     super.dispose();
+  }
+
+  // Method to show the popup menu
+  void _showPopupMenu(BuildContext context) {
+    final appThemeColors = AppTheme.colorsOf(context);
+    final RenderBox renderBox =
+        _menuKey.currentContext!.findRenderObject() as RenderBox;
+    final position = renderBox.localToGlobal(Offset.zero);
+
+    showMenu<String>(
+      context: context,
+      color: appThemeColors.grey5,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16.r),
+      ),
+      position: RelativeRect.fromLTRB(
+        position.dx - renderBox.size.width * 2,
+        position.dy + renderBox.size.height + 16,
+        position.dx,
+        position.dy + renderBox.size.height * 2,
+      ),
+      items: [
+        // Using a custom PopupMenuEntry that doesn't close the menu on tap.
+        TappablePopupMenuEntry(
+          onTap: () => _showSortSubmenu(context, position, renderBox),
+          child: Obx(
+            () => Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.sort, color: appThemeColors.grey10),
+                    SizedBox(width: 8.w),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('Sort by',
+                            style: TextStyle(color: appThemeColors.grey10)),
+                        SizedBox(
+                          width: 68.w,
+                          child: Text(
+                            widget.controller.currentSortTypeDisplayName,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12.sp,
+                              color: appThemeColors.grey2,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                Icon(Icons.arrow_right, color: appThemeColors.grey10),
+              ],
+            ),
+          ),
+        ),
+        PopupMenuDivider(height: 1, color: appThemeColors.grey6),
+        PopupMenuItem(
+          value: 'insights',
+          child: Row(
+            children: [
+              Icon(Icons.insights_outlined, color: appThemeColors.grey10),
+              SizedBox(width: 8.w),
+              Text('Insights', style: TextStyle(color: appThemeColors.grey10)),
+            ],
+          ),
+        ),
+        PopupMenuDivider(height: 1, color: appThemeColors.grey6),
+        PopupMenuItem(
+          value: 'reflections',
+          child: Row(
+            children: [
+              Icon(Icons.self_improvement_rounded,
+                  color: appThemeColors.grey10),
+              SizedBox(width: 8.w),
+              Text('Reflections',
+                  style: TextStyle(color: appThemeColors.grey10)),
+            ],
+          ),
+        ),
+        PopupMenuDivider(height: 1, color: appThemeColors.grey6),
+        PopupMenuItem(
+          value: 'settings',
+          child: Row(
+            children: [
+              Icon(Icons.settings_outlined, color: appThemeColors.grey10),
+              SizedBox(width: 8.w),
+              Text('Settings', style: TextStyle(color: appThemeColors.grey10)),
+            ],
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (value == 'insights') {
+        _handleInsights();
+      } else if (value == 'reflections') {
+        _handleReflections();
+      } else if (value == 'settings') {
+        _handleSettings();
+      }
+    });
+  }
+
+  // Method to show the sort submenu
+  void _showSortSubmenu(
+      BuildContext context, Offset position, RenderBox renderBox) {
+    final appThemeColors = AppTheme.colorsOf(context);
+    final subMenuPosition = RelativeRect.fromLTRB(
+      position.dx - 290, // shift right of parent menu
+      position.dy + renderBox.size.height + 16, // align vertically
+      position.dx,
+      position.dy,
+    );
+
+    showMenu<String>(
+      context: context,
+      color: appThemeColors.grey5,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16.r),
+      ),
+      position: subMenuPosition,
+      items: [
+        PopupMenuItem(
+          value: 'time',
+          child: Text("Entry time",
+              style: TextStyle(color: appThemeColors.grey10)),
+        ),
+        PopupMenuDivider(height: 1, color: appThemeColors.grey6),
+        PopupMenuItem(
+          value: 'bookmark',
+          child: Text("Bookmark first",
+              style: TextStyle(color: appThemeColors.grey10)),
+        ),
+        PopupMenuDivider(height: 1, color: appThemeColors.grey6),
+        PopupMenuItem(
+          value: 'media',
+          child: Text("Media only first",
+              style: TextStyle(color: appThemeColors.grey10)),
+        ),
+        PopupMenuDivider(height: 1, color: appThemeColors.grey6),
+        PopupMenuItem(
+          value: 'text',
+          child: Text("Text only first",
+              style: TextStyle(color: appThemeColors.grey10)),
+        ),
+        PopupMenuDivider(height: 1, color: appThemeColors.grey6),
+        PopupMenuItem(
+          value: 'location',
+          child: Text("Location only first",
+              style: TextStyle(color: appThemeColors.grey10)),
+        ),
+        PopupMenuDivider(height: 1, color: appThemeColors.grey6),
+        PopupMenuItem(
+          value: 'mood',
+          child: Text("Mood only first",
+              style: TextStyle(color: appThemeColors.grey10)),
+        ),
+      ],
+    ).then((sortValue) {
+      // If a value was selected from the sort submenu, it will close itself.
+      // We then need to manually close the main menu.
+      if (sortValue != null) {
+        Navigator.of(context).pop(); // This closes the main menu.
+        _handleSortSelection(sortValue);
+      }
+      // If the user dismisses the submenu (sortValue is null), we do nothing,
+      // leaving the main menu open for other actions.
+    });
+  }
+
+  // Handle sort selection
+  void _handleSortSelection(String sortType) {
+    // Calls the sortEntries method in the HomeController
+    widget.controller.sortEntries(sortType);
+  }
+
+  // Handle menu actions
+  void _handleInsights() {
+    // Navigate to insights or show insights
+    print('Insights selected');
+  }
+
+  void _handleReflections() {
+    // Navigate to reflections or show reflections
+    print('Reflections selected');
+  }
+
+  void _handleSettings() {
+    // Navigate to settings
+    print('Settings selected');
   }
 
   // OPTIMIZATION: Removed setState from the scroll listener.
@@ -288,17 +486,21 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                   ),
                                 ),
                                 SizedBox(width: 8.w),
-                                Container(
-                                  width: 36.w,
-                                  height: 36.w,
-                                  decoration: BoxDecoration(
-                                    color: appThemeColors.grey6,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.more_horiz_rounded,
-                                    size: 24.sp,
-                                    color: appThemeColors.grey1,
+                                GestureDetector(
+                                  key: _menuKey,
+                                  onTap: () => _showPopupMenu(context),
+                                  child: Container(
+                                    width: 36.w,
+                                    height: 36.w,
+                                    decoration: BoxDecoration(
+                                      color: appThemeColors.grey6,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.more_horiz_rounded,
+                                      size: 24.sp,
+                                      color: appThemeColors.grey1,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -410,7 +612,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                         ),
                         sliver: SliverList(
                           delegate: SliverChildBuilderDelegate(
-                                (context, index) {
+                            (context, index) {
                               final itemIndex = index ~/ 2;
                               if (index.isEven) {
                                 final entry = entries[itemIndex];
@@ -434,7 +636,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                               return SizedBox(height: 32.h);
                             },
                             childCount:
-                            entries.isEmpty ? 0 : entries.length * 2 - 1,
+                                entries.isEmpty ? 0 : entries.length * 2 - 1,
                           ),
                         ),
                       ),
@@ -468,31 +670,31 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                             builder: (context, currentMonthYear, _) {
                               return (showChip && currentMonthYear != null)
                                   ? Container(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 9.w, vertical: 5.h),
-                                decoration: BoxDecoration(
-                                  color: appThemeColors.grey5,
-                                  borderRadius:
-                                  BorderRadius.circular(6.r),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color:
-                                      Colors.black.withOpacity(0.12),
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Text(
-                                  currentMonthYear,
-                                  style: TextStyle(
-                                    fontFamily: AppConstants.font,
-                                    fontWeight: FontWeight.w600,
-                                    height: 1.2.sp,
-                                    fontSize: 14.sp,
-                                    color: appThemeColors.grey10,
-                                  ),
-                                ),
-                              )
+                                      padding: EdgeInsets.symmetric(
+                                          horizontal: 9.w, vertical: 5.h),
+                                      decoration: BoxDecoration(
+                                        color: appThemeColors.grey5,
+                                        borderRadius:
+                                            BorderRadius.circular(6.r),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color:
+                                                Colors.black.withOpacity(0.12),
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Text(
+                                        currentMonthYear,
+                                        style: TextStyle(
+                                          fontFamily: AppConstants.font,
+                                          fontWeight: FontWeight.w600,
+                                          height: 1.2.sp,
+                                          fontSize: 14.sp,
+                                          color: appThemeColors.grey10,
+                                        ),
+                                      ),
+                                    )
                                   : const SizedBox.shrink();
                             },
                           );
@@ -542,6 +744,45 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
           ),
         ),
       ],
+    );
+  }
+}
+
+/// A custom [PopupMenuEntry] that allows tapping without closing the menu.
+/// This is used to trigger a submenu.
+class TappablePopupMenuEntry extends PopupMenuEntry<Never> {
+  const TappablePopupMenuEntry({
+    Key? key,
+    required this.onTap,
+    required this.child,
+  }) : super(key: key);
+
+  @override
+  final double height = kMinInteractiveDimension; // Standard menu item height.
+
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  bool represents(void value) => false;
+
+  @override
+  State<TappablePopupMenuEntry> createState() => _TappablePopupMenuEntryState();
+}
+
+class _TappablePopupMenuEntryState extends State<TappablePopupMenuEntry> {
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: widget.onTap,
+      child: Container(
+        height: widget.height,
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: widget.child,
+        ),
+      ),
     );
   }
 }

@@ -5,6 +5,23 @@ import '../../core/models/journal_entry.dart';
 class HomeController extends GetxController {
   final journalEntries = <JournalEntry>[].obs;
 
+  // 1. Add an observable for the current sort type.
+  final currentSortType = 'time'.obs;
+
+  // 2. Add a map for user-friendly sort type names.
+  final Map<String, String> _sortTypeDisplayNames = {
+    'time': 'Entry time',
+    'bookmark': 'Bookmark first',
+    'media': 'Media only first',
+    'text': 'Text only first',
+    'location': 'Location only first',
+    'mood': 'Mood only first',
+  };
+
+  // 3. Add a getter for the current sort type's display name.
+  String get currentSortTypeDisplayName =>
+      _sortTypeDisplayNames[currentSortType.value] ?? 'Entry time';
+
   void addJournalEntry(JournalEntry entry) {
     journalEntries.insert(0, entry); // Add to the top of the list
   }
@@ -13,14 +30,90 @@ class HomeController extends GetxController {
     final index = journalEntries.indexWhere((e) => e.id == updatedEntry.id);
     if (index != -1) {
       journalEntries[index] = updatedEntry;
-      // The .value assignment is not needed for RxList,
-      // but if you face UI update issues, calling refresh() can help.
       journalEntries.refresh();
     }
   }
 
   void deleteJournalEntry(String entryId) {
     journalEntries.removeWhere((entry) => entry.id == entryId);
+  }
+
+  /// Toggles the bookmark status of a journal entry.
+  void toggleBookmarkStatus(String entryId) {
+    final index = journalEntries.indexWhere((e) => e.id == entryId);
+    if (index != -1) {
+      final entry = journalEntries[index];
+      // Create an updated entry with the new bookmark status.
+      final updatedEntry = entry.copyWith(isBookmarked: !entry.isBookmarked);
+      // Replace the old entry with the updated one.
+      journalEntries[index] = updatedEntry;
+    }
+  }
+
+  /// Sorts the journal entries based on the provided sort type.
+  void sortEntries(String sortType) {
+    // 4. Update the current sort type when sorting.
+    currentSortType.value = sortType;
+    switch (sortType) {
+      case 'time':
+      // Sorts by creation date, newest first.
+        journalEntries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+      case 'bookmark':
+      // Sorts bookmarked entries to the top, then by creation date.
+        journalEntries.sort((a, b) {
+          if (a.isBookmarked && !b.isBookmarked) return -1;
+          if (!a.isBookmarked && b.isBookmarked) return 1;
+          return b.createdAt.compareTo(a.createdAt); // Secondary sort
+        });
+        break;
+      case 'media':
+      // Sorts entries with media to the top, then by creation date.
+        journalEntries.sort((a, b) {
+          final aHasMedia =
+              a.galleryImages.isNotEmpty || a.cameraPhotos.isNotEmpty;
+          final bHasMedia =
+              b.galleryImages.isNotEmpty || b.cameraPhotos.isNotEmpty;
+          if (aHasMedia && !bHasMedia) return -1;
+          if (!aHasMedia && bHasMedia) return 1;
+          return b.createdAt.compareTo(a.createdAt);
+        });
+        break;
+      case 'text':
+      // Sorts text-only entries to the top, then by creation date.
+        journalEntries.sort((a, b) {
+          final aIsTextOnly =
+              a.galleryImages.isEmpty && a.cameraPhotos.isEmpty;
+          final bIsTextOnly =
+              b.galleryImages.isEmpty && b.cameraPhotos.isEmpty;
+          if (aIsTextOnly && !bIsTextOnly) return -1;
+          if (!aIsTextOnly && bIsTextOnly) return 1;
+          return b.createdAt.compareTo(a.createdAt);
+        });
+        break;
+      case 'location':
+      // Sorts entries with a location to the top, then by creation date.
+        journalEntries.sort((a, b) {
+          final aHasLocation = a.location != null;
+          final bHasLocation = b.location != null;
+          if (aHasLocation && !bHasLocation) return -1;
+          if (!aHasLocation && bHasLocation) return 1;
+          return b.createdAt.compareTo(a.createdAt);
+        });
+        break;
+      case 'mood':
+      // Sorts entries with a mood to the top, then by creation date.
+        journalEntries.sort((a, b) {
+          final aHasMood = a.moodIndex != null;
+          final bHasMood = b.moodIndex != null;
+          if (aHasMood && !bHasMood) return -1;
+          if (!aHasMood && bHasMood) return 1;
+          return b.createdAt.compareTo(a.createdAt);
+        });
+        break;
+    }
+    // Notify listeners that the list has been changed.
+    journalEntries.refresh();
   }
 
   // Computed property for total entries this year
