@@ -332,6 +332,27 @@ class _JournalTileState extends State<JournalTile> {
                   ),
                   Row(
                     children: [
+                      if (widget.entry.isReflection)
+                        Container(
+                          margin: EdgeInsets.only(
+                              right:
+                              widget.entry.moodIndex != null ? 8.w : 0),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 8.w, vertical: 2.h),
+                          decoration: BoxDecoration(
+                            color: appThemeColors.grey5,
+                            borderRadius: BorderRadius.circular(24.r),
+                          ),
+                          child: Text(
+                            'Reflection',
+                            style: TextStyle(
+                              color: appThemeColors.grey10,
+                              fontSize: 12.sp,
+                              fontFamily: AppConstants.font,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
                       if (widget.entry.moodIndex != null)
                         SvgPicture.asset(
                           _moods[widget.entry.moodIndex!]['svg']!,
@@ -341,7 +362,10 @@ class _JournalTileState extends State<JournalTile> {
                       if (widget.entry.isBookmarked)
                         Padding(
                           padding: EdgeInsets.only(
-                              left: widget.entry.moodIndex != null ? 8.w : 0),
+                              left: widget.entry.moodIndex != null ||
+                                  widget.entry.isReflection
+                                  ? 8.w
+                                  : 0),
                           child: Icon(
                             Icons.bookmark_rounded,
                             color: appThemeColors.grey2,
@@ -396,7 +420,9 @@ class _JournalTileState extends State<JournalTile> {
                             ),
                             SizedBox(width: 8.w),
                             Text(
-                              widget.entry.isBookmarked ? 'Remove Bookmark' : 'Bookmark',
+                              widget.entry.isBookmarked
+                                  ? 'Remove Bookmark'
+                                  : 'Bookmark',
                               style: TextStyle(color: appThemeColors.grey10),
                             ),
                           ],

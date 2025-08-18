@@ -31,6 +31,7 @@ class JournalEntry {
   final Document content;
   final DateTime createdAt;
   final bool isBookmarked;
+  final bool isReflection;
   final int? moodIndex;
   final SelectedLocation? location;
   final List<AssetEntity> galleryImages;
@@ -43,6 +44,7 @@ class JournalEntry {
     required this.content,
     required this.createdAt,
     this.isBookmarked = false,
+    this.isReflection = false,
     this.moodIndex,
     this.location,
     this.galleryImages = const [],
@@ -57,6 +59,7 @@ class JournalEntry {
     Document? content,
     DateTime? createdAt,
     bool? isBookmarked,
+    bool? isReflection,
     int? moodIndex,
     SelectedLocation? location,
     List<AssetEntity>? galleryImages,
@@ -69,6 +72,7 @@ class JournalEntry {
       content: content ?? this.content,
       createdAt: createdAt ?? this.createdAt,
       isBookmarked: isBookmarked ?? this.isBookmarked,
+      isReflection: isReflection ?? this.isReflection,
       moodIndex: moodIndex ?? this.moodIndex,
       location: location ?? this.location,
       galleryImages: galleryImages ?? this.galleryImages,

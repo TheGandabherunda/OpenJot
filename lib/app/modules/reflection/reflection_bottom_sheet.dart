@@ -2,11 +2,13 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/modules/reflection/reflection_prompts.dart';
 
 import '../../core/theme.dart';
 import '../../core/widgets/custom_button.dart';
+import '../write_journal/write_journal_bottom_sheet.dart';
 
 class ReflectionBottomSheet extends StatefulWidget {
   const ReflectionBottomSheet({super.key});
@@ -140,11 +142,29 @@ class _ReflectionBottomSheetState extends State<ReflectionBottomSheet> {
                   child: CustomButton(
                     text: 'Reflect',
                     onPressed: () {
-                      // Handle reflect button press
+                      // First, pop the current reflection bottom sheet.
+                      Navigator.of(context).pop();
+
+                      // Then, show the write journal bottom sheet, passing the current prompt.
+                      showCupertinoModalBottomSheet(
+                        context: context,
+                        expand: true,
+                        backgroundColor: null,
+                        bounce: true,
+                        animationCurve: Curves.easeOutCubic,
+                        duration: const Duration(milliseconds: 400),
+                        builder: (BuildContext modalContext) {
+                          return SafeArea(
+                            child: WriteJournalBottomSheet(
+                              initialText: _currentPrompt,
+                            ),
+                          );
+                        },
+                      );
                     },
                     color: appThemeColors.primary,
                     textColor: appThemeColors.onPrimary,
-                    textPadding: EdgeInsets.only(top: 12.h,bottom:12.h ),
+                    textPadding: EdgeInsets.only(top: 12.h, bottom: 12.h),
                   ),
                 ),
               ),

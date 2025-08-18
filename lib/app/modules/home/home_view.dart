@@ -17,7 +17,7 @@ import '../../core/theme.dart';
 import '../../core/widgets/custom_icon_button.dart';
 import '../../core/widgets/journal_tile.dart';
 import '../reflection/reflection_bottom_sheet.dart';
-import 'home_controller.dart';// Import the new bottom sheet
+import 'home_controller.dart'; // Import the new bottom sheet
 
 class HomeView extends GetView<HomeController> {
   const HomeView({super.key});
@@ -184,7 +184,8 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                     ),
                   ],
                 ),
-                Icon(Icons.keyboard_arrow_right_rounded, color: appThemeColors.grey10),
+                Icon(Icons.keyboard_arrow_right_rounded,
+                    color: appThemeColors.grey10),
               ],
             ),
           ),
@@ -265,6 +266,12 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         PopupMenuItem(
           value: 'bookmark',
           child: Text("Bookmark first",
+              style: TextStyle(color: appThemeColors.grey10)),
+        ),
+        PopupMenuDivider(height: 1, color: appThemeColors.grey6),
+        PopupMenuItem(
+          value: 'reflection',
+          child: Text("Reflection first",
               style: TextStyle(color: appThemeColors.grey10)),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),

@@ -12,6 +12,7 @@ class HomeController extends GetxController {
   final Map<String, String> _sortTypeDisplayNames = {
     'time': 'Entry time',
     'bookmark': 'Bookmark first',
+    'reflection': 'Reflection first',
     'media': 'With media first',
     'text': 'Text only first',
     'location': 'With location first',
@@ -24,13 +25,14 @@ class HomeController extends GetxController {
 
   void addJournalEntry(JournalEntry entry) {
     journalEntries.insert(0, entry); // Add to the top of the list
+    sortEntries(currentSortType.value); // Re-sort after adding
   }
 
   void updateJournalEntry(JournalEntry updatedEntry) {
     final index = journalEntries.indexWhere((e) => e.id == updatedEntry.id);
     if (index != -1) {
       journalEntries[index] = updatedEntry;
-      journalEntries.refresh();
+      sortEntries(currentSortType.value); // Re-sort after updating
     }
   }
 
@@ -47,6 +49,9 @@ class HomeController extends GetxController {
       final updatedEntry = entry.copyWith(isBookmarked: !entry.isBookmarked);
       // Replace the old entry with the updated one.
       journalEntries[index] = updatedEntry;
+      if (currentSortType.value == 'bookmark') {
+        sortEntries('bookmark');
+      }
     }
   }
 
@@ -65,6 +70,14 @@ class HomeController extends GetxController {
           if (a.isBookmarked && !b.isBookmarked) return -1;
           if (!a.isBookmarked && b.isBookmarked) return 1;
           return b.createdAt.compareTo(a.createdAt); // Secondary sort
+        });
+        break;
+      case 'reflection':
+      // Sorts reflection entries to the top, then by creation date.
+        journalEntries.sort((a, b) {
+          if (a.isReflection && !b.isReflection) return -1;
+          if (!a.isReflection && b.isReflection) return 1;
+          return b.createdAt.compareTo(a.createdAt);
         });
         break;
       case 'media':

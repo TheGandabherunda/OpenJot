@@ -27,6 +27,7 @@ class _SearchViewState extends State<SearchView> {
   bool _isMediaOnly = false;
   bool _withMood = false;
   bool _withLocation = false;
+  bool _isReflection = false;
 
   @override
   void initState() {
@@ -69,6 +70,9 @@ class _SearchViewState extends State<SearchView> {
         }
         // Filter for entries that have a location
         if (_withLocation && entry.location == null) {
+          return false;
+        }
+        if (_isReflection && !entry.isReflection) {
           return false;
         }
 
@@ -140,7 +144,7 @@ class _SearchViewState extends State<SearchView> {
                       borderSide: BorderSide.none,
                     ),
                     contentPadding:
-                        EdgeInsets.symmetric(horizontal: 20.w, vertical: 0),
+                    EdgeInsets.symmetric(horizontal: 20.w, vertical: 0),
                     suffixIcon: Icon(
                       Icons.search,
                       color: appThemeColors.grey3,
@@ -166,6 +170,12 @@ class _SearchViewState extends State<SearchView> {
                           _applyFilters();
                         });
                       }),
+                      _buildFilterChip('Reflection', _isReflection, (selected) {
+                        setState(() {
+                          _isReflection = selected;
+                          _applyFilters();
+                        });
+                      }),
                       _buildFilterChip('Text Only', _isTextOnly, (selected) {
                         setState(() {
                           _isTextOnly = selected;
@@ -185,12 +195,12 @@ class _SearchViewState extends State<SearchView> {
                         });
                       }),
                       _buildFilterChip('With Location', _withLocation,
-                          (selected) {
-                        setState(() {
-                          _withLocation = selected;
-                          _applyFilters();
-                        });
-                      }),
+                              (selected) {
+                            setState(() {
+                              _withLocation = selected;
+                              _applyFilters();
+                            });
+                          }),
                     ],
                   ),
                 ),
@@ -198,39 +208,40 @@ class _SearchViewState extends State<SearchView> {
               Expanded(
                 child: _filteredEntries.isEmpty
                     ? Center(
-                        child: Text(
-                          'No results found',
-                          style: TextStyle(
-                            color: appThemeColors.grey3,
-                            fontSize: 16.sp,
-                          ),
-                        ),
-                      )
+                  child: Text(
+                    'No results found',
+                    style: TextStyle(
+                      color: appThemeColors.grey3,
+                      fontSize: 16.sp,
+                    ),
+                  ),
+                )
                     : ListView.separated(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 16.w, vertical: 16.h),
-                        itemCount: _filteredEntries.length,
-                        separatorBuilder: (context, index) =>
-                            SizedBox(height: 16.h),
-                        itemBuilder: (context, index) {
-                          final entry = _filteredEntries[index];
-                          return JournalTile(
-                            entry: entry,
-                            onTap: () {
-                              showCupertinoModalBottomSheet(
-                                context: context,
-                                expand: true,
-                                backgroundColor: Colors.transparent,
-                                builder: (modalContext) {
-                                  return SafeArea(
-                                    child: ReadJournalBottomSheet(entry: entry),
-                                  );
-                                },
-                              );
-                            },
-                          );
-                        },
-                      ),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: 16.w, vertical: 16.h),
+                  itemCount: _filteredEntries.length,
+                  separatorBuilder: (context, index) =>
+                      SizedBox(height: 16.h),
+                  itemBuilder: (context, index) {
+                    final entry = _filteredEntries[index];
+                    return JournalTile(
+                      entry: entry,
+                      onTap: () {
+                        showCupertinoModalBottomSheet(
+                          context: context,
+                          expand: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (modalContext) {
+                            return SafeArea(
+                              child:
+                              ReadJournalBottomSheet(entry: entry),
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ],
           ),
