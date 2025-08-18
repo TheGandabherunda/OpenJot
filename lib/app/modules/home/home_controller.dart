@@ -167,11 +167,17 @@ class HomeController extends GetxController {
   // Computed property for unique days journaled
   int get daysJournaled {
     if (journalEntries.isEmpty) return 0;
-    final uniqueDays = journalEntries.map((entry) {
+    return journaledDates.length;
+  }
+
+  /// A set of unique dates that have at least one journal entry.
+  /// The time component is stripped to allow for date-only comparison.
+  Set<DateTime> get journaledDates {
+    if (journalEntries.isEmpty) return {};
+    return journalEntries.map((entry) {
       final date = entry.createdAt;
       // Normalize to the start of the day to count unique days
       return DateTime(date.year, date.month, date.day);
     }).toSet();
-    return uniqueDays.length;
   }
 }

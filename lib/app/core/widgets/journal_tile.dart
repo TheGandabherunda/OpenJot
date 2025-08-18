@@ -20,8 +20,26 @@ import '../theme.dart';
 class JournalTile extends StatefulWidget {
   final JournalEntry entry;
   final VoidCallback? onTap;
+  final Color? backgroundColor;
 
-  const JournalTile({super.key, required this.entry, this.onTap});
+  // --- CHANGE: Added optional parameters for divider colors ---
+  final Color? dividerColor;
+  final Color? popupDividerColor;
+  final Color? footerTextColor;
+  final Color? reflectionBackground;
+  final Color? bookmarkColor;
+
+  const JournalTile({
+    super.key,
+    required this.entry,
+    this.onTap,
+    this.backgroundColor,
+    this.bookmarkColor,
+    this.reflectionBackground,
+    this.footerTextColor,
+    this.dividerColor,
+    this.popupDividerColor,
+  });
 
   @override
   State<JournalTile> createState() => _JournalTileState();
@@ -56,7 +74,7 @@ class _JournalTileState extends State<JournalTile> {
 
     // Asynchronously get all file paths from gallery images.
     final galleryFileFutures =
-    widget.entry.galleryImages.map((asset) => asset.file).toList();
+        widget.entry.galleryImages.map((asset) => asset.file).toList();
     final galleryFiles = await Future.wait(galleryFileFutures);
 
     // Get all valid file paths.
@@ -129,16 +147,18 @@ class _JournalTileState extends State<JournalTile> {
     final hasMedia = widget.entry.galleryImages.isNotEmpty ||
         widget.entry.cameraPhotos.isNotEmpty;
 
+    final tileColor = widget.backgroundColor ?? appThemeColors.grey6;
+
     return RepaintBoundary(
       child: GestureDetector(
         onTap: widget.onTap,
         child: Container(
           decoration: BoxDecoration(
-            color: appThemeColors.grey6,
+            color: tileColor,
             borderRadius: BorderRadius.circular(16.r),
           ),
           child:
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Container(
               padding: EdgeInsets.all(2.w),
               decoration: BoxDecoration(
@@ -177,14 +197,14 @@ class _JournalTileState extends State<JournalTile> {
             Container(
               padding: EdgeInsetsGeometry.fromLTRB(2.w, 4.h, 2.w, 0.h),
               decoration: BoxDecoration(
-                color: appThemeColors.grey6,
+                color: tileColor,
                 borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(16.r),
                   bottomRight: Radius.circular(16.r),
                 ),
                 border: Border(
                   top: BorderSide(
-                    color: appThemeColors.grey5,
+                    color: widget.dividerColor ?? appThemeColors.grey5,
                     width: 1,
                   ),
                 ),
@@ -212,7 +232,7 @@ class _JournalTileState extends State<JournalTile> {
     final overlayColor = (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
         .withOpacity(0.6);
     final onOverlayColor =
-    isDark ? appThemeColors.grey10 : appThemeColors.grey7;
+        isDark ? appThemeColors.grey10 : appThemeColors.grey7;
 
     Widget buildImageContainer(dynamic image, {Widget? overlay}) {
       return Container(
@@ -322,11 +342,12 @@ class _JournalTileState extends State<JournalTile> {
                       fontFamily: AppConstants.font,
                       fontWeight: FontWeight.w500,
                       fontSize: 14.sp,
-                      color: appThemeColors.grey3,
+                      color: widget.footerTextColor ?? appThemeColors.grey3,
                     ),
                   ),
                   VerticalDivider(
-                    color: appThemeColors.grey5,
+                    // --- CHANGE: Use new verticalDividerColor or fallback ---
+                    color: widget.dividerColor ?? appThemeColors.grey5,
                     thickness: 1.w,
                     width: 16.w,
                   ),
@@ -335,12 +356,12 @@ class _JournalTileState extends State<JournalTile> {
                       if (widget.entry.isReflection)
                         Container(
                           margin: EdgeInsets.only(
-                              right:
-                              widget.entry.moodIndex != null ? 8.w : 0),
+                              right: widget.entry.moodIndex != null ? 8.w : 0),
                           padding: EdgeInsets.symmetric(
                               horizontal: 8.w, vertical: 2.h),
                           decoration: BoxDecoration(
-                            color: appThemeColors.grey5,
+                            color: widget.reflectionBackground ??
+                                appThemeColors.grey5,
                             borderRadius: BorderRadius.circular(24.r),
                           ),
                           child: Text(
@@ -363,7 +384,7 @@ class _JournalTileState extends State<JournalTile> {
                         Padding(
                           padding: EdgeInsets.only(
                               left: widget.entry.moodIndex != null ||
-                                  widget.entry.isReflection
+                                      widget.entry.isReflection
                                   ? 8.w
                                   : 0),
                           child: Icon(
@@ -380,7 +401,7 @@ class _JournalTileState extends State<JournalTile> {
                 key: _menuKey,
                 onTap: () {
                   final RenderBox renderBox =
-                  _menuKey.currentContext!.findRenderObject() as RenderBox;
+                      _menuKey.currentContext!.findRenderObject() as RenderBox;
                   final position = renderBox.localToGlobal(Offset.zero);
                   showMenu<String>(
                     context: context,
@@ -407,7 +428,11 @@ class _JournalTileState extends State<JournalTile> {
                           ],
                         ),
                       ),
-                      PopupMenuDivider(height: 1, color: appThemeColors.grey6),
+                      PopupMenuDivider(
+                          height: 1,
+                          // --- CHANGE: Use new popupDividerColor or fallback ---
+                          color:
+                              widget.popupDividerColor ?? appThemeColors.grey6),
                       PopupMenuItem(
                         value: 'bookmark',
                         child: Row(
@@ -428,7 +453,11 @@ class _JournalTileState extends State<JournalTile> {
                           ],
                         ),
                       ),
-                      PopupMenuDivider(height: 1, color: appThemeColors.grey6),
+                      PopupMenuDivider(
+                          height: 1,
+                          // --- CHANGE: Use new popupDividerColor or fallback ---
+                          color:
+                              widget.popupDividerColor ?? appThemeColors.grey6),
                       PopupMenuItem(
                         value: 'share',
                         child: Row(
@@ -441,7 +470,11 @@ class _JournalTileState extends State<JournalTile> {
                           ],
                         ),
                       ),
-                      PopupMenuDivider(height: 1, color: appThemeColors.grey6),
+                      PopupMenuDivider(
+                          height: 1,
+                          // --- CHANGE: Use new popupDividerColor or fallback ---
+                          color:
+                              widget.popupDividerColor ?? appThemeColors.grey6),
                       PopupMenuItem(
                         value: 'pdf',
                         child: Row(
@@ -454,7 +487,11 @@ class _JournalTileState extends State<JournalTile> {
                           ],
                         ),
                       ),
-                      PopupMenuDivider(height: 1, color: appThemeColors.grey6),
+                      PopupMenuDivider(
+                          height: 1,
+                          // --- CHANGE: Use new popupDividerColor or fallback ---
+                          color:
+                              widget.popupDividerColor ?? appThemeColors.grey6),
                       PopupMenuItem(
                         value: 'delete',
                         child: Row(
@@ -510,7 +547,6 @@ class SizedAssetThumbnail extends StatefulWidget {
 class _SizedAssetThumbnailState extends State<SizedAssetThumbnail> {
   Uint8List? _thumbnailData;
 
-  @override
   void initState() {
     super.initState();
     _loadThumbnail();

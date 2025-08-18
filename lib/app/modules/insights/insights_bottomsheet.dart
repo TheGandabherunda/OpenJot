@@ -4,9 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
+import 'package:open_jot/app/modules/read_journal/read_journal_bottom_sheet.dart';
 
+import '../../core/models/journal_entry.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/journal_tile.dart';
 
 class InsightsBottomSheet extends StatefulWidget {
   const InsightsBottomSheet({super.key});
@@ -48,6 +52,22 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
     });
   }
 
+  /// Shows a bottom sheet with journal entries for the selected date.
+  void _showEntriesForDate(
+      BuildContext context, DateTime date, HomeController controller) {
+    // The list of entries is now fetched reactively inside the bottom sheet itself.
+    showCupertinoModalBottomSheet(
+      context: context,
+      expand: false,
+      backgroundColor: Colors.transparent,
+      builder: (modalContext) {
+        return _EntriesForDateBottomSheet(
+          date: date,
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
@@ -69,12 +89,24 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
               fontSize: 18.sp,
             ),
           ),
-          leading: IconButton(
-            icon: Icon(
-              Icons.close,
-              color: appThemeColors.grey10,
+          leading: Padding(
+            // Add padding around the container to "shrink" it visually
+            padding: const EdgeInsets.all(8.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: appThemeColors.grey5,
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                // The icon button's own padding might need to be removed
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.close),
+                iconSize: 24,
+                color: appThemeColors.grey10,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
             ),
-            onPressed: () => Navigator.of(context).pop(),
           ),
         ),
         body: SingleChildScrollView(
@@ -86,7 +118,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
               _buildStatsSection(context, controller),
               SizedBox(height: 32.h),
               // --- Calendar Section ---
-              _buildCalendarSection(context),
+              _buildCalendarSection(context, controller),
               SizedBox(height: 32.h),
             ],
           ),
@@ -244,8 +276,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                 // Max height for the bar area itself
                 final double maxHeight = 50.h; // Reduced height to fix overflow
                 // Calculate bar height relative to the all-time max entries
-                final barHeight =
-                    (count / allTimeMaxEntries) * maxHeight;
+                final barHeight = (count / allTimeMaxEntries) * maxHeight;
 
                 return Column(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -343,12 +374,14 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
   }
 
   /// Builds the calendar section.
-  Widget _buildCalendarSection(BuildContext context) {
+  Widget _buildCalendarSection(
+      BuildContext context, HomeController controller) {
     final appThemeColors = AppTheme.colorsOf(context);
     final now = DateTime.now();
     final daysInMonth =
     DateUtils.getDaysInMonth(_calendarDate.year, _calendarDate.month);
-    final firstDayOfMonth = DateTime(_calendarDate.year, _calendarDate.month, 1);
+    final firstDayOfMonth =
+    DateTime(_calendarDate.year, _calendarDate.month, 1);
     // Adjust weekday to start from Sunday = 0
     final weekdayOfFirstDay =
     firstDayOfMonth.weekday == 7 ? 0 : firstDayOfMonth.weekday;
@@ -422,24 +455,58 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                     return const SizedBox.shrink(); // Empty space for alignment
                   }
                   final day = index - weekdayOfFirstDay + 1;
+                  final currentDate =
+                  DateTime(_calendarDate.year, _calendarDate.month, day);
                   final isToday = day == now.day &&
                       _calendarDate.month == now.month &&
                       _calendarDate.year == now.year;
-                  return Container(
-                    margin: EdgeInsets.all(3.w),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: isToday
-                          ? appThemeColors.primary.withOpacity(0.8)
-                          : Colors.transparent,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '$day',
-                      style: TextStyle(
-                        color: isToday ? appThemeColors.grey7 : appThemeColors.grey10,
-                        fontWeight:
-                        isToday ? FontWeight.bold : FontWeight.normal,
+
+                  // Check if there is a journal entry for this date.
+                  final hasJournalEntry =
+                  controller.journaledDates.contains(currentDate);
+
+                  return GestureDetector(
+                    onTap: () =>
+                        _showEntriesForDate(context, currentDate, controller),
+                    child: Container(
+                      margin: EdgeInsets.all(2.w),
+                      alignment: Alignment.center,
+                      color: Colors.transparent,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Background container for journal entries
+                          if (hasJournalEntry)
+                            Container(
+                              decoration: BoxDecoration(
+                                color: appThemeColors.grey4,
+                                borderRadius: BorderRadius.circular(8.r),
+                              ),
+                            ),
+                          // The day number with a circle for 'today'
+                          Container(
+                            width: 32.w,
+                            height: 32.w,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: isToday
+                                  ? appThemeColors.primary.withOpacity(0.8)
+                                  : Colors.transparent,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              '$day',
+                              style: TextStyle(
+                                color: isToday
+                                    ? appThemeColors.grey7
+                                    : appThemeColors.grey10,
+                                fontWeight: isToday
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   );
@@ -449,6 +516,110 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// A bottom sheet that displays journal entries for a specific date.
+class _EntriesForDateBottomSheet extends StatelessWidget {
+  final DateTime date;
+
+  const _EntriesForDateBottomSheet({
+    required this.date,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final appThemeColors = AppTheme.colorsOf(context);
+    // --- FIX: Get the controller to access the reactive list of entries ---
+    final HomeController controller = Get.find();
+
+    return Material(
+      child: Scaffold(
+        backgroundColor: appThemeColors.grey6,
+        appBar: AppBar(
+          backgroundColor: appThemeColors.grey6,
+          elevation: 0,
+          centerTitle: true,
+          title: Text(
+            DateFormat('MMMM d, yyyy').format(date),
+            style: TextStyle(
+              color: appThemeColors.grey10,
+              fontWeight: FontWeight.bold,
+              fontSize: 18.sp,
+            ),
+          ),
+          leading: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: appThemeColors.grey5,
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.close),
+                iconSize: 24,
+                color: appThemeColors.grey10,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ),
+        ),
+        // --- FIX: Wrap the body in an Obx to make it reactive ---
+        body: Obx(() {
+          // --- FIX: Filter the entries list inside Obx to get the latest data ---
+          final entriesForDate = controller.journalEntries.where((entry) {
+            final entryDate = entry.createdAt;
+            return entryDate.year == date.year &&
+                entryDate.month == date.month &&
+                entryDate.day == date.day;
+          }).toList();
+
+          return entriesForDate.isEmpty
+              ? Center(
+            child: Text(
+              'No entries for this date.',
+              style: TextStyle(
+                color: appThemeColors.grey2,
+                fontSize: 16.sp,
+              ),
+            ),
+          )
+              : ListView.separated(
+            padding:
+            EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+            itemCount: entriesForDate.length,
+            separatorBuilder: (context, index) => SizedBox(height: 16.h),
+            itemBuilder: (context, index) {
+              final entry = entriesForDate[index];
+              return JournalTile(
+                reflectionBackground: appThemeColors.grey3,
+                backgroundColor: appThemeColors.grey5,
+                dividerColor: appThemeColors.grey3,
+                footerTextColor: appThemeColors.grey2,
+                entry: entry,
+                onTap: () {
+                  // Pop the current bottom sheet first
+                  Navigator.of(context).pop();
+                  // Then show the read journal sheet
+                  showCupertinoModalBottomSheet(
+                    context: Get.context!,
+                    expand: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (modalContext) {
+                      return SafeArea(
+                        child: ReadJournalBottomSheet(entry: entry),
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          );
+        }),
+      ),
     );
   }
 }
