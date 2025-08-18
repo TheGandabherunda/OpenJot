@@ -1,0 +1,599 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/cupertino.dart' as ui;
+import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:get/get.dart';
+import 'package:intl/intl.dart';
+import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
+import 'package:open_jot/app/modules/home/home_controller.dart';
+import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
+import 'package:photo_manager/photo_manager.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../core/constants.dart';
+import '../../core/models/journal_entry.dart';
+import '../../core/theme.dart';
+import '../../core/widgets/custom_button.dart';
+import '../media_preview/media_preview_bottom_sheet.dart';
+
+class ReadJournalBottomSheet extends StatefulWidget {
+  final JournalEntry entry;
+
+  const ReadJournalBottomSheet({super.key, required this.entry});
+
+  @override
+  ReadJournalBottomSheetState createState() => ReadJournalBottomSheetState();
+}
+
+class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
+  late quill.QuillController _quillController;
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  String? _currentlyPlayingPath;
+  PlayerState? _playerState;
+  StreamSubscription? _playerStateSubscription;
+
+  static const List<Map<String, String>> _moods = [
+    {'svg': 'assets/1.svg', 'label': 'Very Unpleasant'},
+    {'svg': 'assets/2.svg', 'label': 'Unpleasant'},
+    {'svg': 'assets/3.svg', 'label': 'Neutral'},
+    {'svg': 'assets/4.svg', 'label': 'Pleasant'},
+    {'svg': 'assets/5.svg', 'label': 'Very Pleasant'},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _quillController = quill.QuillController(
+      document: widget.entry.content,
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+    _playerStateSubscription =
+        _audioPlayer.onPlayerStateChanged.listen((state) {
+          if (mounted) {
+            setState(() {
+              _playerState = state;
+              if (state == PlayerState.completed) {
+                _currentlyPlayingPath = null;
+              }
+            });
+          }
+        });
+  }
+
+  @override
+  void dispose() {
+    _quillController.dispose();
+    _playerStateSubscription?.cancel();
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+
+  void _onEditPressed() {
+    final parentContext = context;
+    // Close this sheet first.
+    Navigator.of(parentContext).pop();
+
+    // Find the latest version of the entry from the controller.
+    final homeController = Get.find<HomeController>();
+    final entryToEdit = homeController.journalEntries
+        .firstWhere((e) => e.id == widget.entry.id, orElse: () => widget.entry);
+
+    // Use WidgetsBinding to show the modal after the current frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      showCupertinoModalBottomSheet(
+        context: parentContext,
+        expand: true,
+        backgroundColor: AppTheme.colorsOf(parentContext).grey6,
+        builder: (context) => SafeArea(
+          child: WriteJournalBottomSheet(entry: entryToEdit),
+        ),
+      );
+    });
+  }
+
+  Future<void> _launchLocationLink() async {
+    if (widget.entry.location != null) {
+      final Uri uri = Uri.parse(widget.entry.location!.link);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open map link.')),
+        );
+      }
+    }
+  }
+
+  /// Opens the media preview bottom sheet.
+  void _openMediaPreview(List<dynamic> allMedia, int initialIndex) {
+    final mediaItems = allMedia.map((m) {
+      if (m is AssetEntity) {
+        return MediaItem(asset: m, type: m.type, id: m.id);
+      } else if (m is CapturedPhoto) {
+        // CapturedPhoto is always an image.
+        return MediaItem(asset: m, type: AssetType.image, id: m.file.path);
+      }
+      return null;
+    }).whereType<MediaItem>().toList();
+
+    if (mediaItems.isEmpty) return;
+
+    showCupertinoModalBottomSheet(
+      context: context,
+      expand: true,
+      backgroundColor: Colors.transparent, // Important for gradient background
+      builder: (context) => MediaPreviewBottomSheet(
+        mediaItems: mediaItems,
+        initialIndex: initialIndex,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appThemeColors = AppTheme.colorsOf(context);
+    return Container(
+      color: appThemeColors.grey6,
+      child: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 0),
+            child: _buildHeader(appThemeColors),
+          ),
+          SizedBox(height: 16.h),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 14.w),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildImagePreview(),
+                        if (widget.entry.galleryImages.isNotEmpty ||
+                            widget.entry.cameraPhotos.isNotEmpty)
+                          SizedBox(height: 2.h),
+                        _buildAudioPreview(),
+                        if (widget.entry.galleryAudios.isNotEmpty)
+                          SizedBox(height: 2.h),
+                        _buildRecordingsPreview(),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 16.h),
+                  _buildMoodField(appThemeColors),
+                  SizedBox(height: 16.h),
+                  _buildTextField(appThemeColors),
+                  SizedBox(height: 40.h),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader(AppThemeColors appThemeColors) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Icon(
+          widget.entry.isBookmarked
+              ? Icons.bookmark_rounded
+              : Icons.bookmark_outline_rounded,
+          color: widget.entry.isBookmarked
+              ? appThemeColors.primary
+              : appThemeColors.grey2,
+          size: 28.w,
+        ),
+        Text(
+          DateFormat('EEEE, MMM d').format(widget.entry.createdAt),
+          style: TextStyle(
+            fontSize: 16.sp,
+            fontWeight: FontWeight.w500,
+            fontFamily: AppConstants.font,
+            decoration: TextDecoration.none,
+            color: appThemeColors.grey10.withAlpha((255 * 0.6).round()),
+          ),
+        ),
+        CustomButton(
+          onPressed: _onEditPressed,
+          text: 'Edit',
+          color: Colors.transparent,
+          textColor: appThemeColors.grey10,
+          textSize: 16.sp,
+          textPadding: EdgeInsets.zero,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildImagePreview() {
+    final allMedia = [
+      ...widget.entry.galleryImages,
+      ...widget.entry.cameraPhotos
+    ];
+    if (allMedia.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final double spacing = 2.w;
+    final appThemeColors = AppTheme.colorsOf(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final overlayColor = (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
+        .withOpacity(0.6);
+    final onOverlayColor =
+    isDark ? appThemeColors.grey10 : appThemeColors.grey7;
+
+    Widget buildMediaContainer(dynamic media,
+        {Widget? overlay, required VoidCallback onTap}) {
+      return GestureDetector(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: appThemeColors.grey3, width: 1.5),
+            borderRadius: BorderRadius.circular(12.r),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10.5.r),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (media is AssetEntity)
+                  SizedAssetThumbnail(asset: media)
+                else if (media is CapturedPhoto)
+                  Image.file(File(media.file.path), fit: BoxFit.cover),
+                if (overlay != null) overlay,
+                // Video play icon overlay
+                if (media is AssetEntity && media.type == AssetType.video)
+                  Center(
+                    child: Icon(
+                      Icons.play_circle_fill_rounded,
+                      color: Colors.white.withOpacity(0.8),
+                      size: 48.sp,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget content;
+    if (allMedia.length == 1) {
+      content = SizedBox(
+        height: 250.h,
+        width: double.infinity,
+        child: buildMediaContainer(
+          allMedia[0],
+          onTap: () => _openMediaPreview(allMedia, 0),
+        ),
+      );
+    } else if (allMedia.length == 2) {
+      content = SizedBox(
+        height: 250.h,
+        child: Row(
+          children: [
+            Expanded(
+              child: buildMediaContainer(
+                allMedia[0],
+                onTap: () => _openMediaPreview(allMedia, 0),
+              ),
+            ),
+            SizedBox(width: spacing),
+            Expanded(
+              child: buildMediaContainer(
+                allMedia[1],
+                onTap: () => _openMediaPreview(allMedia, 1),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      Widget? thirdImageOverlay;
+      if (allMedia.length > 3) {
+        thirdImageOverlay = GestureDetector(
+          onTap: () => _openMediaPreview(allMedia, 2),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10.5.r),
+            child: ui.BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 3.0, sigmaY: 3.0),
+              child: Container(
+                color: overlayColor,
+                child: Center(
+                  child: Text(
+                    '+${allMedia.length - 3}',
+                    style: TextStyle(
+                        color: onOverlayColor,
+                        fontSize: 32.sp,
+                        fontFamily: AppConstants.font,
+                        fontWeight: FontWeight.w500,
+                        decoration: TextDecoration.none),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+      content = SizedBox(
+        height: 250.h,
+        child: Row(
+          children: [
+            AspectRatio(
+              aspectRatio: 1.0,
+              child: buildMediaContainer(
+                allMedia[0],
+                onTap: () => _openMediaPreview(allMedia, 0),
+              ),
+            ),
+            SizedBox(width: spacing),
+            Expanded(
+              child: Column(
+                children: [
+                  Expanded(
+                    child: buildMediaContainer(
+                      allMedia[1],
+                      onTap: () => _openMediaPreview(allMedia, 1),
+                    ),
+                  ),
+                  SizedBox(height: spacing),
+                  Expanded(
+                    child: buildMediaContainer(
+                      allMedia[2],
+                      overlay: thirdImageOverlay,
+                      onTap: () => _openMediaPreview(allMedia, 2),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return Padding(
+      padding: EdgeInsets.fromLTRB(0, 8.h, 0, 8.h),
+      child: content,
+    );
+  }
+
+  Widget _buildAudioPreview() {
+    if (widget.entry.galleryAudios.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final appThemeColors = AppTheme.colorsOf(context);
+    return Column(
+      children: widget.entry.galleryAudios.map((audio) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: 4.h),
+          child: Container(
+            height: 40.h,
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(horizontal: 12.w),
+            decoration: BoxDecoration(
+              color: appThemeColors.grey4,
+              borderRadius: BorderRadius.circular(12.r),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.music_note_rounded,
+                    color: appThemeColors.grey1, size: 24.sp),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: Text(
+                    audio.title ?? 'Audio track',
+                    style: TextStyle(
+                      color: appThemeColors.grey10,
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.none,
+                      overflow: TextOverflow.ellipsis,
+                      fontFamily: AppConstants.font,
+                    ),
+                    maxLines: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  String _formatPreviewDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$minutes:$seconds';
+  }
+
+  Widget _buildRecordingsPreview() {
+    if (widget.entry.recordings.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final appThemeColors = AppTheme.colorsOf(context);
+    return Column(
+      children: widget.entry.recordings.map((recording) {
+        final isPlaying = _currentlyPlayingPath == recording.path &&
+            _playerState == PlayerState.playing;
+        final isPaused = _currentlyPlayingPath == recording.path &&
+            _playerState == PlayerState.paused;
+        return Padding(
+          padding: EdgeInsets.only(bottom: 4.h),
+          child: Container(
+            height: 50.h,
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(horizontal: 12.w),
+            decoration: BoxDecoration(
+              color: appThemeColors.grey4,
+              borderRadius: BorderRadius.circular(12.r),
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: Icon(
+                    isPlaying
+                        ? Icons.pause_circle_filled_rounded
+                        : Icons.play_circle_fill_rounded,
+                    color: appThemeColors.grey1,
+                    size: 28.sp,
+                  ),
+                  onPressed: () {
+                    if (isPlaying) {
+                      _audioPlayer.pause();
+                    } else if (isPaused) {
+                      _audioPlayer.resume();
+                    } else {
+                      _audioPlayer.play(DeviceFileSource(recording.path));
+                      setState(() {
+                        _currentlyPlayingPath = recording.path;
+                      });
+                    }
+                  },
+                ),
+                SizedBox(width: 4.w),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        recording.name,
+                        style: TextStyle(
+                          color: appThemeColors.grey10,
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.none,
+                          overflow: TextOverflow.ellipsis,
+                          fontFamily: AppConstants.font,
+                        ),
+                        maxLines: 1,
+                      ),
+                      Text(
+                        _formatPreviewDuration(recording.duration),
+                        style: TextStyle(
+                          color: appThemeColors.grey1,
+                          fontSize: 12.sp,
+                          decoration: TextDecoration.none,
+                          fontFamily: AppConstants.font,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildMoodField(AppThemeColors appThemeColors) {
+    return Material(
+      color: Colors.transparent,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 14.w),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            if (widget.entry.location != null)
+              GestureDetector(
+                onTap: _launchLocationLink,
+                child: Container(
+                  height: 38.w,
+                  padding: EdgeInsets.only(right: 12.w, left: 8.w),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.location_on_rounded,
+                        color: appThemeColors.grey3,
+                        size: 20.w,
+                      ),
+                      SizedBox(width: 6.w),
+                      Text(
+                        '${widget.entry.location!.coordinates.latitude.toStringAsFixed(4)}, ${widget.entry.location!.coordinates.longitude.toStringAsFixed(4)}',
+                        style: TextStyle(
+                          color: appThemeColors.grey1,
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.none,
+                          fontFamily: AppConstants.font,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            if (widget.entry.moodIndex != null)
+              Padding(
+                padding: EdgeInsets.only(right: 12.w, left: 12.w),
+                child: Container(
+                  width: 38.w,
+                  height: 38.w,
+                  decoration: BoxDecoration(
+                    color: appThemeColors.grey6,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: SvgPicture.asset(
+                      _moods[widget.entry.moodIndex!]['svg']!,
+                      width: 28.w,
+                      height: 28.h,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(AppThemeColors appThemeColors) {
+    return Material(
+      color: Colors.transparent,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 14.w),
+        child: IgnorePointer(
+          child: quill.QuillEditor.basic(
+            controller: _quillController,
+            focusNode: FocusNode(), // Use a dummy node for read-only.
+            config: quill.QuillEditorConfig(
+              autoFocus: false,
+              expands: false,
+              padding: EdgeInsets.zero,
+              customStyles: quill.DefaultStyles(
+                paragraph: quill.DefaultTextBlockStyle(
+                  TextStyle(
+                    fontSize: 16.sp,
+                    color: appThemeColors.grey10,
+                    height: 1.5,
+                  ),
+                  quill.HorizontalSpacing.zero,
+                  quill.VerticalSpacing.zero,
+                  quill.VerticalSpacing.zero,
+                  null,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

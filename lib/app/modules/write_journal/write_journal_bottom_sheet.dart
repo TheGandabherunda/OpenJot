@@ -13,6 +13,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart' hide LatLng;
@@ -26,9 +27,12 @@ import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/text_styling_toolbar.dart';
 import '../../core/widgets/write_journal_toolbar.dart';
 import '../../core/widgets/write_journal_toolbar_content.dart';
+import '../media_preview/media_preview_bottom_sheet.dart';
 
 class WriteJournalBottomSheet extends StatefulWidget {
-  const WriteJournalBottomSheet({super.key});
+  final JournalEntry? entry;
+
+  const WriteJournalBottomSheet({super.key, this.entry});
 
   @override
   WriteJournalBottomSheetState createState() => WriteJournalBottomSheetState();
@@ -41,6 +45,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   final _focusNode = FocusNode();
   final _sheetController = DraggableScrollableController();
   final _editorScrollController = ScrollController();
+  final _mainScrollController = ScrollController(); // Added for auto-scrolling
   final _textFieldKey = GlobalKey();
   final _dateMenuKey = GlobalKey();
   final _locationMenuKey = GlobalKey();
@@ -94,7 +99,29 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   @override
   void initState() {
     super.initState();
-    _quillController = quill.QuillController.basic();
+    if (widget.entry != null) {
+      // If editing, populate the state from the entry.
+      final entry = widget.entry!;
+      // **FIX:** Create a new Document instance from the entry's data (delta).
+      // This prevents using a disposed document from the ReadJournalBottomSheet.
+      _quillController = quill.QuillController(
+        document: quill.Document.fromJson(entry.content.toDelta().toJson()),
+        selection: const TextSelection.collapsed(offset: 0),
+      );
+      _selectedDate = entry.createdAt;
+      _isBookmarked = entry.isBookmarked;
+      _selectedMoodIndex = entry.moodIndex;
+      _selectedLocation = entry.location;
+      _previewImages = List.from(entry.galleryImages);
+      _previewPhotos = List.from(entry.cameraPhotos);
+      _previewAudios = List.from(entry.galleryAudios);
+      _previewRecordings = List.from(entry.recordings);
+      _isCustomDate = true; // Assume it's a custom date if editing.
+    } else {
+      // If creating a new entry, initialize as before.
+      _quillController = quill.QuillController.basic();
+    }
+
     _quillController.addListener(() {
       if (mounted) {
         setState(() {});
@@ -126,6 +153,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     _focusNode.dispose();
     _sheetController.dispose();
     _editorScrollController.dispose();
+    _mainScrollController.dispose(); // Dispose the new controller
     _playerStateSubscription?.cancel();
     _audioPlayer.dispose();
     super.dispose();
@@ -145,20 +173,39 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     }
 
     final homeController = Get.find<HomeController>();
-    final newEntry = JournalEntry(
-      id: const Uuid().v4(),
-      content: _quillController.document,
-      createdAt: _selectedDate,
-      isBookmarked: _isBookmarked,
-      moodIndex: _selectedMoodIndex,
-      location: _selectedLocation,
-      galleryImages: _previewImages,
-      cameraPhotos: _previewPhotos,
-      galleryAudios: _previewAudios,
-      recordings: _previewRecordings,
-    );
 
-    homeController.addJournalEntry(newEntry);
+    if (widget.entry != null) {
+      // Update existing entry.
+      final updatedEntry = JournalEntry(
+        id: widget.entry!.id,
+        // Keep the original ID.
+        content: _quillController.document,
+        createdAt: _selectedDate,
+        isBookmarked: _isBookmarked,
+        moodIndex: _selectedMoodIndex,
+        location: _selectedLocation,
+        galleryImages: _previewImages,
+        cameraPhotos: _previewPhotos,
+        galleryAudios: _previewAudios,
+        recordings: _previewRecordings,
+      );
+      homeController.updateJournalEntry(updatedEntry);
+    } else {
+      // Add new entry.
+      final newEntry = JournalEntry(
+        id: const Uuid().v4(),
+        content: _quillController.document,
+        createdAt: _selectedDate,
+        isBookmarked: _isBookmarked,
+        moodIndex: _selectedMoodIndex,
+        location: _selectedLocation,
+        galleryImages: _previewImages,
+        cameraPhotos: _previewPhotos,
+        galleryAudios: _previewAudios,
+        recordings: _previewRecordings,
+      );
+      homeController.addJournalEntry(newEntry);
+    }
     Navigator.of(context).pop();
   }
 
@@ -629,6 +676,32 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     _wasKeyboardVisible = isKeyboardVisible;
   }
 
+  /// Opens the media preview bottom sheet.
+  void _openMediaPreview(List<dynamic> allMedia, int initialIndex) {
+    final mediaItems = allMedia.map((m) {
+      if (m is AssetEntity) {
+        return MediaItem(asset: m, type: m.type, id: m.id);
+      } else if (m is CapturedPhoto) {
+        // CapturedPhoto is always an image.
+        return MediaItem(
+            asset: m, type: AssetType.image, id: m.file.path);
+      }
+      return null;
+    }).whereType<MediaItem>().toList();
+
+    if (mediaItems.isEmpty) return;
+
+    showCupertinoModalBottomSheet(
+      context: context,
+      expand: true,
+      backgroundColor: Colors.transparent, // Important for gradient background
+      builder: (context) => MediaPreviewBottomSheet(
+        mediaItems: mediaItems,
+        initialIndex: initialIndex,
+      ),
+    );
+  }
+
   Widget _buildHeader(AppThemeColors appThemeColors) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -654,9 +727,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
               _isBookmarked
                   ? Icons.bookmark_rounded
                   : Icons.bookmark_outline_rounded,
-              color: _isBookmarked
-                  ? appThemeColors.primary
-                  : appThemeColors.grey2,
+              color:
+              _isBookmarked ? appThemeColors.primary : appThemeColors.grey2,
               size: 28.w,
             ),
           ),
@@ -765,7 +837,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
         ),
         CustomButton(
           onPressed: _onDonePressed,
-          text: 'Done',
+          text: widget.entry != null ? 'Update' : 'Done',
           color: Colors.transparent,
           textColor: appThemeColors.grey10,
           textSize: 16.sp,
@@ -776,8 +848,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   Widget _buildImagePreview() {
-    final allImages = [..._previewImages, ..._previewPhotos];
-    if (allImages.isEmpty) {
+    final allMedia = [..._previewImages, ..._previewPhotos];
+    if (allMedia.isEmpty) {
       return const SizedBox.shrink();
     }
     final double spacing = 2.w;
@@ -787,87 +859,119 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
         .withOpacity(0.6);
     final onOverlayColor =
     isDark ? appThemeColors.grey10 : appThemeColors.grey7;
-    Widget buildImageContainer(dynamic image, {Widget? overlay}) {
-      return Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: appThemeColors.grey3, width: 1.5),
-          borderRadius: BorderRadius.circular(12.r),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(10.5.r),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (image is AssetEntity)
-                SizedAssetThumbnail(asset: image)
-              else if (image is CapturedPhoto)
-                Image.file(File(image.file.path), fit: BoxFit.cover),
-              if (overlay != null) overlay,
-              Positioned(
-                top: 4.w,
-                right: 4.w,
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      if (image is AssetEntity) {
-                        _previewImages.remove(image);
-                      } else if (image is CapturedPhoto) {
-                        _previewPhotos.remove(image);
-                      }
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: overlayColor,
-                      shape: BoxShape.circle,
+
+    Widget buildMediaContainer(dynamic media,
+        {Widget? overlay, required VoidCallback onTap}) {
+      return GestureDetector(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: appThemeColors.grey3, width: 1.5),
+            borderRadius: BorderRadius.circular(12.r),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10.5.r),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (media is AssetEntity)
+                  SizedAssetThumbnail(asset: media)
+                else if (media is CapturedPhoto)
+                  Image.file(File(media.file.path), fit: BoxFit.cover),
+                if (overlay != null) overlay,
+                // Close button for removing media
+                Positioned(
+                  top: 4.w,
+                  right: 4.w,
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        if (media is AssetEntity) {
+                          _previewImages.remove(media);
+                        } else if (media is CapturedPhoto) {
+                          _previewPhotos.remove(media);
+                        }
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: overlayColor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.close,
+                          color: onOverlayColor, size: 18.sp),
                     ),
-                    child:
-                    Icon(Icons.close, color: onOverlayColor, size: 18.sp),
                   ),
                 ),
-              ),
-            ],
+                // Video play icon overlay
+                if (media is AssetEntity && media.type == AssetType.video)
+                  Center(
+                    child: Icon(
+                      Icons.play_circle_fill_rounded,
+                      color: Colors.white.withOpacity(0.8),
+                      size: 48.sp,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       );
     }
+
     Widget content;
-    if (allImages.length == 1) {
+    if (allMedia.length == 1) {
       content = SizedBox(
         height: 250.h,
         width: double.infinity,
-        child: buildImageContainer(allImages[0]),
+        child: buildMediaContainer(
+          allMedia[0],
+          onTap: () => _openMediaPreview(allMedia, 0),
+        ),
       );
-    } else if (allImages.length == 2) {
+    } else if (allMedia.length == 2) {
       content = SizedBox(
         height: 250.h,
         child: Row(
           children: [
-            Expanded(child: buildImageContainer(allImages[0])),
+            Expanded(
+              child: buildMediaContainer(
+                allMedia[0],
+                onTap: () => _openMediaPreview(allMedia, 0),
+              ),
+            ),
             SizedBox(width: spacing),
-            Expanded(child: buildImageContainer(allImages[1])),
+            Expanded(
+              child: buildMediaContainer(
+                allMedia[1],
+                onTap: () => _openMediaPreview(allMedia, 1),
+              ),
+            ),
           ],
         ),
       );
     } else {
       Widget? thirdImageOverlay;
-      if (allImages.length > 3) {
-        thirdImageOverlay = ClipRRect(
-          borderRadius: BorderRadius.circular(10.5.r),
-          child: ui.BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: 3.0, sigmaY: 3.0),
-            child: Container(
-              color: overlayColor,
-              child: Center(
-                child: Text(
-                  '+${allImages.length - 3}',
-                  style: TextStyle(
-                      color: onOverlayColor,
-                      fontSize: 32.sp,
-                      fontFamily: AppConstants.font,
-                      fontWeight: FontWeight.w500,
-                      decoration: TextDecoration.none),
+      if (allMedia.length > 3) {
+        thirdImageOverlay = GestureDetector(
+          onTap: () => _openMediaPreview(allMedia, 2),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10.5.r),
+            child: ui.BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 3.0, sigmaY: 3.0),
+              child: Container(
+                color: overlayColor,
+                child: Center(
+                  child: Text(
+                    '+${allMedia.length - 3}',
+                    style: TextStyle(
+                        color: onOverlayColor,
+                        fontSize: 32.sp,
+                        fontFamily: AppConstants.font,
+                        fontWeight: FontWeight.w500,
+                        decoration: TextDecoration.none),
+                  ),
                 ),
               ),
             ),
@@ -880,18 +984,27 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
           children: [
             AspectRatio(
               aspectRatio: 1.0,
-              child: buildImageContainer(allImages[0]),
+              child: buildMediaContainer(
+                allMedia[0],
+                onTap: () => _openMediaPreview(allMedia, 0),
+              ),
             ),
             SizedBox(width: spacing),
             Expanded(
               child: Column(
                 children: [
-                  Expanded(child: buildImageContainer(allImages[1])),
+                  Expanded(
+                    child: buildMediaContainer(
+                      allMedia[1],
+                      onTap: () => _openMediaPreview(allMedia, 1),
+                    ),
+                  ),
                   SizedBox(height: spacing),
                   Expanded(
-                    child: buildImageContainer(
-                      allImages[2],
+                    child: buildMediaContainer(
+                      allMedia[2],
                       overlay: thirdImageOverlay,
+                      onTap: () => _openMediaPreview(allMedia, 2),
                     ),
                   ),
                 ],
@@ -1498,6 +1611,20 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
             builder: (context, child) {
               final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
               final isKeyboardVisible = keyboardHeight > 0;
+
+              // *** FIX: Auto-scroll logic when keyboard is visible ***
+              if (isKeyboardVisible && _focusNode.hasFocus) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted && _mainScrollController.hasClients) {
+                    _mainScrollController.animateTo(
+                      _mainScrollController.position.maxScrollExtent,
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOut,
+                    );
+                  }
+                });
+              }
+
               if (_sheetState == _SheetTransitionState.opening &&
                   !isKeyboardVisible &&
                   mounted) {
@@ -1543,6 +1670,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
                               child: LayoutBuilder(
                                 builder: (context, constraints) {
                                   return SingleChildScrollView(
+                                    // *** FIX: Assign the scroll controller ***
+                                    controller: _mainScrollController,
                                     child: ConstrainedBox(
                                       constraints: BoxConstraints(
                                           minHeight: constraints.maxHeight),

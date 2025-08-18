@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
+import 'package:open_jot/app/modules/read_journal/read_journal_bottom_sheet.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
 import 'package:progressive_blur/progressive_blur.dart';
 
@@ -285,7 +286,21 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                     itemCount: entries.length,
                     itemBuilder: (context, index) {
                       final entry = entries[index];
-                      return JournalTile(entry: entry);
+                      return JournalTile(
+                        entry: entry,
+                        onTap: () {
+                          showCupertinoModalBottomSheet(
+                            context: context,
+                            expand: true,
+                            backgroundColor: appThemeColors.grey6,
+                            builder: (modalContext) {
+                              return SafeArea(
+                                child: ReadJournalBottomSheet(entry: entry),
+                              );
+                            },
+                          );
+                        },
+                      );
                     },
                     separatorBuilder: (BuildContext context, int index) {
                       return SizedBox(height: 32.h);
@@ -322,8 +337,8 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                               6.r), // More rounded corners
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black
-                                  .withOpacity(0.12), // Slightly more shadow
+                              color: Colors.black.withOpacity(
+                                  0.12), // Slightly more shadow
                               offset: const Offset(0, 2),
                             ),
                           ],
@@ -363,7 +378,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                   iconColor: appThemeColors.onPrimary,
                   onPressed: () {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
-                      CupertinoScaffold.showCupertinoModalBottomSheet(
+                      showCupertinoModalBottomSheet(
                         context: innerContext,
                         expand: true,
                         backgroundColor: appThemeColors.grey6,
