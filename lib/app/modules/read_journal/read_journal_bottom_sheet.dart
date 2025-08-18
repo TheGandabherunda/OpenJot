@@ -32,6 +32,7 @@ class ReadJournalBottomSheet extends StatefulWidget {
 }
 
 class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
+  late JournalEntry _currentEntry;
   late quill.QuillController _quillController;
   final AudioPlayer _audioPlayer = AudioPlayer();
   String? _currentlyPlayingPath;
@@ -49,8 +50,9 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
   @override
   void initState() {
     super.initState();
+    _currentEntry = widget.entry;
     _quillController = quill.QuillController(
-      document: widget.entry.content,
+      document: _currentEntry.content,
       selection: const TextSelection.collapsed(offset: 0),
     );
     _playerStateSubscription =
@@ -74,32 +76,48 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
     super.dispose();
   }
 
-  void _onEditPressed() {
-    final parentContext = context;
-    // Close this sheet first.
-    Navigator.of(parentContext).pop();
-
+  void _onEditPressed() async {
     // Find the latest version of the entry from the controller.
     final homeController = Get.find<HomeController>();
     final entryToEdit = homeController.journalEntries
-        .firstWhere((e) => e.id == widget.entry.id, orElse: () => widget.entry);
+        .firstWhere((e) => e.id == _currentEntry.id, orElse: () => _currentEntry);
 
-    // Use WidgetsBinding to show the modal after the current frame.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      showCupertinoModalBottomSheet(
-        context: parentContext,
-        expand: true,
-        backgroundColor: AppTheme.colorsOf(parentContext).grey6,
-        builder: (context) => SafeArea(
-          child: WriteJournalBottomSheet(entry: entryToEdit),
-        ),
+    // Show the WriteJournalBottomSheet on top of this one.
+    await showCupertinoModalBottomSheet(
+      context: context,
+      expand: true,
+      backgroundColor: Colors.transparent, // Allows for stacked modal effect
+      builder: (context) => SafeArea(
+        child: WriteJournalBottomSheet(entry: entryToEdit),
+      ),
+    );
+
+    // After the edit sheet is closed, this code runs.
+    // We update the state to reflect any changes.
+    if (mounted) {
+      final latestEntry = homeController.journalEntries.firstWhere(
+            (e) => e.id == widget.entry.id,
+        orElse: () => _currentEntry, // Fallback to the current entry
       );
-    });
+
+      setState(() {
+        _currentEntry = latestEntry;
+        // The controller's document is final, but we can replace its content.
+        final delta = _currentEntry.content.toDelta();
+        _quillController.replaceText(
+          0,
+          _quillController.document.length,
+          delta,
+          const TextSelection.collapsed(offset: 0),
+        );
+      });
+    }
   }
 
+
   Future<void> _launchLocationLink() async {
-    if (widget.entry.location != null) {
-      final Uri uri = Uri.parse(widget.entry.location!.link);
+    if (_currentEntry.location != null) {
+      final Uri uri = Uri.parse(_currentEntry.location!.link);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri);
       } else {
@@ -159,11 +177,11 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _buildImagePreview(),
-                        if (widget.entry.galleryImages.isNotEmpty ||
-                            widget.entry.cameraPhotos.isNotEmpty)
+                        if (_currentEntry.galleryImages.isNotEmpty ||
+                            _currentEntry.cameraPhotos.isNotEmpty)
                           SizedBox(height: 2.h),
                         _buildAudioPreview(),
-                        if (widget.entry.galleryAudios.isNotEmpty)
+                        if (_currentEntry.galleryAudios.isNotEmpty)
                           SizedBox(height: 2.h),
                         _buildRecordingsPreview(),
                       ],
@@ -188,16 +206,16 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Icon(
-          widget.entry.isBookmarked
+          _currentEntry.isBookmarked
               ? Icons.bookmark_rounded
               : Icons.bookmark_outline_rounded,
-          color: widget.entry.isBookmarked
+          color: _currentEntry.isBookmarked
               ? appThemeColors.primary
               : appThemeColors.grey2,
           size: 28.w,
         ),
         Text(
-          DateFormat('EEEE, MMM d').format(widget.entry.createdAt),
+          DateFormat('EEEE, MMM d').format(_currentEntry.createdAt),
           style: TextStyle(
             fontSize: 16.sp,
             fontWeight: FontWeight.w500,
@@ -220,8 +238,8 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
 
   Widget _buildImagePreview() {
     final allMedia = [
-      ...widget.entry.galleryImages,
-      ...widget.entry.cameraPhotos
+      ..._currentEntry.galleryImages,
+      ..._currentEntry.cameraPhotos
     ];
     if (allMedia.isEmpty) {
       return const SizedBox.shrink();
@@ -370,12 +388,12 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
   }
 
   Widget _buildAudioPreview() {
-    if (widget.entry.galleryAudios.isEmpty) {
+    if (_currentEntry.galleryAudios.isEmpty) {
       return const SizedBox.shrink();
     }
     final appThemeColors = AppTheme.colorsOf(context);
     return Column(
-      children: widget.entry.galleryAudios.map((audio) {
+      children: _currentEntry.galleryAudios.map((audio) {
         return Padding(
           padding: EdgeInsets.only(bottom: 4.h),
           child: Container(
@@ -421,12 +439,12 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
   }
 
   Widget _buildRecordingsPreview() {
-    if (widget.entry.recordings.isEmpty) {
+    if (_currentEntry.recordings.isEmpty) {
       return const SizedBox.shrink();
     }
     final appThemeColors = AppTheme.colorsOf(context);
     return Column(
-      children: widget.entry.recordings.map((recording) {
+      children: _currentEntry.recordings.map((recording) {
         final isPlaying = _currentlyPlayingPath == recording.path &&
             _playerState == PlayerState.playing;
         final isPaused = _currentlyPlayingPath == recording.path &&
@@ -510,7 +528,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            if (widget.entry.location != null)
+            if (_currentEntry.location != null)
               GestureDetector(
                 onTap: _launchLocationLink,
                 child: Container(
@@ -525,7 +543,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
                       ),
                       SizedBox(width: 6.w),
                       Text(
-                        '${widget.entry.location!.coordinates.latitude.toStringAsFixed(4)}, ${widget.entry.location!.coordinates.longitude.toStringAsFixed(4)}',
+                        '${_currentEntry.location!.coordinates.latitude.toStringAsFixed(4)}, ${_currentEntry.location!.coordinates.longitude.toStringAsFixed(4)}',
                         style: TextStyle(
                           color: appThemeColors.grey1,
                           fontSize: 14.sp,
@@ -539,7 +557,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
                   ),
                 ),
               ),
-            if (widget.entry.moodIndex != null)
+            if (_currentEntry.moodIndex != null)
               Padding(
                 padding: EdgeInsets.only(right: 12.w, left: 12.w),
                 child: Container(
@@ -551,7 +569,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
                   ),
                   child: Center(
                     child: SvgPicture.asset(
-                      _moods[widget.entry.moodIndex!]['svg']!,
+                      _moods[_currentEntry.moodIndex!]['svg']!,
                       width: 28.w,
                       height: 28.h,
                     ),

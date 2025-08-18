@@ -28,10 +28,10 @@ class HomeView extends GetView<HomeController> {
     final SystemUiOverlayStyle systemUiOverlayStyle = SystemUiOverlayStyle(
       statusBarColor: appThemeColors.grey7,
       statusBarIconBrightness:
-      brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+          brightness == Brightness.dark ? Brightness.light : Brightness.dark,
       systemNavigationBarColor: appThemeColors.grey7,
       systemNavigationBarIconBrightness:
-      brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+          brightness == Brightness.dark ? Brightness.light : Brightness.dark,
     );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -51,6 +51,7 @@ class HomeView extends GetView<HomeController> {
 
 class _HomeScreenStack extends StatefulWidget {
   final HomeController controller;
+
   const _HomeScreenStack({required this.controller});
 
   @override
@@ -77,7 +78,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     _slideAnimationController = AnimationController(
       duration: const Duration(milliseconds: 500),
       reverseDuration:
-      const Duration(milliseconds: 700), // Longer exit duration
+          const Duration(milliseconds: 700), // Longer exit duration
       vsync: this,
     );
 
@@ -97,7 +98,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       parent: _slideAnimationController,
       curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
       reverseCurve:
-      const Interval(0.0, 0.8, curve: Curves.easeOut), // Longer fade out
+          const Interval(0.0, 0.8, curve: Curves.easeOut), // Longer fade out
     ));
 
     _scaleAnimation = Tween<double>(
@@ -218,7 +219,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                               ),
                             ),
                             titlePadding:
-                            EdgeInsets.only(left: 16.w, bottom: 16.h),
+                                EdgeInsets.only(left: 16.w, bottom: 16.h),
                             expandedTitleScale: 28.sp / 24.sp,
                           ),
                         ),
@@ -292,7 +293,8 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                           showCupertinoModalBottomSheet(
                             context: context,
                             expand: true,
-                            backgroundColor: appThemeColors.grey6,
+                            backgroundColor: Colors.transparent,
+                            // Make background transparent for blur effect
                             builder: (modalContext) {
                               return SafeArea(
                                 child: ReadJournalBottomSheet(entry: entry),
@@ -328,32 +330,32 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                     child: Center(
                       child: (_showChip && _currentMonthYear != null)
                           ? Container(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 9.w,
-                            vertical: 5.h), // Slightly more padding
-                        decoration: BoxDecoration(
-                          color: appThemeColors.grey5,
-                          borderRadius: BorderRadius.circular(
-                              6.r), // More rounded corners
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(
-                                  0.12), // Slightly more shadow
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          _currentMonthYear!,
-                          style: TextStyle(
-                            fontFamily: AppConstants.font,
-                            fontWeight: FontWeight.w600,
-                            height: 1.2.sp,
-                            fontSize: 14.sp,
-                            color: appThemeColors.grey10,
-                          ),
-                        ),
-                      )
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 9.w,
+                                  vertical: 5.h), // Slightly more padding
+                              decoration: BoxDecoration(
+                                color: appThemeColors.grey5,
+                                borderRadius: BorderRadius.circular(
+                                    6.r), // More rounded corners
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(
+                                        0.12), // Slightly more shadow
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                _currentMonthYear!,
+                                style: TextStyle(
+                                  fontFamily: AppConstants.font,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.2.sp,
+                                  fontSize: 14.sp,
+                                  color: appThemeColors.grey10,
+                                ),
+                              ),
+                            )
                           : const SizedBox.shrink(),
                     ),
                   ),
@@ -378,10 +380,16 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                   iconColor: appThemeColors.onPrimary,
                   onPressed: () {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
+                      // FIXED: Use proper stacked presentation for WriteJournal
                       showCupertinoModalBottomSheet(
                         context: innerContext,
                         expand: true,
-                        backgroundColor: appThemeColors.grey6,
+                        // Remove transparent background to enable stacked presentation
+                        backgroundColor: null,
+                        // Add these properties for proper stacked presentation
+                        bounce: true,
+                        animationCurve: Curves.easeOutCubic,
+                        duration: const Duration(milliseconds: 400),
                         builder: (BuildContext modalContext) {
                           return const SafeArea(
                             child: WriteJournalBottomSheet(),

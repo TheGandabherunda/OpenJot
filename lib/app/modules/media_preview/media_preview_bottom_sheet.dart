@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -116,62 +117,71 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeInOut,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [_vibrantColor.withOpacity(0.8), _dominantColor],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    // Wrap the content with BackdropFilter to apply a blur effect to the background.
+    return BackdropFilter(
+      filter: ui.ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            // Adjust opacity to make the blur visible through the gradient.
+            colors: [
+              _vibrantColor.withOpacity(0.7),
+              _dominantColor.withOpacity(0.8)
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
         ),
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: Stack(
-            children: [
-              // Media carousel
-              PageView.builder(
-                controller: _pageController,
-                itemCount: widget.mediaItems.length,
-                onPageChanged: (index) {
-                  setState(() {
-                    _currentIndex = index;
-                  });
-                  _updateBackgroundColor(index);
-                },
-                itemBuilder: (context, index) {
-                  final item = widget.mediaItems[index];
-                  if (item.type == AssetType.video) {
-                    return Center(child: VideoPlayerItem(asset: item.asset));
-                  } else {
-                    return Center(child: _buildImageItem(item));
-                  }
-                },
-              ),
-              // Close button
-              Positioned(
-                top: 10.h,
-                left: 10.w,
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: ButtonStyle(
-                    backgroundColor:
-                    WidgetStateProperty.all(Colors.black.withOpacity(0.3)),
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: SafeArea(
+            child: Stack(
+              children: [
+                // Media carousel
+                PageView.builder(
+                  controller: _pageController,
+                  itemCount: widget.mediaItems.length,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _currentIndex = index;
+                    });
+                    _updateBackgroundColor(index);
+                  },
+                  itemBuilder: (context, index) {
+                    final item = widget.mediaItems[index];
+                    if (item.type == AssetType.video) {
+                      return Center(child: VideoPlayerItem(asset: item.asset));
+                    } else {
+                      return Center(child: _buildImageItem(item));
+                    }
+                  },
+                ),
+                // Close button
+                Positioned(
+                  top: 10.h,
+                  left: 10.w,
+                  child: IconButton(
+                    icon:
+                    const Icon(Icons.close, color: Colors.white, size: 28),
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: ButtonStyle(
+                      backgroundColor: WidgetStateProperty.all(
+                          Colors.black.withOpacity(0.3)),
+                    ),
                   ),
                 ),
-              ),
-              // Page indicator at the bottom
-              if (widget.mediaItems.length > 1)
-                Positioned(
-                  bottom: 20.h,
-                  left: 0,
-                  right: 0,
-                  child: _buildPageIndicator(),
-                ),
-            ],
+                // Page indicator at the bottom
+                if (widget.mediaItems.length > 1)
+                  Positioned(
+                    bottom: 20.h,
+                    left: 0,
+                    right: 0,
+                    child: _buildPageIndicator(),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
