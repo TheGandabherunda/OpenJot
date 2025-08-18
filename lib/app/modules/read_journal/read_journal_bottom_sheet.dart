@@ -67,7 +67,8 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
 
   void _initializeController() {
     // Create a new document from the entry's JSON to ensure it's a fresh instance.
-    final document = quill.Document.fromJson(_currentEntry.content.toDelta().toJson());
+    final document =
+    quill.Document.fromJson(_currentEntry.content.toDelta().toJson());
     _quillController = quill.QuillController(
       document: document,
       selection: const TextSelection.collapsed(offset: 0),
@@ -84,8 +85,9 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
 
   void _onEditPressed() async {
     final homeController = Get.find<HomeController>();
-    final entryToEdit = homeController.journalEntries
-        .firstWhere((e) => e.id == _currentEntry.id, orElse: () => _currentEntry);
+    final entryToEdit = homeController.journalEntries.firstWhere(
+            (e) => e.id == _currentEntry.id,
+        orElse: () => _currentEntry);
 
     await showCupertinoModalBottomSheet(
       context: context,
@@ -153,46 +155,43 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
-    return Container(
-      color: appThemeColors.grey6,
-      child: Column(
-        children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 0),
-            child: _buildHeader(appThemeColors),
-          ),
-          SizedBox(height: 16.h),
-          Expanded(
-            child: SingleChildScrollView(
+    return Scaffold(
+      backgroundColor: appThemeColors.grey6,
+      appBar: AppBar(
+        backgroundColor: appThemeColors.grey6,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
+        title: _buildHeader(appThemeColors),
+        titleSpacing: 16.w,
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 14.w),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 14.w),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildImagePreview(),
-                        if (_currentEntry.galleryImages.isNotEmpty ||
-                            _currentEntry.cameraPhotos.isNotEmpty)
-                          SizedBox(height: 2.h),
-                        _buildAudioPreview(),
-                        if (_currentEntry.galleryAudios.isNotEmpty)
-                          SizedBox(height: 2.h),
-                        _buildRecordingsPreview(),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: 16.h),
-                  _buildMoodField(appThemeColors),
-                  SizedBox(height: 16.h),
-                  _buildTextField(appThemeColors),
-                  SizedBox(height: 40.h),
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildImagePreview(),
+                  if (_currentEntry.galleryImages.isNotEmpty ||
+                      _currentEntry.cameraPhotos.isNotEmpty)
+                    SizedBox(height: 2.h),
+                  _buildAudioPreview(),
+                  if (_currentEntry.galleryAudios.isNotEmpty)
+                    SizedBox(height: 2.h),
+                  _buildRecordingsPreview(),
                 ],
               ),
             ),
-          ),
-        ],
+            SizedBox(height: 16.h),
+            _buildMoodField(appThemeColors),
+            SizedBox(height: 16.h),
+            _buildTextField(appThemeColors),
+            SizedBox(height: 40.h),
+          ],
+        ),
       ),
     );
   }
@@ -243,7 +242,8 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
     final double spacing = 2.w;
     final appThemeColors = AppTheme.colorsOf(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final overlayColor = (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
+    final overlayColor =
+    (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
         .withOpacity(0.6);
     final onOverlayColor =
     isDark ? appThemeColors.grey10 : appThemeColors.grey7;

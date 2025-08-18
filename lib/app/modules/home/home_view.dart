@@ -244,7 +244,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       BuildContext context, Offset position, RenderBox renderBox) {
     final appThemeColors = AppTheme.colorsOf(context);
     final subMenuPosition = RelativeRect.fromLTRB(
-      position.dx - 290, // shift right of parent menu
+      position.dx - 294, // shift right of parent menu
       position.dy + renderBox.size.height + 16, // align vertically
       position.dx,
       position.dy,

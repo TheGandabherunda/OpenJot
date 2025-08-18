@@ -158,7 +158,7 @@ class _LocationMapViewState extends State<LocationMapView> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12.r),
                   child: SizedBox(
-                    height: 500.h, // Set a fixed height for the map
+                    height: 530.h, // Set a fixed height for the map
                     child: FlutterMap(
                       mapController: _mapController,
                       options: MapOptions(
