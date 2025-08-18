@@ -11,6 +11,8 @@ import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
 import 'package:photo_manager/photo_manager.dart';
+// TODO: Add the 'share_plus' package to your pubspec.yaml file
+import 'package:share_plus/share_plus.dart';
 
 import '../constants.dart';
 import '../models/journal_entry.dart';
@@ -55,6 +57,43 @@ class _JournalTileState extends State<JournalTile> {
       ),
     );
   }
+
+  /// Handles sharing the journal entry's content (text and/or images).
+  void _onSharePressed() async {
+    final plainText = widget.entry.content.toPlainText().trim();
+
+    // Asynchronously get all file paths from gallery images.
+    final galleryFileFutures = widget.entry.galleryImages.map((asset) => asset.file).toList();
+    final galleryFiles = await Future.wait(galleryFileFutures);
+
+    // Get all valid file paths.
+    final List<String> imagePaths = [];
+
+    // Add paths from gallery images, filtering out any nulls.
+    for (final file in galleryFiles) {
+      if (file != null) {
+        imagePaths.add(file.path);
+      }
+    }
+
+    // Add paths from camera photos.
+    for (final photo in widget.entry.cameraPhotos) {
+      imagePaths.add(photo.file.path);
+    }
+
+    // Share based on what content is available.
+    if (imagePaths.isNotEmpty) {
+      // Convert string paths to XFile objects for sharing.
+      final imageXFiles = imagePaths.map((path) => XFile(path)).toList();
+      // Pass null for text if it's empty to avoid crashing the share plugin.
+      await Share.shareXFiles(imageXFiles, text: plainText.isNotEmpty ? plainText : null);
+    } else if (plainText.isNotEmpty) {
+      // Share text only if no images are present.
+      await Share.share(plainText);
+    }
+    // If there is nothing to share, do nothing.
+  }
+
 
   /// Shows a confirmation dialog before deleting a journal entry.
   void _onDeletePressed() {
@@ -106,7 +145,7 @@ class _JournalTileState extends State<JournalTile> {
             borderRadius: BorderRadius.circular(16.r),
           ),
           child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Container(
               padding: EdgeInsets.all(2.w),
               decoration: BoxDecoration(
@@ -180,7 +219,7 @@ class _JournalTileState extends State<JournalTile> {
     final overlayColor = (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
         .withOpacity(0.6);
     final onOverlayColor =
-        isDark ? appThemeColors.grey10 : appThemeColors.grey7;
+    isDark ? appThemeColors.grey10 : appThemeColors.grey7;
 
     Widget buildImageContainer(dynamic image, {Widget? overlay}) {
       return Container(
@@ -324,7 +363,7 @@ class _JournalTileState extends State<JournalTile> {
                 key: _menuKey,
                 onTap: () {
                   final RenderBox renderBox =
-                      _menuKey.currentContext!.findRenderObject() as RenderBox;
+                  _menuKey.currentContext!.findRenderObject() as RenderBox;
                   final position = renderBox.localToGlobal(Offset.zero);
                   showMenu<String>(
                     context: context,
@@ -372,6 +411,18 @@ class _JournalTileState extends State<JournalTile> {
                       ),
                       PopupMenuDivider(height: 1, color: appThemeColors.grey6),
                       PopupMenuItem(
+                        value: 'share',
+                        child: Row(
+                          children: [
+                            Icon(Icons.share_outlined, color: appThemeColors.grey10),
+                            SizedBox(width: 8.w),
+                            Text('Share',
+                                style: TextStyle(color: appThemeColors.grey10)),
+                          ],
+                        ),
+                      ),
+                      PopupMenuDivider(height: 1, color: appThemeColors.grey6),
+                      PopupMenuItem(
                         value: 'pdf',
                         child: Row(
                           children: [
@@ -404,6 +455,8 @@ class _JournalTileState extends State<JournalTile> {
                       setState(() {
                         _isBookmarked = !_isBookmarked;
                       });
+                    } else if (value == 'share') {
+                      _onSharePressed();
                     } else if (value == 'pdf') {
                       // Handle Save as PDF
                     } else if (value == 'delete') {
@@ -444,8 +497,12 @@ class _SizedAssetThumbnailState extends State<SizedAssetThumbnail> {
   }
 
   Future<void> _loadThumbnail() async {
-    // Fetches the thumbnail data as bytes.
-    final data = await widget.asset.thumbnailData;
+    // Define a higher resolution for the thumbnail.
+    // You can adjust these values based on your UI needs.
+    const size = ThumbnailSize(500, 500);
+
+    // Fetches the thumbnail data as bytes with a specified size.
+    final data = await widget.asset.thumbnailDataWithSize(size);
     if (mounted) {
       // Stores the data in the state to be used by the build method.
       setState(() {

@@ -1,6 +1,5 @@
 import 'dart:ui';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -9,6 +8,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/modules/read_journal/read_journal_bottom_sheet.dart';
+import 'package:open_jot/app/modules/search/search_view.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
 import 'package:progressive_blur/progressive_blur.dart';
 
@@ -237,7 +237,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                   backgroundColor: Colors.transparent,
                   elevation: 0,
                   scrolledUnderElevation: 0,
-                  expandedHeight: 72.h,
+                  expandedHeight: 80.h,
                   floating: false,
                   pinned: true,
                   flexibleSpace: RepaintBoundary(
@@ -257,17 +257,54 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                             ),
                           ),
                           child: FlexibleSpaceBar(
-                            title: Text(
-                              AppConstants.appTitle,
-                              style: TextStyle(
-                                fontFamily: AppConstants.font,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 24.sp,
-                                color: appThemeColors.grey10,
-                              ),
+                            title: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    AppConstants.appTitle,
+                                    style: TextStyle(
+                                      fontFamily: AppConstants.font,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 24.sp,
+                                      color: appThemeColors.grey10,
+                                    ),
+                                  ),
+                                ),
+                                GestureDetector(
+                                  onTap: () => Get.to(() => const SearchView()),
+                                  child: Container(
+                                    width: 36.w,
+                                    height: 36.w,
+                                    decoration: BoxDecoration(
+                                      color: appThemeColors.grey6,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.search,
+                                      size: 24.sp,
+                                      color: appThemeColors.grey1,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(width: 8.w),
+                                Container(
+                                  width: 36.w,
+                                  height: 36.w,
+                                  decoration: BoxDecoration(
+                                    color: appThemeColors.grey6,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.more_horiz_rounded,
+                                    size: 24.sp,
+                                    color: appThemeColors.grey1,
+                                  ),
+                                ),
+                              ],
                             ),
-                            titlePadding:
-                            EdgeInsets.only(left: 16.w, bottom: 16.h),
+                            titlePadding: EdgeInsets.only(
+                                left: 16.w, right: 16.w, bottom: 16.h),
                             expandedTitleScale: 28.sp / 24.sp,
                           ),
                         ),

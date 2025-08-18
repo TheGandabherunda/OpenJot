@@ -42,6 +42,7 @@ dependencies:
   video_player: ^2.10.0
   palette_generator: ^0.3.3+7
   photo_manager_image_provider: ^2.2.0
+  share_plus: ^11.1.0
 
 dev_dependencies:
   flutter_test:
