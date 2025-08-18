@@ -16,7 +16,8 @@ import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/custom_icon_button.dart';
 import '../../core/widgets/journal_tile.dart';
-import 'home_controller.dart';
+import '../reflection/reflection_bottom_sheet.dart';
+import 'home_controller.dart';// Import the new bottom sheet
 
 class HomeView extends GetView<HomeController> {
   const HomeView({super.key});
@@ -29,10 +30,10 @@ class HomeView extends GetView<HomeController> {
     final SystemUiOverlayStyle systemUiOverlayStyle = SystemUiOverlayStyle(
       statusBarColor: appThemeColors.grey7,
       statusBarIconBrightness:
-          brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      brightness == Brightness.dark ? Brightness.light : Brightness.dark,
       systemNavigationBarColor: appThemeColors.grey7,
       systemNavigationBarIconBrightness:
-          brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      brightness == Brightness.dark ? Brightness.light : Brightness.dark,
     );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -88,7 +89,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     _slideAnimationController = AnimationController(
       duration: const Duration(milliseconds: 500),
       reverseDuration:
-          const Duration(milliseconds: 700), // Longer exit duration
+      const Duration(milliseconds: 700), // Longer exit duration
       vsync: this,
     );
 
@@ -108,7 +109,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       parent: _slideAnimationController,
       curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
       reverseCurve:
-          const Interval(0.0, 0.8, curve: Curves.easeOut), // Longer fade out
+      const Interval(0.0, 0.8, curve: Curves.easeOut), // Longer fade out
     ));
 
     _scaleAnimation = Tween<double>(
@@ -134,7 +135,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
   void _showPopupMenu(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
     final RenderBox renderBox =
-        _menuKey.currentContext!.findRenderObject() as RenderBox;
+    _menuKey.currentContext!.findRenderObject() as RenderBox;
     final position = renderBox.localToGlobal(Offset.zero);
 
     showMenu<String>(
@@ -155,7 +156,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         TappablePopupMenuEntry(
           onTap: () => _showSortSubmenu(context, position, renderBox),
           child: Obx(
-            () => Row(
+                () => Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
@@ -183,7 +184,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                     ),
                   ],
                 ),
-                Icon(Icons.arrow_right, color: appThemeColors.grey10),
+                Icon(Icons.keyboard_arrow_right_rounded, color: appThemeColors.grey10),
               ],
             ),
           ),
@@ -316,8 +317,17 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
   }
 
   void _handleReflections() {
-    // Navigate to reflections or show reflections
-    print('Reflections selected');
+    // Show the new reflection bottom sheet
+    showCupertinoModalBottomSheet(
+      context: context,
+      expand: true,
+      backgroundColor: Colors.transparent,
+      builder: (modalContext) {
+        return const SafeArea(
+          child: ReflectionBottomSheet(),
+        );
+      },
+    );
   }
 
   void _handleSettings() {
@@ -612,7 +622,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                         ),
                         sliver: SliverList(
                           delegate: SliverChildBuilderDelegate(
-                            (context, index) {
+                                (context, index) {
                               final itemIndex = index ~/ 2;
                               if (index.isEven) {
                                 final entry = entries[itemIndex];
@@ -636,7 +646,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                               return SizedBox(height: 32.h);
                             },
                             childCount:
-                                entries.isEmpty ? 0 : entries.length * 2 - 1,
+                            entries.isEmpty ? 0 : entries.length * 2 - 1,
                           ),
                         ),
                       ),
@@ -670,31 +680,31 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                             builder: (context, currentMonthYear, _) {
                               return (showChip && currentMonthYear != null)
                                   ? Container(
-                                      padding: EdgeInsets.symmetric(
-                                          horizontal: 9.w, vertical: 5.h),
-                                      decoration: BoxDecoration(
-                                        color: appThemeColors.grey5,
-                                        borderRadius:
-                                            BorderRadius.circular(6.r),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color:
-                                                Colors.black.withOpacity(0.12),
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Text(
-                                        currentMonthYear,
-                                        style: TextStyle(
-                                          fontFamily: AppConstants.font,
-                                          fontWeight: FontWeight.w600,
-                                          height: 1.2.sp,
-                                          fontSize: 14.sp,
-                                          color: appThemeColors.grey10,
-                                        ),
-                                      ),
-                                    )
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 9.w, vertical: 5.h),
+                                decoration: BoxDecoration(
+                                  color: appThemeColors.grey5,
+                                  borderRadius:
+                                  BorderRadius.circular(6.r),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color:
+                                      Colors.black.withOpacity(0.12),
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  currentMonthYear,
+                                  style: TextStyle(
+                                    fontFamily: AppConstants.font,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.2.sp,
+                                    fontSize: 14.sp,
+                                    color: appThemeColors.grey10,
+                                  ),
+                                ),
+                              )
                                   : const SizedBox.shrink();
                             },
                           );
