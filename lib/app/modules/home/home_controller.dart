@@ -129,6 +129,23 @@ class HomeController extends GetxController {
     journalEntries.refresh();
   }
 
+  Map<int, int> getMonthlyEntriesForYear(int year) {
+    // Initialize a map with all months having 0 entries.
+    final monthlyCounts = { for (var i = 1; i <= 12; i++) i : 0 };
+
+    // Filter entries for the specified year.
+    final yearlyEntries = journalEntries.where((entry) => entry.createdAt.year == year);
+
+    // Count entries for each month.
+    for (final entry in yearlyEntries) {
+      final month = entry.createdAt.month;
+      monthlyCounts[month] = (monthlyCounts[month] ?? 0) + 1;
+    }
+
+    return monthlyCounts;
+  }
+
+
   // Computed property for total entries this year
   int get totalEntriesThisYear {
     final currentYear = DateTime.now().year;

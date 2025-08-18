@@ -279,7 +279,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'media',
-          child: Text("With Media first",
+          child: Text("With media first",
               style: TextStyle(color: appThemeColors.grey10)),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
