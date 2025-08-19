@@ -16,7 +16,7 @@ import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.da
 import 'package:progressive_blur/progressive_blur.dart';
 
 import '../../core/constants.dart';// ADDED: Import share service
-import '../../core/shared_services.dart';
+import '../../core/services/shared_services.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/custom_icon_button.dart';
 import '../../core/widgets/journal_tile.dart';

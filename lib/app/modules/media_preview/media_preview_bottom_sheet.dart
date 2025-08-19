@@ -160,9 +160,9 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
   @override
   Widget build(BuildContext context) {
     return BackdropFilter(
-      filter: ui.ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
+      filter: ui.ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 500),
+        duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -273,7 +273,7 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(widget.mediaItems.length, (index) {
         return AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
+          duration: const Duration(milliseconds: 150),
           margin: EdgeInsets.symmetric(horizontal: 4.w),
           height: 8.h,
           width: _currentIndex == index ? 24.w : 8.w,

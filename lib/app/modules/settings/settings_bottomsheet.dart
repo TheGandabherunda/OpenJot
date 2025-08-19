@@ -24,7 +24,7 @@ class SettingsBottomSheet extends StatelessWidget {
           ),
         ),
         body: const Center(
-          child: Text('This is the content for a new reflection.'),
+          child: Text('This is the content for a new settings.'),
         ),
       ),
     );
