@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -46,6 +48,10 @@ class JournalTile extends StatefulWidget {
 
 class _JournalTileState extends State<JournalTile> {
   final GlobalKey _menuKey = GlobalKey();
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  String? _currentlyPlayingPath;
+  PlayerState? _playerState;
+  StreamSubscription? _playerStateSubscription;
 
   static const List<Map<String, String>> _moods = [
     {'svg': 'assets/1.svg', 'label': 'Very Unpleasant'},
@@ -54,6 +60,29 @@ class _JournalTileState extends State<JournalTile> {
     {'svg': 'assets/4.svg', 'label': 'Pleasant'},
     {'svg': 'assets/5.svg', 'label': 'Very Pleasant'},
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _playerStateSubscription =
+        _audioPlayer.onPlayerStateChanged.listen((state) {
+          if (mounted) {
+            setState(() {
+              _playerState = state;
+              if (state == PlayerState.completed) {
+                _currentlyPlayingPath = null;
+              }
+            });
+          }
+        });
+  }
+
+  @override
+  void dispose() {
+    _playerStateSubscription?.cancel();
+    _audioPlayer.dispose();
+    super.dispose();
+  }
 
   void _onEditPressed() {
     showCupertinoModalBottomSheet(
@@ -124,21 +153,14 @@ class _JournalTileState extends State<JournalTile> {
     );
   }
 
-  bool _isVideoFile(String path) {
-    final lowercasedPath = path.toLowerCase();
-    return lowercasedPath.endsWith('.mp4') ||
-        lowercasedPath.endsWith('.mov') ||
-        lowercasedPath.endsWith('.avi') ||
-        lowercasedPath.endsWith('.wmv') ||
-        lowercasedPath.endsWith('.mkv');
-  }
-
   @override
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
     final plainText = widget.entry.content.toPlainText().trim();
     final hasMedia = widget.entry.galleryImages.isNotEmpty ||
         widget.entry.cameraPhotos.isNotEmpty;
+    final hasAudio = widget.entry.galleryAudios.isNotEmpty ||
+        widget.entry.recordings.isNotEmpty;
     final tileColor = widget.backgroundColor ?? appThemeColors.grey6;
 
     return RepaintBoundary(
@@ -162,14 +184,20 @@ class _JournalTileState extends State<JournalTile> {
                 children: [
                   if (hasMedia)
                     Padding(
-                      padding: EdgeInsets.fromLTRB(
-                          0.w, 0.h, 0.w, (plainText.isNotEmpty) ? 8.h : 0.h),
+                      padding: EdgeInsets.fromLTRB(0.w, 0.h, 0.w,
+                          (plainText.isNotEmpty || hasAudio) ? 8.h : 0.h),
                       child: _buildMediaPreview(context),
+                    ),
+                  if (hasAudio)
+                    Padding(
+                      padding: EdgeInsets.only(
+                          bottom: plainText.isNotEmpty ? 8.h : 0),
+                      child: _buildAudioPreviews(),
                     ),
                   if (plainText.isNotEmpty)
                     Padding(
-                      padding: EdgeInsets.fromLTRB(
-                          10.w, hasMedia ? 10.h : 12.h, 10.w, 8.h),
+                      padding: EdgeInsets.fromLTRB(10.w,
+                          (hasMedia || hasAudio) ? 2.h : 12.h, 10.w, 8.h),
                       child: Text(
                         plainText,
                         maxLines: 4,
@@ -237,12 +265,7 @@ class _JournalTileState extends State<JournalTile> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              if (media is AssetEntity)
-                SizedAssetThumbnail(asset: media)
-              else if (media is CapturedPhoto)
-                _isVideoFile(media.file.path)
-                    ? VideoThumbnailWidget(filePath: media.file.path)
-                    : Image.file(File(media.file.path), fit: BoxFit.cover),
+              MediaThumbnail(media: media),
               if (overlay != null) overlay,
             ],
           ),
@@ -318,6 +341,151 @@ class _JournalTileState extends State<JournalTile> {
       );
     }
     return content;
+  }
+
+  Widget _buildAudioPreviews() {
+    return Column(
+      children: [
+        _buildGalleryAudioPreview(),
+        _buildRecordingsPreview(),
+      ],
+    );
+  }
+
+  String _formatPreviewDuration(Duration duration) {
+    if (duration == Duration.zero) {
+      return '--:--';
+    }
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$minutes:$seconds';
+  }
+
+  Widget _buildGalleryAudioPreview() {
+    if (widget.entry.galleryAudios.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final appThemeColors = AppTheme.colorsOf(context);
+    return Column(
+      children: widget.entry.galleryAudios.map((audio) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: 4.h),
+          child: Container(
+            height: 40.h,
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(horizontal: 12.w),
+            decoration: BoxDecoration(
+              color: appThemeColors.grey5,
+              borderRadius: BorderRadius.circular(12.r),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.music_note_rounded,
+                    color: appThemeColors.grey1, size: 24.sp),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: Text(
+                    audio.title ?? 'Audio track',
+                    style: TextStyle(
+                      color: appThemeColors.grey10,
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.none,
+                      overflow: TextOverflow.ellipsis,
+                      fontFamily: AppConstants.font,
+                    ),
+                    maxLines: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildRecordingsPreview() {
+    if (widget.entry.recordings.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final appThemeColors = AppTheme.colorsOf(context);
+    return Column(
+      children: widget.entry.recordings.map((recording) {
+        final isPlaying = _currentlyPlayingPath == recording.path &&
+            _playerState == PlayerState.playing;
+        final isPaused = _currentlyPlayingPath == recording.path &&
+            _playerState == PlayerState.paused;
+        return Padding(
+          padding: EdgeInsets.only(bottom: 4.h),
+          child: Container(
+            height: 50.h,
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(horizontal: 12.w),
+            decoration: BoxDecoration(
+              color: appThemeColors.grey5,
+              borderRadius: BorderRadius.circular(12.r),
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: Icon(
+                    isPlaying
+                        ? Icons.pause_circle_filled_rounded
+                        : Icons.play_circle_fill_rounded,
+                    color: appThemeColors.grey1,
+                    size: 28.sp,
+                  ),
+                  onPressed: () async {
+                    if (isPlaying) {
+                      await _audioPlayer.pause();
+                    } else if (isPaused) {
+                      await _audioPlayer.resume();
+                    } else {
+                      await _audioPlayer.play(DeviceFileSource(recording.path));
+                      setState(() {
+                        _currentlyPlayingPath = recording.path;
+                      });
+                    }
+                  },
+                ),
+                SizedBox(width: 4.w),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        recording.name,
+                        style: TextStyle(
+                          color: appThemeColors.grey10,
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.none,
+                          overflow: TextOverflow.ellipsis,
+                          fontFamily: AppConstants.font,
+                        ),
+                        maxLines: 1,
+                      ),
+                      Text(
+                        _formatPreviewDuration(recording.duration),
+                        style: TextStyle(
+                          color: appThemeColors.grey1,
+                          fontSize: 12.sp,
+                          decoration: TextDecoration.none,
+                          fontFamily: AppConstants.font,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
   }
 
   Widget _buildFooter(AppThemeColors appThemeColors, BuildContext context) {
@@ -521,17 +689,19 @@ class _JournalTileState extends State<JournalTile> {
   }
 }
 
-class SizedAssetThumbnail extends StatefulWidget {
-  final AssetEntity asset;
+// *** NEW: Unified thumbnail widget for all media types ***
+class MediaThumbnail extends StatefulWidget {
+  final dynamic media; // Can be AssetEntity or CapturedPhoto
 
-  const SizedAssetThumbnail({Key? key, required this.asset}) : super(key: key);
+  const MediaThumbnail({super.key, required this.media});
 
   @override
-  State<SizedAssetThumbnail> createState() => _SizedAssetThumbnailState();
+  State<MediaThumbnail> createState() => _MediaThumbnailState();
 }
 
-class _SizedAssetThumbnailState extends State<SizedAssetThumbnail> {
+class _MediaThumbnailState extends State<MediaThumbnail> {
   Uint8List? _thumbnailData;
+  bool _isVideo = false;
 
   @override
   void initState() {
@@ -539,9 +709,48 @@ class _SizedAssetThumbnailState extends State<SizedAssetThumbnail> {
     _loadThumbnail();
   }
 
+  @override
+  void didUpdateWidget(covariant MediaThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    dynamic oldId = oldWidget.media is AssetEntity
+        ? oldWidget.media.id
+        : oldWidget.media.file.path;
+    dynamic newId =
+    widget.media is AssetEntity ? widget.media.id : widget.media.file.path;
+
+    if (oldId != newId) {
+      _thumbnailData = null; // Invalidate old data
+      _loadThumbnail();
+    }
+  }
+
   Future<void> _loadThumbnail() async {
-    const size = ThumbnailSize(500, 500);
-    final data = await widget.asset.thumbnailDataWithSize(size);
+    if (!mounted) return;
+
+    Uint8List? data;
+    const thumbnailSize = ThumbnailSize(500, 500);
+    const quality = 95;
+
+    if (widget.media is AssetEntity) {
+      final asset = widget.media as AssetEntity;
+      _isVideo = asset.type == AssetType.video;
+      data = await asset.thumbnailDataWithSize(thumbnailSize, quality: quality);
+    } else if (widget.media is CapturedPhoto) {
+      final photo = widget.media as CapturedPhoto;
+      final path = photo.file.path;
+      _isVideo = _isVideoFile(path);
+      if (_isVideo) {
+        data = await VideoThumbnail.thumbnailData(
+          video: path,
+          maxWidth: thumbnailSize.width,
+          quality: quality,
+        );
+      } else {
+        // For local image files, we can read them directly.
+        data = await File(path).readAsBytes();
+      }
+    }
+
     if (mounted) {
       setState(() {
         _thumbnailData = data;
@@ -549,68 +758,38 @@ class _SizedAssetThumbnailState extends State<SizedAssetThumbnail> {
     }
   }
 
-  @override
-  void didUpdateWidget(covariant SizedAssetThumbnail oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.asset.id != oldWidget.asset.id) {
-      _thumbnailData = null;
-      _loadThumbnail();
-    }
+  bool _isVideoFile(String path) {
+    final lowercasedPath = path.toLowerCase();
+    return lowercasedPath.endsWith('.mp4') ||
+        lowercasedPath.endsWith('.mov') ||
+        lowercasedPath.endsWith('.avi') ||
+        lowercasedPath.endsWith('.wmv') ||
+        lowercasedPath.endsWith('.mkv');
   }
 
   @override
   Widget build(BuildContext context) {
     if (_thumbnailData != null) {
-      return Image.memory(_thumbnailData!, fit: BoxFit.cover);
-    }
-    return const Center(child: CircularProgressIndicator());
-  }
-}
-
-class VideoThumbnailWidget extends StatefulWidget {
-  final String filePath;
-
-  const VideoThumbnailWidget({Key? key, required this.filePath})
-      : super(key: key);
-
-  @override
-  _VideoThumbnailWidgetState createState() => _VideoThumbnailWidgetState();
-}
-
-class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
-  Uint8List? _thumbnailData;
-
-  @override
-  void initState() {
-    super.initState();
-    _generateThumbnail();
-  }
-
-  Future<void> _generateThumbnail() async {
-    final thumbnailData = await VideoThumbnail.thumbnailData(
-      video: widget.filePath,
-      imageFormat: ImageFormat.JPEG,
-      maxWidth: 500,
-      quality: 95,
-    );
-    if (mounted) {
-      setState(() {
-        _thumbnailData = thumbnailData;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_thumbnailData != null) {
-      return Image.memory(
-        _thumbnailData!,
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: double.infinity,
-        gaplessPlayback: true,
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.memory(
+            _thumbnailData!,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+          ),
+          if (_isVideo)
+            Center(
+              child: Icon(
+                Icons.play_circle_fill_rounded,
+                color: Colors.white.withOpacity(0.8),
+                size: 48.sp,
+              ),
+            ),
+        ],
       );
     }
-    return Container(color: Colors.black);
+    // Consistent placeholder
+    return Container(color: AppTheme.colorsOf(context).grey4);
   }
 }

@@ -627,7 +627,11 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
 
   Future<void> _loadThumbnail() async {
     if (!mounted) return;
-    final data = await widget.asset.thumbnailData;
+    // *** CHANGE: Request a higher quality thumbnail for the picker grid ***
+    final data = await widget.asset.thumbnailDataWithSize(
+      const ThumbnailSize(250, 250),
+      quality: 90,
+    );
     if (mounted) {
       setState(() {
         _thumbnailData = data;
@@ -651,8 +655,7 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
     // This caches the loaded image and prevents it from being repainted
     // when other parts of the grid update (e.g., when another item is selected).
     final content = RepaintBoundary(
-      child:
-      widget.asset.type == AssetType.video
+      child: widget.asset.type == AssetType.video
           ? _buildVideoOverlay(context, widget.asset, thumbnail)
           : thumbnail,
     );
@@ -1261,7 +1264,8 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
                   initialValue: _currentSliderValue,
                   showValueTooltip: false,
                   activeColor: currentSliderAndTextColor,
-                  unfocusedActiveColor: currentSliderAndTextColor.withOpacity(0.7),
+                  unfocusedActiveColor:
+                  currentSliderAndTextColor.withOpacity(0.7),
                   inactiveColor: colors.grey3,
                   focusedTrackHeight: 20.h,
                   unfocusedTrackHeight: 16.h,

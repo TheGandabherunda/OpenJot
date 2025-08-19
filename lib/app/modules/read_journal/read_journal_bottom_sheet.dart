@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:audioplayers/audioplayers.dart';
@@ -21,6 +22,7 @@ import '../../core/constants.dart';
 import '../../core/models/journal_entry.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/custom_button.dart';
+import '../../core/widgets/journal_tile.dart';
 import '../media_preview/media_preview_bottom_sheet.dart';
 
 class ReadJournalBottomSheet extends StatefulWidget {
@@ -36,7 +38,9 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
   late JournalEntry _currentEntry;
   late quill.QuillController _quillController;
   final AudioPlayer _audioPlayer = AudioPlayer();
-  String? _currentlyPlayingPath;
+  // --- CHANGE START: Renamed to track by ID for both recordings and gallery audio ---
+  String? _currentlyPlayingId;
+  // --- CHANGE END ---
   PlayerState? _playerState;
   StreamSubscription? _playerStateSubscription;
 
@@ -59,7 +63,9 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
             setState(() {
               _playerState = state;
               if (state == PlayerState.completed) {
-                _currentlyPlayingPath = null;
+                // --- CHANGE START: Updated variable name ---
+                _currentlyPlayingId = null;
+                // --- CHANGE END ---
               }
             });
           }
@@ -160,6 +166,31 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
       ),
     );
   }
+
+  // --- CHANGE START: Added function to handle gallery audio playback ---
+  void _toggleGalleryAudio(AssetEntity audio) async {
+    final isPlaying = _currentlyPlayingId == audio.id &&
+        _playerState == PlayerState.playing;
+    final isPaused = _currentlyPlayingId == audio.id &&
+        _playerState == PlayerState.paused;
+
+    if (isPlaying) {
+      await _audioPlayer.pause();
+    } else if (isPaused) {
+      await _audioPlayer.resume();
+    } else {
+      final file = await audio.file;
+      if (file != null) {
+        await _audioPlayer.play(DeviceFileSource(file.path));
+        if (mounted) {
+          setState(() {
+            _currentlyPlayingId = audio.id;
+          });
+        }
+      }
+    }
+  }
+  // --- CHANGE END ---
 
   @override
   Widget build(BuildContext context) {
@@ -271,22 +302,9 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                if (media is AssetEntity)
-                  SizedAssetThumbnail(asset: media)
-                else if (media is CapturedPhoto)
-                  _isVideoFile(media.file.path)
-                      ? VideoThumbnailWidget(filePath: media.file.path)
-                      : Image.file(File(media.file.path), fit: BoxFit.cover),
+                // *** CHANGE: Using the new unified MediaThumbnail widget ***
+                MediaThumbnail(media: media),
                 if (overlay != null) overlay,
-                if ((media is AssetEntity && media.type == AssetType.video) ||
-                    (media is CapturedPhoto && _isVideoFile(media.file.path)))
-                  Center(
-                    child: Icon(
-                      Icons.play_circle_fill_rounded,
-                      color: Colors.white.withOpacity(0.8),
-                      size: 48.sp,
-                    ),
-                  ),
               ],
             ),
           ),
@@ -394,6 +412,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
     );
   }
 
+  // --- CHANGE START: Updated widget to include play/pause controls ---
   Widget _buildAudioPreview() {
     if (_currentEntry.galleryAudios.isEmpty) {
       return const SizedBox.shrink();
@@ -401,10 +420,13 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
     final appThemeColors = AppTheme.colorsOf(context);
     return Column(
       children: _currentEntry.galleryAudios.map((audio) {
+        final isPlaying = _currentlyPlayingId == audio.id &&
+            _playerState == PlayerState.playing;
+
         return Padding(
           padding: EdgeInsets.only(bottom: 4.h),
           child: Container(
-            height: 40.h,
+            height: 50.h, // Matched height with recordings preview
             width: double.infinity,
             padding: EdgeInsets.symmetric(horizontal: 12.w),
             decoration: BoxDecoration(
@@ -413,9 +435,17 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
             ),
             child: Row(
               children: [
-                Icon(Icons.music_note_rounded,
-                    color: appThemeColors.grey1, size: 24.sp),
-                SizedBox(width: 8.w),
+                IconButton(
+                  icon: Icon(
+                    isPlaying
+                        ? Icons.pause_circle_filled_rounded
+                        : Icons.play_circle_fill_rounded,
+                    color: appThemeColors.grey1,
+                    size: 28.sp,
+                  ),
+                  onPressed: () => _toggleGalleryAudio(audio),
+                ),
+                SizedBox(width: 4.w),
                 Expanded(
                   child: Text(
                     audio.title ?? 'Audio track',
@@ -437,6 +467,8 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
       }).toList(),
     );
   }
+  // --- CHANGE END ---
+
 
   String _formatPreviewDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
@@ -452,10 +484,12 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
     final appThemeColors = AppTheme.colorsOf(context);
     return Column(
       children: _currentEntry.recordings.map((recording) {
-        final isPlaying = _currentlyPlayingPath == recording.path &&
+        // --- CHANGE START: Updated variable name ---
+        final isPlaying = _currentlyPlayingId == recording.path &&
             _playerState == PlayerState.playing;
-        final isPaused = _currentlyPlayingPath == recording.path &&
+        final isPaused = _currentlyPlayingId == recording.path &&
             _playerState == PlayerState.paused;
+        // --- CHANGE END ---
         return Padding(
           padding: EdgeInsets.only(bottom: 4.h),
           child: Container(
@@ -484,7 +518,9 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
                     } else {
                       _audioPlayer.play(DeviceFileSource(recording.path));
                       setState(() {
-                        _currentlyPlayingPath = recording.path;
+                        // --- CHANGE START: Updated variable name ---
+                        _currentlyPlayingId = recording.path;
+                        // --- CHANGE END ---
                       });
                     }
                   },
