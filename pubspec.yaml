@@ -45,6 +45,8 @@ dependencies:
   share_plus: ^11.1.0
   receive_sharing_intent: ^1.8.1
   video_thumbnail: ^0.5.6
+  flutter_local_notifications: ^19.4.0
+  timezone: ^0.10.1
 
 dev_dependencies:
   flutter_test:

@@ -6,10 +6,12 @@ import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'package:open_jot/app/routes/app_pages.dart';
-import 'app/core/theme.dart';
+import 'app/core/services/notification_service.dart';
+import 'app/core/theme.dart'; // Import the notification service
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService().init(); // Initialize the notification service
 
   // Set default system UI overlay style for the entire app
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -21,7 +23,7 @@ void main() async {
 
   runApp(
     ScreenUtilInit(
-      designSize: Size(402, 874), // Match your design tool (Figma/Adobe)
+      designSize: const Size(402, 874), // Match your design tool (Figma/Adobe)
       minTextAdapt: true,
       splitScreenMode: true,
       builder: (context, child) {
@@ -44,14 +46,14 @@ class MyApp extends StatelessWidget {
       theme: AppTheme.lightTheme(),
       darkTheme: AppTheme.darkTheme(),
       themeMode: ThemeMode.system,
-      localizationsDelegates: [
+      localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
         FlutterQuillLocalizations.delegate,
       ],
-      supportedLocales: [
-        const Locale('en', ''),
+      supportedLocales: const [
+        Locale('en', ''),
       ],
     );
   }
