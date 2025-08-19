@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -14,7 +15,8 @@ import 'package:open_jot/app/modules/settings/settings_bottomsheet.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
 import 'package:progressive_blur/progressive_blur.dart';
 
-import '../../core/constants.dart';
+import '../../core/constants.dart';// ADDED: Import share service
+import '../../core/shared_services.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/custom_icon_button.dart';
 import '../../core/widgets/journal_tile.dart';
@@ -32,10 +34,10 @@ class HomeView extends GetView<HomeController> {
     final SystemUiOverlayStyle systemUiOverlayStyle = SystemUiOverlayStyle(
       statusBarColor: appThemeColors.grey7,
       statusBarIconBrightness:
-          brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      brightness == Brightness.dark ? Brightness.light : Brightness.dark,
       systemNavigationBarColor: appThemeColors.grey7,
       systemNavigationBarIconBrightness:
-          brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      brightness == Brightness.dark ? Brightness.light : Brightness.dark,
     );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -64,6 +66,10 @@ class _HomeScreenStack extends StatefulWidget {
 
 class _HomeScreenStackState extends State<_HomeScreenStack>
     with TickerProviderStateMixin {
+  // START: ADDED FOR SHARING
+  final _shareService = ShareService();
+  // END: ADDED FOR SHARING
+
   double _lastOffset = 0.0;
   static const double _tileHeightEstimate = 100;
   int _topEntryIndex = 0;
@@ -84,6 +90,11 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
   void initState() {
     super.initState();
 
+    // START: ADDED FOR SHARING
+    _shareService.startListening();
+    _shareService.onShareReceived = _handleShare;
+    // END: ADDED FOR SHARING
+
     // OPTIMIZATION: Initialize notifiers.
     _currentMonthYearNotifier = ValueNotifier<String?>(null);
     _showChipNotifier = ValueNotifier<bool>(false);
@@ -91,7 +102,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     _slideAnimationController = AnimationController(
       duration: const Duration(milliseconds: 500),
       reverseDuration:
-          const Duration(milliseconds: 700), // Longer exit duration
+      const Duration(milliseconds: 700), // Longer exit duration
       vsync: this,
     );
 
@@ -111,7 +122,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       parent: _slideAnimationController,
       curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
       reverseCurve:
-          const Interval(0.0, 0.8, curve: Curves.easeOut), // Longer fade out
+      const Interval(0.0, 0.8, curve: Curves.easeOut), // Longer fade out
     ));
 
     _scaleAnimation = Tween<double>(
@@ -126,6 +137,10 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
 
   @override
   void dispose() {
+    // START: ADDED FOR SHARING
+    _shareService.dispose();
+    // END: ADDED FOR SHARING
+
     // OPTIMIZATION: Dispose notifiers to prevent memory leaks.
     _currentMonthYearNotifier.dispose();
     _showChipNotifier.dispose();
@@ -133,11 +148,35 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     super.dispose();
   }
 
+  // START: ADDED FOR SHARING
+  void _handleShare({
+    String? text,
+    List<String>? photos,
+    List<String>? videos,
+    List<String>? audios,
+  }) {
+    // Use the main context to show the bottom sheet.
+    showCupertinoModalBottomSheet(
+      context: context,
+      expand: true,
+      backgroundColor: Colors.transparent,
+      builder: (modalContext) => SafeArea(
+        child: WriteJournalBottomSheet(
+          initialText: text,
+          sharedImagePaths: photos,
+          sharedVideoPaths: videos,
+          sharedAudioPaths: audios,
+        ),
+      ),
+    );
+  }
+  // END: ADDED FOR SHARING
+
   // Method to show the popup menu
   void _showPopupMenu(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
     final RenderBox renderBox =
-        _menuKey.currentContext!.findRenderObject() as RenderBox;
+    _menuKey.currentContext!.findRenderObject() as RenderBox;
     final position = renderBox.localToGlobal(Offset.zero);
 
     showMenu<String>(
@@ -158,7 +197,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         TappablePopupMenuEntry(
           onTap: () => _showSortSubmenu(context, position, renderBox),
           child: Obx(
-            () => Row(
+                () => Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
@@ -649,7 +688,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                         ),
                         sliver: SliverList(
                           delegate: SliverChildBuilderDelegate(
-                            (context, index) {
+                                (context, index) {
                               final itemIndex = index ~/ 2;
                               if (index.isEven) {
                                 final entry = entries[itemIndex];
@@ -673,7 +712,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                               return SizedBox(height: 32.h);
                             },
                             childCount:
-                                entries.isEmpty ? 0 : entries.length * 2 - 1,
+                            entries.isEmpty ? 0 : entries.length * 2 - 1,
                           ),
                         ),
                       ),
@@ -707,31 +746,31 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                             builder: (context, currentMonthYear, _) {
                               return (showChip && currentMonthYear != null)
                                   ? Container(
-                                      padding: EdgeInsets.symmetric(
-                                          horizontal: 9.w, vertical: 5.h),
-                                      decoration: BoxDecoration(
-                                        color: appThemeColors.grey5,
-                                        borderRadius:
-                                            BorderRadius.circular(6.r),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color:
-                                                Colors.black.withOpacity(0.12),
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Text(
-                                        currentMonthYear,
-                                        style: TextStyle(
-                                          fontFamily: AppConstants.font,
-                                          fontWeight: FontWeight.w600,
-                                          height: 1.2.sp,
-                                          fontSize: 14.sp,
-                                          color: appThemeColors.grey10,
-                                        ),
-                                      ),
-                                    )
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 9.w, vertical: 5.h),
+                                decoration: BoxDecoration(
+                                  color: appThemeColors.grey5,
+                                  borderRadius:
+                                  BorderRadius.circular(6.r),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color:
+                                      Colors.black.withOpacity(0.12),
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  currentMonthYear,
+                                  style: TextStyle(
+                                    fontFamily: AppConstants.font,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.2.sp,
+                                    fontSize: 14.sp,
+                                    color: appThemeColors.grey10,
+                                  ),
+                                ),
+                              )
                                   : const SizedBox.shrink();
                             },
                           );

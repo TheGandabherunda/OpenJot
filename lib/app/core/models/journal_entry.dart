@@ -8,8 +8,14 @@ class RecordedAudio {
   final String path;
   final String name;
   final Duration duration;
+  final bool isShared; // ADDED: Flag to identify shared audio files
 
-  RecordedAudio({required this.path, required this.name, required this.duration});
+  RecordedAudio({
+    required this.path,
+    required this.name,
+    required this.duration,
+    this.isShared = false, // ADDED: Default value
+  });
 }
 
 class CapturedPhoto {

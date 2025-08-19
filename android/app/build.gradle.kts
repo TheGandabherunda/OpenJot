@@ -11,32 +11,31 @@ if (keystorePropertiesFile.exists()) {
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
-    namespace = "com.example.open_jot" // Kept as original
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973" // Updated NDK version
+    namespace = "com.example.open_jot"
+    compileSdk = 35 // Keep this at 35 as required by dependencies
 
+    // START: MODIFIED FOR JVM COMPATIBILITY
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-        isCoreLibraryDesugaringEnabled = true // Added
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = "17"
     }
+    // END: MODIFIED FOR JVM COMPATIBILITY
 
     lint {
-        checkReleaseBuilds = false // Added
+        checkReleaseBuilds = false
     }
 
     defaultConfig {
-        applicationId = "com.example.open_jot" // Kept as original
-        minSdk = 23 // Updated minSdk
+        applicationId = "com.example.open_jot"
+        minSdk = 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -96,5 +95,5 @@ androidComponents {
 }
 
 dependencies {
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    // No changes needed
 }

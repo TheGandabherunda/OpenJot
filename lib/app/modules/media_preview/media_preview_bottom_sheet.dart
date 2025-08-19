@@ -8,6 +8,7 @@ import 'package:palette_generator/palette_generator.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 import 'package:video_player/video_player.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../../core/models/journal_entry.dart';
 import '../../core/theme.dart';
@@ -40,6 +41,9 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
   late PageController _pageController;
   int _currentIndex = 0;
 
+  // A cache to store generated background colors to prevent re-computation.
+  final Map<int, List<Color>> _colorCache = {};
+
   // Default gradient colors
   Color _dominantColor = Colors.black;
   Color _vibrantColor = Colors.grey.shade800;
@@ -64,9 +68,21 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
     super.dispose();
   }
 
-  /// Extracts the dominant and vibrant colors from a media item to create a gradient.
+  /// Extracts colors from a media item to create a gradient.
+  /// It now uses a cache to avoid re-generating colors for viewed items.
   Future<void> _updateBackgroundColor(int index) async {
     if (index < 0 || index >= widget.mediaItems.length) return;
+
+    // Check the cache first to avoid expensive re-computation.
+    if (_colorCache.containsKey(index)) {
+      if (mounted) {
+        setState(() {
+          _vibrantColor = _colorCache[index]![0];
+          _dominantColor = _colorCache[index]![1];
+        });
+      }
+      return;
+    }
 
     final item = widget.mediaItems[index];
     Uint8List? imageData;
@@ -75,41 +91,67 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
     try {
       if (item.asset is AssetEntity) {
         final asset = item.asset as AssetEntity;
-        // For videos, try to get a thumbnail.
         imageData = await asset.thumbnailDataWithSize(
           const ThumbnailSize(200, 200),
           quality: 80,
         );
-        if (imageData != null) {
-          imageProvider = MemoryImage(imageData);
-        }
       } else if (item.asset is CapturedPhoto) {
         final file = File((item.asset as CapturedPhoto).file.path);
-        imageData = await file.readAsBytes();
-        imageProvider = FileImage(file);
+        if (item.type == AssetType.video) {
+          imageData = await VideoThumbnail.thumbnailData(
+            video: file.path,
+            imageFormat: ImageFormat.JPEG,
+            maxWidth: 200,
+            quality: 80,
+          );
+        } else {
+          imageData = await file.readAsBytes();
+        }
+      }
+
+      if (imageData != null) {
+        imageProvider = MemoryImage(imageData);
       }
 
       if (imageProvider != null && mounted) {
         final palette = await PaletteGenerator.fromImageProvider(
           imageProvider,
-          size: const Size(100, 100), // Smaller size for faster processing
+          size: const Size(100, 100),
           maximumColorCount: 20,
         );
 
         if (mounted) {
+          final dominantColor =
+              palette.dominantColor?.color ?? Colors.grey.shade900;
+          final vibrantColor = palette.vibrantColor?.color ?? dominantColor;
+
+          // Store the generated colors in the cache.
+          _colorCache[index] = [vibrantColor, dominantColor];
+
           setState(() {
-            _dominantColor =
-                palette.dominantColor?.color ?? Colors.grey.shade900;
-            _vibrantColor = palette.vibrantColor?.color ?? _dominantColor;
+            _dominantColor = dominantColor;
+            _vibrantColor = vibrantColor;
+          });
+        }
+      } else {
+        // Fallback for videos without thumbnails
+        final fallbackColors = [Colors.black, Colors.grey.shade900];
+        _colorCache[index] = fallbackColors; // Cache fallback colors
+        if (mounted) {
+          setState(() {
+            _vibrantColor = fallbackColors[0];
+            _dominantColor = fallbackColors[1];
           });
         }
       }
     } catch (e) {
       // In case of an error, fall back to default colors.
+      final fallbackColors = [Colors.black, Colors.grey.shade900];
+      _colorCache[index] = fallbackColors; // Cache fallback colors
       if (mounted) {
         setState(() {
-          _dominantColor = Colors.grey.shade900;
-          _vibrantColor = Colors.black;
+          _vibrantColor = fallbackColors[0];
+          _dominantColor = fallbackColors[1];
         });
       }
     }
@@ -117,7 +159,6 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    // Wrap the content with BackdropFilter to apply a blur effect to the background.
     return BackdropFilter(
       filter: ui.ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
       child: AnimatedContainer(
@@ -125,7 +166,6 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
         curve: Curves.easeInOut,
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            // Adjust opacity to make the blur visible through the gradient.
             colors: [
               _vibrantColor.withOpacity(0.7),
               _dominantColor.withOpacity(0.8)
@@ -139,7 +179,6 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
           body: SafeArea(
             child: Stack(
               children: [
-                // Media carousel
                 PageView.builder(
                   controller: _pageController,
                   itemCount: widget.mediaItems.length,
@@ -153,17 +192,22 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
                     final item = widget.mediaItems[index];
                     Widget mediaContent;
                     if (item.type == AssetType.video) {
-                      mediaContent = VideoPlayerItem(asset: item.asset);
+                      mediaContent = VideoPlayerItem(item: item);
                     } else {
                       mediaContent = _buildImageItem(item);
                     }
                     return Padding(
-                      padding: EdgeInsets.all(24.w),
-                      child: Center(child: mediaContent),
+                      padding: EdgeInsets.all(8.w),
+                      // Added ClipRRect for corner radius
+                      child: Center(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16.0),
+                          child: mediaContent,
+                        ),
+                      ),
                     );
                   },
                 ),
-                // Close button
                 Positioned(
                   top: 10.h,
                   left: 10.w,
@@ -177,7 +221,6 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
                     ),
                   ),
                 ),
-                // Page indicator at the bottom
                 if (widget.mediaItems.length > 1)
                   Positioned(
                     bottom: 20.h,
@@ -193,7 +236,6 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
     );
   }
 
-  /// Builds the image viewer for the carousel.
   Widget _buildImageItem(MediaItem item) {
     ImageProvider imageProvider;
     if (item.asset is AssetEntity) {
@@ -226,7 +268,6 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
     );
   }
 
-  /// Builds the dot indicator for the carousel.
   Widget _buildPageIndicator() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -248,11 +289,10 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
   }
 }
 
-/// A stateful widget to manage the video player within the PageView.
 class VideoPlayerItem extends StatefulWidget {
-  final AssetEntity asset;
+  final MediaItem item;
 
-  const VideoPlayerItem({super.key, required this.asset});
+  const VideoPlayerItem({super.key, required this.item});
 
   @override
   VideoPlayerItemState createState() => VideoPlayerItemState();
@@ -270,9 +310,15 @@ class VideoPlayerItemState extends State<VideoPlayerItem> {
   }
 
   Future<void> _initializePlayer() async {
-    final file = await widget.asset.file;
+    File? file;
+    if (widget.item.asset is AssetEntity) {
+      file = await (widget.item.asset as AssetEntity).file;
+    } else if (widget.item.asset is CapturedPhoto) {
+      file = File((widget.item.asset as CapturedPhoto).file.path);
+    }
+
     if (file == null) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
@@ -335,7 +381,6 @@ class VideoPlayerItemState extends State<VideoPlayerItem> {
             aspectRatio: _controller!.value.aspectRatio,
             child: VideoPlayer(_controller!),
           ),
-          // Play/Pause button overlay
           AnimatedOpacity(
             opacity: _isPlaying ? 0.0 : 1.0,
             duration: const Duration(milliseconds: 300),
@@ -346,7 +391,7 @@ class VideoPlayerItemState extends State<VideoPlayerItem> {
               ),
               child: Icon(
                 Icons.play_arrow_rounded,
-                color: appThemeColors.onPrimary,
+                color: appThemeColors.grey10,
                 size: 60.sp,
               ),
             ),

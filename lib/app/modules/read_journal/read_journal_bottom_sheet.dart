@@ -15,6 +15,7 @@ import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../../core/constants.dart';
 import '../../core/models/journal_entry.dart';
@@ -66,7 +67,6 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
   }
 
   void _initializeController() {
-    // Create a new document from the entry's JSON to ensure it's a fresh instance.
     final document =
     quill.Document.fromJson(_currentEntry.content.toDelta().toJson());
     _quillController = quill.QuillController(
@@ -103,13 +103,10 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
             (e) => e.id == widget.entry.id,
         orElse: () => _currentEntry,
       );
-
-      // *** FIX: Dispose the old controller and create a new one with the updated document. ***
-      // This ensures a clean state and prevents using a disposed document.
       setState(() {
         _currentEntry = latestEntry;
-        _quillController.dispose(); // Dispose the old controller
-        _initializeController(); // Create a new one
+        _quillController.dispose();
+        _initializeController();
       });
     }
   }
@@ -128,13 +125,25 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
     }
   }
 
-  /// Opens the media preview bottom sheet.
+  bool _isVideoFile(String path) {
+    final lowercasedPath = path.toLowerCase();
+    return lowercasedPath.endsWith('.mp4') ||
+        lowercasedPath.endsWith('.mov') ||
+        lowercasedPath.endsWith('.avi') ||
+        lowercasedPath.endsWith('.wmv') ||
+        lowercasedPath.endsWith('.mkv');
+  }
+
   void _openMediaPreview(List<dynamic> allMedia, int initialIndex) {
     final mediaItems = allMedia.map((m) {
       if (m is AssetEntity) {
         return MediaItem(asset: m, type: m.type, id: m.id);
       } else if (m is CapturedPhoto) {
-        return MediaItem(asset: m, type: AssetType.image, id: m.file.path);
+        return MediaItem(
+            asset: m,
+            type:
+            _isVideoFile(m.file.path) ? AssetType.video : AssetType.image,
+            id: m.file.path);
       }
       return null;
     }).whereType<MediaItem>().toList();
@@ -265,9 +274,12 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
                 if (media is AssetEntity)
                   SizedAssetThumbnail(asset: media)
                 else if (media is CapturedPhoto)
-                  Image.file(File(media.file.path), fit: BoxFit.cover),
+                  _isVideoFile(media.file.path)
+                      ? VideoThumbnailWidget(filePath: media.file.path)
+                      : Image.file(File(media.file.path), fit: BoxFit.cover),
                 if (overlay != null) overlay,
-                if (media is AssetEntity && media.type == AssetType.video)
+                if ((media is AssetEntity && media.type == AssetType.video) ||
+                    (media is CapturedPhoto && _isVideoFile(media.file.path)))
                   Center(
                     child: Icon(
                       Icons.play_circle_fill_rounded,
@@ -585,7 +597,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
         child: IgnorePointer(
           child: quill.QuillEditor.basic(
             controller: _quillController,
-            focusNode: FocusNode(), // Use a dummy node for read-only.
+            focusNode: FocusNode(),
             config: quill.QuillEditorConfig(
               autoFocus: false,
               expands: false,

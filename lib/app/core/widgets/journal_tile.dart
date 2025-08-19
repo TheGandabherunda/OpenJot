@@ -12,6 +12,7 @@ import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../constants.dart';
 import '../models/journal_entry.dart';
@@ -21,8 +22,6 @@ class JournalTile extends StatefulWidget {
   final JournalEntry entry;
   final VoidCallback? onTap;
   final Color? backgroundColor;
-
-  // --- CHANGE: Added optional parameters for divider colors ---
   final Color? dividerColor;
   final Color? popupDividerColor;
   final Color? footerTextColor;
@@ -56,7 +55,6 @@ class _JournalTileState extends State<JournalTile> {
     {'svg': 'assets/5.svg', 'label': 'Very Pleasant'},
   ];
 
-  /// Shows the bottom sheet for editing a journal entry.
   void _onEditPressed() {
     showCupertinoModalBottomSheet(
       context: context,
@@ -68,45 +66,32 @@ class _JournalTileState extends State<JournalTile> {
     );
   }
 
-  /// Handles sharing the journal entry's content (text and/or images).
   void _onSharePressed() async {
     final plainText = widget.entry.content.toPlainText().trim();
-
-    // Asynchronously get all file paths from gallery images.
     final galleryFileFutures =
-        widget.entry.galleryImages.map((asset) => asset.file).toList();
+    widget.entry.galleryImages.map((asset) => asset.file).toList();
     final galleryFiles = await Future.wait(galleryFileFutures);
-
-    // Get all valid file paths.
     final List<String> imagePaths = [];
 
-    // Add paths from gallery images, filtering out any nulls.
     for (final file in galleryFiles) {
       if (file != null) {
         imagePaths.add(file.path);
       }
     }
 
-    // Add paths from camera photos.
     for (final photo in widget.entry.cameraPhotos) {
       imagePaths.add(photo.file.path);
     }
 
-    // Share based on what content is available.
     if (imagePaths.isNotEmpty) {
-      // Convert string paths to XFile objects for sharing.
       final imageXFiles = imagePaths.map((path) => XFile(path)).toList();
-      // Pass null for text if it's empty to avoid crashing the share plugin.
       await Share.shareXFiles(imageXFiles,
           text: plainText.isNotEmpty ? plainText : null);
     } else if (plainText.isNotEmpty) {
-      // Share text only if no images are present.
       await Share.share(plainText);
     }
-    // If there is nothing to share, do nothing.
   }
 
-  /// Shows a confirmation dialog before deleting a journal entry.
   void _onDeletePressed() {
     showCupertinoDialog(
       context: context,
@@ -126,7 +111,6 @@ class _JournalTileState extends State<JournalTile> {
             ),
             CupertinoDialogAction(
               onPressed: () {
-                // Find the controller and delete the entry
                 Get.find<HomeController>().deleteJournalEntry(widget.entry.id);
                 Navigator.of(ctx).pop();
               },
@@ -140,13 +124,21 @@ class _JournalTileState extends State<JournalTile> {
     );
   }
 
+  bool _isVideoFile(String path) {
+    final lowercasedPath = path.toLowerCase();
+    return lowercasedPath.endsWith('.mp4') ||
+        lowercasedPath.endsWith('.mov') ||
+        lowercasedPath.endsWith('.avi') ||
+        lowercasedPath.endsWith('.wmv') ||
+        lowercasedPath.endsWith('.mkv');
+  }
+
   @override
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
     final plainText = widget.entry.content.toPlainText().trim();
     final hasMedia = widget.entry.galleryImages.isNotEmpty ||
         widget.entry.cameraPhotos.isNotEmpty;
-
     final tileColor = widget.backgroundColor ?? appThemeColors.grey6;
 
     return RepaintBoundary(
@@ -158,7 +150,7 @@ class _JournalTileState extends State<JournalTile> {
             borderRadius: BorderRadius.circular(16.r),
           ),
           child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Container(
               padding: EdgeInsets.all(2.w),
               decoration: BoxDecoration(
@@ -218,11 +210,11 @@ class _JournalTileState extends State<JournalTile> {
   }
 
   Widget _buildMediaPreview(BuildContext context) {
-    final allImages = [
+    final allMedia = [
       ...widget.entry.galleryImages,
       ...widget.entry.cameraPhotos
     ];
-    if (allImages.isEmpty) {
+    if (allMedia.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -232,9 +224,9 @@ class _JournalTileState extends State<JournalTile> {
     final overlayColor = (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
         .withOpacity(0.6);
     final onOverlayColor =
-        isDark ? appThemeColors.grey10 : appThemeColors.grey7;
+    isDark ? appThemeColors.grey10 : appThemeColors.grey7;
 
-    Widget buildImageContainer(dynamic image, {Widget? overlay}) {
+    Widget buildMediaContainer(dynamic media, {Widget? overlay}) {
       return Container(
         decoration: BoxDecoration(
           border: Border.all(color: appThemeColors.grey3, width: 1.w),
@@ -245,10 +237,12 @@ class _JournalTileState extends State<JournalTile> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              if (image is AssetEntity)
-                SizedAssetThumbnail(asset: image)
-              else if (image is CapturedPhoto)
-                Image.file(File(image.file.path), fit: BoxFit.cover),
+              if (media is AssetEntity)
+                SizedAssetThumbnail(asset: media)
+              else if (media is CapturedPhoto)
+                _isVideoFile(media.file.path)
+                    ? VideoThumbnailWidget(filePath: media.file.path)
+                    : Image.file(File(media.file.path), fit: BoxFit.cover),
               if (overlay != null) overlay,
             ],
           ),
@@ -257,33 +251,33 @@ class _JournalTileState extends State<JournalTile> {
     }
 
     Widget content;
-    if (allImages.length == 1) {
+    if (allMedia.length == 1) {
       content = SizedBox(
         height: 250.h,
         width: double.infinity,
-        child: buildImageContainer(allImages[0]),
+        child: buildMediaContainer(allMedia[0]),
       );
-    } else if (allImages.length == 2) {
+    } else if (allMedia.length == 2) {
       content = SizedBox(
         height: 250.h,
         child: Row(
           children: [
-            Expanded(child: buildImageContainer(allImages[0])),
+            Expanded(child: buildMediaContainer(allMedia[0])),
             SizedBox(width: spacing),
-            Expanded(child: buildImageContainer(allImages[1])),
+            Expanded(child: buildMediaContainer(allMedia[1])),
           ],
         ),
       );
     } else {
       Widget? thirdImageOverlay;
-      if (allImages.length > 3) {
+      if (allMedia.length > 3) {
         thirdImageOverlay = ClipRRect(
           borderRadius: BorderRadius.circular(14.r),
           child: Container(
             color: overlayColor,
             child: Center(
               child: Text(
-                '+${allImages.length - 3}',
+                '+${allMedia.length - 3}',
                 style: TextStyle(
                     color: onOverlayColor,
                     fontSize: 32.sp,
@@ -302,17 +296,17 @@ class _JournalTileState extends State<JournalTile> {
           children: [
             AspectRatio(
               aspectRatio: 1.0,
-              child: buildImageContainer(allImages[0]),
+              child: buildMediaContainer(allMedia[0]),
             ),
             SizedBox(width: spacing),
             Expanded(
               child: Column(
                 children: [
-                  Expanded(child: buildImageContainer(allImages[1])),
+                  Expanded(child: buildMediaContainer(allMedia[1])),
                   SizedBox(height: spacing),
                   Expanded(
-                    child: buildImageContainer(
-                      allImages[2],
+                    child: buildMediaContainer(
+                      allMedia[2],
                       overlay: thirdImageOverlay,
                     ),
                   ),
@@ -346,7 +340,6 @@ class _JournalTileState extends State<JournalTile> {
                     ),
                   ),
                   VerticalDivider(
-                    // --- CHANGE: Use new verticalDividerColor or fallback ---
                     color: widget.dividerColor ?? appThemeColors.grey5,
                     thickness: 1.w,
                     width: 16.w,
@@ -384,7 +377,7 @@ class _JournalTileState extends State<JournalTile> {
                         Padding(
                           padding: EdgeInsets.only(
                               left: widget.entry.moodIndex != null ||
-                                      widget.entry.isReflection
+                                  widget.entry.isReflection
                                   ? 8.w
                                   : 0),
                           child: Icon(
@@ -401,7 +394,7 @@ class _JournalTileState extends State<JournalTile> {
                 key: _menuKey,
                 onTap: () {
                   final RenderBox renderBox =
-                      _menuKey.currentContext!.findRenderObject() as RenderBox;
+                  _menuKey.currentContext!.findRenderObject() as RenderBox;
                   final position = renderBox.localToGlobal(Offset.zero);
                   showMenu<String>(
                     context: context,
@@ -430,9 +423,8 @@ class _JournalTileState extends State<JournalTile> {
                       ),
                       PopupMenuDivider(
                           height: 1,
-                          // --- CHANGE: Use new popupDividerColor or fallback ---
                           color:
-                              widget.popupDividerColor ?? appThemeColors.grey6),
+                          widget.popupDividerColor ?? appThemeColors.grey6),
                       PopupMenuItem(
                         value: 'bookmark',
                         child: Row(
@@ -455,9 +447,8 @@ class _JournalTileState extends State<JournalTile> {
                       ),
                       PopupMenuDivider(
                           height: 1,
-                          // --- CHANGE: Use new popupDividerColor or fallback ---
                           color:
-                              widget.popupDividerColor ?? appThemeColors.grey6),
+                          widget.popupDividerColor ?? appThemeColors.grey6),
                       PopupMenuItem(
                         value: 'share',
                         child: Row(
@@ -472,9 +463,8 @@ class _JournalTileState extends State<JournalTile> {
                       ),
                       PopupMenuDivider(
                           height: 1,
-                          // --- CHANGE: Use new popupDividerColor or fallback ---
                           color:
-                              widget.popupDividerColor ?? appThemeColors.grey6),
+                          widget.popupDividerColor ?? appThemeColors.grey6),
                       PopupMenuItem(
                         value: 'pdf',
                         child: Row(
@@ -489,9 +479,8 @@ class _JournalTileState extends State<JournalTile> {
                       ),
                       PopupMenuDivider(
                           height: 1,
-                          // --- CHANGE: Use new popupDividerColor or fallback ---
                           color:
-                              widget.popupDividerColor ?? appThemeColors.grey6),
+                          widget.popupDividerColor ?? appThemeColors.grey6),
                       PopupMenuItem(
                         value: 'delete',
                         child: Row(
@@ -509,7 +498,6 @@ class _JournalTileState extends State<JournalTile> {
                     if (value == 'edit') {
                       _onEditPressed();
                     } else if (value == 'bookmark') {
-                      // Call the controller to toggle the bookmark status.
                       Get.find<HomeController>()
                           .toggleBookmarkStatus(widget.entry.id);
                     } else if (value == 'share') {
@@ -533,8 +521,6 @@ class _JournalTileState extends State<JournalTile> {
   }
 }
 
-// OPTIMIZATION: Converted to a StatefulWidget to fetch and cache the thumbnail data once.
-// This prevents the image from reloading every time the widget rebuilds.
 class SizedAssetThumbnail extends StatefulWidget {
   final AssetEntity asset;
 
@@ -547,20 +533,16 @@ class SizedAssetThumbnail extends StatefulWidget {
 class _SizedAssetThumbnailState extends State<SizedAssetThumbnail> {
   Uint8List? _thumbnailData;
 
+  @override
   void initState() {
     super.initState();
     _loadThumbnail();
   }
 
   Future<void> _loadThumbnail() async {
-    // Define a higher resolution for the thumbnail.
-    // You can adjust these values based on your UI needs.
     const size = ThumbnailSize(500, 500);
-
-    // Fetches the thumbnail data as bytes with a specified size.
     final data = await widget.asset.thumbnailDataWithSize(size);
     if (mounted) {
-      // Stores the data in the state to be used by the build method.
       setState(() {
         _thumbnailData = data;
       });
@@ -570,20 +552,65 @@ class _SizedAssetThumbnailState extends State<SizedAssetThumbnail> {
   @override
   void didUpdateWidget(covariant SizedAssetThumbnail oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // If the asset has changed, reload the thumbnail.
     if (widget.asset.id != oldWidget.asset.id) {
-      _thumbnailData = null; // Clear old data
+      _thumbnailData = null;
       _loadThumbnail();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Now, instead of a FutureBuilder, we just check if our data is ready.
     if (_thumbnailData != null) {
       return Image.memory(_thumbnailData!, fit: BoxFit.cover);
     }
-    // Show a loading indicator while the thumbnail is fetched in initState.
     return const Center(child: CircularProgressIndicator());
+  }
+}
+
+class VideoThumbnailWidget extends StatefulWidget {
+  final String filePath;
+
+  const VideoThumbnailWidget({Key? key, required this.filePath})
+      : super(key: key);
+
+  @override
+  _VideoThumbnailWidgetState createState() => _VideoThumbnailWidgetState();
+}
+
+class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
+  Uint8List? _thumbnailData;
+
+  @override
+  void initState() {
+    super.initState();
+    _generateThumbnail();
+  }
+
+  Future<void> _generateThumbnail() async {
+    final thumbnailData = await VideoThumbnail.thumbnailData(
+      video: widget.filePath,
+      imageFormat: ImageFormat.JPEG,
+      maxWidth: 500,
+      quality: 95,
+    );
+    if (mounted) {
+      setState(() {
+        _thumbnailData = thumbnailData;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_thumbnailData != null) {
+      return Image.memory(
+        _thumbnailData!,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        gaplessPlayback: true,
+      );
+    }
+    return Container(color: Colors.black);
   }
 }
