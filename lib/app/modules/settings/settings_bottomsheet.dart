@@ -15,7 +15,8 @@ class SettingsBottomSheet extends StatefulWidget {
 }
 
 class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
-  final SettingsScreenController controller = Get.put(SettingsScreenController());
+  final SettingsScreenController controller =
+      Get.put(SettingsScreenController());
   bool _appLock = false;
 
   // Function to show the Cupertino time picker
@@ -26,7 +27,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
         final appThemeColors = AppTheme.colorsOf(context);
         return Container(
           height: MediaQuery.of(context).copyWith().size.height / 3,
-          color: appThemeColors.grey6 ,
+          color: appThemeColors.grey6,
           child: CupertinoDatePicker(
             mode: CupertinoDatePickerMode.time,
             initialDateTime: DateTime(
@@ -70,7 +71,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
           leading: Icon(icon, color: textColor),
           title: Text(title, style: TextStyle(color: textColor)),
           subtitle: subtitle != null
-              ? Text(subtitle, style: TextStyle(color: textColor.withOpacity(0.7)))
+              ? Text(subtitle, style: TextStyle(color: appThemeColors.grey2))
               : null,
           trailing: trailing,
           onTap: onTap,
@@ -118,8 +119,10 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                       String formattedTime = '';
                       if (selectedTime != null) {
                         final now = DateTime.now();
-                        final dt = DateTime(now.year, now.month, now.day, selectedTime.hour, selectedTime.minute);
-                        formattedTime = DateFormat.jm().format(dt); // e.g., 8:00 PM
+                        final dt = DateTime(now.year, now.month, now.day,
+                            selectedTime.hour, selectedTime.minute);
+                        formattedTime =
+                            DateFormat.jm().format(dt); // e.g., 8:00 PM
                       }
 
                       return Column(
@@ -170,19 +173,15 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                           title: 'Backup',
                           icon: Icons.cloud_upload,
                           trailing:
-                          const Icon(Icons.arrow_forward_ios, size: 18),
-                          onTap: () {
-                            // TODO: Implement Backup functionality
-                          },
+                              const Icon(Icons.arrow_forward_ios, size: 18),
+                          onTap: () {},
                         ),
                         _buildListTile(
                           title: 'Restore',
                           icon: Icons.cloud_download,
                           trailing:
-                          const Icon(Icons.arrow_forward_ios, size: 18),
-                          onTap: () {
-                            // TODO: Implement Restore functionality
-                          },
+                              const Icon(Icons.arrow_forward_ios, size: 18),
+                          onTap: () {},
                         ),
                       ],
                     ),
@@ -195,22 +194,18 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                     child: Column(
                       children: [
                         _buildListTile(
-                          title: 'About App',
-                          icon: Icons.info,
-                          trailing:
-                          const Icon(Icons.arrow_forward_ios, size: 18),
-                          onTap: () {
-                            // TODO: Navigate to About App screen
-                          },
-                        ),
-                        _buildListTile(
                           title: 'Privacy Policy',
                           icon: Icons.privacy_tip,
                           trailing:
-                          const Icon(Icons.arrow_forward_ios, size: 18),
-                          onTap: () {
-                            // TODO: Navigate to Privacy Policy screen
-                          },
+                              const Icon(Icons.arrow_forward_ios, size: 18),
+                          onTap: () {},
+                        ),
+                        _buildListTile(
+                          title: 'About App',
+                          icon: Icons.info,
+                          trailing:
+                              const Icon(Icons.arrow_forward_ios, size: 18),
+                          onTap: () {},
                         ),
                       ],
                     ),
@@ -225,7 +220,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 'Version 1.0.0',
                 style: TextStyle(
                   color: appThemeColors.grey3,
-                  fontSize: 14,
+                  fontSize: 16,
                 ),
               ),
             ),
