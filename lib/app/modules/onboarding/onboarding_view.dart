@@ -67,7 +67,7 @@ class _AnimatedOnboardingContentState extends State<_AnimatedOnboardingContent>
     // Create 6 animation controllers for each element
     _animationControllers = List.generate(
       6,
-      (index) => AnimationController(duration: _baseDuration, vsync: this),
+          (index) => AnimationController(duration: _baseDuration, vsync: this),
     );
 
     // Create fade animations
@@ -92,7 +92,7 @@ class _AnimatedOnboardingContentState extends State<_AnimatedOnboardingContent>
     for (int i = 0; i < _animationControllers.length; i++) {
       Future.delayed(
         Duration(milliseconds: i * _staggerDelay.inMilliseconds),
-        () {
+            () {
           if (mounted) {
             _animationControllers[i].forward();
           }
@@ -156,7 +156,7 @@ class _AnimatedOnboardingContentState extends State<_AnimatedOnboardingContent>
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.sp),
             child: Text(
-              'Welcome to OpenJot',
+              AppConstants.welcomeToOpenJot,
               style: TextStyle(
                 fontFamily: AppConstants.font,
                 fontWeight: FontWeight.bold,
@@ -181,8 +181,7 @@ class _AnimatedOnboardingContentState extends State<_AnimatedOnboardingContent>
                   iconColor: widget.appThemeColors.primary,
                   textColor: widget.appThemeColors.grey1,
                   iconSize: 32.sp,
-                  title:
-                      'Write freely, add photos and locations, and keep everything secure on your device.',
+                  title: AppConstants.feature1,
                   icon: Icons.auto_fix_high_outlined,
                   fontSize: 16.sp,
                 ),
@@ -193,8 +192,7 @@ class _AnimatedOnboardingContentState extends State<_AnimatedOnboardingContent>
                   iconColor: widget.appThemeColors.primary,
                   textColor: widget.appThemeColors.grey1,
                   iconSize: 32.sp,
-                  title:
-                      'Understand your emotions over time with integrated mood tracking.',
+                  title: AppConstants.feature2,
                   icon: Icons.sentiment_satisfied_alt_rounded,
                   fontSize: 16.sp,
                 ),
@@ -206,8 +204,7 @@ class _AnimatedOnboardingContentState extends State<_AnimatedOnboardingContent>
                   textColor: widget.appThemeColors.grey1,
                   iconSize: 32.sp,
                   fontSize: 16.sp,
-                  title:
-                      'Your data stays on your phone – no cloud, just local storage and complete privacy.',
+                  title: AppConstants.feature3,
                   icon: Icons.lock_outlined,
                 ),
               ),
@@ -227,7 +224,7 @@ class _AnimatedOnboardingContentState extends State<_AnimatedOnboardingContent>
                 child: SizedBox(
                   width: double.infinity,
                   child: CustomButton(
-                    text: 'Continue',
+                    text: AppConstants.continueButton,
                     color: widget.appThemeColors.primary,
                     textColor: widget.appThemeColors.onPrimary,
                     onPressed: () {

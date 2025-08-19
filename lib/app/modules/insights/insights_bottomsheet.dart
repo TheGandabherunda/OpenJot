@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
+import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/read_journal/read_journal_bottom_sheet.dart';
 
@@ -82,7 +83,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
           elevation: 0,
           centerTitle: true,
           title: Text(
-            'Insights',
+            AppConstants.insights,
             style: TextStyle(
               color: appThemeColors.grey10,
               fontWeight: FontWeight.bold,
@@ -134,7 +135,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Stats',
+          AppConstants.stats,
           style: TextStyle(
             fontSize: 20.sp,
             fontWeight: FontWeight.bold,
@@ -157,7 +158,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                   borderRadius: BorderRadius.circular(16.r),
                 ),
                 child: _buildStatItem(
-                  'Words Written',
+                  AppConstants.wordsWritten,
                   Obx(() => Text(controller.totalWordsWritten.toString())),
                   Icons.format_quote_rounded,
                   appThemeColors,
@@ -174,7 +175,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                   borderRadius: BorderRadius.circular(16.r),
                 ),
                 child: _buildStatItem(
-                  'Days Journaled',
+                  AppConstants.daysJournaled,
                   Obx(() => Text(controller.daysJournaled.toString())),
                   Icons.calendar_today_rounded,
                   appThemeColors,
@@ -198,7 +199,8 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
 
     // Calculate the max entries for a single month across ALL journal entries
     final allTimeMaxEntries = () {
-      if (controller.journalEntries.isEmpty) return 1; // Avoid division by zero
+      if (controller.journalEntries.isEmpty)
+        return 1; // Avoid division by zero
       final Map<String, int> allMonthlyCounts = {};
       for (final entry in controller.journalEntries) {
         final key = '${entry.createdAt.year}-${entry.createdAt.month}';
@@ -234,7 +236,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                 RichText(
                   text: TextSpan(
                     style: TextStyle(
-                      fontFamily: 'Inter',
+                      fontFamily: AppConstants.font,
                       color: appThemeColors.grey10,
                     ),
                     children: [
@@ -246,7 +248,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                         ),
                       ),
                       TextSpan(
-                        text: ' ($totalEntries entries)',
+                        text: ' ($totalEntries ${AppConstants.entriesSuffix})',
                         style: TextStyle(
                           fontWeight: FontWeight.w500,
                           fontSize: 12.sp,
@@ -274,7 +276,8 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                 final month = index + 1;
                 final count = monthlyData[month] ?? 0;
                 // Max height for the bar area itself
-                final double maxHeight = 50.h; // Reduced height to fix overflow
+                final double maxHeight =
+                    50.h; // Reduced height to fix overflow
                 // Calculate bar height relative to the all-time max entries
                 final barHeight = (count / allTimeMaxEntries) * maxHeight;
 
@@ -352,7 +355,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
         SizedBox(height: 8.h),
         DefaultTextStyle(
           style: TextStyle(
-            fontFamily: 'Inter', // Assuming 'Inter' is your app's font
+            fontFamily: AppConstants.font,
             fontWeight: FontWeight.bold,
             fontSize: 24.sp,
             color: colors.grey10,
@@ -390,7 +393,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Calendar',
+          AppConstants.calendar,
           style: TextStyle(
             fontSize: 20.sp,
             fontWeight: FontWeight.bold,
@@ -452,7 +455,8 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                 itemCount: daysInMonth + weekdayOfFirstDay,
                 itemBuilder: (context, index) {
                   if (index < weekdayOfFirstDay) {
-                    return const SizedBox.shrink(); // Empty space for alignment
+                    return const SizedBox
+                        .shrink(); // Empty space for alignment
                   }
                   final day = index - weekdayOfFirstDay + 1;
                   final currentDate =
@@ -580,7 +584,7 @@ class _EntriesForDateBottomSheet extends StatelessWidget {
           return entriesForDate.isEmpty
               ? Center(
             child: Text(
-              'No entries for this date.',
+              AppConstants.noEntriesForDate,
               style: TextStyle(
                 color: appThemeColors.grey2,
                 fontSize: 16.sp,

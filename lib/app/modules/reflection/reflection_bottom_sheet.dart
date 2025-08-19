@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/core/constants.dart';
-import 'package:open_jot/app/modules/reflection/reflection_prompts.dart';
 
 import '../../core/theme.dart';
 import '../../core/widgets/custom_button.dart';
@@ -23,14 +22,14 @@ class _ReflectionBottomSheetState extends State<ReflectionBottomSheet> {
   @override
   void initState() {
     super.initState();
-    _currentPrompt = reflectionPrompts.first;
+    _currentPrompt = AppConstants.reflectionPrompts.first;
   }
 
   void _shufflePrompt() {
     final random = Random();
-    final index = random.nextInt(reflectionPrompts.length);
+    final index = random.nextInt(AppConstants.reflectionPrompts.length);
     setState(() {
-      _currentPrompt = reflectionPrompts[index];
+      _currentPrompt = AppConstants.reflectionPrompts[index];
     });
   }
 
@@ -94,7 +93,7 @@ class _ReflectionBottomSheetState extends State<ReflectionBottomSheet> {
                                   24.0), // You can adjust the radius
                             ),
                             child: Text(
-                              'REFLECTION',
+                              AppConstants.reflectionTitle,
                               style: TextStyle(
                                   color: appThemeColors.grey10,
                                   fontSize: 14,
@@ -140,7 +139,7 @@ class _ReflectionBottomSheetState extends State<ReflectionBottomSheet> {
                 child: SizedBox(
                   width: double.infinity,
                   child: CustomButton(
-                    text: 'Reflect',
+                    text: AppConstants.reflectButton,
                     onPressed: () {
                       // First, pop the current reflection bottom sheet.
                       Navigator.of(context).pop();

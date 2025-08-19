@@ -54,11 +54,11 @@ class _JournalTileState extends State<JournalTile> {
   StreamSubscription? _playerStateSubscription;
 
   static const List<Map<String, String>> _moods = [
-    {'svg': 'assets/1.svg', 'label': 'Very Unpleasant'},
-    {'svg': 'assets/2.svg', 'label': 'Unpleasant'},
-    {'svg': 'assets/3.svg', 'label': 'Neutral'},
-    {'svg': 'assets/4.svg', 'label': 'Pleasant'},
-    {'svg': 'assets/5.svg', 'label': 'Very Pleasant'},
+    {'svg': 'assets/1.svg', 'label': AppConstants.veryUnpleasant},
+    {'svg': 'assets/2.svg', 'label': AppConstants.unpleasant},
+    {'svg': 'assets/3.svg', 'label': AppConstants.neutral},
+    {'svg': 'assets/4.svg', 'label': AppConstants.pleasant},
+    {'svg': 'assets/5.svg', 'label': AppConstants.veryPleasant},
   ];
 
   @override
@@ -126,9 +126,8 @@ class _JournalTileState extends State<JournalTile> {
       context: context,
       builder: (BuildContext ctx) {
         return CupertinoAlertDialog(
-          title: const Text('Please Confirm'),
-          content: const Text(
-              'Are you sure you want to delete this journal entry? This action is irreversible.'),
+          title: const Text(AppConstants.pleaseConfirm),
+          content: const Text(AppConstants.confirmDeleteJournalEntry),
           actions: [
             CupertinoDialogAction(
               onPressed: () {
@@ -136,7 +135,7 @@ class _JournalTileState extends State<JournalTile> {
               },
               isDefaultAction: false,
               isDestructiveAction: false,
-              child: const Text('Cancel'),
+              child: const Text(AppConstants.cancel),
             ),
             CupertinoDialogAction(
               onPressed: () {
@@ -145,7 +144,7 @@ class _JournalTileState extends State<JournalTile> {
               },
               isDefaultAction: true,
               isDestructiveAction: true,
-              child: const Text('Delete'),
+              child: const Text(AppConstants.delete),
             ),
           ],
         );
@@ -354,7 +353,7 @@ class _JournalTileState extends State<JournalTile> {
 
   String _formatPreviewDuration(Duration duration) {
     if (duration == Duration.zero) {
-      return '--:--';
+      return AppConstants.emptyDuration;
     }
     String twoDigits(int n) => n.toString().padLeft(2, '0');
     final minutes = twoDigits(duration.inMinutes.remainder(60));
@@ -386,7 +385,7 @@ class _JournalTileState extends State<JournalTile> {
                 SizedBox(width: 8.w),
                 Expanded(
                   child: Text(
-                    audio.title ?? 'Audio track',
+                    audio.title ?? AppConstants.audioTrack,
                     style: TextStyle(
                       color: appThemeColors.grey10,
                       fontSize: 14.sp,
@@ -443,7 +442,8 @@ class _JournalTileState extends State<JournalTile> {
                     } else if (isPaused) {
                       await _audioPlayer.resume();
                     } else {
-                      await _audioPlayer.play(DeviceFileSource(recording.path));
+                      await _audioPlayer
+                          .play(DeviceFileSource(recording.path));
                       setState(() {
                         _currentlyPlayingPath = recording.path;
                       });
@@ -526,7 +526,7 @@ class _JournalTileState extends State<JournalTile> {
                             borderRadius: BorderRadius.circular(24.r),
                           ),
                           child: Text(
-                            'Reflection',
+                            AppConstants.reflection,
                             style: TextStyle(
                               color: appThemeColors.grey10,
                               fontSize: 12.sp,
@@ -584,8 +584,9 @@ class _JournalTileState extends State<JournalTile> {
                           children: [
                             Icon(Icons.edit, color: appThemeColors.grey10),
                             SizedBox(width: 8.w),
-                            Text('Edit',
-                                style: TextStyle(color: appThemeColors.grey10)),
+                            Text(AppConstants.edit,
+                                style:
+                                TextStyle(color: appThemeColors.grey10)),
                           ],
                         ),
                       ),
@@ -606,8 +607,8 @@ class _JournalTileState extends State<JournalTile> {
                             SizedBox(width: 8.w),
                             Text(
                               widget.entry.isBookmarked
-                                  ? 'Remove Bookmark'
-                                  : 'Bookmark',
+                                  ? AppConstants.removeBookmark
+                                  : AppConstants.bookmark,
                               style: TextStyle(color: appThemeColors.grey10),
                             ),
                           ],
@@ -624,8 +625,9 @@ class _JournalTileState extends State<JournalTile> {
                             Icon(Icons.share_outlined,
                                 color: appThemeColors.grey10),
                             SizedBox(width: 8.w),
-                            Text('Share',
-                                style: TextStyle(color: appThemeColors.grey10)),
+                            Text(AppConstants.share,
+                                style:
+                                TextStyle(color: appThemeColors.grey10)),
                           ],
                         ),
                       ),
@@ -640,8 +642,9 @@ class _JournalTileState extends State<JournalTile> {
                             Icon(Icons.save_outlined,
                                 color: appThemeColors.grey10),
                             SizedBox(width: 8.w),
-                            Text('Save as PDF',
-                                style: TextStyle(color: appThemeColors.grey10)),
+                            Text(AppConstants.saveAsPdf,
+                                style:
+                                TextStyle(color: appThemeColors.grey10)),
                           ],
                         ),
                       ),
@@ -656,7 +659,7 @@ class _JournalTileState extends State<JournalTile> {
                             Icon(Icons.delete_outline_outlined,
                                 color: appThemeColors.error),
                             SizedBox(width: 8.w),
-                            Text('Delete',
+                            Text(AppConstants.delete,
                                 style: TextStyle(color: appThemeColors.error)),
                           ],
                         ),
@@ -734,7 +737,8 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
     if (widget.media is AssetEntity) {
       final asset = widget.media as AssetEntity;
       _isVideo = asset.type == AssetType.video;
-      data = await asset.thumbnailDataWithSize(thumbnailSize, quality: quality);
+      data =
+      await asset.thumbnailDataWithSize(thumbnailSize, quality: quality);
     } else if (widget.media is CapturedPhoto) {
       final photo = widget.media as CapturedPhoto;
       final path = photo.file.path;

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:open_jot/app/core/constants.dart';
 
 import '../../core/theme.dart';
 import 'settings_controller.dart';
@@ -16,7 +17,7 @@ class SettingsBottomSheet extends StatefulWidget {
 
 class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
   final SettingsScreenController controller =
-      Get.put(SettingsScreenController());
+  Get.put(SettingsScreenController());
   bool _appLock = false;
 
   // Function to show the Cupertino time picker
@@ -85,7 +86,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           title: Text(
-            'Settings',
+            AppConstants.settings,
             style: TextStyle(
               color: appThemeColors.grey10,
               fontWeight: FontWeight.bold,
@@ -128,7 +129,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                       return Column(
                         children: [
                           _buildListTile(
-                            title: 'Daily Reminder',
+                            title: AppConstants.dailyReminder,
                             subtitle: reminderEnabled && selectedTime != null
                                 ? formattedTime
                                 : null,
@@ -146,7 +147,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                             onTap: reminderEnabled ? _showTimePicker : null,
                           ),
                           _buildListTile(
-                            title: 'App Lock',
+                            title: AppConstants.appLock,
                             icon: Icons.lock,
                             trailing: Switch(
                               value: _appLock,
@@ -170,17 +171,17 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                     child: Column(
                       children: [
                         _buildListTile(
-                          title: 'Backup',
+                          title: AppConstants.backup,
                           icon: Icons.cloud_upload,
                           trailing:
-                              const Icon(Icons.arrow_forward_ios, size: 18),
+                          const Icon(Icons.arrow_forward_ios, size: 18),
                           onTap: () {},
                         ),
                         _buildListTile(
-                          title: 'Restore',
+                          title: AppConstants.restore,
                           icon: Icons.cloud_download,
                           trailing:
-                              const Icon(Icons.arrow_forward_ios, size: 18),
+                          const Icon(Icons.arrow_forward_ios, size: 18),
                           onTap: () {},
                         ),
                       ],
@@ -194,17 +195,17 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                     child: Column(
                       children: [
                         _buildListTile(
-                          title: 'Privacy Policy',
+                          title: AppConstants.privacyPolicy,
                           icon: Icons.privacy_tip,
                           trailing:
-                              const Icon(Icons.arrow_forward_ios, size: 18),
+                          const Icon(Icons.arrow_forward_ios, size: 18),
                           onTap: () {},
                         ),
                         _buildListTile(
-                          title: 'About App',
+                          title: AppConstants.about,
                           icon: Icons.info,
                           trailing:
-                              const Icon(Icons.arrow_forward_ios, size: 18),
+                          const Icon(Icons.arrow_forward_ios, size: 18),
                           onTap: () {},
                         ),
                       ],
@@ -217,7 +218,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
             Padding(
               padding: const EdgeInsets.only(bottom: 30.0),
               child: Text(
-                'Version 1.0.0',
+                AppConstants.version,
                 style: TextStyle(
                   color: appThemeColors.grey3,
                   fontSize: 16,

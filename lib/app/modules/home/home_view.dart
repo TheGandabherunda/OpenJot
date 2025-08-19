@@ -15,7 +15,7 @@ import 'package:open_jot/app/modules/settings/settings_bottomsheet.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
 import 'package:progressive_blur/progressive_blur.dart';
 
-import '../../core/constants.dart';// ADDED: Import share service
+import '../../core/constants.dart'; // ADDED: Import share service
 import '../../core/services/shared_services.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/custom_icon_button.dart';
@@ -208,7 +208,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text('Sort by',
+                        Text(AppConstants.sortBy,
                             style: TextStyle(color: appThemeColors.grey10)),
                         SizedBox(
                           width: 68.w,
@@ -238,7 +238,8 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
             children: [
               Icon(Icons.insights_outlined, color: appThemeColors.grey10),
               SizedBox(width: 8.w),
-              Text('Insights', style: TextStyle(color: appThemeColors.grey10)),
+              Text(AppConstants.insights,
+                  style: TextStyle(color: appThemeColors.grey10)),
             ],
           ),
         ),
@@ -250,7 +251,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
               Icon(Icons.self_improvement_rounded,
                   color: appThemeColors.grey10),
               SizedBox(width: 8.w),
-              Text('Reflections',
+              Text(AppConstants.reflections,
                   style: TextStyle(color: appThemeColors.grey10)),
             ],
           ),
@@ -262,7 +263,8 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
             children: [
               Icon(Icons.settings_outlined, color: appThemeColors.grey10),
               SizedBox(width: 8.w),
-              Text('Settings', style: TextStyle(color: appThemeColors.grey10)),
+              Text(AppConstants.settings,
+                  style: TextStyle(color: appThemeColors.grey10)),
             ],
           ),
         ),
@@ -300,43 +302,43 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       items: [
         PopupMenuItem(
           value: 'time',
-          child: Text("Entry time",
+          child: Text(AppConstants.entryTime,
               style: TextStyle(color: appThemeColors.grey10)),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'bookmark',
-          child: Text("Bookmark first",
+          child: Text(AppConstants.bookmarkFirst,
               style: TextStyle(color: appThemeColors.grey10)),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'reflection',
-          child: Text("Reflection first",
+          child: Text(AppConstants.reflectionFirst,
               style: TextStyle(color: appThemeColors.grey10)),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'media',
-          child: Text("With media first",
+          child: Text(AppConstants.withMediaFirst,
               style: TextStyle(color: appThemeColors.grey10)),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'text',
-          child: Text("Text only first",
+          child: Text(AppConstants.textOnlyFirst,
               style: TextStyle(color: appThemeColors.grey10)),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'location',
-          child: Text("With location first",
+          child: Text(AppConstants.withLocationFirst,
               style: TextStyle(color: appThemeColors.grey10)),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'mood',
-          child: Text("With mood first",
+          child: Text(AppConstants.withMoodFirst,
               style: TextStyle(color: appThemeColors.grey10)),
         ),
       ],
@@ -614,7 +616,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                               height: 48.sp),
                           SizedBox(height: 24.h),
                           Text(
-                            'Jot Your Thoughts',
+                            AppConstants.jotYourThoughts,
                             style: TextStyle(
                               fontFamily: AppConstants.font,
                               fontWeight: FontWeight.w600,
@@ -625,7 +627,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                             textAlign: TextAlign.center,
                           ),
                           Text(
-                            'Tap + to create your personal journal.',
+                            AppConstants.tapToCreateJournal,
                             style: TextStyle(
                               fontFamily: AppConstants.font,
                               fontWeight: FontWeight.w500,
@@ -650,7 +652,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                               children: [
                                 Expanded(
                                     child: _buildStatItem(
-                                        'Entries This Year',
+                                        AppConstants.entriesThisYear,
                                         widget.controller.totalEntriesThisYear
                                             .toString(),
                                         Icons.horizontal_split_rounded)),
@@ -660,7 +662,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                 ),
                                 Expanded(
                                     child: _buildStatItem(
-                                        'Words Written',
+                                        AppConstants.wordsWritten,
                                         widget.controller.totalWordsWritten
                                             .toString(),
                                         Icons.format_quote_rounded)),
@@ -670,7 +672,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                 ),
                                 Expanded(
                                     child: _buildStatItem(
-                                        'Days Journaled',
+                                        AppConstants.daysJournaled,
                                         widget.controller.daysJournaled
                                             .toString(),
                                         Icons.calendar_today_rounded)),

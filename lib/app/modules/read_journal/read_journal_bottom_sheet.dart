@@ -45,11 +45,11 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
   StreamSubscription? _playerStateSubscription;
 
   static const List<Map<String, String>> _moods = [
-    {'svg': 'assets/1.svg', 'label': 'Very Unpleasant'},
-    {'svg': 'assets/2.svg', 'label': 'Unpleasant'},
-    {'svg': 'assets/3.svg', 'label': 'Neutral'},
-    {'svg': 'assets/4.svg', 'label': 'Pleasant'},
-    {'svg': 'assets/5.svg', 'label': 'Very Pleasant'},
+    {'svg': 'assets/1.svg', 'label': AppConstants.veryUnpleasant},
+    {'svg': 'assets/2.svg', 'label': AppConstants.unpleasant},
+    {'svg': 'assets/3.svg', 'label': AppConstants.neutral},
+    {'svg': 'assets/4.svg', 'label': AppConstants.pleasant},
+    {'svg': 'assets/5.svg', 'label': AppConstants.veryPleasant},
   ];
 
   @override
@@ -125,7 +125,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
       } else {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open map link.')),
+          const SnackBar(content: Text(AppConstants.couldNotOpenMap)),
         );
       }
     }
@@ -261,7 +261,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
         ),
         CustomButton(
           onPressed: _onEditPressed,
-          text: 'Edit',
+          text: AppConstants.edit,
           color: Colors.transparent,
           textColor: appThemeColors.grey10,
           textSize: 16.sp,
@@ -448,7 +448,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
                 SizedBox(width: 4.w),
                 Expanded(
                   child: Text(
-                    audio.title ?? 'Audio track',
+                    audio.title ?? AppConstants.audioTrack,
                     style: TextStyle(
                       color: appThemeColors.grey10,
                       fontSize: 14.sp,

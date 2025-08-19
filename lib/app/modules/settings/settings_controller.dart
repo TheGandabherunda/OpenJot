@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:open_jot/app/core/constants.dart';
 
 import '../../core/services/notification_service.dart';
 
@@ -31,11 +32,12 @@ class SettingsScreenController extends GetxController {
       }
       // Here you would schedule the notification
       _notificationService.scheduleDailyJournalReminder(reminderTime.value!);
-      print("Notification scheduled for ${reminderTime.value!.format(Get.context!)}");
+      print(AppConstants.notificationScheduled
+          .replaceFirst('%s', reminderTime.value!.format(Get.context!)));
     } else {
       // If turned off, cancel any scheduled notification
       _notificationService.cancelAllNotifications();
-      print("Notification canceled");
+      print(AppConstants.notificationCanceled);
     }
   }
 
@@ -45,7 +47,8 @@ class SettingsScreenController extends GetxController {
     if (dailyReminder.value) {
       // Reschedule notification with the new time
       _notificationService.scheduleDailyJournalReminder(time);
-      print("Notification rescheduled for ${reminderTime.value!.format(Get.context!)}");
+      print(AppConstants.notificationRescheduled
+          .replaceFirst('%s', reminderTime.value!.format(Get.context!)));
     }
   }
 }

@@ -172,9 +172,9 @@ class _WriteJournalToolbarContentState
     final yesterday = DateTime(now.year, now.month, now.day - 1);
 
     if (date == today) {
-      return 'Today';
+      return AppConstants.today;
     } else if (date == yesterday) {
-      return 'Yesterday';
+      return AppConstants.yesterday;
     } else {
       const monthNames = [
         'January',
@@ -235,10 +235,10 @@ class _WriteJournalToolbarContentState
 
     if (widget.selectedToolbarIcon != Icons.image_rounded) {
       final Map<IconData, String> contentMap = {
-        Icons.format_quote_rounded: 'Content for Quote',
+        Icons.format_quote_rounded: AppConstants.contentForQuote,
       };
       final contentText =
-          contentMap[widget.selectedToolbarIcon] ?? 'No content selected.';
+          contentMap[widget.selectedToolbarIcon] ?? AppConstants.noContentSelected;
       return ListView(
         controller: widget.scrollController,
         padding: EdgeInsets.zero,
@@ -271,7 +271,7 @@ class _WriteJournalToolbarContentState
                     0: Padding(
                       padding: EdgeInsets.symmetric(vertical: 8.h),
                       child: Text(
-                        'Photos',
+                        AppConstants.photos,
                         style: TextStyle(
                             color: colors.grey10,
                             decoration: TextDecoration.none,
@@ -282,7 +282,7 @@ class _WriteJournalToolbarContentState
                     1: Padding(
                       padding: EdgeInsets.symmetric(vertical: 8.h),
                       child: Text(
-                        'Video',
+                        AppConstants.video,
                         style: TextStyle(
                             color: colors.grey10,
                             decoration: TextDecoration.none,
@@ -293,7 +293,7 @@ class _WriteJournalToolbarContentState
                     2: Padding(
                       padding: EdgeInsets.symmetric(vertical: 8.h),
                       child: Text(
-                        'Audio',
+                        AppConstants.audio,
                         style: TextStyle(
                             color: colors.grey10,
                             decoration: TextDecoration.none,
@@ -335,7 +335,7 @@ class _WriteJournalToolbarContentState
                   });
                 },
                 borderRadius: 56,
-                text: 'Add ${_selectedAssets.length}',
+                text: '${AppConstants.add} ${_selectedAssets.length}',
                 icon: Icons.add,
                 iconSize: 24,
                 color: Theme.of(context).primaryColor,
@@ -387,7 +387,8 @@ class _WriteJournalToolbarContentState
       if (_groupedAssets.isEmpty) {
         return Center(
           child: Text(
-            'No ${_getTabName(_selectedSegment).toLowerCase()} found.',
+            AppConstants.noMediaFound
+                .replaceFirst('%s', _getTabName(_selectedSegment).toLowerCase()),
             style: TextStyle(
                 color: colors.grey10,
                 decoration: TextDecoration.none,
@@ -552,7 +553,8 @@ class _WriteJournalToolbarContentState
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            'Permission to access ${_getTabName(_selectedSegment).toLowerCase()} is required to display them.',
+            AppConstants.permissionRequired
+                .replaceFirst('%s', _getTabName(_selectedSegment).toLowerCase()),
             textAlign: TextAlign.center,
             style: TextStyle(
                 color: colors.grey10,
@@ -565,7 +567,7 @@ class _WriteJournalToolbarContentState
               openAppSettings();
             },
             child: const Text(
-              'Open Settings',
+              AppConstants.openSettings,
               style: TextStyle(
                   decoration: TextDecoration.none,
                   fontFamily: AppConstants.font),
@@ -579,11 +581,11 @@ class _WriteJournalToolbarContentState
   String _getTabName(int index) {
     switch (index) {
       case 0:
-        return 'Photos';
+        return AppConstants.photos;
       case 1:
-        return 'Videos';
+        return AppConstants.videos;
       case 2:
-        return 'Audios';
+        return AppConstants.audios;
       default:
         return '';
     }
@@ -693,7 +695,7 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
                 borderRadius: BorderRadius.circular(4.r),
               ),
               child: Text(
-                'GIF',
+                AppConstants.gif,
                 style: TextStyle(
                     color: onOverlayColor,
                     fontSize: 12.sp,
@@ -902,18 +904,18 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
     showCupertinoDialog<void>(
       context: context,
       builder: (BuildContext dialogContext) => CupertinoAlertDialog(
-        title: const Text('Delete Recording?'),
-        content: const Text('Are you sure you want to delete this recording?'),
+        title: const Text(AppConstants.deleteRecordingTitle),
+        content: const Text(AppConstants.deleteRecordingMessage),
         actions: <CupertinoDialogAction>[
           CupertinoDialogAction(
-            child: const Text('Cancel'),
+            child: const Text(AppConstants.cancel),
             onPressed: () {
               Navigator.pop(dialogContext);
             },
           ),
           CupertinoDialogAction(
             isDestructiveAction: true,
-            child: const Text('Discard'),
+            child: const Text(AppConstants.discard),
             onPressed: () {
               Navigator.pop(dialogContext);
               _timer?.cancel();
@@ -960,7 +962,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
         SizedBox(height: 16.h),
         if (_isStopped)
           Text(
-            "Listen",
+            AppConstants.listen,
             textAlign: TextAlign.center,
             style: TextStyle(
                 color: colors.success,
@@ -1059,7 +1061,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
         ),
         SizedBox(height: 16.h),
         Text(
-          "tap  &  hold",
+          AppConstants.tapAndHold,
           textAlign: TextAlign.center,
           style: TextStyle(
               color: colors.grey1,
@@ -1122,7 +1124,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
             CustomButton(
               onPressed: _addRecording,
               borderRadius: 56,
-              text: 'Add',
+              text: AppConstants.add,
               icon: Icons.add,
               iconSize: 24,
               color: Theme.of(context).primaryColor,
@@ -1158,11 +1160,11 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
   late final AnimationController _rotationController;
 
   static const List<Map<String, String>> _moods = [
-    {'svg': 'assets/1.svg', 'label': 'Very Unpleasant'},
-    {'svg': 'assets/2.svg', 'label': 'Unpleasant'},
-    {'svg': 'assets/3.svg', 'label': 'Neutral'},
-    {'svg': 'assets/4.svg', 'label': 'Pleasant'},
-    {'svg': 'assets/5.svg', 'label': 'Very Pleasant'},
+    {'svg': 'assets/1.svg', 'label': AppConstants.veryUnpleasant},
+    {'svg': 'assets/2.svg', 'label': AppConstants.unpleasant},
+    {'svg': 'assets/3.svg', 'label': AppConstants.neutral},
+    {'svg': 'assets/4.svg', 'label': AppConstants.pleasant},
+    {'svg': 'assets/5.svg', 'label': AppConstants.veryPleasant},
   ];
 
   @override
@@ -1297,10 +1299,10 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
                     borderRadius: BorderRadius.circular(8.r),
                   ),
                 ),
-                child: Text(
-                  'Clear',
+                child: const Text(
+                  AppConstants.clear,
                   style: TextStyle(
-                    fontSize: 16.sp,
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
                     fontFamily: AppConstants.font,
                   ),

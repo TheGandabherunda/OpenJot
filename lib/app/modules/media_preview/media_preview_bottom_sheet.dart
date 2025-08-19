@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:open_jot/app/core/constants.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
@@ -213,7 +214,7 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
                   left: 10.w,
                   child: IconButton(
                     icon:
-                        const Icon(Icons.close, color: Colors.white, size: 28),
+                    const Icon(Icons.close, color: Colors.white, size: 28),
                     onPressed: () => Navigator.of(context).pop(),
                     style: ButtonStyle(
                       backgroundColor: WidgetStateProperty.all(
@@ -243,7 +244,7 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
     } else if (item.asset is CapturedPhoto) {
       imageProvider = FileImage(File((item.asset as CapturedPhoto).file.path));
     } else {
-      return const Center(child: Text('Unsupported Image Type'));
+      return const Center(child: Text(AppConstants.unsupportedImageType));
     }
 
     return InteractiveViewer(
@@ -259,7 +260,7 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
             child: CircularProgressIndicator(
               value: loadingProgress.expectedTotalBytes != null
                   ? loadingProgress.cumulativeBytesLoaded /
-                      loadingProgress.expectedTotalBytes!
+                  loadingProgress.expectedTotalBytes!
                   : null,
             ),
           );
@@ -367,7 +368,7 @@ class VideoPlayerItemState extends State<VideoPlayerItem> {
       return const Center(child: CircularProgressIndicator());
     }
     if (_controller == null || !_controller!.value.isInitialized) {
-      return const Center(child: Text('Could not load video'));
+      return const Center(child: Text(AppConstants.couldNotLoadVideo));
     }
 
     final appThemeColors = AppTheme.colorsOf(context);

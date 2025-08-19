@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:open_jot/app/core/constants.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
 class NotificationService {
   // Singleton pattern
-  static final NotificationService _notificationService = NotificationService._internal();
+  static final NotificationService _notificationService =
+  NotificationService._internal();
   factory NotificationService() {
     return _notificationService;
   }
   NotificationService._internal();
 
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+  FlutterLocalNotificationsPlugin();
 
   Future<void> init() async {
     // Initialization settings for Android
@@ -41,14 +44,14 @@ class NotificationService {
   Future<void> scheduleDailyJournalReminder(TimeOfDay time) async {
     await flutterLocalNotificationsPlugin.zonedSchedule(
       0,
-      'Time to Journal!',
-      'Don\'t forget to write down your thoughts for the day.',
+      AppConstants.notificationTitle,
+      AppConstants.notificationBody,
       _nextInstanceOfTime(time),
       const NotificationDetails(
         android: AndroidNotificationDetails(
-          'daily_journal_reminder_channel',
-          'Daily Journal Reminders',
-          channelDescription: 'Channel for daily journal reminder notifications',
+          AppConstants.notificationChannelId,
+          AppConstants.notificationChannelName,
+          channelDescription: AppConstants.notificationChannelDescription,
           importance: Importance.max,
           priority: Priority.high,
         ),
@@ -62,8 +65,8 @@ class NotificationService {
 
   tz.TZDateTime _nextInstanceOfTime(TimeOfDay time) {
     final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-    tz.TZDateTime scheduledDate =
-    tz.TZDateTime(tz.local, now.year, now.month, now.day, time.hour, time.minute);
+    tz.TZDateTime scheduledDate = tz.TZDateTime(
+        tz.local, now.year, now.month, now.day, time.hour, time.minute);
     if (scheduledDate.isBefore(now)) {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }

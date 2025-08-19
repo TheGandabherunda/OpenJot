@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
+import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/theme.dart';
 import 'package:open_jot/app/core/widgets/journal_tile.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
@@ -129,7 +130,7 @@ class _SearchViewState extends State<SearchView> {
                   autofocus: true,
                   style: TextStyle(color: appThemeColors.grey10),
                   decoration: InputDecoration(
-                    hintText: 'Search journals...',
+                    hintText: AppConstants.searchJournalsHint,
                     hintStyle: TextStyle(color: appThemeColors.grey3),
                     filled: true,
                     fillColor: appThemeColors.grey6,
@@ -164,37 +165,37 @@ class _SearchViewState extends State<SearchView> {
                   child: Wrap(
                     spacing: 8.w,
                     children: [
-                      _buildFilterChip('Bookmark', _isBookmarked, (selected) {
+                      _buildFilterChip(AppConstants.bookmark, _isBookmarked, (selected) {
                         setState(() {
                           _isBookmarked = selected;
                           _applyFilters();
                         });
                       }),
-                      _buildFilterChip('Reflection', _isReflection, (selected) {
+                      _buildFilterChip(AppConstants.reflection, _isReflection, (selected) {
                         setState(() {
                           _isReflection = selected;
                           _applyFilters();
                         });
                       }),
-                      _buildFilterChip('Text Only', _isTextOnly, (selected) {
+                      _buildFilterChip(AppConstants.textOnly, _isTextOnly, (selected) {
                         setState(() {
                           _isTextOnly = selected;
                           _applyFilters();
                         });
                       }),
-                      _buildFilterChip('With Media', _isMediaOnly, (selected) {
+                      _buildFilterChip(AppConstants.withMedia, _isMediaOnly, (selected) {
                         setState(() {
                           _isMediaOnly = selected;
                           _applyFilters();
                         });
                       }),
-                      _buildFilterChip('With Mood', _withMood, (selected) {
+                      _buildFilterChip(AppConstants.withMood, _withMood, (selected) {
                         setState(() {
                           _withMood = selected;
                           _applyFilters();
                         });
                       }),
-                      _buildFilterChip('With Location', _withLocation,
+                      _buildFilterChip(AppConstants.withLocation, _withLocation,
                               (selected) {
                             setState(() {
                               _withLocation = selected;
@@ -209,7 +210,7 @@ class _SearchViewState extends State<SearchView> {
                 child: _filteredEntries.isEmpty
                     ? Center(
                   child: Text(
-                    'No results found',
+                    AppConstants.noResultsFound,
                     style: TextStyle(
                       color: appThemeColors.grey3,
                       fontSize: 16.sp,
