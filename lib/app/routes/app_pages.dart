@@ -11,6 +11,7 @@ class AppPages {
 
   // Define the initial route of the application
   static const INITIAL = Routes.ONBOARDING;
+  static const HOME = Routes.HOME;
 
   // List of all GetPage objects, defining routes, pages, and their bindings
   static final routes = [
