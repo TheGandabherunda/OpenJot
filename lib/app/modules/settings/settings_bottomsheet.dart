@@ -24,26 +24,106 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
   void _showTimePicker() {
     showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.transparent, // For rounded corners
       builder: (BuildContext builder) {
         final appThemeColors = AppTheme.colorsOf(context);
         return Container(
-          height: MediaQuery.of(context).copyWith().size.height / 3,
-          color: appThemeColors.grey6,
-          child: CupertinoDatePicker(
-            mode: CupertinoDatePickerMode.time,
-            initialDateTime: DateTime(
-              DateTime.now().year,
-              DateTime.now().month,
-              DateTime.now().day,
-              controller.reminderTime.value?.hour ?? 20,
-              controller.reminderTime.value?.minute ?? 0,
+          height: MediaQuery.of(context).size.height / 2.5,
+          decoration: BoxDecoration(
+            color: appThemeColors.grey5,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(16.0),
+              topRight: Radius.circular(16.0),
             ),
-            onDateTimeChanged: (DateTime newDateTime) {
-              controller.setReminderTime(TimeOfDay.fromDateTime(newDateTime));
-            },
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [SizedBox(height: 16.h)],
+                ),
+              ),
+              Divider(color: appThemeColors.grey3, height: 1),
+              Expanded(
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.time,
+                  initialDateTime: DateTime(
+                    DateTime.now().year,
+                    DateTime.now().month,
+                    DateTime.now().day,
+                    controller.reminderTime.value?.hour ?? 20,
+                    controller.reminderTime.value?.minute ?? 0,
+                  ),
+                  onDateTimeChanged: (DateTime newDateTime) {
+                    controller
+                        .setReminderTime(TimeOfDay.fromDateTime(newDateTime));
+                  },
+                ),
+              ),
+            ],
           ),
         );
       },
+    );
+  }
+
+  // Function to show the theme selection bottom sheet
+  void _showThemeSelectionBottomSheet() {
+    final appThemeColors = AppTheme.colorsOf(context);
+    Get.bottomSheet(
+      Container(
+        padding: const EdgeInsets.symmetric(vertical: 16.0),
+        decoration: BoxDecoration(
+          color: appThemeColors.grey5,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(16.0),
+            topRight: Radius.circular(16.0),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              title: Text(AppConstants.themeLight,
+                  style: TextStyle(color: appThemeColors.grey10)),
+              onTap: () {
+                controller.changeTheme(AppConstants.themeLight);
+                Get.back();
+              },
+              trailing: Obx(() => controller.theme.value == AppConstants.themeLight
+                  ? Icon(Icons.check, color: appThemeColors.primary)
+                  : const SizedBox.shrink()),
+            ),
+            Divider(color: appThemeColors.grey4, height: 1),
+            ListTile(
+              title: Text(AppConstants.themeDark,
+                  style: TextStyle(color: appThemeColors.grey10)),
+              onTap: () {
+                controller.changeTheme(AppConstants.themeDark);
+                Get.back();
+              },
+              trailing: Obx(() => controller.theme.value == AppConstants.themeDark
+                  ? Icon(Icons.check, color: appThemeColors.primary)
+                  : const SizedBox.shrink()),
+            ),
+            Divider(color: appThemeColors.grey4, height: 1),
+            ListTile(
+              title: Text(AppConstants.themeSystem,
+                  style: TextStyle(color: appThemeColors.grey10)),
+              onTap: () {
+                controller.changeTheme(AppConstants.themeSystem);
+                Get.back();
+              },
+              trailing: Obx(() => controller.theme.value == AppConstants.themeSystem
+                  ? Icon(Icons.check, color: appThemeColors.primary)
+                  : const SizedBox.shrink()),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -162,6 +242,24 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                         ],
                       );
                     }),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Section for Appearance
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12.0),
+                    child: Column(
+                      children: [
+                        Obx(() => _buildListTile(
+                          title: AppConstants.theme,
+                          subtitle: controller.theme.value,
+                          icon: Icons.style_rounded,
+                          trailing:
+                          const Icon(Icons.arrow_forward_ios, size: 18),
+                          onTap: _showThemeSelectionBottomSheet,
+                        )),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 20),
 

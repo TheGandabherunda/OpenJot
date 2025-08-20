@@ -37,7 +37,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.open_jot"
-        minSdk = 23
+        minSdk = (findProperty("flutter.minSdkVersion") as String?)?.toInt() ?: 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -97,6 +97,5 @@ androidComponents {
 }
 
 dependencies {
-    // Changed back to the latest available version to resolve the build error
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

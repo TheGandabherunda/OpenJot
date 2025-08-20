@@ -11,6 +11,9 @@ class SettingsScreenController extends GetxController {
   // Observable for the selected reminder time
   var reminderTime = Rx<TimeOfDay?>(null);
 
+  // Observable for the theme
+  var theme = AppConstants.themeSystem.obs;
+
   final NotificationService _notificationService = NotificationService();
 
   @override
@@ -18,7 +21,8 @@ class SettingsScreenController extends GetxController {
     super.onInit();
     // Set a default time when the controller is initialized if reminder is on
     if (dailyReminder.value) {
-      reminderTime.value = const TimeOfDay(hour: 20, minute: 0); // Default to 8:00 PM
+      reminderTime.value =
+      const TimeOfDay(hour: 20, minute: 0); // Default to 8:00 PM
     }
   }
 
@@ -50,5 +54,23 @@ class SettingsScreenController extends GetxController {
       print(AppConstants.notificationRescheduled
           .replaceFirst('%s', reminderTime.value!.format(Get.context!)));
     }
+  }
+
+  // Changes the application theme
+  void changeTheme(String themeValue) {
+    theme.value = themeValue;
+    ThemeMode themeMode;
+    switch (themeValue) {
+      case AppConstants.themeLight:
+        themeMode = ThemeMode.light;
+        break;
+      case AppConstants.themeDark:
+        themeMode = ThemeMode.dark;
+        break;
+      default:
+        themeMode = ThemeMode.system;
+        break;
+    }
+    Get.changeThemeMode(themeMode);
   }
 }
