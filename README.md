@@ -32,6 +32,7 @@ All your thoughts, memories, and ideas are stored securely on your device, never
   <img src="screenshots/3.png" width="200" /><br/>
   <img src="screenshots/4.png" width="200" />
   <img src="screenshots/5.png" width="200" />
+  <img src="screenshots/6.png" width="200" />
 </p>
 
 ---
