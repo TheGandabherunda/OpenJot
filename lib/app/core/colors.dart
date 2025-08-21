@@ -13,16 +13,16 @@ class AppColors {
   static const Color lightGrey8 = Color(0xFFF2F2F7);
   static const Color lightGrey9 = Color(0xFFFFFFFF);
 
-  static const Color darkGrey10 = Color(0xFFFFFFFF); // White
-  static const Color darkGrey1 = Color(0xFF8E8E93);
-  static const Color darkGrey2 = Color(0xFF636366);
-  static const Color darkGrey3 = Color(0xFF48484A);
-  static const Color darkGrey4 = Color(0xFF3A3A3C);
-  static const Color darkGrey5 = Color(0xFF2C2C2E);
-  static const Color darkGrey6 = Color(0xFF1C1C1E);
-  static const Color darkGrey7 = Color(0xFF000000); // Black
-  static const Color darkGrey8 = Color(0xFF000000);
-  static const Color darkGrey9 = Color(0xFF1C1C1E);
+  static const Color darkGrey10 = Color(0xFFFFFEFF); // White with purple hint
+  static const Color darkGrey1 = Color(0xFF8E8E97);  // Subtle purple tint
+  static const Color darkGrey2 = Color(0xFF63636C);  // Subtle purple tint
+  static const Color darkGrey3 = Color(0xFF484850);  // Subtle purple tint
+  static const Color darkGrey4 = Color(0xFF3A3A42);  // Subtle purple tint
+  static const Color darkGrey5 = Color(0xFF2C2C34);  // Subtle purple tint
+  static const Color darkGrey6 = Color(0xFF1C1C24);  // Subtle purple tint
+  static const Color darkGrey7 = Color(0xFF030006); // Black with purple hint
+  static const Color darkGrey8 = Color(0xFF030006); // Black with purple hint
+  static const Color darkGrey9 = Color(0xFF1C1C24);
 
   // Core Colors
   static const Color lightSuccess = Color(0xFF2E7D32);
