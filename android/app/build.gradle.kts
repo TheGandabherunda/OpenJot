@@ -1,9 +1,9 @@
 import java.io.FileInputStream
 import java.util.Properties
 
+// This initial block reads the keystore properties, same as in the pomozen file.
 val keystoreProperties = Properties()
 val keystorePropertiesFile = project.rootProject.file("key.properties")
-
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
@@ -15,34 +15,37 @@ plugins {
 }
 
 android {
+    // Using OpenJot's namespace
     namespace = "org.thegandabherunda.openjot"
-    compileSdk = 36
+    compileSdk = flutter.compileSdkVersion
+    ndkVersion = "27.0.12077973"
 
-    // START: MODIFIED FOR JVM COMPATIBILITY
+    // Compiler options and desugaring support from pomozen
     compileOptions {
-        // Corrected syntax for Kotlin Gradle Script
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
         isCoreLibraryDesugaringEnabled = true
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = JavaVersion.VERSION_11.toString()
     }
-    // END: MODIFIED FOR JVM COMPATIBILITY
 
+    // Lint options from pomozen
     lint {
         checkReleaseBuilds = false
     }
 
     defaultConfig {
+        // Using OpenJot's application ID
         applicationId = "org.thegandabherunda.openjot"
-        minSdk = (findProperty("flutter.minSdkVersion") as String?)?.toInt() ?: 24
+        minSdk = 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    // Signing configuration remains the same
     signingConfigs {
         create("release") {
             if (keystoreProperties.isNotEmpty()) {
@@ -54,6 +57,7 @@ android {
         }
     }
 
+    // Release build type configuration from pomozen, including minification
     buildTypes {
         getByName("release") {
             signingConfig = signingConfigs.getByName("release")
@@ -75,6 +79,7 @@ flutter {
     source = "../.."
 }
 
+// Custom version code logic for different ABIs, copied from pomozen
 val abiCodes = mapOf(
     "x86_64" to 1,
     "armeabi-v7a" to 2,
@@ -96,6 +101,7 @@ androidComponents {
     }
 }
 
+// Dependency for core library desugaring, from pomozen
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
