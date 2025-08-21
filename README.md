@@ -1,4 +1,4 @@
-# OpenJot
+# <img src="assets/app_icon.svg" alt="OpenJot Logo" width="32" height="32" style="vertical-align: middle; margin-right: 8px;"> OpenJot
 
 <p align="center">
   <img src="https://img.shields.io/badge/Built%20with-Flutter-02569B?style=flat&logo=flutter&logoColor=white">&nbsp;&nbsp;
