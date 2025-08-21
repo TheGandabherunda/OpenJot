@@ -98,6 +98,14 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
+            Text(
+              AppConstants.changeTheme,
+              style: TextStyle(
+                fontSize: 16.sp,
+                color: appThemeColors.grey10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             ListTile(
               title: Text(AppConstants.themeLight,
                   style: TextStyle(color: appThemeColors.grey10)),

@@ -142,6 +142,7 @@ class AppConstants {
   static const String termsNConditions = "Terms & Conditions";
   static const String about = "About App";
   static const String version = "Version 1.0.0";
+  static const String changeTheme = "Change theme";
   static const String theme = "Theme";
   static const String themeLight = "Light";
   static const String themeDark = "Dark";
