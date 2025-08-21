@@ -2,6 +2,8 @@ import 'package:get/get.dart';
 import 'package:open_jot/app/modules/app_lock/app_lock_screen.dart';
 import 'package:open_jot/app/modules/onboarding/onboarding_binding.dart';
 import 'package:open_jot/app/modules/onboarding/onboarding_view.dart';
+import 'package:open_jot/app/modules/settings/about_screen.dart';
+import 'package:open_jot/app/modules/settings/terms_and_conditions_screen.dart';
 
 import '../modules/home/home_binding.dart';
 import '../modules/home/home_view.dart';
@@ -14,6 +16,8 @@ class AppPages {
   static const INITIAL = Routes.ONBOARDING;
   static const HOME = Routes.HOME;
   static const APP_LOCK = Routes.APP_LOCK;
+  static const ABOUT = Routes.ABOUT;
+  static const TERMS = Routes.TERMS;
 
   // List of all GetPage objects, defining routes, pages, and their bindings
   static final routes = [
@@ -31,6 +35,13 @@ class AppPages {
       name: Routes.APP_LOCK,
       page: () => const AppLockScreen(),
     ),
-    // Add other GetPage entries here for new screens
+    GetPage(
+      name: Routes.ABOUT,
+      page: () => const AboutScreen(),
+    ),
+    GetPage(
+      name: Routes.TERMS,
+      page: () => const TermsAndConditionsScreen(),
+    ),
   ];
 }

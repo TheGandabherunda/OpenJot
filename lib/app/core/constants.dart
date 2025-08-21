@@ -139,6 +139,7 @@ class AppConstants {
   static const String backup = "Backup";
   static const String restore = "Restore";
   static const String privacyPolicy = "Privacy Policy";
+  static const String termsNConditions = "Terms & Conditions";
   static const String about = "About App";
   static const String version = "Version 1.0.0";
   static const String theme = "Theme";

@@ -3,6 +3,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:open_jot/app/core/constants.dart';
+import 'package:open_jot/app/modules/settings/about_screen.dart';
+import 'package:open_jot/app/modules/settings/terms_and_conditions_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/theme.dart';
@@ -17,7 +19,7 @@ class SettingsBottomSheet extends StatefulWidget {
 
 class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
   final SettingsScreenController controller =
-  Get.put(SettingsScreenController());
+      Get.put(SettingsScreenController());
   String _appVersion = AppConstants.loading;
 
   @override
@@ -39,7 +41,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime:
-      controller.reminderTime.value ?? const TimeOfDay(hour: 20, minute: 0),
+          controller.reminderTime.value ?? const TimeOfDay(hour: 20, minute: 0),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -60,11 +62,11 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
               ),
             ),
             colorScheme: Theme.of(context).colorScheme.copyWith(
-              surface: appThemeColors.grey5,
-              onSurface: appThemeColors.grey10,
-              primary: appThemeColors.primary,
-              onPrimary: appThemeColors.onPrimary,
-            ),
+                  surface: appThemeColors.grey5,
+                  onSurface: appThemeColors.grey10,
+                  primary: appThemeColors.primary,
+                  onPrimary: appThemeColors.onPrimary,
+                ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(
                 foregroundColor: appThemeColors.primary,
@@ -104,9 +106,9 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 Get.back();
               },
               trailing: Obx(() =>
-              controller.theme.value == AppConstants.themeLight
-                  ? Icon(Icons.check, color: appThemeColors.primary)
-                  : const SizedBox.shrink()),
+                  controller.theme.value == AppConstants.themeLight
+                      ? Icon(Icons.check, color: appThemeColors.primary)
+                      : const SizedBox.shrink()),
             ),
             Divider(color: appThemeColors.grey4, height: 1),
             ListTile(
@@ -117,9 +119,9 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 Get.back();
               },
               trailing: Obx(() =>
-              controller.theme.value == AppConstants.themeDark
-                  ? Icon(Icons.check, color: appThemeColors.primary)
-                  : const SizedBox.shrink()),
+                  controller.theme.value == AppConstants.themeDark
+                      ? Icon(Icons.check, color: appThemeColors.primary)
+                      : const SizedBox.shrink()),
             ),
             Divider(color: appThemeColors.grey4, height: 1),
             ListTile(
@@ -130,9 +132,9 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 Get.back();
               },
               trailing: Obx(() =>
-              controller.theme.value == AppConstants.themeSystem
-                  ? Icon(Icons.check, color: appThemeColors.primary)
-                  : const SizedBox.shrink()),
+                  controller.theme.value == AppConstants.themeSystem
+                      ? Icon(Icons.check, color: appThemeColors.primary)
+                      : const SizedBox.shrink()),
             ),
           ],
         ),
@@ -159,8 +161,8 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
           color: tileBackgroundColor,
           border: showDivider // Conditionally apply the border
               ? Border(
-            bottom: BorderSide(color: appThemeColors.grey4, width: 1.w),
-          )
+                  bottom: BorderSide(color: appThemeColors.grey4, width: 1.w),
+                )
               : null,
         ),
         child: ListTile(
@@ -267,14 +269,14 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                     child: Column(
                       children: [
                         Obx(() => _buildListTile(
-                          title: AppConstants.theme,
-                          subtitle: controller.theme.value,
-                          icon: Icons.style_rounded,
-                          trailing:
-                          const Icon(Icons.arrow_forward_ios, size: 18),
-                          onTap: _showThemeSelectionBottomSheet,
-                          showDivider: false, // Only tile in the group
-                        )),
+                              title: AppConstants.theme,
+                              subtitle: controller.theme.value,
+                              icon: Icons.style_rounded,
+                              trailing:
+                                  const Icon(Icons.arrow_forward_ios, size: 18),
+                              onTap: _showThemeSelectionBottomSheet,
+                              showDivider: false, // Only tile in the group
+                            )),
                       ],
                     ),
                   ),
@@ -287,14 +289,14 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                           title: AppConstants.backup,
                           icon: Icons.cloud_upload,
                           trailing:
-                          const Icon(Icons.arrow_forward_ios, size: 18),
+                              const Icon(Icons.arrow_forward_ios, size: 18),
                           onTap: () => controller.backup(),
                         ),
                         _buildListTile(
                           title: AppConstants.restore,
                           icon: Icons.cloud_download,
                           trailing:
-                          const Icon(Icons.arrow_forward_ios, size: 18),
+                              const Icon(Icons.arrow_forward_ios, size: 18),
                           onTap: () => controller.restore(),
                           showDivider: false, // Last tile in the group
                         ),
@@ -307,18 +309,27 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                     child: Column(
                       children: [
                         _buildListTile(
+                          title: AppConstants.termsNConditions,
+                          icon: Icons.file_copy_rounded,
+                          trailing:
+                              const Icon(Icons.arrow_forward_ios, size: 18),
+                          onTap: () =>
+                              Get.to(() => const TermsAndConditionsScreen()),
+                        ),
+                        _buildListTile(
                           title: AppConstants.privacyPolicy,
                           icon: Icons.privacy_tip,
                           trailing:
-                          const Icon(Icons.arrow_forward_ios, size: 18),
-                          onTap: () {},
+                              const Icon(Icons.arrow_forward_ios, size: 18),
+                          onTap: () => controller.launchURL(
+                              'https://thegandabherunda.github.io/OpenJot/privacy_policy'),
                         ),
                         _buildListTile(
                           title: AppConstants.about,
                           icon: Icons.info,
                           trailing:
-                          const Icon(Icons.arrow_forward_ios, size: 18),
-                          onTap: () {},
+                              const Icon(Icons.arrow_forward_ios, size: 18),
+                          onTap: () => Get.to(() => const AboutScreen()),
                           showDivider: false, // Last tile in the group
                         ),
                       ],

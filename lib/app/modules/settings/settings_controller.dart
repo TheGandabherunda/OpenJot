@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
@@ -5,6 +6,7 @@ import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/services/app_lock_service.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/services/notification_service.dart';
 import '../../core/theme.dart';
@@ -181,31 +183,58 @@ class SettingsScreenController extends GetxController {
     await _hiveService.backupData();
   }
 
+  // Helper function to launch URLs in the default browser or custom tab
+  Future<void> launchURL(String url) async {
+    final Uri uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(
+        uri,
+        mode: LaunchMode.platformDefault,
+      );
+    } else {
+      // Log the error to the console.
+      print('Could not launch $url');
+    }
+  }
+
   Future<void> restore() async {
     // A confirmation dialog before starting the restore process.
-    await Get.defaultDialog(
-      title: AppConstants.confirmRestoreTitle,
-      middleText: AppConstants.confirmRestoreMessage,
-      textConfirm: AppConstants.restoreButton,
-      textCancel: AppConstants.cancel,
-      onConfirm: () async {
-        Get.back(); // Close the dialog before starting the restore.
-        final bool success = await _hiveService.restoreData();
+    await showCupertinoDialog(
+      context: Get.context!,
+      builder: (BuildContext context) => CupertinoAlertDialog(
+        title: const Text(AppConstants.confirmRestoreTitle),
+        content: const Text(AppConstants.confirmRestoreMessage),
+        actions: <CupertinoDialogAction>[
+          CupertinoDialogAction(
+            child: const Text(AppConstants.cancel),
+            onPressed: () {
+              Navigator.of(context).pop(); // Close the dialog
+            },
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            child: const Text(AppConstants.restoreButton),
+            onPressed: () async {
+              Navigator.of(context).pop(); // Close the dialog before starting restore
+              final bool success = await _hiveService.restoreData();
 
-        if (success) {
-          _loadSettings();
-          changeTheme(theme.value);
+              if (success) {
+                _loadSettings();
+                changeTheme(theme.value);
 
-          // FIX: Reset the HomeController to force a complete reload of journal data
-          // and re-attachment of database listeners. This is more robust than
-          // simply calling a refresh method.
-          if (Get.isRegistered<HomeController>()) {
-            Get.delete<HomeController>(force: true);
-          }
-          // Re-initialize the HomeController. Its onInit method will handle loading the new data.
-          Get.put(HomeController());
-        }
-      },
+                // FIX: Reset the HomeController to force a complete reload of journal data
+                // and re-attachment of database listeners. This is more robust than
+                // simply calling a refresh method.
+                if (Get.isRegistered<HomeController>()) {
+                  Get.delete<HomeController>(force: true);
+                }
+                // Re-initialize the HomeController. Its onInit method will handle loading the new data.
+                Get.put(HomeController());
+              }
+            },
+          )
+        ],
+      ),
     );
   }
 }
