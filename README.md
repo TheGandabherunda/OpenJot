@@ -26,12 +26,12 @@ All your thoughts, memories, and ideas are stored securely on your device, never
 
 ## Screenshots
 
-<div style="display: flex; overflow-x: auto;">
-  <img src="screenshots/1.png" width="220" />&nbsp;
-  <img src="screenshots/2.png" width="220" />&nbsp;
-  <img src="screenshots/3.png" width="220" />&nbsp;
-  <img src="screenshots/4.png" width="220" />&nbsp;
-  <img src="screenshots/5.png" width="220" />&nbsp;
+<div style="display: flex; overflow-x: auto; gap: 16px; padding: 16px;">
+  <img src="screenshots/1.png" width="220" />
+  <img src="screenshots/2.png" width="220" />
+  <img src="screenshots/3.png" width="220" />
+  <img src="screenshots/4.png" width="220" />
+  <img src="screenshots/5.png" width="220" />
   <img src="screenshots/6.png" width="220" />
 </div>
 
