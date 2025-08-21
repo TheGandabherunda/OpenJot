@@ -90,12 +90,12 @@ class _VerifyPinBottomSheetState extends State<VerifyPinBottomSheet> {
             child: Center(
               child: _errorMessage.isNotEmpty
                   ? Text(
-                _errorMessage,
-                style: TextStyle(
-                    fontFamily: AppConstants.font,
-                    color: appColors.error,
-                    fontSize: 16.sp),
-              )
+                      _errorMessage,
+                      style: TextStyle(
+                          fontFamily: AppConstants.font,
+                          color: appColors.error,
+                          fontSize: 16.sp),
+                    )
                   : null,
             ),
           ),

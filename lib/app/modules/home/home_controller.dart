@@ -25,20 +25,21 @@ class HomeController extends GetxController {
   void onInit() {
     super.onInit();
     // Listen to the journal entries box for real-time updates
-    _hiveService.getJournalEntriesNotifier().addListener(_loadJournalEntries);
+    _hiveService.getJournalEntriesNotifier().addListener(loadJournalEntries);
     // Initial load of entries
-    _loadJournalEntries();
+    loadJournalEntries();
   }
 
   @override
   void onClose() {
     // Remove the listener when the controller is disposed
-    _hiveService.getJournalEntriesNotifier().removeListener(_loadJournalEntries);
+    _hiveService.getJournalEntriesNotifier().removeListener(loadJournalEntries);
     super.onClose();
   }
 
   /// Loads and sorts journal entries from the Hive box.
-  Future<void> _loadJournalEntries() async {
+  /// This is now public so it can be called from other controllers (e.g., after a restore).
+  Future<void> loadJournalEntries() async {
     final entriesFromDb = _hiveService.getAllJournalEntries();
     // Asynchronously load asset entities (for images/videos from gallery)
     final loadedEntries = await _hiveService.loadAssetEntities(entriesFromDb);

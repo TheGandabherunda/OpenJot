@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/services/app_lock_service.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
+import 'package:open_jot/app/modules/home/home_controller.dart';
 
 import '../../core/services/notification_service.dart';
 import '../../core/theme.dart';
@@ -181,6 +182,31 @@ class SettingsScreenController extends GetxController {
   }
 
   Future<void> restore() async {
-    await _hiveService.restoreData();
+    // A confirmation dialog before starting the restore process.
+    await Get.defaultDialog(
+      title: "Confirm Restore",
+      middleText:
+          "Restoring from a backup will overwrite all current data. This action cannot be undone. Are you sure you want to continue?",
+      textConfirm: "Restore",
+      textCancel: "Cancel",
+      onConfirm: () async {
+        Get.back(); // Close the dialog before starting the restore.
+        final bool success = await _hiveService.restoreData();
+
+        if (success) {
+          _loadSettings();
+          changeTheme(theme.value);
+
+          // FIX: Reset the HomeController to force a complete reload of journal data
+          // and re-attachment of database listeners. This is more robust than
+          // simply calling a refresh method.
+          if (Get.isRegistered<HomeController>()) {
+            Get.delete<HomeController>(force: true);
+          }
+          // Re-initialize the HomeController. Its onInit method will handle loading the new data.
+          Get.put(HomeController());
+        }
+      },
+    );
   }
 }
