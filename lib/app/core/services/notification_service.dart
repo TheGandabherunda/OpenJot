@@ -10,14 +10,16 @@ import 'package:timezone/timezone.dart' as tz;
 class NotificationService {
   // Singleton pattern
   static final NotificationService _notificationService =
-  NotificationService._internal();
+      NotificationService._internal();
+
   factory NotificationService() {
     return _notificationService;
   }
+
   NotificationService._internal();
 
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-  FlutterLocalNotificationsPlugin();
+      FlutterLocalNotificationsPlugin();
 
   Future<NotificationService> init() async {
     if (kDebugMode) {
@@ -25,10 +27,10 @@ class NotificationService {
     }
     // Initialization settings for Android
     const AndroidInitializationSettings initializationSettingsAndroid =
-    AndroidInitializationSettings('@mipmap/ic_notification');
+        AndroidInitializationSettings('@mipmap/ic_notification');
 
     const InitializationSettings initializationSettings =
-    InitializationSettings(
+        InitializationSettings(
       android: initializationSettingsAndroid,
     );
 
@@ -48,18 +50,23 @@ class NotificationService {
       }
 
       // Request standard notification permission
-      final PermissionStatus notificationStatus = await Permission.notification.request();
+      final PermissionStatus notificationStatus =
+          await Permission.notification.request();
       if (kDebugMode) {
-        print("[NotificationService] Notification permission status: $notificationStatus");
+        print(
+            "[NotificationService] Notification permission status: $notificationStatus");
       }
-      if (notificationStatus.isDenied || notificationStatus.isPermanentlyDenied) {
+      if (notificationStatus.isDenied ||
+          notificationStatus.isPermanentlyDenied) {
         return false;
       }
 
       // Request exact alarm permission for reliable scheduling on Android 12+
-      final PermissionStatus scheduleExactAlarmStatus = await Permission.scheduleExactAlarm.request();
+      final PermissionStatus scheduleExactAlarmStatus =
+          await Permission.scheduleExactAlarm.request();
       if (kDebugMode) {
-        print("[NotificationService] Schedule exact alarm permission status: $scheduleExactAlarmStatus");
+        print(
+            "[NotificationService] Schedule exact alarm permission status: $scheduleExactAlarmStatus");
       }
 
       return scheduleExactAlarmStatus.isGranted;

@@ -52,6 +52,8 @@ dependencies:
   archive: ^4.0.7
   package_info_plus: ^8.3.1
   fluttertoast: ^8.2.12
+  local_auth: ^2.2.0
+  pinput: ^4.0.0
 
 dev_dependencies:
   flutter_test:

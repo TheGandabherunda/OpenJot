@@ -5,6 +5,7 @@ import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:get/get.dart';
+import 'package:open_jot/app/core/services/app_lock_service.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/routes/app_pages.dart';
 import 'package:timezone/data/latest.dart' as tz;
@@ -40,6 +41,7 @@ void main() async {
     final service = NotificationService();
     return await service.init();
   });
+  Get.lazyPut(() => AppLockService());
 
 // Set default system UI overlay style
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -51,8 +53,14 @@ void main() async {
 
   // Determine initial route based on first launch status
   final hiveService = Get.find<HiveService>();
-  final initialRoute =
-      hiveService.isFirstLaunch ? AppPages.INITIAL : AppPages.HOME;
+  String initialRoute;
+  if (hiveService.appLockEnabled) {
+    initialRoute = AppPages.APP_LOCK;
+  } else if (hiveService.isFirstLaunch) {
+    initialRoute = AppPages.INITIAL;
+  } else {
+    initialRoute = AppPages.HOME;
+  }
 
   runApp(
     ScreenUtilInit(

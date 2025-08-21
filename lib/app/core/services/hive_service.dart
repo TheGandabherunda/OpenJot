@@ -84,6 +84,20 @@ class HiveService extends GetxService {
     await settingsBox.put('reminderTime', '${time.hour}:${time.minute}');
   }
 
+  // --- App Lock ---
+  bool get appLockEnabled => settingsBox.get('appLockEnabled', defaultValue: false);
+
+  Future<void> setAppLock(bool value) async {
+    await settingsBox.put('appLockEnabled', value);
+  }
+
+  String? get appLockPin => settingsBox.get('appLockPin');
+
+  Future<void> setAppLockPin(String pin) async {
+    await settingsBox.put('appLockPin', pin);
+  }
+
+
   // --- Journals Box Methods ---
 
   /// Adds a new journal entry to the database.

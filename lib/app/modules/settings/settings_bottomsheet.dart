@@ -18,7 +18,6 @@ class SettingsBottomSheet extends StatefulWidget {
 class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
   final SettingsScreenController controller =
   Get.put(SettingsScreenController());
-  bool _appLock = false;
   String _appVersion = 'Loading...';
 
   @override
@@ -210,6 +209,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                     child: Obx(() {
                       final reminderEnabled = controller.dailyReminder.value;
                       final selectedTime = controller.reminderTime.value;
+                      final appLockEnabled = controller.appLock.value;
 
                       String formattedTime = '';
                       if (selectedTime != null) {
@@ -243,16 +243,20 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                             title: AppConstants.appLock,
                             icon: Icons.lock,
                             trailing: Switch(
-                              value: _appLock,
+                              value: appLockEnabled,
                               onChanged: (bool value) {
-                                setState(() {
-                                  _appLock = value;
-                                });
+                                controller.toggleAppLock(value);
                               },
                               activeColor: appThemeColors.primary,
                             ),
-                            showDivider: false, // Last tile in the group
                           ),
+                          if (appLockEnabled)
+                            _buildListTile(
+                              title: "Change PIN",
+                              icon: Icons.password,
+                              onTap: controller.changePin,
+                              showDivider: false,
+                            ),
                         ],
                       );
                     }),
