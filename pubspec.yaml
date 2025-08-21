@@ -1,5 +1,7 @@
 name: open_jot
-description: "A new Flutter project."
+description: "A minimal and open-source journaling app to capture your thoughts, moments, and ideas securely on your device."
+
+# Prevent accidental publishing to pub.dev.
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -7,67 +9,91 @@ version: 1.0.0+1
 environment:
   sdk: '>=3.2.3 <4.0.0'
 
+# --- Application Dependencies ---
 dependencies:
+  # Core Flutter SDK
   flutter:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+
+  # State Management & Routing
+  get: ^4.6.6
+
+  # Local Storage
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # UI & UX
   cupertino_icons: ^1.0.8
-  get: ^4.6.6 # Add GetX for state management and routing
-  hive: ^2.2.3 # Add Hive for local NoSQL database
-  hive_flutter: ^1.1.0 # Add Hive Flutter for Flutter integration
   smooth_corner: ^1.1.1
   flutter_screenutil: ^5.9.3
   flutter_svg: ^2.2.0
   modal_bottom_sheet: ^3.0.0
   flutter_quill: ^11.4.2
-  intl: ^0.20.2
+  shimmer: ^3.0.0
+  flutter_staggered_grid_view: ^0.7.0
+  progressive_blur: ^0.0.2
+  pinput: ^4.0.0
+  fluttertoast: ^8.2.12
+
+  # Media & File Handling (Photos, Videos, Audio)
   permission_handler: ^11.3.1
   photo_manager: ^3.7.1
-  shimmer: ^3.0.0
-  # Added for audio recording and playback
+  photo_manager_image_provider: ^2.2.0
+  camera: ^0.11.2
+  video_player: ^2.10.0
+  video_thumbnail: ^0.5.6
   record: ^6.0.0
   audioplayers: ^6.5.0
-  path_provider: ^2.1.5
-  # Added for location and maps
-  flutter_map: ^6.1.0  # OpenStreetMap widget
-  latlong2: ^0.9.0    # Utility for lat/long coordinates
-  geolocator: ^12.0.0 # Get current location
-  url_launcher: ^6.3.0 # Launch map link
-  path: ^1.9.0
-  camera: ^0.11.2
-  flutter_staggered_grid_view: ^0.7.0
-  uuid: ^4.2.1
-  progressive_blur: ^0.0.2
-  video_player: ^2.10.0
-  palette_generator: ^0.3.3+7
-  photo_manager_image_provider: ^2.2.0
-  share_plus: ^11.1.0
-  receive_sharing_intent: ^1.8.1
-  video_thumbnail: ^0.5.6
-  flutter_local_notifications: ^19.4.0
-  timezone: ^0.10.1
-  flutter_timezone: ^4.1.1
   file_picker: ^10.3.1
   archive: ^4.0.7
-  package_info_plus: ^8.3.1
-  fluttertoast: ^8.2.12
-  local_auth: ^2.2.0
-  pinput: ^4.0.0
-  device_info_plus: ^11.5.0
   pdf: ^3.11.3
   printing: ^5.14.2
 
+  # Location & Maps
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.0
+  geolocator: ^12.0.0
+
+  # Sharing & Intents
+  share_plus: ^11.1.0
+  receive_sharing_intent: ^1.8.1
+
+  # Notifications
+  flutter_local_notifications: ^19.4.0
+  flutter_timezone: ^4.1.1
+  timezone: ^0.10.1
+
+  # Authentication
+  local_auth: ^2.2.0
+
+  # Utility Packages
+  intl: ^0.20.2
+  path_provider: ^2.1.5
+  path: ^1.9.0
+  uuid: ^4.2.1
+  palette_generator: ^0.3.3+7
+  url_launcher: ^6.3.0
+  package_info_plus: ^8.3.1
+  device_info_plus: ^11.5.0
+
+
+# --- Developer Dependencies ---
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+
+  # Code Generation
   hive_generator: ^2.0.1
   build_runner: ^2.4.11
 
+# --- Flutter Specific Configuration ---
 flutter:
   uses-material-design: true
 
+  # Assets
   assets:
     - assets/app_icon.svg
     - assets/1.svg
@@ -76,7 +102,7 @@ flutter:
     - assets/4.svg
     - assets/5.svg
 
-
+  # Fonts
   fonts:
     - family: OpenRunde
       fonts:
