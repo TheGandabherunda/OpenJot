@@ -2,9 +2,9 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Built%20with-Flutter-02569B?style=flat&logo=flutter&logoColor=white">&nbsp;&nbsp;
-  <img src="https://img.shields.io/github/license/YourUsername/open_jot?style=flat-square">&nbsp;&nbsp;
-  <img src="https://img.shields.io/github/issues/YourUsername/open_jot?style=flat-square">&nbsp;&nbsp;
-  <img src="https://img.shields.io/github/stars/YourUsername/open_jot?style=flat-square">
+  <img src="https://img.shields.io/github/license/TheGandabherunda/OpenJot?style=flat-square">&nbsp;&nbsp;
+  <img src="https://img.shields.io/github/issues/TheGandabherunda/OpenJot?style=flat-square">&nbsp;&nbsp;
+  <img src="https://img.shields.io/github/stars/TheGandabherunda/OpenJot?style=flat-square">
 </p>
 
 **OpenJot** is a minimal and open-source journaling app designed for privacy and simplicity.  
@@ -57,7 +57,7 @@ No servers. No analytics. No compromise.
 
 ## Getting Started
 
-1. Download the latest APK from the [Releases Page](https://github.com/YourUsername/open_jot/releases).
+1. Download the latest APK from the [Releases Page](https://github.com/TheGandabherunda/OpenJot/releases).
 2. Install it on your Android device.
 3. Open **OpenJot** and start writing.
 
