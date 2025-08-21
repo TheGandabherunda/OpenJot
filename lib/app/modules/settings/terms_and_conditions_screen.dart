@@ -11,32 +11,71 @@ class TermsAndConditionsScreen extends StatelessWidget {
         .of(context)
         .colorScheme;
 
-    // List of third-party libraries from your pubspec.yaml
+// List of third-party libraries from pubspec.yaml
     final List<String> thirdPartyLibraries = [
+      // State Management & Routing
       'get',
+
+      // Local Storage
       'hive',
       'hive_flutter',
+
+      // UI & UX
+      'cupertino_icons',
+      'smooth_corner',
+      'flutter_screenutil',
+      'flutter_svg',
+      'modal_bottom_sheet',
       'flutter_quill',
-      'intl',
+      'shimmer',
+      'flutter_staggered_grid_view',
+      'progressive_blur',
+      'pinput',
+      'fluttertoast',
+
+      // Media & File Handling
       'permission_handler',
       'photo_manager',
-      'record',
-      'audioplayers',
-      'path_provider',
-      'geolocator',
-      'url_launcher',
+      'photo_manager_image_provider',
       'camera',
       'video_player',
-      'share_plus',
-      'receive_sharing_intent',
-      'flutter_local_notifications',
+      'video_thumbnail',
+      'record',
+      'audioplayers',
       'file_picker',
       'archive',
-      'package_info_plus',
+      'pdf',
+      'printing',
+
+      // Location & Maps
+      'flutter_map',
+      'latlong2',
+      'geolocator',
+
+      // Sharing & Intents
+      'share_plus',
+      'receive_sharing_intent',
+
+      // Notifications
+      'flutter_local_notifications',
+      'flutter_timezone',
+      'timezone',
+
+      // Authentication
       'local_auth',
-      'pinput',
-      // Add any other key libraries you use
+
+      // Utilities
+      'intl',
+      'path_provider',
+      'path',
+      'uuid',
+      'palette_generator',
+      'url_launcher',
+      'package_info_plus',
+      'device_info_plus',
+      'change_app_package_name',
     ];
+
 
     return Scaffold(
       backgroundColor: appColors.surface,

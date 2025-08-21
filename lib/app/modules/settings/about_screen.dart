@@ -150,18 +150,11 @@ class _AboutScreenState extends State<AboutScreen> {
             const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                FeatureText(
-                    text:
-                        '• Minimalist design for a focused writing experience.'),
-                FeatureText(
-                    text: '• Log entries with images, audio, and music files.'),
-                FeatureText(text: '• Track your mood with each journal entry.'),
-                FeatureText(
-                    text:
-                        '• Customize text styles to personalize your journal.'),
-                FeatureText(
-                    text:
-                        '• 100% offline: All data is stored locally on your device.'),
+                FeatureText(text: '• Clean, distraction-free writing experience.'),
+                FeatureText(text: '• Add photos, voice notes, and music to your entries.'),
+                FeatureText(text: '• Record your mood alongside your journals.'),
+                FeatureText(text: '• Personalize with different text styles.'),
+                FeatureText(text: '• Works fully offline, your data stays on your device.'),
               ],
             ),
             const SizedBox(height: 32),
@@ -229,7 +222,7 @@ class _AboutScreenState extends State<AboutScreen> {
                   trailing: Icon(Icons.open_in_new,
                       size: 20, color: appColors.primary),
                   onTap: () => _launchURL(
-                      'https://github.com/TheGandabherunda/OpenJot.git'),
+                      'https://github.com/TheGandabherunda/OpenJot'),
                 ),
                 ListTile(
                   title: Text(
