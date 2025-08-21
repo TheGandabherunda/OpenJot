@@ -1,4 +1,4 @@
-package com.example.open_jot
+package org.thegandabherunda.openjot
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

@@ -15,7 +15,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.open_jot"
+    namespace = "org.thegandabherunda.openjot"
     compileSdk = 36
 
     // START: MODIFIED FOR JVM COMPATIBILITY
@@ -36,7 +36,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.open_jot"
+        applicationId = "org.thegandabherunda.openjot"
         minSdk = (findProperty("flutter.minSdkVersion") as String?)?.toInt() ?: 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
