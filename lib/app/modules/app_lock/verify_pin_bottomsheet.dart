@@ -48,7 +48,7 @@ class _VerifyPinBottomSheetState extends State<VerifyPinBottomSheet> {
       Get.back(result: true); // Return true on success
     } else {
       setState(() {
-        _errorMessage = 'Incorrect PIN';
+        _errorMessage = AppConstants.incorrectPin;
         _enteredPin = '';
       });
     }
@@ -70,7 +70,7 @@ class _VerifyPinBottomSheetState extends State<VerifyPinBottomSheet> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Verify your PIN',
+            AppConstants.verifyYourPin,
             style: TextStyle(
               fontFamily: AppConstants.font,
               color: appColors.grey10,
@@ -90,12 +90,12 @@ class _VerifyPinBottomSheetState extends State<VerifyPinBottomSheet> {
             child: Center(
               child: _errorMessage.isNotEmpty
                   ? Text(
-                      _errorMessage,
-                      style: TextStyle(
-                          fontFamily: AppConstants.font,
-                          color: appColors.error,
-                          fontSize: 16.sp),
-                    )
+                _errorMessage,
+                style: TextStyle(
+                    fontFamily: AppConstants.font,
+                    color: appColors.error,
+                    fontSize: 16.sp),
+              )
                   : null,
             ),
           ),

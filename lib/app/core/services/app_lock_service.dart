@@ -34,7 +34,7 @@ class AppLockService extends GetxService {
   }
 
   Future<bool> verifyPin(String pin) async {
-    final storedPin = await _hiveService.appLockPin;
+    final storedPin = _hiveService.appLockPin;
     return storedPin == pin;
   }
 }

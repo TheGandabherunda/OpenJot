@@ -65,7 +65,7 @@ class _SetPinBottomSheetState extends State<SetPinBottomSheet> {
       Get.back(result: true);
     } else {
       Fluttertoast.showToast(
-        msg: "PINs do not match",
+        msg: AppConstants.pinsDoNotMatch,
         toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.BOTTOM,
         backgroundColor: AppTheme.colorsOf(context).grey7,
@@ -98,7 +98,7 @@ class _SetPinBottomSheetState extends State<SetPinBottomSheet> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            _isConfirming ? 'Confirm PIN' : 'Set a PIN',
+            _isConfirming ? AppConstants.confirmPin : AppConstants.setAPin,
             style: TextStyle(
               fontFamily: AppConstants.font,
               color: appColors.grey10,
@@ -120,7 +120,9 @@ class _SetPinBottomSheetState extends State<SetPinBottomSheet> {
             onPressed: pin.length == 4
                 ? (_isConfirming ? _onSetPin : _onContinue)
                 : null,
-            text: _isConfirming ? 'Set PIN' : 'Continue',
+            text: _isConfirming
+                ? AppConstants.setPin
+                : AppConstants.continueButton,
             color: appColors.primary,
             textColor: appColors.onPrimary,
             textPadding: CustomButton.defaultTextPadding,

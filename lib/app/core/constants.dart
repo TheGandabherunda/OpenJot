@@ -145,11 +145,20 @@ class AppConstants {
   static const String themeLight = "Light";
   static const String themeDark = "Dark";
   static const String themeSystem = "System";
+  static const String changePin = "Change PIN";
+  static const String loading = "Loading...";
+  static const String confirmRestoreTitle = "Confirm Restore";
+  static const String confirmRestoreMessage =
+      "Restoring from a backup will overwrite all current data. This action cannot be undone. Are you sure you want to continue?";
+  static const String restoreButton = "Restore";
 
   // Settings Controller
   static const String notificationScheduled = "Notification scheduled for %s";
   static const String notificationCanceled = "Notification canceled";
   static const String notificationRescheduled = "Notification rescheduled for %s";
+  static const String notificationPermissionRequired =
+      "Notification permission is required to set reminders.";
+  static const String pinChangedSuccess = "PIN changed successfully";
 
   // Write Journal Bottom Sheet
   static const String sharedImage = "Shared Image";
@@ -173,6 +182,56 @@ class AppConstants {
   static const String searchHintText = "Search entries...";
   static const String aboutApp = "About Open Jot";
   static const String font = "OpenRunde";
+
+  // PIN Management
+  static const String incorrectPin = "Incorrect PIN";
+  static const String verifyYourPin = "Verify your PIN";
+  static const String setAPin = "Set a PIN";
+  static const String confirmPin = "Confirm PIN";
+  static const String pinsDoNotMatch = "PINs do not match";
+  static const String setPin = "Set PIN";
+  static const String hello = "Hello!";
+  static const String enterYourPin = "Enter your PIN";
+  static const String useBiometrics = "Use Biometrics";
+
+  // Hive Service
+  static const String settingsBoxName = 'settings';
+  static const String journalsBoxName = 'journals';
+  static const String isFirstLaunchKey = 'isFirstLaunch';
+  static const String themeKey = 'theme';
+  static const String dailyReminderKey = 'dailyReminder';
+  static const String reminderTimeKey = 'reminderTime';
+  static const String appLockEnabledKey = 'appLockEnabled';
+  static const String appLockPinKey = 'appLockPin';
+  static const String storagePermissionsRequired =
+      "Storage and media permissions are required to create a backup.";
+  static const String selectBackupFolder = 'Select a folder to save the backup';
+  static const String backupTempDir = '/backup_temp';
+  static const String mediaDir = '/media';
+  static const String hiveExtension = '.hive';
+  static const String lockExtension = '.lock';
+  static const String cameraPhotosKey = 'cameraPhotos';
+  static const String galleryImagesKey = 'galleryImages';
+  static const String galleryAudiosKey = 'galleryAudios';
+  static const String recordingsKey = 'recordings';
+  static const String idKey = 'id';
+  static const String backupFileNameKey = 'backupFileName';
+  static const String backupFileError = 'Could not back up file %s: %s';
+  static const String mediaManifestFileName = '/media_manifest.json';
+  static const String backupFileNamePrefix = 'OpenJot-Backup-';
+  static const String backupFileExtension = '.zip';
+  static const String backupEncodingFailed = "Failed to encode the backup file.";
+  static const String backupCreatedSuccess = "Backup created successfully!";
+  static const String backupFailed = "Failed to create backup: %s";
+  static const String restorePermissionsRequired =
+      "Storage and media permissions are required to restore data.";
+  static const String restoreTempDir = '/restore_temp';
+  static const String databaseRestoredNoMedia =
+      "Database restored. No media found in backup.";
+  static const String errorRestoringFile = 'Error restoring file %s: %s';
+  static const String restoreSuccessRestartRecommended =
+      "Restore successful. A restart is recommended to apply all changes.";
+  static const String restoreFailed = "Failed to restore data: %s";
 
   // Reflection Prompts
   static const List<String> reflectionPrompts = [

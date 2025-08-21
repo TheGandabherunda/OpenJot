@@ -64,7 +64,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
       Get.offAllNamed(AppPages.HOME);
     } else {
       setState(() {
-        _errorMessage = 'Incorrect PIN';
+        _errorMessage = AppConstants.incorrectPin;
         _enteredPin = '';
       });
     }
@@ -82,7 +82,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
             children: [
               const Spacer(flex: 2),
               Text(
-                'Hello!',
+                AppConstants.hello,
                 style: TextStyle(
                   fontFamily: AppConstants.font,
                   color: appColors.grey10,
@@ -92,7 +92,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
               ),
               SizedBox(height: 12.h),
               Text(
-                'Enter your PIN',
+                AppConstants.enterYourPin,
                 style: TextStyle(
                     fontFamily: AppConstants.font,
                     color: appColors.grey10,
@@ -125,7 +125,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
               TextButton(
                 onPressed: _authenticateWithBiometrics,
                 child: Text(
-                  'Use Biometrics',
+                  AppConstants.useBiometrics,
                   style: TextStyle(
                       fontFamily: AppConstants.font,
                       color: appColors.grey10,

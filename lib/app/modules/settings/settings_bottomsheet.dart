@@ -18,7 +18,7 @@ class SettingsBottomSheet extends StatefulWidget {
 class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
   final SettingsScreenController controller =
   Get.put(SettingsScreenController());
-  String _appVersion = 'Loading...';
+  String _appVersion = AppConstants.loading;
 
   @override
   void initState() {
@@ -252,7 +252,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                           ),
                           if (appLockEnabled)
                             _buildListTile(
-                              title: "Change PIN",
+                              title: AppConstants.changePin,
                               icon: Icons.password,
                               onTap: controller.changePin,
                               showDivider: false,

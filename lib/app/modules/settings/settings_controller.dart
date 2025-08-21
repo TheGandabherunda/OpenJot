@@ -41,7 +41,7 @@ class SettingsScreenController extends GetxController {
     if (value) {
       // Request permission before enabling the reminder
       final bool permissionsGranted =
-          await _notificationService.requestPermissions();
+      await _notificationService.requestPermissions();
 
       if (permissionsGranted) {
         dailyReminder.value = true;
@@ -58,7 +58,7 @@ class SettingsScreenController extends GetxController {
         // If permission is denied, keep the switch off and inform the user
         dailyReminder.value = false;
         Fluttertoast.showToast(
-          msg: "Notification permission is required to set reminders.",
+          msg: AppConstants.notificationPermissionRequired,
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: appColors.grey1,
@@ -166,7 +166,7 @@ class SettingsScreenController extends GetxController {
       );
       if (result == true) {
         Fluttertoast.showToast(
-            msg: "PIN changed successfully",
+            msg: AppConstants.pinChangedSuccess,
             toastLength: Toast.LENGTH_SHORT,
             gravity: ToastGravity.BOTTOM,
             backgroundColor: appColors.grey7,
@@ -184,11 +184,10 @@ class SettingsScreenController extends GetxController {
   Future<void> restore() async {
     // A confirmation dialog before starting the restore process.
     await Get.defaultDialog(
-      title: "Confirm Restore",
-      middleText:
-          "Restoring from a backup will overwrite all current data. This action cannot be undone. Are you sure you want to continue?",
-      textConfirm: "Restore",
-      textCancel: "Cancel",
+      title: AppConstants.confirmRestoreTitle,
+      middleText: AppConstants.confirmRestoreMessage,
+      textConfirm: AppConstants.restoreButton,
+      textCancel: AppConstants.cancel,
       onConfirm: () async {
         Get.back(); // Close the dialog before starting the restore.
         final bool success = await _hiveService.restoreData();
