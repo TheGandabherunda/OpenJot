@@ -1,14 +1,13 @@
 import 'package:get/get.dart';
+import 'package:open_jot/app/core/services/hive_service.dart';
 
 import '../../core/models/journal_entry.dart';
 
 class HomeController extends GetxController {
+  final _hiveService = Get.find<HiveService>();
   final journalEntries = <JournalEntry>[].obs;
 
-  // 1. Add an observable for the current sort type.
   final currentSortType = 'time'.obs;
-
-  // 2. Add a map for user-friendly sort type names.
   final Map<String, String> _sortTypeDisplayNames = {
     'time': 'Entry time',
     'bookmark': 'Bookmark first',
@@ -19,61 +18,82 @@ class HomeController extends GetxController {
     'mood': 'With mood first',
   };
 
-  // 3. Add a getter for the current sort type's display name.
   String get currentSortTypeDisplayName =>
       _sortTypeDisplayNames[currentSortType.value] ?? 'Entry time';
 
+  @override
+  void onInit() {
+    super.onInit();
+    // Listen to the journal entries box for real-time updates
+    _hiveService.getJournalEntriesNotifier().addListener(_loadJournalEntries);
+    // Initial load of entries
+    _loadJournalEntries();
+  }
+
+  @override
+  void onClose() {
+    // Remove the listener when the controller is disposed
+    _hiveService.getJournalEntriesNotifier().removeListener(_loadJournalEntries);
+    super.onClose();
+  }
+
+  /// Loads and sorts journal entries from the Hive box.
+  Future<void> _loadJournalEntries() async {
+    final entriesFromDb = _hiveService.getAllJournalEntries();
+    // Asynchronously load asset entities (for images/videos from gallery)
+    final loadedEntries = await _hiveService.loadAssetEntities(entriesFromDb);
+    journalEntries.assignAll(loadedEntries);
+    sortEntries(currentSortType.value);
+  }
+
+  /// Adds a new journal entry and saves it to Hive.
   void addJournalEntry(JournalEntry entry) {
-    journalEntries.insert(0, entry); // Add to the top of the list
-    sortEntries(currentSortType.value); // Re-sort after adding
+    _hiveService.addJournalEntry(entry);
+    // The listener will automatically update the UI, but we can sort immediately
+    // for a more responsive feel.
+    journalEntries.insert(0, entry);
+    sortEntries(currentSortType.value);
   }
 
+  /// Updates an existing journal entry in Hive.
   void updateJournalEntry(JournalEntry updatedEntry) {
-    final index = journalEntries.indexWhere((e) => e.id == updatedEntry.id);
-    if (index != -1) {
-      journalEntries[index] = updatedEntry;
-      sortEntries(currentSortType.value); // Re-sort after updating
-    }
+    _hiveService.updateJournalEntry(updatedEntry);
   }
 
+  /// Deletes a journal entry from Hive.
   void deleteJournalEntry(String entryId) {
-    journalEntries.removeWhere((entry) => entry.id == entryId);
+    _hiveService.deleteJournalEntry(entryId);
   }
 
-  /// Toggles the bookmark status of a journal entry.
+  /// Toggles the bookmark status of a journal entry in Hive.
   void toggleBookmarkStatus(String entryId) {
     final index = journalEntries.indexWhere((e) => e.id == entryId);
     if (index != -1) {
       final entry = journalEntries[index];
-      // Create an updated entry with the new bookmark status.
-      final updatedEntry = entry.copyWith(isBookmarked: !entry.isBookmarked);
-      // Replace the old entry with the updated one.
-      journalEntries[index] = updatedEntry;
+      entry.isBookmarked = !entry.isBookmarked;
+      _hiveService.updateJournalEntry(entry); // Save the change to Hive
       if (currentSortType.value == 'bookmark') {
         sortEntries('bookmark');
       }
+      journalEntries.refresh();
     }
   }
 
   /// Sorts the journal entries based on the provided sort type.
   void sortEntries(String sortType) {
-    // 4. Update the current sort type when sorting.
     currentSortType.value = sortType;
     switch (sortType) {
       case 'time':
-      // Sorts by creation date, newest first.
         journalEntries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
         break;
       case 'bookmark':
-      // Sorts bookmarked entries to the top, then by creation date.
         journalEntries.sort((a, b) {
           if (a.isBookmarked && !b.isBookmarked) return -1;
           if (!a.isBookmarked && b.isBookmarked) return 1;
-          return b.createdAt.compareTo(a.createdAt); // Secondary sort
+          return b.createdAt.compareTo(a.createdAt);
         });
         break;
       case 'reflection':
-      // Sorts reflection entries to the top, then by creation date.
         journalEntries.sort((a, b) {
           if (a.isReflection && !b.isReflection) return -1;
           if (!a.isReflection && b.isReflection) return 1;
@@ -81,7 +101,6 @@ class HomeController extends GetxController {
         });
         break;
       case 'media':
-      // Sorts entries with media to the top, then by creation date.
         journalEntries.sort((a, b) {
           final aHasMedia =
               a.galleryImages.isNotEmpty || a.cameraPhotos.isNotEmpty;
@@ -93,7 +112,6 @@ class HomeController extends GetxController {
         });
         break;
       case 'text':
-      // Sorts text-only entries to the top, then by creation date.
         journalEntries.sort((a, b) {
           final aIsTextOnly =
               a.galleryImages.isEmpty && a.cameraPhotos.isEmpty;
@@ -105,7 +123,6 @@ class HomeController extends GetxController {
         });
         break;
       case 'location':
-      // Sorts entries with a location to the top, then by creation date.
         journalEntries.sort((a, b) {
           final aHasLocation = a.location != null;
           final bHasLocation = b.location != null;
@@ -115,7 +132,6 @@ class HomeController extends GetxController {
         });
         break;
       case 'mood':
-      // Sorts entries with a mood to the top, then by creation date.
         journalEntries.sort((a, b) {
           final aHasMood = a.moodIndex != null;
           final bHasMood = b.moodIndex != null;
@@ -125,28 +141,19 @@ class HomeController extends GetxController {
         });
         break;
     }
-    // Notify listeners that the list has been changed.
     journalEntries.refresh();
   }
 
   Map<int, int> getMonthlyEntriesForYear(int year) {
-    // Initialize a map with all months having 0 entries.
     final monthlyCounts = { for (var i = 1; i <= 12; i++) i : 0 };
-
-    // Filter entries for the specified year.
     final yearlyEntries = journalEntries.where((entry) => entry.createdAt.year == year);
-
-    // Count entries for each month.
     for (final entry in yearlyEntries) {
       final month = entry.createdAt.month;
       monthlyCounts[month] = (monthlyCounts[month] ?? 0) + 1;
     }
-
     return monthlyCounts;
   }
 
-
-  // Computed property for total entries this year
   int get totalEntriesThisYear {
     final currentYear = DateTime.now().year;
     return journalEntries
@@ -154,29 +161,23 @@ class HomeController extends GetxController {
         .length;
   }
 
-  // Computed property for total words written
   int get totalWordsWritten {
     return journalEntries.fold<int>(0, (sum, entry) {
       final text = entry.content.toPlainText().trim();
       if (text.isEmpty) return sum;
-      // Simple word count by splitting on whitespace
       return sum + text.split(RegExp(r'\s+')).length;
     });
   }
 
-  // Computed property for unique days journaled
   int get daysJournaled {
     if (journalEntries.isEmpty) return 0;
     return journaledDates.length;
   }
 
-  /// A set of unique dates that have at least one journal entry.
-  /// The time component is stripped to allow for date-only comparison.
   Set<DateTime> get journaledDates {
     if (journalEntries.isEmpty) return {};
     return journalEntries.map((entry) {
       final date = entry.createdAt;
-      // Normalize to the start of the day to count unique days
       return DateTime(date.year, date.month, date.day);
     }).toSet();
   }

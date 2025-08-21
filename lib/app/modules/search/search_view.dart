@@ -105,147 +105,150 @@ class _SearchViewState extends State<SearchView> {
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
 
-    // Set status bar style
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-      statusBarColor: appThemeColors.grey7, // Match your background color
-      statusBarIconBrightness: Brightness.light,
-      statusBarBrightness: Brightness.dark,
-    ));
+    // Determine icon brightness based on the overall theme brightness.
+    final Brightness platformBrightness = Theme.of(context).brightness;
+    final Brightness iconBrightness = platformBrightness == Brightness.dark ? Brightness.light : Brightness.dark;
 
-    return SafeArea(
-        top: true, // This ensures status bar space is preserved
-        child: Scaffold(
-          backgroundColor: appThemeColors.grey7,
-          appBar: AppBar(
-            backgroundColor: appThemeColors.grey7,
-            elevation: 0,
-            surfaceTintColor: Colors.transparent,
-            iconTheme: IconThemeData(color: appThemeColors.grey1),
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(kToolbarHeight),
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.w),
-                child: TextField(
-                  controller: _searchController,
-                  autofocus: true,
-                  style: TextStyle(color: appThemeColors.grey10),
-                  decoration: InputDecoration(
-                    hintText: AppConstants.searchJournalsHint,
-                    hintStyle: TextStyle(color: appThemeColors.grey3),
-                    filled: true,
-                    fillColor: appThemeColors.grey6,
-                    // Explicitly define the border for the enabled and focused states
-                    // to ensure no border or underline appears.
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30.r),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30.r),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding:
-                    EdgeInsets.symmetric(horizontal: 20.w, vertical: 0),
-                    suffixIcon: Icon(
-                      Icons.search,
-                      color: appThemeColors.grey3,
-                    ),
-                  ),
+    return Scaffold(
+      backgroundColor: appThemeColors.grey7,
+      appBar: AppBar(
+        // This is the most reliable way to set the status bar style for a specific screen.
+        // It overrides any global styles and avoids conflicts with other widgets.
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: iconBrightness,
+          systemNavigationBarColor: appThemeColors.grey7,
+          systemNavigationBarIconBrightness: iconBrightness,
+        ),
+        backgroundColor: appThemeColors.grey7,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        iconTheme: IconThemeData(color: appThemeColors.grey1),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(kToolbarHeight),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            child: TextField(
+              controller: _searchController,
+              autofocus: true,
+              style: TextStyle(color: appThemeColors.grey10),
+              decoration: InputDecoration(
+                hintText: AppConstants.searchJournalsHint,
+                hintStyle: TextStyle(color: appThemeColors.grey3),
+                filled: true,
+                fillColor: appThemeColors.grey6,
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30.r),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30.r),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding:
+                EdgeInsets.symmetric(horizontal: 20.w, vertical: 0),
+                suffixIcon: Icon(
+                  Icons.search,
+                  color: appThemeColors.grey3,
                 ),
               ),
             ),
           ),
-          body: Column(
-            children: [
-              Padding(
-                padding: EdgeInsets.symmetric(vertical: 8.h),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.symmetric(horizontal: 16.w),
-                  child: Wrap(
-                    spacing: 8.w,
-                    children: [
-                      _buildFilterChip(AppConstants.bookmark, _isBookmarked, (selected) {
+        ),
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.h),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.symmetric(horizontal: 16.w),
+              child: Wrap(
+                spacing: 8.w,
+                children: [
+                  _buildFilterChip(AppConstants.bookmark, _isBookmarked,
+                          (selected) {
                         setState(() {
                           _isBookmarked = selected;
                           _applyFilters();
                         });
                       }),
-                      _buildFilterChip(AppConstants.reflection, _isReflection, (selected) {
+                  _buildFilterChip(AppConstants.reflection, _isReflection,
+                          (selected) {
                         setState(() {
                           _isReflection = selected;
                           _applyFilters();
                         });
                       }),
-                      _buildFilterChip(AppConstants.textOnly, _isTextOnly, (selected) {
+                  _buildFilterChip(AppConstants.textOnly, _isTextOnly,
+                          (selected) {
                         setState(() {
                           _isTextOnly = selected;
                           _applyFilters();
                         });
                       }),
-                      _buildFilterChip(AppConstants.withMedia, _isMediaOnly, (selected) {
+                  _buildFilterChip(AppConstants.withMedia, _isMediaOnly,
+                          (selected) {
                         setState(() {
                           _isMediaOnly = selected;
                           _applyFilters();
                         });
                       }),
-                      _buildFilterChip(AppConstants.withMood, _withMood, (selected) {
+                  _buildFilterChip(AppConstants.withMood, _withMood,
+                          (selected) {
                         setState(() {
                           _withMood = selected;
                           _applyFilters();
                         });
                       }),
-                      _buildFilterChip(AppConstants.withLocation, _withLocation,
-                              (selected) {
-                            setState(() {
-                              _withLocation = selected;
-                              _applyFilters();
-                            });
-                          }),
-                    ],
-                  ),
+                  _buildFilterChip(AppConstants.withLocation, _withLocation,
+                          (selected) {
+                        setState(() {
+                          _withLocation = selected;
+                          _applyFilters();
+                        });
+                      }),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: _filteredEntries.isEmpty
+                ? Center(
+              child: Text(
+                AppConstants.noResultsFound,
+                style: TextStyle(
+                  color: appThemeColors.grey3,
+                  fontSize: 16.sp,
                 ),
               ),
-              Expanded(
-                child: _filteredEntries.isEmpty
-                    ? Center(
-                  child: Text(
-                    AppConstants.noResultsFound,
-                    style: TextStyle(
-                      color: appThemeColors.grey3,
-                      fontSize: 16.sp,
-                    ),
-                  ),
-                )
-                    : ListView.separated(
-                  padding: EdgeInsets.symmetric(
-                      horizontal: 16.w, vertical: 16.h),
-                  itemCount: _filteredEntries.length,
-                  separatorBuilder: (context, index) =>
-                      SizedBox(height: 16.h),
-                  itemBuilder: (context, index) {
-                    final entry = _filteredEntries[index];
-                    return JournalTile(
-                      entry: entry,
-                      onTap: () {
-                        showCupertinoModalBottomSheet(
-                          context: context,
-                          expand: true,
-                          backgroundColor: Colors.transparent,
-                          builder: (modalContext) {
-                            return SafeArea(
-                              child:
-                              ReadJournalBottomSheet(entry: entry),
-                            );
-                          },
-                        );
+            )
+                : ListView.separated(
+              padding: EdgeInsets.symmetric(
+                  horizontal: 16.w, vertical: 16.h),
+              itemCount: _filteredEntries.length,
+              separatorBuilder: (context, index) =>
+                  SizedBox(height: 16.h),
+              itemBuilder: (context, index) {
+                final entry = _filteredEntries[index];
+                return JournalTile(
+                  entry: entry,
+                  onTap: () {
+                    showCupertinoModalBottomSheet(
+                      context: context,
+                      expand: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (modalContext) {
+                        return ReadJournalBottomSheet(entry: entry);
                       },
                     );
                   },
-                ),
-              ),
-            ],
+                );
+              },
+            ),
           ),
-        ));
+        ],
+      ),
+    );
   }
 }

@@ -16,7 +16,7 @@ plugins {
 
 android {
     namespace = "com.example.open_jot"
-    compileSdk = 35 // Keep this at 35 as required by dependencies
+    compileSdk = 36
 
     // START: MODIFIED FOR JVM COMPATIBILITY
     compileOptions {

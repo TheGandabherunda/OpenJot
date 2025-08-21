@@ -9,7 +9,6 @@ import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/read_journal/read_journal_bottom_sheet.dart';
 
-import '../../core/models/journal_entry.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/journal_tile.dart';
 

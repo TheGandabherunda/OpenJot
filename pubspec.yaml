@@ -47,13 +47,18 @@ dependencies:
   video_thumbnail: ^0.5.6
   flutter_local_notifications: ^19.4.0
   timezone: ^0.10.1
+  flutter_timezone: ^4.1.1
+  file_picker: ^10.3.1
+  archive: ^4.0.7
+  package_info_plus: ^8.3.1
+  fluttertoast: ^8.2.12
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
-  hive_generator: ^2.0.1 # Required for generating Hive adapters
-  build_runner: ^2.4.11 # Required for running code generators like hive_generator
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.11
 
 flutter:
   uses-material-design: true

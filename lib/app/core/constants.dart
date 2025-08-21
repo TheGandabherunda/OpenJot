@@ -19,7 +19,7 @@ class AppConstants {
   static const String titleHintText = "Title (e.g., 'My Day', 'Thoughts on...')";
   static const String contentHintText = "Write your thoughts here...";
   static const String saveButton = "Save Entry";
-  static const String updateButton = "Update Entry";
+  static const String updateButton = "Update";
   static const String deleteButton = "Delete Entry";
   static const String requiredFieldMessage = "This field cannot be empty.";
 

@@ -11,6 +11,7 @@ import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_quill/quill_delta.dart' as quill;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
@@ -209,22 +210,13 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   }
 
   void _onDonePressed() {
-    final isTextEmpty = _quillController.document.toPlainText().trim().isEmpty;
-    final isMediaEmpty = _previewImages.isEmpty &&
-        _previewPhotos.isEmpty &&
-        _previewAudios.isEmpty &&
-        _previewRecordings.isEmpty;
-
-    if (isTextEmpty && isMediaEmpty) {
-      Navigator.of(context).pop();
-      return;
-    }
-
     final homeController = Get.find<HomeController>();
     final documentJson = _quillController.document.toDelta().toJson();
     final cleanDocument = quill.Document.fromJson(documentJson);
 
     if (widget.entry != null) {
+      // This is an update to an existing entry.
+      // The HiveService will handle deleting it if it's empty.
       final updatedEntry = widget.entry!.copyWith(
         content: cleanDocument,
         createdAt: _selectedDate,
@@ -237,23 +229,43 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
         recordings: _previewRecordings,
       );
       homeController.updateJournalEntry(updatedEntry);
+
+      final isTextEmpty = _quillController.document.toPlainText().trim().isEmpty;
+      final isMediaEmpty = _previewImages.isEmpty &&
+          _previewPhotos.isEmpty &&
+          _previewAudios.isEmpty &&
+          _previewRecordings.isEmpty;
+
+      // Pop with true if the entry is now empty, signaling deletion.
+      Navigator.of(context).pop(isTextEmpty && isMediaEmpty);
     } else {
-      final newEntry = JournalEntry(
-        id: const Uuid().v4(),
-        content: cleanDocument,
-        createdAt: _selectedDate,
-        isBookmarked: _isBookmarked,
-        isReflection: widget.initialText != null,
-        moodIndex: _selectedMoodIndex,
-        location: _selectedLocation,
-        galleryImages: _previewImages,
-        cameraPhotos: _previewPhotos,
-        galleryAudios: _previewAudios,
-        recordings: _previewRecordings,
-      );
-      homeController.addJournalEntry(newEntry);
+      // This is a new entry.
+      // Only add it if it's not empty.
+      final isTextEmpty = _quillController.document.toPlainText().trim().isEmpty;
+      final isMediaEmpty = _previewImages.isEmpty &&
+          _previewPhotos.isEmpty &&
+          _previewAudios.isEmpty &&
+          _previewRecordings.isEmpty;
+
+      if (!isTextEmpty || !isMediaEmpty) {
+        final newEntry = JournalEntry(
+          id: const Uuid().v4(),
+          content: cleanDocument,
+          createdAt: _selectedDate,
+          isBookmarked: _isBookmarked,
+          isReflection: widget.initialText != null,
+          moodIndex: _selectedMoodIndex,
+          location: _selectedLocation,
+          galleryImages: _previewImages,
+          cameraPhotos: _previewPhotos,
+          galleryAudios: _previewAudios,
+          recordings: _previewRecordings,
+        );
+        homeController.addJournalEntry(newEntry);
+      }
+      // Pop the screen in either case.
+      Navigator.of(context).pop();
     }
-    Navigator.of(context).pop();
   }
 
   void _handleTextChange(quill.DocChange docChange) {
@@ -524,8 +536,13 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppConstants.couldNotOpenMap)),
+        Fluttertoast.showToast(
+          msg: AppConstants.couldNotOpenMap,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.black87,
+          textColor: Colors.white,
+          fontSize: 16.0,
         );
       }
     }

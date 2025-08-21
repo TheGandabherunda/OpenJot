@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:audioplayers/audioplayers.dart';
@@ -9,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
@@ -16,7 +15,6 @@ import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../../core/constants.dart';
 import '../../core/models/journal_entry.dart';
@@ -38,8 +36,10 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
   late JournalEntry _currentEntry;
   late quill.QuillController _quillController;
   final AudioPlayer _audioPlayer = AudioPlayer();
+
   // --- CHANGE START: Renamed to track by ID for both recordings and gallery audio ---
   String? _currentlyPlayingId;
+
   // --- CHANGE END ---
   PlayerState? _playerState;
   StreamSubscription? _playerStateSubscription;
@@ -91,11 +91,12 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
 
   void _onEditPressed() async {
     final homeController = Get.find<HomeController>();
+    // Find the entry to edit, ensuring we have the most current version.
     final entryToEdit = homeController.journalEntries.firstWhere(
             (e) => e.id == _currentEntry.id,
         orElse: () => _currentEntry);
 
-    await showCupertinoModalBottomSheet(
+    final wasDeleted = await showCupertinoModalBottomSheet<bool>(
       context: context,
       expand: true,
       backgroundColor: Colors.transparent,
@@ -104,16 +105,33 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
       ),
     );
 
+    // If the sheet returns true, it means the entry was cleared and should be considered deleted.
+    if (wasDeleted == true && mounted) {
+      Navigator.of(context).pop();
+      return;
+    }
+
+    // If the sheet was closed without saving, or was updated, we refresh the data.
     if (mounted) {
-      final latestEntry = homeController.journalEntries.firstWhere(
-            (e) => e.id == widget.entry.id,
-        orElse: () => _currentEntry,
-      );
-      setState(() {
-        _currentEntry = latestEntry;
-        _quillController.dispose();
-        _initializeController();
-      });
+      try {
+        // Find the latest version of the entry.
+        final latestEntry = homeController.journalEntries.firstWhere(
+              (e) => e.id == widget.entry.id,
+        );
+        // If found, update the state.
+        setState(() {
+          _currentEntry = latestEntry;
+          _quillController.dispose();
+          _initializeController();
+        });
+      } catch (e) {
+        // If firstWhere throws, the entry no longer exists in the list.
+        // This can happen if the update logic resulted in a deletion.
+        // So, we close the read sheet.
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+      }
     }
   }
 
@@ -124,8 +142,13 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
         await launchUrl(uri);
       } else {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppConstants.couldNotOpenMap)),
+        Fluttertoast.showToast(
+          msg: AppConstants.couldNotOpenMap,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.black87,
+          textColor: Colors.white,
+          fontSize: 16.0,
         );
       }
     }
@@ -141,18 +164,22 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
   }
 
   void _openMediaPreview(List<dynamic> allMedia, int initialIndex) {
-    final mediaItems = allMedia.map((m) {
+    final mediaItems = allMedia
+        .map((m) {
       if (m is AssetEntity) {
         return MediaItem(asset: m, type: m.type, id: m.id);
       } else if (m is CapturedPhoto) {
         return MediaItem(
             asset: m,
-            type:
-            _isVideoFile(m.file.path) ? AssetType.video : AssetType.image,
+            type: _isVideoFile(m.file.path)
+                ? AssetType.video
+                : AssetType.image,
             id: m.file.path);
       }
       return null;
-    }).whereType<MediaItem>().toList();
+    })
+        .whereType<MediaItem>()
+        .toList();
 
     if (mediaItems.isEmpty) return;
 
@@ -169,10 +196,10 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
 
   // --- CHANGE START: Added function to handle gallery audio playback ---
   void _toggleGalleryAudio(AssetEntity audio) async {
-    final isPlaying = _currentlyPlayingId == audio.id &&
-        _playerState == PlayerState.playing;
-    final isPaused = _currentlyPlayingId == audio.id &&
-        _playerState == PlayerState.paused;
+    final isPlaying =
+        _currentlyPlayingId == audio.id && _playerState == PlayerState.playing;
+    final isPaused =
+        _currentlyPlayingId == audio.id && _playerState == PlayerState.paused;
 
     if (isPlaying) {
       await _audioPlayer.pause();
@@ -190,6 +217,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
       }
     }
   }
+
   // --- CHANGE END ---
 
   @override
@@ -282,8 +310,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
     final double spacing = 2.w;
     final appThemeColors = AppTheme.colorsOf(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final overlayColor =
-    (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
+    final overlayColor = (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
         .withOpacity(0.6);
     final onOverlayColor =
     isDark ? appThemeColors.grey10 : appThemeColors.grey7;
@@ -426,7 +453,8 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
         return Padding(
           padding: EdgeInsets.only(bottom: 4.h),
           child: Container(
-            height: 50.h, // Matched height with recordings preview
+            height: 50.h,
+            // Matched height with recordings preview
             width: double.infinity,
             padding: EdgeInsets.symmetric(horizontal: 12.w),
             decoration: BoxDecoration(
@@ -467,8 +495,8 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
       }).toList(),
     );
   }
-  // --- CHANGE END ---
 
+  // --- CHANGE END ---
 
   String _formatPreviewDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');

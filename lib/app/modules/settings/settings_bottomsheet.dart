@@ -1,9 +1,9 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:open_jot/app/core/constants.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/theme.dart';
 import 'settings_controller.dart';
@@ -17,60 +17,35 @@ class SettingsBottomSheet extends StatefulWidget {
 
 class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
   final SettingsScreenController controller =
-  Get.put(SettingsScreenController());
+      Get.put(SettingsScreenController());
   bool _appLock = false;
+  String _appVersion = 'Loading...';
 
-  // Function to show the Cupertino time picker
-  void _showTimePicker() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent, // For rounded corners
-      builder: (BuildContext builder) {
-        final appThemeColors = AppTheme.colorsOf(context);
-        return Container(
-          height: MediaQuery.of(context).size.height / 2.5,
-          decoration: BoxDecoration(
-            color: appThemeColors.grey5,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(16.0),
-              topRight: Radius.circular(16.0),
-            ),
-          ),
-          child: Column(
-            children: [
-              Padding(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [SizedBox(height: 16.h)],
-                ),
-              ),
-              Divider(color: appThemeColors.grey3, height: 1),
-              Expanded(
-                child: CupertinoDatePicker(
-                  mode: CupertinoDatePickerMode.time,
-                  initialDateTime: DateTime(
-                    DateTime.now().year,
-                    DateTime.now().month,
-                    DateTime.now().day,
-                    controller.reminderTime.value?.hour ?? 20,
-                    controller.reminderTime.value?.minute ?? 0,
-                  ),
-                  onDateTimeChanged: (DateTime newDateTime) {
-                    controller
-                        .setReminderTime(TimeOfDay.fromDateTime(newDateTime));
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  @override
+  void initState() {
+    super.initState();
+    _getAppVersion();
   }
 
-  // Function to show the theme selection bottom sheet
+  /// Fetches and sets the application version.
+  Future<void> _getAppVersion() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    setState(() {
+      _appVersion = packageInfo.version;
+    });
+  }
+
+  void _showTimePicker() async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime:
+          controller.reminderTime.value ?? const TimeOfDay(hour: 20, minute: 0),
+    );
+    if (picked != null && picked != controller.reminderTime.value) {
+      controller.setReminderTime(picked);
+    }
+  }
+
   void _showThemeSelectionBottomSheet() {
     final appThemeColors = AppTheme.colorsOf(context);
     Get.bottomSheet(
@@ -93,9 +68,10 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 controller.changeTheme(AppConstants.themeLight);
                 Get.back();
               },
-              trailing: Obx(() => controller.theme.value == AppConstants.themeLight
-                  ? Icon(Icons.check, color: appThemeColors.primary)
-                  : const SizedBox.shrink()),
+              trailing: Obx(() =>
+                  controller.theme.value == AppConstants.themeLight
+                      ? Icon(Icons.check, color: appThemeColors.primary)
+                      : const SizedBox.shrink()),
             ),
             Divider(color: appThemeColors.grey4, height: 1),
             ListTile(
@@ -105,9 +81,10 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 controller.changeTheme(AppConstants.themeDark);
                 Get.back();
               },
-              trailing: Obx(() => controller.theme.value == AppConstants.themeDark
-                  ? Icon(Icons.check, color: appThemeColors.primary)
-                  : const SizedBox.shrink()),
+              trailing: Obx(() =>
+                  controller.theme.value == AppConstants.themeDark
+                      ? Icon(Icons.check, color: appThemeColors.primary)
+                      : const SizedBox.shrink()),
             ),
             Divider(color: appThemeColors.grey4, height: 1),
             ListTile(
@@ -117,9 +94,10 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 controller.changeTheme(AppConstants.themeSystem);
                 Get.back();
               },
-              trailing: Obx(() => controller.theme.value == AppConstants.themeSystem
-                  ? Icon(Icons.check, color: appThemeColors.primary)
-                  : const SizedBox.shrink()),
+              trailing: Obx(() =>
+                  controller.theme.value == AppConstants.themeSystem
+                      ? Icon(Icons.check, color: appThemeColors.primary)
+                      : const SizedBox.shrink()),
             ),
           ],
         ),
@@ -133,7 +111,6 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     final tileBackgroundColor = appThemeColors.grey5;
     final textColor = appThemeColors.grey10;
 
-    // Helper function to create a list tile
     Widget _buildListTile({
       required String title,
       required IconData icon,
@@ -189,21 +166,18 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 16.0, vertical: 20.0),
                 children: [
-                  // Section for Notifications and Security
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12.0),
                     child: Obx(() {
                       final reminderEnabled = controller.dailyReminder.value;
                       final selectedTime = controller.reminderTime.value;
 
-                      // Format the time to be displayed
                       String formattedTime = '';
                       if (selectedTime != null) {
                         final now = DateTime.now();
                         final dt = DateTime(now.year, now.month, now.day,
                             selectedTime.hour, selectedTime.minute);
-                        formattedTime =
-                            DateFormat.jm().format(dt); // e.g., 8:00 PM
+                        formattedTime = DateFormat.jm().format(dt);
                       }
 
                       return Column(
@@ -244,26 +218,22 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                     }),
                   ),
                   const SizedBox(height: 20),
-
-                  // Section for Appearance
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12.0),
                     child: Column(
                       children: [
                         Obx(() => _buildListTile(
-                          title: AppConstants.theme,
-                          subtitle: controller.theme.value,
-                          icon: Icons.style_rounded,
-                          trailing:
-                          const Icon(Icons.arrow_forward_ios, size: 18),
-                          onTap: _showThemeSelectionBottomSheet,
-                        )),
+                              title: AppConstants.theme,
+                              subtitle: controller.theme.value,
+                              icon: Icons.style_rounded,
+                              trailing:
+                                  const Icon(Icons.arrow_forward_ios, size: 18),
+                              onTap: _showThemeSelectionBottomSheet,
+                            )),
                       ],
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  // Section for Data Management
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12.0),
                     child: Column(
@@ -272,22 +242,20 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                           title: AppConstants.backup,
                           icon: Icons.cloud_upload,
                           trailing:
-                          const Icon(Icons.arrow_forward_ios, size: 18),
-                          onTap: () {},
+                              const Icon(Icons.arrow_forward_ios, size: 18),
+                          onTap: () => controller.backup(),
                         ),
                         _buildListTile(
                           title: AppConstants.restore,
                           icon: Icons.cloud_download,
                           trailing:
-                          const Icon(Icons.arrow_forward_ios, size: 18),
-                          onTap: () {},
+                              const Icon(Icons.arrow_forward_ios, size: 18),
+                          onTap: () => controller.restore(),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  // Section for App Info
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12.0),
                     child: Column(
@@ -296,14 +264,14 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                           title: AppConstants.privacyPolicy,
                           icon: Icons.privacy_tip,
                           trailing:
-                          const Icon(Icons.arrow_forward_ios, size: 18),
+                              const Icon(Icons.arrow_forward_ios, size: 18),
                           onTap: () {},
                         ),
                         _buildListTile(
                           title: AppConstants.about,
                           icon: Icons.info,
                           trailing:
-                          const Icon(Icons.arrow_forward_ios, size: 18),
+                              const Icon(Icons.arrow_forward_ios, size: 18),
                           onTap: () {},
                         ),
                       ],
@@ -312,11 +280,10 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 ],
               ),
             ),
-            // App Version at the bottom
             Padding(
               padding: const EdgeInsets.only(bottom: 30.0),
               child: Text(
-                AppConstants.version,
+                'v $_appVersion',
                 style: TextStyle(
                   color: appThemeColors.grey3,
                   fontSize: 16,
