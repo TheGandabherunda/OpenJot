@@ -102,10 +102,15 @@ class HomeController extends GetxController {
         break;
       case 'media':
         journalEntries.sort((a, b) {
-          final aHasMedia =
-              a.galleryImages.isNotEmpty || a.cameraPhotos.isNotEmpty;
-          final bHasMedia =
-              b.galleryImages.isNotEmpty || b.cameraPhotos.isNotEmpty;
+          // FIX: Included audio in the definition of "media"
+          final aHasMedia = a.galleryImages.isNotEmpty ||
+              a.cameraPhotos.isNotEmpty ||
+              a.galleryAudios.isNotEmpty ||
+              a.recordings.isNotEmpty;
+          final bHasMedia = b.galleryImages.isNotEmpty ||
+              b.cameraPhotos.isNotEmpty ||
+              b.galleryAudios.isNotEmpty ||
+              b.recordings.isNotEmpty;
           if (aHasMedia && !bHasMedia) return -1;
           if (!aHasMedia && bHasMedia) return 1;
           return b.createdAt.compareTo(a.createdAt);
@@ -113,10 +118,15 @@ class HomeController extends GetxController {
         break;
       case 'text':
         journalEntries.sort((a, b) {
-          final aIsTextOnly =
-              a.galleryImages.isEmpty && a.cameraPhotos.isEmpty;
-          final bIsTextOnly =
-              b.galleryImages.isEmpty && b.cameraPhotos.isEmpty;
+          // FIX: Included audio when checking for "text only"
+          final aIsTextOnly = a.galleryImages.isEmpty &&
+              a.cameraPhotos.isEmpty &&
+              a.galleryAudios.isEmpty &&
+              a.recordings.isEmpty;
+          final bIsTextOnly = b.galleryImages.isEmpty &&
+              b.cameraPhotos.isEmpty &&
+              b.galleryAudios.isEmpty &&
+              b.recordings.isEmpty;
           if (aIsTextOnly && !bIsTextOnly) return -1;
           if (!aIsTextOnly && bIsTextOnly) return 1;
           return b.createdAt.compareTo(a.createdAt);

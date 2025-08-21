@@ -48,6 +48,9 @@ class HiveService extends GetxService {
     Hive.registerAdapter(XFileAdapter());
     Hive.registerAdapter(DocumentAdapter());
     Hive.registerAdapter(AssetEntityAdapter());
+
+    // FIX: Register the new DurationAdapter
+    Hive.registerAdapter(DurationAdapter());
   }
 
   // --- Settings Box Methods ---
@@ -153,12 +156,12 @@ class HiveService extends GetxService {
       }
     }
     Fluttertoast.showToast(
-        msg: "Storage permission is required to create a backup.",
-        toastLength: Toast.LENGTH_LONG,
-        gravity: ToastGravity.BOTTOM,
-        backgroundColor: Colors.black87,
-        textColor: Colors.white,
-        fontSize: 16.0,
+      msg: "Storage permission is required to create a backup.",
+      toastLength: Toast.LENGTH_LONG,
+      gravity: ToastGravity.BOTTOM,
+      backgroundColor: Colors.black87,
+      textColor: Colors.white,
+      fontSize: 16.0,
     );
     return false;
   }
@@ -207,12 +210,12 @@ class HiveService extends GetxService {
       }
     }
     Fluttertoast.showToast(
-        msg: "Storage permission is required to restore data.",
-        toastLength: Toast.LENGTH_LONG,
-        gravity: ToastGravity.BOTTOM,
-        backgroundColor: Colors.black87,
-        textColor: Colors.white,
-        fontSize: 16.0,
+      msg: "Storage permission is required to restore data.",
+      toastLength: Toast.LENGTH_LONG,
+      gravity: ToastGravity.BOTTOM,
+      backgroundColor: Colors.black87,
+      textColor: Colors.white,
+      fontSize: 16.0,
     );
     return false;
   }
@@ -227,6 +230,15 @@ class HiveService extends GetxService {
       updatedEntries.add(entry.copyWith(
         galleryImages: loadedGalleryImages,
         galleryAudios: loadedGalleryAudios,
+        id: entry.id,
+        content: entry.content,
+        createdAt: entry.createdAt,
+        isBookmarked: entry.isBookmarked,
+        isReflection: entry.isReflection,
+        moodIndex: entry.moodIndex,
+        location: entry.location,
+        cameraPhotos: entry.cameraPhotos,
+        recordings: entry.recordings,
       ));
     }
     return updatedEntries;

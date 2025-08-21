@@ -17,7 +17,7 @@ class SettingsBottomSheet extends StatefulWidget {
 
 class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
   final SettingsScreenController controller =
-      Get.put(SettingsScreenController());
+  Get.put(SettingsScreenController());
   bool _appLock = false;
   String _appVersion = 'Loading...';
 
@@ -36,10 +36,46 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
   }
 
   void _showTimePicker() async {
+    final appThemeColors = AppTheme.colorsOf(context);
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime:
-          controller.reminderTime.value ?? const TimeOfDay(hour: 20, minute: 0),
+      controller.reminderTime.value ?? const TimeOfDay(hour: 20, minute: 0),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            timePickerTheme: TimePickerThemeData(
+              backgroundColor: appThemeColors.grey6,
+              hourMinuteTextColor: appThemeColors.grey10,
+              hourMinuteColor: appThemeColors.grey4,
+              dayPeriodTextColor: appThemeColors.grey10,
+              dayPeriodColor: appThemeColors.grey4,
+              dialHandColor: appThemeColors.primary,
+              dialBackgroundColor: appThemeColors.grey5,
+              entryModeIconColor: appThemeColors.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16.r),
+              ),
+              hourMinuteShape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+            ),
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+              surface: appThemeColors.grey5,
+              onSurface: appThemeColors.grey10,
+              primary: appThemeColors.primary,
+              onPrimary: appThemeColors.onPrimary,
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: appThemeColors.primary,
+              ),
+            ),
+            dialogBackgroundColor: appThemeColors.grey6,
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null && picked != controller.reminderTime.value) {
       controller.setReminderTime(picked);
@@ -69,9 +105,9 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 Get.back();
               },
               trailing: Obx(() =>
-                  controller.theme.value == AppConstants.themeLight
-                      ? Icon(Icons.check, color: appThemeColors.primary)
-                      : const SizedBox.shrink()),
+              controller.theme.value == AppConstants.themeLight
+                  ? Icon(Icons.check, color: appThemeColors.primary)
+                  : const SizedBox.shrink()),
             ),
             Divider(color: appThemeColors.grey4, height: 1),
             ListTile(
@@ -82,9 +118,9 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 Get.back();
               },
               trailing: Obx(() =>
-                  controller.theme.value == AppConstants.themeDark
-                      ? Icon(Icons.check, color: appThemeColors.primary)
-                      : const SizedBox.shrink()),
+              controller.theme.value == AppConstants.themeDark
+                  ? Icon(Icons.check, color: appThemeColors.primary)
+                  : const SizedBox.shrink()),
             ),
             Divider(color: appThemeColors.grey4, height: 1),
             ListTile(
@@ -95,9 +131,9 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 Get.back();
               },
               trailing: Obx(() =>
-                  controller.theme.value == AppConstants.themeSystem
-                      ? Icon(Icons.check, color: appThemeColors.primary)
-                      : const SizedBox.shrink()),
+              controller.theme.value == AppConstants.themeSystem
+                  ? Icon(Icons.check, color: appThemeColors.primary)
+                  : const SizedBox.shrink()),
             ),
           ],
         ),
@@ -117,13 +153,16 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
       Widget? trailing,
       VoidCallback? onTap,
       String? subtitle,
+      bool showDivider = true, // Added parameter to control divider visibility
     }) {
       return Container(
         decoration: BoxDecoration(
           color: tileBackgroundColor,
-          border: Border(
+          border: showDivider // Conditionally apply the border
+              ? Border(
             bottom: BorderSide(color: appThemeColors.grey4, width: 1.w),
-          ),
+          )
+              : null,
         ),
         child: ListTile(
           leading: Icon(icon, color: textColor),
@@ -212,6 +251,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                               },
                               activeColor: appThemeColors.primary,
                             ),
+                            showDivider: false, // Last tile in the group
                           ),
                         ],
                       );
@@ -223,13 +263,14 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                     child: Column(
                       children: [
                         Obx(() => _buildListTile(
-                              title: AppConstants.theme,
-                              subtitle: controller.theme.value,
-                              icon: Icons.style_rounded,
-                              trailing:
-                                  const Icon(Icons.arrow_forward_ios, size: 18),
-                              onTap: _showThemeSelectionBottomSheet,
-                            )),
+                          title: AppConstants.theme,
+                          subtitle: controller.theme.value,
+                          icon: Icons.style_rounded,
+                          trailing:
+                          const Icon(Icons.arrow_forward_ios, size: 18),
+                          onTap: _showThemeSelectionBottomSheet,
+                          showDivider: false, // Only tile in the group
+                        )),
                       ],
                     ),
                   ),
@@ -242,15 +283,16 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                           title: AppConstants.backup,
                           icon: Icons.cloud_upload,
                           trailing:
-                              const Icon(Icons.arrow_forward_ios, size: 18),
+                          const Icon(Icons.arrow_forward_ios, size: 18),
                           onTap: () => controller.backup(),
                         ),
                         _buildListTile(
                           title: AppConstants.restore,
                           icon: Icons.cloud_download,
                           trailing:
-                              const Icon(Icons.arrow_forward_ios, size: 18),
+                          const Icon(Icons.arrow_forward_ios, size: 18),
                           onTap: () => controller.restore(),
+                          showDivider: false, // Last tile in the group
                         ),
                       ],
                     ),
@@ -264,15 +306,16 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                           title: AppConstants.privacyPolicy,
                           icon: Icons.privacy_tip,
                           trailing:
-                              const Icon(Icons.arrow_forward_ios, size: 18),
+                          const Icon(Icons.arrow_forward_ios, size: 18),
                           onTap: () {},
                         ),
                         _buildListTile(
                           title: AppConstants.about,
                           icon: Icons.info,
                           trailing:
-                              const Icon(Icons.arrow_forward_ios, size: 18),
+                          const Icon(Icons.arrow_forward_ios, size: 18),
                           onTap: () {},
+                          showDivider: false, // Last tile in the group
                         ),
                       ],
                     ),

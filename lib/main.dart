@@ -52,7 +52,7 @@ void main() async {
   // Determine initial route based on first launch status
   final hiveService = Get.find<HiveService>();
   final initialRoute =
-  hiveService.isFirstLaunch ? AppPages.INITIAL : AppPages.HOME;
+      hiveService.isFirstLaunch ? AppPages.INITIAL : AppPages.HOME;
 
   runApp(
     ScreenUtilInit(

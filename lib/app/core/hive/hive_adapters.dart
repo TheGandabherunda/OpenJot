@@ -86,3 +86,22 @@ class AssetEntityAdapter extends TypeAdapter<AssetEntity> {
     writer.writeString(obj.id);
   }
 }
+
+// NEW: Adapter for the Duration class.
+// This tells Hive how to store the Duration by converting it to an integer
+// (total seconds) and how to read it back.
+class DurationAdapter extends TypeAdapter<Duration> {
+  @override
+  final int typeId = 8; // Make sure this typeId is unique
+
+  @override
+  Duration read(BinaryReader reader) {
+    final seconds = reader.readInt();
+    return Duration(seconds: seconds);
+  }
+
+  @override
+  void write(BinaryWriter writer, Duration obj) {
+    writer.writeInt(obj.inSeconds);
+  }
+}
