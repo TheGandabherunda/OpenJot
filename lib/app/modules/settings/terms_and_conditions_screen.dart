@@ -7,7 +7,9 @@ class TermsAndConditionsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).colorScheme;
+    final appColors = Theme
+        .of(context)
+        .colorScheme;
 
     // List of third-party libraries from your pubspec.yaml
     final List<String> thirdPartyLibraries = [
@@ -41,7 +43,8 @@ class TermsAndConditionsScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: appColors.surface,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, size: 24, color: appColors.primary),
+          icon: Icon(
+              Icons.arrow_back_rounded, size: 24, color: appColors.primary),
           onPressed: () {
             HapticFeedback.lightImpact();
             Get.back();
@@ -137,17 +140,18 @@ class TermsAndConditionsScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: thirdPartyLibraries
                   .map(
-                    (library) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4.0),
-                  child: Text(
-                    '• $library',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w400,
-                      color: appColors.onSurfaceVariant,
+                    (library) =>
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4.0),
+                      child: Text(
+                        '• $library',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w400,
+                          color: appColors.onSurfaceVariant,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
               )
                   .toList(),
             ),
@@ -170,6 +174,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
 
 class SectionTitle extends StatelessWidget {
   final String title;
+
   const SectionTitle({super.key, required this.title});
 
   @override
@@ -179,7 +184,10 @@ class SectionTitle extends StatelessWidget {
       style: TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.w600,
-        color: Theme.of(context).colorScheme.onSurface,
+        color: Theme
+            .of(context)
+            .colorScheme
+            .onSurface,
       ),
     );
   }
