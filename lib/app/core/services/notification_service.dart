@@ -7,10 +7,28 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
+// This is the callback that will be executed when a notification is tapped.
+// It needs to be a top-level function (not a class method) to be accessible from the background.
+@pragma('vm:entry-point')
+void notificationTapBackground(NotificationResponse notificationResponse) {
+  // handle action
+  if (kDebugMode) {
+    print('notification(${notificationResponse.id}) action tapped: '
+        '${notificationResponse.actionId} with'
+        ' payload: ${notificationResponse.payload}');
+  }
+  if (notificationResponse.input?.isNotEmpty ?? false) {
+    if (kDebugMode) {
+      print(
+          'notification action tapped with input: ${notificationResponse.input}');
+    }
+  }
+}
+
 class NotificationService {
   // Singleton pattern
   static final NotificationService _notificationService =
-      NotificationService._internal();
+  NotificationService._internal();
 
   factory NotificationService() {
     return _notificationService;
@@ -19,7 +37,7 @@ class NotificationService {
   NotificationService._internal();
 
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
+  FlutterLocalNotificationsPlugin();
 
   Future<NotificationService> init() async {
     if (kDebugMode) {
@@ -27,14 +45,23 @@ class NotificationService {
     }
     // Initialization settings for Android
     const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_notification');
+    AndroidInitializationSettings('@mipmap/ic_notification');
 
     const InitializationSettings initializationSettings =
-        InitializationSettings(
+    InitializationSettings(
       android: initializationSettingsAndroid,
     );
 
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+    // Initialize the plugin
+    await flutterLocalNotificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse:
+          (NotificationResponse notificationResponse) {
+        // Handle notification tapped while app is in the foreground or background
+      },
+      onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
+    );
+
     if (kDebugMode) {
       print("[NotificationService] Initialization complete.");
     }
@@ -51,7 +78,7 @@ class NotificationService {
 
       // Request standard notification permission
       final PermissionStatus notificationStatus =
-          await Permission.notification.request();
+      await Permission.notification.request();
       if (kDebugMode) {
         print(
             "[NotificationService] Notification permission status: $notificationStatus");
@@ -63,7 +90,7 @@ class NotificationService {
 
       // Request exact alarm permission for reliable scheduling on Android 12+
       final PermissionStatus scheduleExactAlarmStatus =
-          await Permission.scheduleExactAlarm.request();
+      await Permission.scheduleExactAlarm.request();
       if (kDebugMode) {
         print(
             "[NotificationService] Schedule exact alarm permission status: $scheduleExactAlarmStatus");
