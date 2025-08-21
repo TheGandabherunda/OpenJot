@@ -320,7 +320,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                           title: AppConstants.privacyPolicy,
                           icon: Icons.privacy_tip,
                           trailing:
-                              const Icon(Icons.arrow_forward_ios, size: 18),
+                              const Icon(Icons.open_in_new_rounded, size: 18),
                           onTap: () => controller.launchURL(
                               'https://thegandabherunda.github.io/OpenJot/privacy_policy'),
                         ),

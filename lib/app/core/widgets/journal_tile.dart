@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
+import 'package:open_jot/app/utils/pdf_generator.dart'; // <-- ADD THIS IMPORT
 import 'package:photo_manager/photo_manager.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
@@ -248,7 +249,8 @@ class _JournalTileState extends State<JournalTile> {
     final double spacing = 2.w;
     final appThemeColors = AppTheme.colorsOf(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final overlayColor = (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
+    final overlayColor =
+    (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
         .withOpacity(0.6);
     final onOverlayColor =
     isDark ? appThemeColors.grey10 : appThemeColors.grey7;
@@ -585,15 +587,14 @@ class _JournalTileState extends State<JournalTile> {
                             Icon(Icons.edit, color: appThemeColors.grey10),
                             SizedBox(width: 8.w),
                             Text(AppConstants.edit,
-                                style:
-                                TextStyle(color: appThemeColors.grey10)),
+                                style: TextStyle(color: appThemeColors.grey10)),
                           ],
                         ),
                       ),
                       PopupMenuDivider(
                           height: 1,
-                          color:
-                          widget.popupDividerColor ?? appThemeColors.grey6),
+                          color: widget.popupDividerColor ??
+                              appThemeColors.grey6),
                       PopupMenuItem(
                         value: 'bookmark',
                         child: Row(
@@ -616,8 +617,8 @@ class _JournalTileState extends State<JournalTile> {
                       ),
                       PopupMenuDivider(
                           height: 1,
-                          color:
-                          widget.popupDividerColor ?? appThemeColors.grey6),
+                          color: widget.popupDividerColor ??
+                              appThemeColors.grey6),
                       PopupMenuItem(
                         value: 'share',
                         child: Row(
@@ -633,8 +634,8 @@ class _JournalTileState extends State<JournalTile> {
                       ),
                       PopupMenuDivider(
                           height: 1,
-                          color:
-                          widget.popupDividerColor ?? appThemeColors.grey6),
+                          color: widget.popupDividerColor ??
+                              appThemeColors.grey6),
                       PopupMenuItem(
                         value: 'pdf',
                         child: Row(
@@ -650,8 +651,8 @@ class _JournalTileState extends State<JournalTile> {
                       ),
                       PopupMenuDivider(
                           height: 1,
-                          color:
-                          widget.popupDividerColor ?? appThemeColors.grey6),
+                          color: widget.popupDividerColor ??
+                              appThemeColors.grey6),
                       PopupMenuItem(
                         value: 'delete',
                         child: Row(
@@ -665,7 +666,7 @@ class _JournalTileState extends State<JournalTile> {
                         ),
                       ),
                     ],
-                  ).then((value) {
+                  ).then((value) async { // <-- Make this async
                     if (value == 'edit') {
                       _onEditPressed();
                     } else if (value == 'bookmark') {
@@ -674,7 +675,23 @@ class _JournalTileState extends State<JournalTile> {
                     } else if (value == 'share') {
                       _onSharePressed();
                     } else if (value == 'pdf') {
-                      // Handle Save as PDF
+                      // --- MODIFICATION START ---
+                      // Show a quick feedback message
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Generating PDF...'),
+                            duration: Duration(seconds: 2)),
+                      );
+                      try {
+                        // Call the PDF generator
+                        await PdfGenerator.generateAndSharePdf(widget.entry);
+                      } catch (e) {
+                        // Show an error if something goes wrong
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Failed to generate PDF: $e')),
+                        );
+                      }
+                      // --- MODIFICATION END ---
                     } else if (value == 'delete') {
                       _onDeletePressed();
                     }
