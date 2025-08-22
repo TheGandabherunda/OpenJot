@@ -12,6 +12,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:open_jot/app/core/models/journal_entry.dart';
+import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -159,8 +160,8 @@ class HiveService extends GetxService {
       if (directoryPath == null) return false; // User canceled the picker.
 
       // 3. Create a temporary directory to stage all files for zipping.
-      final tempDir =
-      Directory('${(await getTemporaryDirectory()).path}${AppConstants.backupTempDir}');
+      final tempDir = Directory(
+          '${(await getTemporaryDirectory()).path}${AppConstants.backupTempDir}');
       if (await tempDir.exists()) await tempDir.delete(recursive: true);
       await tempDir.create(recursive: true);
       final mediaDir = Directory('${tempDir.path}${AppConstants.mediaDir}');
@@ -169,13 +170,17 @@ class HiveService extends GetxService {
       // 4. Copy Hive database files (.hive and .lock) to the temp directory.
       final appDocDir = await getApplicationDocumentsDirectory();
       for (var boxName in [journalsBox.name, settingsBox.name]) {
-        final boxFile = File('${appDocDir.path}/$boxName${AppConstants.hiveExtension}');
-        final lockFile = File('${appDocDir.path}/$boxName${AppConstants.lockExtension}');
+        final boxFile =
+        File('${appDocDir.path}/$boxName${AppConstants.hiveExtension}');
+        final lockFile =
+        File('${appDocDir.path}/$boxName${AppConstants.lockExtension}');
         if (await boxFile.exists()) {
-          await boxFile.copy('${tempDir.path}/$boxName${AppConstants.hiveExtension}');
+          await boxFile
+              .copy('${tempDir.path}/$boxName${AppConstants.hiveExtension}');
         }
         if (await lockFile.exists()) {
-          await lockFile.copy('${tempDir.path}/$boxName${AppConstants.lockExtension}');
+          await lockFile
+              .copy('${tempDir.path}/$boxName${AppConstants.lockExtension}');
         }
       }
 
@@ -204,7 +209,9 @@ class HiveService extends GetxService {
               AppConstants.backupFileNameKey: backupFileName
             });
           } catch (e) {
-            debugPrint(AppConstants.backupFileError.replaceFirst('%s', originalPath).replaceFirst('%s', e.toString()));
+            debugPrint(AppConstants.backupFileError
+                .replaceFirst('%s', originalPath)
+                .replaceFirst('%s', e.toString()));
           }
         }
 
@@ -238,7 +245,8 @@ class HiveService extends GetxService {
       }
 
       // 6. Write the manifest to a JSON file in the temp directory.
-      final manifestFile = File('${tempDir.path}${AppConstants.mediaManifestFileName}');
+      final manifestFile =
+      File('${tempDir.path}${AppConstants.mediaManifestFileName}');
       await manifestFile.writeAsString(jsonEncode(mediaManifest));
 
       // 7. Zip the entire temporary directory into a single backup file.
@@ -254,7 +262,8 @@ class HiveService extends GetxService {
         if (entity is File) {
           final relativePath = p.relative(entity.path, from: tempDir.path);
           final fileBytes = await entity.readAsBytes();
-          archive.addFile(ArchiveFile(relativePath, fileBytes.length, fileBytes));
+          archive
+              .addFile(ArchiveFile(relativePath, fileBytes.length, fileBytes));
         }
       }
 
@@ -262,7 +271,9 @@ class HiveService extends GetxService {
       final zipData = ZipEncoder().encode(archive);
 
       // Check if encoding was successful and write the bytes to the backup file.
-      await backupFile.writeAsBytes(zipData);
+      if (zipData != null) {
+        await backupFile.writeAsBytes(zipData);
+      }
 
       // 8. Clean up by deleting the temporary directory.
       await tempDir.delete(recursive: true);
@@ -270,8 +281,10 @@ class HiveService extends GetxService {
       Fluttertoast.showToast(msg: AppConstants.backupCreatedSuccess);
       return true;
     } catch (e) {
-      Fluttertoast.showToast(msg: AppConstants.backupFailed.replaceFirst('%s', e.toString()));
-      debugPrint(AppConstants.backupFailed.replaceFirst('%s', e.toString()));
+      Fluttertoast.showToast(
+          msg: AppConstants.backupFailed.replaceFirst('%s', e.toString()));
+      debugPrint(
+          AppConstants.backupFailed.replaceFirst('%s', e.toString()));
       return false;
     }
   }
@@ -299,8 +312,8 @@ class HiveService extends GetxService {
       final appDocDir = await getApplicationDocumentsDirectory();
 
       // 3. Extract the entire backup to a temporary directory.
-      final tempDir =
-      Directory('${(await getTemporaryDirectory()).path}${AppConstants.restoreTempDir}');
+      final tempDir = Directory(
+          '${(await getTemporaryDirectory()).path}${AppConstants.restoreTempDir}');
       if (await tempDir.exists()) await tempDir.delete(recursive: true);
       await tempDir.create(recursive: true);
 
@@ -319,29 +332,37 @@ class HiveService extends GetxService {
       // 4. CRITICAL STEP: Close current database boxes, replace the files with the backup, and re-initialize Hive.
       await Hive.close();
       for (var boxName in [journalsBox.name, settingsBox.name]) {
-        final tempBoxFile = File('${tempDir.path}/$boxName${AppConstants.hiveExtension}');
-        final tempLockFile = File('${tempDir.path}/$boxName${AppConstants.lockExtension}');
+        final tempBoxFile =
+        File('${tempDir.path}/$boxName${AppConstants.hiveExtension}');
+        final tempLockFile =
+        File('${tempDir.path}/$boxName${AppConstants.lockExtension}');
         if (await tempBoxFile.exists()) {
-          await tempBoxFile.copy('${appDocDir.path}/$boxName${AppConstants.hiveExtension}');
+          await tempBoxFile
+              .copy('${appDocDir.path}/$boxName${AppConstants.hiveExtension}');
         }
         if (await tempLockFile.exists()) {
-          await tempLockFile.copy('${appDocDir.path}/$boxName${AppConstants.lockExtension}');
+          await tempLockFile
+              .copy('${appDocDir.path}/$boxName${AppConstants.lockExtension}');
         }
       }
       await init(); // Re-opens boxes with the newly restored database data.
 
       // 5. Restore media files using the manifest. This makes the data self-contained.
-      final manifestFile = File('${tempDir.path}${AppConstants.mediaManifestFileName}');
+      final manifestFile =
+      File('${tempDir.path}${AppConstants.mediaManifestFileName}');
       if (!await manifestFile.exists()) {
         Fluttertoast.showToast(msg: AppConstants.databaseRestoredNoMedia);
         await tempDir.delete(recursive: true);
+        // --- CHANGE: Force reload even if there's no media ---
+        await Get.find<HomeController>().loadJournalEntries();
         return true;
       }
 
       final mediaManifest =
       jsonDecode(await manifestFile.readAsString()) as Map<String, dynamic>;
       // Create a persistent directory inside the app's folder to store all media.
-      final persistentMediaDir = Directory('${appDocDir.path}${AppConstants.mediaDir}');
+      final persistentMediaDir =
+      Directory('${appDocDir.path}${AppConstants.mediaDir}');
       await persistentMediaDir.create(recursive: true);
 
       for (final entry in journalsBox.values) {
@@ -363,7 +384,9 @@ class HiveService extends GetxService {
             await sourceFile.copy(destPath);
             return destPath;
           } catch (e) {
-            debugPrint(AppConstants.errorRestoringFile.replaceFirst('%s', backupFileName).replaceFirst('%s', e.toString()));
+            debugPrint(AppConstants.errorRestoringFile
+                .replaceFirst('%s', backupFileName)
+                .replaceFirst('%s', e.toString()));
             return null;
           }
         }
@@ -374,12 +397,15 @@ class HiveService extends GetxService {
           AppConstants.galleryImagesKey
         ];
         for (var listName in imageLists) {
-          final manifestList = (entryManifest[listName] as List<dynamic>?) ?? [];
+          final manifestList =
+              (entryManifest[listName] as List<dynamic>?) ?? [];
           for (final item in manifestList) {
-            final newPath = await restoreFile(item[AppConstants.backupFileNameKey]);
+            final newPath =
+            await restoreFile(item[AppConstants.backupFileNameKey]);
             if (newPath != null) {
               newCameraPhotos.add(CapturedPhoto(
-                  file: XFile(newPath), name: item[AppConstants.backupFileNameKey]));
+                  file: XFile(newPath),
+                  name: item[AppConstants.backupFileNameKey]));
               wasModified = true;
             }
           }
@@ -391,9 +417,11 @@ class HiveService extends GetxService {
           AppConstants.galleryAudiosKey
         ];
         for (var listName in audioLists) {
-          final manifestList = (entryManifest[listName] as List<dynamic>?) ?? [];
+          final manifestList =
+              (entryManifest[listName] as List<dynamic>?) ?? [];
           for (final item in manifestList) {
-            final newPath = await restoreFile(item[AppConstants.backupFileNameKey]);
+            final newPath =
+            await restoreFile(item[AppConstants.backupFileNameKey]);
             if (newPath != null) {
               final originalAudio = entry.recordings
                   .firstWhereOrNull((r) => r.path == item[AppConstants.idKey]);
@@ -422,15 +450,20 @@ class HiveService extends GetxService {
       // 6. Clean up the temporary restore directory.
       await tempDir.delete(recursive: true);
 
-      // UPDATED: Changed the toast message to be more informative.
+      // --- CHANGE START: Force the HomeController to reload all data from the new database ---
+      // This crucial step refreshes the UI without needing an app restart.
+      await Get.find<HomeController>().loadJournalEntries();
+      // --- CHANGE END ---
+
       Fluttertoast.showToast(
-          msg: AppConstants.restoreSuccessRestartRecommended,
-          toastLength: Toast.LENGTH_LONG);
+          msg: "Restore successful!", toastLength: Toast.LENGTH_LONG);
       return true;
     } catch (e) {
       await init(); // Attempt to recover to a stable state if restore fails.
-      Fluttertoast.showToast(msg: AppConstants.restoreFailed.replaceFirst('%s', e.toString()));
-      debugPrint(AppConstants.restoreFailed.replaceFirst('%s', e.toString()));
+      Fluttertoast.showToast(
+          msg: AppConstants.restoreFailed.replaceFirst('%s', e.toString()));
+      debugPrint(
+          AppConstants.restoreFailed.replaceFirst('%s', e.toString()));
       return false;
     }
   }

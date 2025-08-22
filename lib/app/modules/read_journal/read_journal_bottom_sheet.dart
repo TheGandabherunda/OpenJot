@@ -37,10 +37,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
   late quill.QuillController _quillController;
   final AudioPlayer _audioPlayer = AudioPlayer();
 
-  // --- CHANGE START: Renamed to track by ID for both recordings and gallery audio ---
   String? _currentlyPlayingId;
-
-  // --- CHANGE END ---
   PlayerState? _playerState;
   StreamSubscription? _playerStateSubscription;
 
@@ -59,22 +56,20 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
     _initializeController();
     _playerStateSubscription =
         _audioPlayer.onPlayerStateChanged.listen((state) {
-          if (mounted) {
-            setState(() {
-              _playerState = state;
-              if (state == PlayerState.completed) {
-                // --- CHANGE START: Updated variable name ---
-                _currentlyPlayingId = null;
-                // --- CHANGE END ---
-              }
-            });
+      if (mounted) {
+        setState(() {
+          _playerState = state;
+          if (state == PlayerState.completed) {
+            _currentlyPlayingId = null;
           }
         });
+      }
+    });
   }
 
   void _initializeController() {
     final document =
-    quill.Document.fromJson(_currentEntry.content.toDelta().toJson());
+        quill.Document.fromJson(_currentEntry.content.toDelta().toJson());
     _quillController = quill.QuillController(
       document: document,
       selection: const TextSelection.collapsed(offset: 0),
@@ -91,10 +86,15 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
 
   void _onEditPressed() async {
     final homeController = Get.find<HomeController>();
-    // Find the entry to edit, ensuring we have the most current version.
-    final entryToEdit = homeController.journalEntries.firstWhere(
-            (e) => e.id == _currentEntry.id,
-        orElse: () => _currentEntry);
+    // Find the most current version of the entry before editing.
+    final entryToEdit = homeController.journalEntries
+        .firstWhereOrNull((e) => e.id == _currentEntry.id);
+
+    // If the entry is somehow gone before we even edit, just close.
+    if (entryToEdit == null) {
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
 
     final wasDeleted = await showCupertinoModalBottomSheet<bool>(
       context: context,
@@ -105,32 +105,28 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
       ),
     );
 
-    // If the sheet returns true, it means the entry was cleared and should be considered deleted.
+    // If the edit sheet returns true, it means the entry was cleared and is now deleted.
     if (wasDeleted == true && mounted) {
       Navigator.of(context).pop();
       return;
     }
 
-    // If the sheet was closed without saving, or was updated, we refresh the data.
+    // After the edit sheet closes, refresh the data from the controller.
     if (mounted) {
-      try {
-        // Find the latest version of the entry.
-        final latestEntry = homeController.journalEntries.firstWhere(
-              (e) => e.id == widget.entry.id,
-        );
-        // If found, update the state.
+      // Find the latest version of the entry from the controller's list.
+      final latestEntry = homeController.journalEntries
+          .firstWhereOrNull((e) => e.id == widget.entry.id);
+
+      if (latestEntry != null) {
+        // If the entry still exists, update the state to reflect the changes.
         setState(() {
           _currentEntry = latestEntry;
           _quillController.dispose();
           _initializeController();
         });
-      } catch (e) {
-        // If firstWhere throws, the entry no longer exists in the list.
-        // This can happen if the update logic resulted in a deletion.
-        // So, we close the read sheet.
-        if (mounted) {
-          Navigator.of(context).pop();
-        }
+      } else {
+        // If it's null, it was deleted, so close the read sheet.
+        Navigator.of(context).pop();
       }
     }
   }
@@ -166,18 +162,18 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
   void _openMediaPreview(List<dynamic> allMedia, int initialIndex) {
     final mediaItems = allMedia
         .map((m) {
-      if (m is AssetEntity) {
-        return MediaItem(asset: m, type: m.type, id: m.id);
-      } else if (m is CapturedPhoto) {
-        return MediaItem(
-            asset: m,
-            type: _isVideoFile(m.file.path)
-                ? AssetType.video
-                : AssetType.image,
-            id: m.file.path);
-      }
-      return null;
-    })
+          if (m is AssetEntity) {
+            return MediaItem(asset: m, type: m.type, id: m.id);
+          } else if (m is CapturedPhoto) {
+            return MediaItem(
+                asset: m,
+                type: _isVideoFile(m.file.path)
+                    ? AssetType.video
+                    : AssetType.image,
+                id: m.file.path);
+          }
+          return null;
+        })
         .whereType<MediaItem>()
         .toList();
 
@@ -194,7 +190,6 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
     );
   }
 
-  // --- CHANGE START: Added function to handle gallery audio playback ---
   void _toggleGalleryAudio(AssetEntity audio) async {
     final isPlaying =
         _currentlyPlayingId == audio.id && _playerState == PlayerState.playing;
@@ -217,8 +212,6 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
       }
     }
   }
-
-  // --- CHANGE END ---
 
   @override
   Widget build(BuildContext context) {
@@ -313,7 +306,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
     final overlayColor = (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
         .withOpacity(0.6);
     final onOverlayColor =
-    isDark ? appThemeColors.grey10 : appThemeColors.grey7;
+        isDark ? appThemeColors.grey10 : appThemeColors.grey7;
 
     Widget buildMediaContainer(dynamic media,
         {Widget? overlay, required VoidCallback onTap}) {
@@ -329,7 +322,6 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // *** CHANGE: Using the new unified MediaThumbnail widget ***
                 MediaThumbnail(media: media),
                 if (overlay != null) overlay,
               ],
@@ -439,7 +431,6 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
     );
   }
 
-  // --- CHANGE START: Updated widget to include play/pause controls ---
   Widget _buildAudioPreview() {
     if (_currentEntry.galleryAudios.isEmpty) {
       return const SizedBox.shrink();
@@ -454,7 +445,6 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
           padding: EdgeInsets.only(bottom: 4.h),
           child: Container(
             height: 50.h,
-            // Matched height with recordings preview
             width: double.infinity,
             padding: EdgeInsets.symmetric(horizontal: 12.w),
             decoration: BoxDecoration(
@@ -496,8 +486,6 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
     );
   }
 
-  // --- CHANGE END ---
-
   String _formatPreviewDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
     final minutes = twoDigits(duration.inMinutes.remainder(60));
@@ -512,12 +500,10 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
     final appThemeColors = AppTheme.colorsOf(context);
     return Column(
       children: _currentEntry.recordings.map((recording) {
-        // --- CHANGE START: Updated variable name ---
         final isPlaying = _currentlyPlayingId == recording.path &&
             _playerState == PlayerState.playing;
         final isPaused = _currentlyPlayingId == recording.path &&
             _playerState == PlayerState.paused;
-        // --- CHANGE END ---
         return Padding(
           padding: EdgeInsets.only(bottom: 4.h),
           child: Container(
@@ -546,9 +532,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
                     } else {
                       _audioPlayer.play(DeviceFileSource(recording.path));
                       setState(() {
-                        // --- CHANGE START: Updated variable name ---
                         _currentlyPlayingId = recording.path;
-                        // --- CHANGE END ---
                       });
                     }
                   },
@@ -684,5 +668,15 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
         ),
       ),
     );
+  }
+}
+
+// Helper extension to find an item in a list safely without throwing an error.
+extension FirstWhereOrNull<T> on Iterable<T> {
+  T? firstWhereOrNull(bool Function(T) test) {
+    for (var element in this) {
+      if (test(element)) return element;
+    }
+    return null;
   }
 }

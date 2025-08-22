@@ -1,10 +1,12 @@
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' as intl;
+// Assuming JournalEntry is in this path, adjust if necessary.
+import 'package:open_jot/app/core/models/journal_entry.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:photo_manager/photo_manager.dart';
 import 'package:printing/printing.dart';
-
-import '../core/models/journal_entry.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
 
 // A helper class to hold the parsed information for a single line of text.
 class _PdfLine {
@@ -14,49 +16,111 @@ class _PdfLine {
   _PdfLine(this.spans, this.attributes);
 }
 
-/// A simplified PDF generator for journal entries.
-/// This version is optimized for English content and uses the 'Inter' font.
+// Helper class to distinguish between image bytes and video thumbnail bytes.
+class _VisualMedia {
+  final Uint8List bytes;
+  final bool isVideo;
+
+  _VisualMedia(this.bytes, this.isVideo);
+}
+
+/// A PDF generator for journal entries with emoji support.
+///
+/// This version is optimized for English content and uses the 'Inter' font,
+/// with fallbacks for emoji and symbol characters.
 class PdfGenerator {
   /// Generates a PDF from a journal entry and initiates a share dialog.
   static Future<void> generateAndSharePdf(JournalEntry entry) async {
     final pdf = pw.Document();
 
     // --- 1. Load Fonts ---
-    // Load all required styles of the 'Inter' font to support rich text.
+    // Load standard text fonts.
     final font = await PdfGoogleFonts.interRegular();
     final boldFont = await PdfGoogleFonts.interBold();
     final italicFont = await PdfGoogleFonts.interItalic();
     final boldItalicFont = await PdfGoogleFonts.interBoldItalic();
     final mediumFont = await PdfGoogleFonts.interMedium();
 
+    // Load fonts for symbols and emojis.
+    final symbolFont = await PdfGoogleFonts.notoSansSymbolsBold();
+    final emojiFont = await PdfGoogleFonts.notoColorEmoji();
+
+    // ** UPDATED: Create a theme that uses Inter and falls back ONLY to the emoji font. **
+    // This handles emojis anywhere in the text. Other symbols will be handled explicitly.
+    final theme = pw.ThemeData.withFont(
+      base: font,
+      bold: boldFont,
+      italic: italicFont,
+      boldItalic: boldItalicFont,
+      fontFallback: [emojiFont],
+    );
+
     // --- 2. Load Assets ---
-    // Load the app icon and mood icon from the assets folder.
     final appIconSvg = await rootBundle.loadString('assets/app_icon.svg');
     String? moodSvg;
     if (entry.moodIndex != null) {
       moodSvg =
-          await rootBundle.loadString('assets/${entry.moodIndex! + 1}.svg');
+      await rootBundle.loadString('assets/${entry.moodIndex! + 1}.svg');
     }
 
-    // --- 3. Load Media Assets ---
-    // Collect all images from the device gallery and camera photos.
-    final List<Uint8List> imageBytes = [];
+    // --- 3. Load and Process Media Assets ---
+    final List<_VisualMedia> visualMedia = [];
+
+    // Helper to check if a file path represents a video.
+    bool isVideoFile(String path) {
+      final lowercasedPath = path.toLowerCase();
+      return lowercasedPath.endsWith('.mp4') ||
+          lowercasedPath.endsWith('.mov') ||
+          lowercasedPath.endsWith('.avi') ||
+          lowercasedPath.endsWith('.wmv') ||
+          lowercasedPath.endsWith('.mkv');
+    }
+
+    // Process gallery assets (images and videos)
     for (var asset in entry.galleryImages) {
       final file = await asset.file;
       if (file != null) {
-        imageBytes.add(await file.readAsBytes());
+        if (asset.type == AssetType.video) {
+          final thumbnail = await VideoThumbnail.thumbnailData(
+            video: file.path,
+            imageFormat: ImageFormat.JPEG,
+            maxWidth: 300,
+            quality: 50,
+          );
+          if (thumbnail != null) {
+            visualMedia.add(_VisualMedia(thumbnail, true));
+          }
+        } else {
+          visualMedia.add(_VisualMedia(await file.readAsBytes(), false));
+        }
       }
     }
+
+    // Process camera photos (which can also be videos)
     for (var photo in entry.cameraPhotos) {
-      imageBytes.add(await photo.file.readAsBytes());
+      final file = photo.file;
+      if (isVideoFile(file.path)) {
+        final thumbnail = await VideoThumbnail.thumbnailData(
+          video: file.path,
+          imageFormat: ImageFormat.JPEG,
+          maxWidth: 300,
+          quality: 50,
+        );
+        if (thumbnail != null) {
+          visualMedia.add(_VisualMedia(thumbnail, true));
+        }
+      } else {
+        visualMedia.add(_VisualMedia(await file.readAsBytes(), false));
+      }
     }
 
     // --- 4. Build the PDF page ---
     pdf.addPage(
       pw.MultiPage(
+        // Apply the theme to the entire page.
+        theme: theme,
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(32),
-        // Use the footer callback to place the footer at the bottom of each page
         footer: (context) => _buildFooter(appIconSvg, boldFont),
         build: (context) {
           return [
@@ -67,26 +131,27 @@ class PdfGenerator {
                 _buildDateHeader(entry, mediumFont),
                 pw.SizedBox(height: 24),
 
-                // --- Attached Images ---
-                if (imageBytes.isNotEmpty) ...[
-                  _buildMediaGrid(imageBytes),
+                // --- Attached Images & Video Thumbnails ---
+                if (visualMedia.isNotEmpty) ...[
+                  _buildMediaGrid(visualMedia),
+                  pw.SizedBox(height: 20),
+                ],
+
+                // --- Attached Audio Files ---
+                if (entry.recordings.isNotEmpty ||
+                    entry.galleryAudios.isNotEmpty) ...[
+                  // ** UPDATED: Pass the specific symbol font. **
+                  _buildAudioList(entry, symbolFont),
                   pw.SizedBox(height: 20),
                 ],
 
                 // --- Journal Text (from Quill Delta) ---
                 if (entry.content.toPlainText().trim().isNotEmpty)
-                  _buildJournalTextFromDelta(
-                    entry,
-                    font,
-                    boldFont,
-                    italicFont,
-                    boldItalicFont,
-                  ),
-
+                  _buildJournalTextFromDelta(entry),
                 pw.SizedBox(height: 20),
 
                 // --- Location and Mood ---
-                _buildLocationAndMood(entry, moodSvg, font),
+                _buildLocationAndMood(entry, moodSvg),
               ],
             )
           ];
@@ -103,16 +168,15 @@ class PdfGenerator {
   // --- PDF Component Builders ---
 
   /// Builds the header section with the formatted date.
-  static pw.Widget _buildDateHeader(JournalEntry entry, pw.Font font) {
+  static pw.Widget _buildDateHeader(JournalEntry entry, pw.Font mediumFont) {
     final formattedDate =
-        intl.DateFormat('EEEE, MMM d').format(entry.createdAt);
-
+    intl.DateFormat('EEEE, MMM d').format(entry.createdAt);
     return pw.Container(
       alignment: pw.Alignment.centerRight,
       child: pw.Text(
         formattedDate,
         style: pw.TextStyle(
-          font: font,
+          font: mediumFont, // Keep specific font for styling
           fontSize: 16,
           color: PdfColors.grey600,
         ),
@@ -121,18 +185,11 @@ class PdfGenerator {
   }
 
   /// Builds the main text block by parsing the Quill editor's delta format.
-  static pw.Widget _buildJournalTextFromDelta(
-    JournalEntry entry,
-    pw.Font regularFont,
-    pw.Font boldFont,
-    pw.Font italicFont,
-    pw.Font boldItalicFont,
-  ) {
+  static pw.Widget _buildJournalTextFromDelta(JournalEntry entry) {
     final delta = entry.content.toDelta().toJson();
     final List<_PdfLine> lines = [];
     List<pw.InlineSpan> currentSpans = [];
 
-    // First pass: Parse the delta into a list of logical lines (_PdfLine).
     for (final op in delta) {
       if (!op.containsKey('insert')) continue;
 
@@ -143,41 +200,41 @@ class PdfGenerator {
       for (int i = 0; i < textLines.length; i++) {
         final lineText = textLines[i];
         if (lineText.isNotEmpty) {
-          pw.Font font = regularFont;
-          double fontSize = 16;
+          pw.TextStyle style = const pw.TextStyle(
+            fontSize: 16,
+            color: PdfColors.black,
+            height: 1.5,
+          );
           final List<pw.TextDecoration> decorations = [];
 
           if (attributes != null) {
             final isBold = attributes['bold'] == true;
             final isItalic = attributes['italic'] == true;
 
-            if (isBold && isItalic)
-              font = boldItalicFont;
-            else if (isBold)
-              font = boldFont;
-            else if (isItalic) font = italicFont;
+            if (isBold && isItalic) {
+              style = style.copyWith(fontWeight: pw.FontWeight.bold, fontStyle: pw.FontStyle.italic);
+            } else if (isBold) {
+              style = style.copyWith(fontWeight: pw.FontWeight.bold);
+            } else if (isItalic) {
+              style = style.copyWith(fontStyle: pw.FontStyle.italic);
+            }
 
-            if (attributes['underline'] == true)
+            if (attributes['underline'] == true) {
               decorations.add(pw.TextDecoration.underline);
-            if (attributes['strike'] == true)
+            }
+            if (attributes['strike'] == true) {
               decorations.add(pw.TextDecoration.lineThrough);
+            }
 
             if (attributes.containsKey('header')) {
               final level = attributes['header'];
-              if (level == 1) fontSize = 24;
-              if (level == 2) fontSize = 20;
-              if (level == 1 || level == 2) font = boldFont;
+              if (level == 1) style = style.copyWith(fontSize: 24, fontWeight: pw.FontWeight.bold);
+              if (level == 2) style = style.copyWith(fontSize: 20, fontWeight: pw.FontWeight.bold);
             }
           }
           currentSpans.add(pw.TextSpan(
             text: lineText,
-            style: pw.TextStyle(
-              font: font,
-              fontSize: fontSize,
-              color: PdfColors.black,
-              height: 1.5,
-              decoration: pw.TextDecoration.combine(decorations),
-            ),
+            style: style.copyWith(decoration: pw.TextDecoration.combine(decorations)),
           ));
         }
 
@@ -187,13 +244,13 @@ class PdfGenerator {
         }
       }
     }
+
     if (currentSpans.isNotEmpty) {
       final lastOp =
-          delta.lastWhere((op) => op.containsKey('insert'), orElse: () => {});
+      delta.lastWhere((op) => op.containsKey('insert'), orElse: () => {});
       lines.add(_PdfLine(List.from(currentSpans), lastOp['attributes']));
     }
 
-    // Second pass: Build the widgets from the parsed lines.
     final List<pw.Widget> contentWidgets = [];
     int orderedListCounter = 1;
     String? lastListType;
@@ -205,12 +262,13 @@ class PdfGenerator {
       }
 
       pw.Widget lineWidget =
-          pw.RichText(text: pw.TextSpan(children: line.spans));
-      final attributes = line.attributes;
+      pw.RichText(text: pw.TextSpan(children: line.spans));
 
+      final attributes = line.attributes;
       String? currentListType = attributes?['list'];
+
       if (currentListType != lastListType) {
-        orderedListCounter = 1; // Reset counter when list type changes
+        orderedListCounter = 1;
       }
       lastListType = currentListType;
 
@@ -225,20 +283,20 @@ class PdfGenerator {
             child: lineWidget,
           );
         }
+
         if (attributes['list'] == 'bullet') {
           lineWidget = pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.SizedBox(
                 width: 20,
-                child: pw.Text('•',
-                    style: pw.TextStyle(
-                        font: regularFont, fontSize: 16, height: 1.5)),
+                child: pw.Text('•', style: const pw.TextStyle(fontSize: 16, height: 1.5)),
               ),
               pw.Expanded(child: lineWidget),
             ],
           );
         }
+
         if (attributes['list'] == 'ordered') {
           lineWidget = pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -246,17 +304,14 @@ class PdfGenerator {
               pw.SizedBox(
                 width: 20,
                 child: pw.Text('${orderedListCounter++}.',
-                    style: pw.TextStyle(
-                        font: regularFont, fontSize: 16, height: 1.5)),
+                    style: const pw.TextStyle(fontSize: 16, height: 1.5)),
               ),
               pw.Expanded(child: lineWidget),
             ],
           );
         }
       }
-
       contentWidgets.add(lineWidget);
-
       if (attributes != null && attributes.containsKey('header')) {
         contentWidgets.add(pw.SizedBox(height: 8));
       }
@@ -268,13 +323,13 @@ class PdfGenerator {
     );
   }
 
-  /// Builds a responsive grid for attached media images.
-  static pw.Widget _buildMediaGrid(List<Uint8List> imageBytes) {
+  /// Builds a responsive grid for attached images and video thumbnails.
+  /// The '►' symbol will use the default theme font, which is Inter.
+  static pw.Widget _buildMediaGrid(List<_VisualMedia> media) {
     return pw.Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: imageBytes.take(6).map((bytes) {
-        // Limit to 6 images
+      spacing: 12,
+      runSpacing: 12,
+      children: media.take(6).map((item) {
         return pw.Container(
           width: 150,
           height: 150,
@@ -285,9 +340,24 @@ class PdfGenerator {
           child: pw.ClipRRect(
             horizontalRadius: 10.5,
             verticalRadius: 10.5,
-            child: pw.Image(
-              pw.MemoryImage(bytes),
-              fit: pw.BoxFit.cover,
+            child: pw.Stack(
+              alignment: pw.Alignment.center,
+              children: [
+                pw.Image(
+                  pw.MemoryImage(item.bytes),
+                  width: 150,
+                  height: 150,
+                  fit: pw.BoxFit.cover,
+                ),
+                if (item.isVideo)
+                  pw.Text(
+                    '►', // This will use Inter font from the theme.
+                    style: const pw.TextStyle(
+                      color: PdfColor(1, 1, 1, 0.78),
+                      fontSize: 48,
+                    ),
+                  ),
+              ],
             ),
           ),
         );
@@ -295,9 +365,65 @@ class PdfGenerator {
     );
   }
 
+  /// Builds a list to display audio files.
+  /// ** UPDATED: Accepts a specific font for the '♫' symbol. **
+  static pw.Widget _buildAudioList(JournalEntry entry, pw.Font symbolFont) {
+    String formatDuration(Duration duration) {
+      if (duration == Duration.zero) return "--:--";
+      String twoDigits(int n) => n.toString().padLeft(2, '0');
+      final minutes = twoDigits(duration.inMinutes.remainder(60));
+      final seconds = twoDigits(duration.inSeconds.remainder(60));
+      return '$minutes:$seconds';
+    }
+
+    final List<pw.Widget> audioWidgets = [];
+
+    pw.Widget buildAudioItem(String title, String durationStr) {
+      return pw.Container(
+        padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+        decoration: pw.BoxDecoration(
+          color: PdfColor.fromHex('#EFEFEF'),
+          borderRadius: pw.BorderRadius.circular(20),
+        ),
+        child: pw.Row(
+          mainAxisSize: pw.MainAxisSize.min,
+          children: [
+            pw.Text('♫',
+                // ** UPDATED: Use the specific symbol font for this character. **
+                style: pw.TextStyle(font: symbolFont, fontSize: 16, color: PdfColors.grey800)),
+            pw.SizedBox(width: 8),
+            pw.Expanded(
+              child: pw.Text(title, style: const pw.TextStyle(fontSize: 14)),
+            ),
+            pw.SizedBox(width: 8),
+            pw.Text(durationStr,
+                style: const pw.TextStyle(fontSize: 14, color: PdfColors.grey600)),
+          ],
+        ),
+      );
+    }
+
+    for (final recording in entry.recordings) {
+      audioWidgets.add(
+          buildAudioItem(recording.name, formatDuration(recording.duration)));
+      audioWidgets.add(pw.SizedBox(height: 8));
+    }
+
+    for (final audio in entry.galleryAudios) {
+      audioWidgets.add(buildAudioItem(audio.title ?? "Audio Track",
+          formatDuration(Duration(seconds: audio.duration))));
+      audioWidgets.add(pw.SizedBox(height: 8));
+    }
+
+    return pw.Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: audioWidgets,
+    );
+  }
+
   /// Builds the row containing location and mood information.
-  static pw.Widget _buildLocationAndMood(
-      JournalEntry entry, String? moodSvg, pw.Font font) {
+  static pw.Widget _buildLocationAndMood(JournalEntry entry, String? moodSvg) {
     if (entry.location == null && moodSvg == null) {
       return pw.SizedBox.shrink();
     }
@@ -308,24 +434,18 @@ class PdfGenerator {
         mainAxisSize: pw.MainAxisSize.min,
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
-          // Location Text
           if (entry.location != null)
             pw.Row(children: [
               pw.SizedBox(width: 6),
               pw.Text(
                 '${entry.location!.coordinates.latitude.toStringAsFixed(4)}, ${entry.location!.coordinates.longitude.toStringAsFixed(4)}',
-                style: pw.TextStyle(
-                  font: font,
+                style: const pw.TextStyle(
                   fontSize: 14,
                   color: PdfColors.grey700,
                 ),
               ),
             ]),
-
-          // Spacer
           if (entry.location != null && moodSvg != null) pw.SizedBox(width: 12),
-
-          // Mood Icon
           if (moodSvg != null) pw.SvgImage(svg: moodSvg, width: 28, height: 28),
         ],
       ),
@@ -350,8 +470,9 @@ class PdfGenerator {
             pw.Text(
               'OpenJot',
               style: pw.TextStyle(
+                font: boldFont, // Keep specific font for branding
                 fontSize: 16,
-                color: PdfColors.black, // Ensure footer text is visible
+                color: PdfColors.black,
               ),
             ),
           ],

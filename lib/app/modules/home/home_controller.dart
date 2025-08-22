@@ -56,9 +56,30 @@ class HomeController extends GetxController {
     sortEntries(currentSortType.value);
   }
 
-  /// Updates an existing journal entry in Hive.
+  /// Updates an existing journal entry in Hive and the in-memory list.
   void updateJournalEntry(JournalEntry updatedEntry) {
+    // Persist the change to the database.
     _hiveService.updateJournalEntry(updatedEntry);
+
+    // Find the index of the entry to update in our reactive list.
+    final index = journalEntries.indexWhere((e) => e.id == updatedEntry.id);
+
+    if (index != -1) {
+      // Check if the update resulted in an empty entry.
+      final isTextEmpty = updatedEntry.content.toPlainText().trim().isEmpty;
+      final isMediaEmpty = updatedEntry.galleryImages.isEmpty &&
+          updatedEntry.cameraPhotos.isEmpty &&
+          updatedEntry.galleryAudios.isEmpty &&
+          updatedEntry.recordings.isEmpty;
+
+      if (isTextEmpty && isMediaEmpty) {
+        // If the entry is now empty, remove it from the list.
+        journalEntries.removeAt(index);
+      } else {
+        // Otherwise, replace the old entry with the updated one for instant UI feedback.
+        journalEntries[index] = updatedEntry;
+      }
+    }
   }
 
   /// Deletes a journal entry from Hive.
