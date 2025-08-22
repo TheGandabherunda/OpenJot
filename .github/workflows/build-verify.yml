@@ -1,0 +1,58 @@
+name: Android Release Build
+
+on:
+  workflow_dispatch: # This makes the workflow runnable manually from the GitHub Actions UI
+    inputs:
+      branch:
+        description: 'Branch to build from' # This is the label the user sees
+        required: true                   # User must provide a value
+        default: 'main'                  # Pre-fills the input field with 'main'
+
+jobs:
+  build_android_apk:
+    runs-on: ubuntu-latest # Using Ubuntu for Android builds
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }} # <<< IMPORTANT CHANGE: Use the input branch here
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.4' # Or flutter-version-file: pubspec.yaml
+
+      - name: Display Flutter Version (for verification)
+        run: flutter --version
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      # --- ADD THESE STEPS FOR SIGNING ---
+      - name: Decode Keystore File
+        run: echo "${{ secrets.ANDROID_UPLOAD_KEYSTORE }}" | base64 --decode > android/app/release-key.jks
+        # Ensure 'android/app/' is the correct path for your keystore
+
+      - name: Create Keystore Properties File
+        run: |
+          echo "storeFile=release-key.jks" > android/key.properties
+          echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> android/key.properties
+          echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/key.properties
+        # Ensure 'android/' is the correct path for your key.properties
+
+      - name: Build Android APK (Release)
+        run: flutter build apk --release --split-per-abi
+
+      - name: Upload Android APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk # Name of the artifact
+          path: build/app/outputs/apk/release/
