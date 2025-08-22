@@ -4,6 +4,9 @@ import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
+import '../../core/theme.dart';
 
 class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
@@ -37,24 +40,47 @@ class _AboutScreenState extends State<AboutScreen> {
 
   Future<void> _launchURL(String url) async {
     final Uri uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.platformDefault);
-    } else {
-      // Handle error
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.platformDefault);
+      } else {
+        throw 'Could not launch $url';
+      }
+    } catch (e) {
+      Fluttertoast.showToast(
+          msg: "Could not launch URL",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.redAccent,
+          textColor: Colors.white,
+          fontSize: 16.0
+      );
     }
   }
 
   Future<void> _sendEmail(String email, String subject) async {
+    final appColors = AppTheme.colorsOf(context);
     final String encodedSubject = Uri.encodeComponent(subject);
     final Uri uri = Uri(
       scheme: 'mailto',
       path: email,
       query: 'subject=$encodedSubject',
     );
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      // Handle error
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        throw 'Could not launch email client.';
+      }
+    } catch (e) {
+      Fluttertoast.showToast(
+          msg: "Could not open email app. Is one installed?",
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: appColors.grey7,
+          textColor: appColors.grey10,
+          fontSize: 16.0
+      );
     }
   }
 
