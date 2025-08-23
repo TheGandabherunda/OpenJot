@@ -8,7 +8,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   flutter_timezone
   printing
   record_linux
-  smart_auth
   url_launcher_linux
 )
 
