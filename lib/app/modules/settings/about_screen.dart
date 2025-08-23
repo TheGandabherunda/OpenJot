@@ -39,6 +39,7 @@ class _AboutScreenState extends State<AboutScreen> {
   }
 
   Future<void> _launchURL(String url) async {
+    final appColors = AppTheme.colorsOf(context);
     final Uri uri = Uri.parse(url);
     try {
       if (await canLaunchUrl(uri)) {
@@ -51,8 +52,8 @@ class _AboutScreenState extends State<AboutScreen> {
           msg: "Could not launch URL",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
-          backgroundColor: Colors.redAccent,
-          textColor: Colors.white,
+          backgroundColor: appColors.grey7,
+          textColor: appColors.grey10,
           fontSize: 16.0
       );
     }

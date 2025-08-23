@@ -60,7 +60,7 @@ android {
     // Release build type configuration from pomozen, including minification
     buildTypes {
         getByName("release") {
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
             isShrinkResources = false
             proguardFiles(
