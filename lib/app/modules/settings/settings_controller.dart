@@ -16,11 +16,10 @@ import '../app_lock/verify_pin_bottomsheet.dart';
 class SettingsScreenController extends GetxController {
   final _hiveService = Get.find<HiveService>();
   final _appLockService = Get.find<AppLockService>();
-
-  // Use Get.find() to get the initialized service instance
   final _notificationService = Get.find<NotificationService>();
 
   var dailyReminder = false.obs;
+  var onThisDay = false.obs; // NEW
   var reminderTime = Rx<TimeOfDay?>(null);
   var theme = AppConstants.themeSystem.obs;
   var appLock = false.obs;
@@ -33,6 +32,7 @@ class SettingsScreenController extends GetxController {
 
   void _loadSettings() {
     dailyReminder.value = _hiveService.dailyReminder;
+    onThisDay.value = _hiveService.onThisDay; // NEW
     reminderTime.value = _hiveService.reminderTime;
     theme.value = _hiveService.theme;
     appLock.value = _hiveService.appLockEnabled;
@@ -41,13 +41,12 @@ class SettingsScreenController extends GetxController {
   void toggleDailyReminder(bool value) async {
     final appColors = AppTheme.colorsOf(Get.context!);
     if (value) {
-      // Request permission before enabling the reminder
       final bool permissionsGranted =
       await _notificationService.requestPermissions();
 
       if (permissionsGranted) {
         dailyReminder.value = true;
-        _hiveService.setDailyReminder(true); // Save to Hive
+        _hiveService.setDailyReminder(true);
 
         if (reminderTime.value == null) {
           final defaultTime = const TimeOfDay(hour: 20, minute: 0);
@@ -57,7 +56,6 @@ class SettingsScreenController extends GetxController {
               .scheduleDailyJournalReminder(reminderTime.value!);
         }
       } else {
-        // If permission is denied, keep the switch off and inform the user
         dailyReminder.value = false;
         Fluttertoast.showToast(
           msg: AppConstants.notificationPermissionRequired,
@@ -69,16 +67,46 @@ class SettingsScreenController extends GetxController {
         );
       }
     } else {
-      // If the switch is turned off, cancel all notifications
       dailyReminder.value = false;
-      _hiveService.setDailyReminder(false); // Save to Hive
+      _hiveService.setDailyReminder(false);
+      _notificationService.cancelAllNotifications();
+    }
+  }
+
+  // --- NEW: Logic for "On This Day" toggle ---
+  void toggleOnThisDay(bool value) async {
+    final appColors = AppTheme.colorsOf(Get.context!);
+    if (value) {
+      final bool permissionsGranted =
+      await _notificationService.requestPermissions();
+      if (permissionsGranted) {
+        onThisDay.value = true;
+        _hiveService.setOnThisDay(true);
+        // Immediately check for memories to schedule a notification if applicable
+        _notificationService.checkForOnThisDayMemories();
+      } else {
+        onThisDay.value = false;
+        Fluttertoast.showToast(
+          msg: AppConstants.notificationPermissionRequired,
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: appColors.grey1,
+          textColor: appColors.grey10,
+          fontSize: 16.0,
+        );
+      }
+    } else {
+      onThisDay.value = false;
+      _hiveService.setOnThisDay(false);
+      // You might want to cancel only the "On This Day" notification
+      // but cancelling all is simpler and safer for now.
       _notificationService.cancelAllNotifications();
     }
   }
 
   void setReminderTime(TimeOfDay time) {
     reminderTime.value = time;
-    _hiveService.setReminderTime(time); // Save to Hive
+    _hiveService.setReminderTime(time);
 
     if (dailyReminder.value) {
       _notificationService.scheduleDailyJournalReminder(time);
@@ -87,7 +115,7 @@ class SettingsScreenController extends GetxController {
 
   void changeTheme(String themeValue) {
     theme.value = themeValue;
-    _hiveService.setTheme(themeValue); // Save to Hive
+    _hiveService.setTheme(themeValue);
 
     ThemeMode themeMode;
     switch (themeValue) {
@@ -116,12 +144,10 @@ class SettingsScreenController extends GetxController {
     } else {
       bool authenticated = false;
 
-      // Try biometric auth first if available
       if (await _appLockService.isBiometricAvailable()) {
         authenticated = await _appLockService.authenticate();
       }
 
-      // If biometric auth failed or is not available, fall back to PIN verification
       if (!authenticated) {
         final result = await Get.bottomSheet(
           const VerifyPinBottomSheet(),
@@ -132,7 +158,6 @@ class SettingsScreenController extends GetxController {
         }
       }
 
-      // If user is authenticated, disable the app lock
       if (authenticated) {
         await _hiveService.setAppLock(false);
         appLock.value = false;
@@ -144,12 +169,10 @@ class SettingsScreenController extends GetxController {
     final appColors = AppTheme.colorsOf(Get.context!);
     bool authenticated = false;
 
-    // Try biometric auth first if available
     if (await _appLockService.isBiometricAvailable()) {
       authenticated = await _appLockService.authenticate();
     }
 
-    // If biometric auth failed or is not available, fall back to PIN verification
     if (!authenticated) {
       final result = await Get.bottomSheet(
         const VerifyPinBottomSheet(),
@@ -160,7 +183,6 @@ class SettingsScreenController extends GetxController {
       }
     }
 
-    // If user is authenticated (by either method), show the set pin sheet
     if (authenticated) {
       final result = await Get.bottomSheet(
         const SetPinBottomSheet(),
@@ -178,12 +200,10 @@ class SettingsScreenController extends GetxController {
     }
   }
 
-  // --- Backup and Restore ---
   Future<void> backup() async {
     await _hiveService.backupData();
   }
 
-  // Helper function to launch URLs in the default browser or custom tab
   Future<void> launchURL(String url) async {
     final Uri uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
@@ -192,13 +212,12 @@ class SettingsScreenController extends GetxController {
         mode: LaunchMode.platformDefault,
       );
     } else {
-      // Log the error to the console.
+      // ignore: avoid_print
       print('Could not launch $url');
     }
   }
 
   Future<void> restore() async {
-    // A confirmation dialog before starting the restore process.
     await showCupertinoDialog(
       context: Get.context!,
       builder: (BuildContext context) => CupertinoAlertDialog(
@@ -208,27 +227,23 @@ class SettingsScreenController extends GetxController {
           CupertinoDialogAction(
             child: const Text(AppConstants.cancel),
             onPressed: () {
-              Navigator.of(context).pop(); // Close the dialog
+              Navigator.of(context).pop();
             },
           ),
           CupertinoDialogAction(
             isDestructiveAction: true,
             child: const Text(AppConstants.restoreButton),
             onPressed: () async {
-              Navigator.of(context).pop(); // Close the dialog before starting restore
+              Navigator.of(context).pop();
               final bool success = await _hiveService.restoreData();
 
               if (success) {
                 _loadSettings();
                 changeTheme(theme.value);
 
-                // FIX: Reset the HomeController to force a complete reload of journal data
-                // and re-attachment of database listeners. This is more robust than
-                // simply calling a refresh method.
                 if (Get.isRegistered<HomeController>()) {
                   Get.delete<HomeController>(force: true);
                 }
-                // Re-initialize the HomeController. Its onInit method will handle loading the new data.
                 Get.put(HomeController());
               }
             },

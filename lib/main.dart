@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -17,33 +20,35 @@ import 'app/core/theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize timezone database and set the local timezone
-  tz.initializeTimeZones(); // FIX: Added await to ensure initialization completes
+  tz.initializeTimeZones();
   try {
     String timeZoneName = await FlutterTimezone.getLocalTimezone();
-    // Handle a known deprecated timezone name for compatibility
     if (timeZoneName == 'Asia/Calcutta') {
       timeZoneName = 'Asia/Kolkata';
     }
     tz.setLocalLocation(tz.getLocation(timeZoneName));
   } catch (e) {
-    // If timezone lookup fails for any reason, fall back to UTC to prevent a crash.
-    print("Could not find location: $e. Falling back to UTC.");
+    if (kDebugMode) {
+      print("Could not find location: $e. Falling back to UTC.");
+    }
     tz.setLocalLocation(tz.getLocation('UTC'));
   }
 
-  // FIX: Made service initialization more explicit to resolve type inference error.
   await Get.putAsync<HiveService>(() async {
     final service = HiveService();
     return await service.init();
   });
-  await Get.putAsync<NotificationService>(() async {
+  // --- MODIFIED: Await the init and then check for memories ---
+  final notificationService = await Get.putAsync<NotificationService>(() async {
     final service = NotificationService();
     return await service.init();
   });
+  // Check for "On This Day" memories after services are initialized
+  await notificationService.checkForOnThisDayMemories();
+  // --- END MODIFIED ---
+
   Get.lazyPut(() => AppLockService());
 
-// Set default system UI overlay style
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
@@ -51,7 +56,6 @@ void main() async {
     systemNavigationBarIconBrightness: Brightness.light,
   ));
 
-  // Determine initial route based on first launch status
   final hiveService = Get.find<HiveService>();
   String initialRoute;
   if (hiveService.appLockEnabled) {
@@ -74,16 +78,64 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   final String initialRoute;
-
   const MyApp({super.key, required this.initialRoute});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    handleInitialNotification();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // --- NEW: Check for "On This Day" when app comes to foreground ---
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      Get.find<NotificationService>().checkForOnThisDayMemories();
+    }
+  }
+
+  // --- NEW: Handle notification tap from terminated state ---
+  void handleInitialNotification() {
+    // Use a post-frame callback to ensure the widget tree is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (NotificationService.initialPayload != null) {
+        try {
+          final payloadData = jsonDecode(NotificationService.initialPayload!)
+          as Map<String, dynamic>;
+          if (payloadData['type'] == 'on_this_day') {
+            final dateStr = payloadData['date'] as String;
+            final date = DateTime.parse(dateStr);
+            NotificationService.handleOnThisDayTap(date);
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error decoding initial payload: $e');
+          }
+        }
+        // Clear the payload after handling it
+        NotificationService.initialPayload = null;
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final hiveService = Get.find<HiveService>();
 
-    // Set initial theme mode from saved settings
     ThemeMode themeMode;
     switch (hiveService.theme) {
       case 'Light':
@@ -99,7 +151,7 @@ class MyApp extends StatelessWidget {
     return GetMaterialApp(
       title: "OpenJot",
       debugShowCheckedModeBanner: false,
-      initialRoute: initialRoute,
+      initialRoute: widget.initialRoute,
       getPages: AppPages.routes,
       theme: AppTheme.lightTheme(),
       darkTheme: AppTheme.darkTheme(),

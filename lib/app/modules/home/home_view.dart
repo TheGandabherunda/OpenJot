@@ -14,13 +14,13 @@ import 'package:open_jot/app/modules/settings/settings_bottomsheet.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
 import 'package:progressive_blur/progressive_blur.dart';
 
-import '../../core/constants.dart'; // ADDED: Import share service
+import '../../core/constants.dart';
 import '../../core/services/shared_services.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/custom_icon_button.dart';
 import '../../core/widgets/journal_tile.dart';
 import '../reflection/reflection_bottom_sheet.dart';
-import 'home_controller.dart'; // Import the new bottom sheet
+import 'home_controller.dart';
 
 class HomeView extends GetView<HomeController> {
   const HomeView({super.key});
@@ -33,10 +33,10 @@ class HomeView extends GetView<HomeController> {
     final SystemUiOverlayStyle systemUiOverlayStyle = SystemUiOverlayStyle(
       statusBarColor: appThemeColors.grey7,
       statusBarIconBrightness:
-          brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      brightness == Brightness.dark ? Brightness.light : Brightness.dark,
       systemNavigationBarColor: appThemeColors.grey7,
       systemNavigationBarIconBrightness:
-          brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      brightness == Brightness.dark ? Brightness.light : Brightness.dark,
     );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -65,97 +65,72 @@ class _HomeScreenStack extends StatefulWidget {
 
 class _HomeScreenStackState extends State<_HomeScreenStack>
     with TickerProviderStateMixin {
-  // START: ADDED FOR SHARING
   final _shareService = ShareService();
-
-  // END: ADDED FOR SHARING
-
   double _lastOffset = 0.0;
   static const double _tileHeightEstimate = 100;
   int _topEntryIndex = 0;
 
-  // OPTIMIZATION: Use ValueNotifiers to update the chip without rebuilding the entire list.
   late final ValueNotifier<String?> _currentMonthYearNotifier;
   late final ValueNotifier<bool> _showChipNotifier;
-
   late AnimationController _slideAnimationController;
   late Animation<Offset> _slideAnimation;
   late Animation<double> _opacityAnimation;
   late Animation<double> _scaleAnimation;
-
-  // Key for the menu button
   final GlobalKey _menuKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
-
-    // START: ADDED FOR SHARING
     _shareService.startListening();
     _shareService.onShareReceived = _handleShare;
-    // END: ADDED FOR SHARING
-
-    // OPTIMIZATION: Initialize notifiers.
     _currentMonthYearNotifier = ValueNotifier<String?>(null);
     _showChipNotifier = ValueNotifier<bool>(false);
-
     _slideAnimationController = AnimationController(
       duration: const Duration(milliseconds: 500),
-      reverseDuration:
-          const Duration(milliseconds: 700), // Longer exit duration
+      reverseDuration: const Duration(milliseconds: 700),
       vsync: this,
     );
-
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0.0, -1.2),
       end: const Offset(0.0, 0.0),
     ).animate(CurvedAnimation(
       parent: _slideAnimationController,
       curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeOutCubic, // Smooth exit curve
+      reverseCurve: Curves.easeOutCubic,
     ));
-
     _opacityAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
     ).animate(CurvedAnimation(
       parent: _slideAnimationController,
       curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
-      reverseCurve:
-          const Interval(0.0, 0.8, curve: Curves.easeOut), // Longer fade out
+      reverseCurve: const Interval(0.0, 0.8, curve: Curves.easeOut),
     ));
-
     _scaleAnimation = Tween<double>(
       begin: 0.85,
       end: 1.0,
     ).animate(CurvedAnimation(
       parent: _slideAnimationController,
       curve: Curves.easeOutBack,
-      reverseCurve: Curves.easeOutQuart, // Smooth scale down
+      reverseCurve: Curves.easeOutQuart,
     ));
   }
 
   @override
   void dispose() {
-    // START: ADDED FOR SHARING
     _shareService.dispose();
-    // END: ADDED FOR SHARING
-
-    // OPTIMIZATION: Dispose notifiers to prevent memory leaks.
     _currentMonthYearNotifier.dispose();
     _showChipNotifier.dispose();
     _slideAnimationController.dispose();
     super.dispose();
   }
 
-  // START: ADDED FOR SHARING
   void _handleShare({
     String? text,
     List<String>? photos,
     List<String>? videos,
     List<String>? audios,
   }) {
-    // Use the main context to show the bottom sheet.
     showCupertinoModalBottomSheet(
       context: context,
       expand: true,
@@ -171,13 +146,10 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     );
   }
 
-  // END: ADDED FOR SHARING
-
-  // Method to show the popup menu
   void _showPopupMenu(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
     final RenderBox renderBox =
-        _menuKey.currentContext!.findRenderObject() as RenderBox;
+    _menuKey.currentContext!.findRenderObject() as RenderBox;
     final position = renderBox.localToGlobal(Offset.zero);
 
     showMenu<String>(
@@ -194,11 +166,10 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         position.dy + renderBox.size.height * 2,
       ),
       items: [
-        // Using a custom PopupMenuEntry that doesn't close the menu on tap.
         TappablePopupMenuEntry(
           onTap: () => _showSortSubmenu(context, position, renderBox),
           child: Obx(
-            () => Row(
+                () => Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
@@ -281,13 +252,12 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     });
   }
 
-  // Method to show the sort submenu
   void _showSortSubmenu(
       BuildContext context, Offset position, RenderBox renderBox) {
     final appThemeColors = AppTheme.colorsOf(context);
     final subMenuPosition = RelativeRect.fromLTRB(
-      position.dx - 294, // shift right of parent menu
-      position.dy + renderBox.size.height + 16, // align vertically
+      position.dx - 294,
+      position.dy + renderBox.size.height + 16,
       position.dx,
       position.dy,
     );
@@ -344,26 +314,18 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         ),
       ],
     ).then((sortValue) {
-      // If a value was selected from the sort submenu, it will close itself.
-      // We then need to manually close the main menu.
       if (sortValue != null) {
-        Navigator.of(context).pop(); // This closes the main menu.
+        Navigator.of(context).pop();
         _handleSortSelection(sortValue);
       }
-      // If the user dismisses the submenu (sortValue is null), we do nothing,
-      // leaving the main menu open for other actions.
     });
   }
 
-  // Handle sort selection
   void _handleSortSelection(String sortType) {
-    // Calls the sortEntries method in the HomeController
     widget.controller.sortEntries(sortType);
   }
 
-  // Handle menu actions
   void _handleInsights() {
-    // Show the new reflection bottom sheet
     showCupertinoModalBottomSheet(
       context: context,
       expand: true,
@@ -377,7 +339,6 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
   }
 
   void _handleReflections() {
-    // Show the new reflection bottom sheet
     showCupertinoModalBottomSheet(
       context: context,
       expand: true,
@@ -391,7 +352,6 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
   }
 
   void _handleSettings() {
-    // Show the new reflection bottom sheet
     showCupertinoModalBottomSheet(
       context: context,
       expand: true,
@@ -404,8 +364,6 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     );
   }
 
-  // OPTIMIZATION: Removed setState from the scroll listener.
-  // This now updates the notifiers, which only rebuilds the chip widget.
   void _onScroll(double offset, int totalEntries, List entries) {
     if (entries.isEmpty) {
       if (_showChipNotifier.value) {
@@ -424,7 +382,6 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       _currentMonthYearNotifier.value = DateFormat('MMM, yyyy').format(dt);
     }
 
-    // Wider threshold gap for smoother transitions
     final showThreshold = (_tileHeightEstimate + 32.h) * 0.8;
     final hideThreshold = (_tileHeightEstimate + 32.h) * 0.2;
 
@@ -446,7 +403,6 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     }
   }
 
-  // Helper widget to build each statistic item
   Widget _buildStatItem(String label, String value, IconData icon) {
     final appThemeColors = AppTheme.colorsOf(context);
     return Column(
@@ -691,7 +647,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                         ),
                         sliver: SliverList(
                           delegate: SliverChildBuilderDelegate(
-                            (context, index) {
+                                (context, index) {
                               final itemIndex = index ~/ 2;
                               if (index.isEven) {
                                 final entry = entries[itemIndex];
@@ -715,7 +671,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                               return SizedBox(height: 32.h);
                             },
                             childCount:
-                                entries.isEmpty ? 0 : entries.length * 2 - 1,
+                            entries.isEmpty ? 0 : entries.length * 2 - 1,
                           ),
                         ),
                       ),
@@ -726,7 +682,6 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
             ),
           ),
         ),
-        // OPTIMIZATION: Wrap the chip in builders that listen to the notifiers.
         Positioned(
           left: 0,
           right: 0,
@@ -749,31 +704,31 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                             builder: (context, currentMonthYear, _) {
                               return (showChip && currentMonthYear != null)
                                   ? Container(
-                                      padding: EdgeInsets.symmetric(
-                                          horizontal: 9.w, vertical: 5.h),
-                                      decoration: BoxDecoration(
-                                        color: appThemeColors.grey5,
-                                        borderRadius:
-                                            BorderRadius.circular(6.r),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color:
-                                                Colors.black.withOpacity(0.12),
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Text(
-                                        currentMonthYear,
-                                        style: TextStyle(
-                                          fontFamily: AppConstants.font,
-                                          fontWeight: FontWeight.w600,
-                                          height: 1.2.sp,
-                                          fontSize: 14.sp,
-                                          color: appThemeColors.grey10,
-                                        ),
-                                      ),
-                                    )
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 9.w, vertical: 5.h),
+                                decoration: BoxDecoration(
+                                  color: appThemeColors.grey5,
+                                  borderRadius:
+                                  BorderRadius.circular(6.r),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color:
+                                      Colors.black.withOpacity(0.12),
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  currentMonthYear,
+                                  style: TextStyle(
+                                    fontFamily: AppConstants.font,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.2.sp,
+                                    fontSize: 14.sp,
+                                    color: appThemeColors.grey10,
+                                  ),
+                                ),
+                              )
                                   : const SizedBox.shrink();
                             },
                           );
@@ -786,7 +741,6 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
             },
           ),
         ),
-        // Add button
         Positioned(
           bottom: 40.h,
           left: 0,
@@ -827,8 +781,6 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
   }
 }
 
-/// A custom [PopupMenuEntry] that allows tapping without closing the menu.
-/// This is used to trigger a submenu.
 class TappablePopupMenuEntry extends PopupMenuEntry<Never> {
   const TappablePopupMenuEntry({
     Key? key,
@@ -837,7 +789,7 @@ class TappablePopupMenuEntry extends PopupMenuEntry<Never> {
   }) : super(key: key);
 
   @override
-  final double height = kMinInteractiveDimension; // Standard menu item height.
+  final double height = kMinInteractiveDimension;
 
   final VoidCallback onTap;
   final Widget child;

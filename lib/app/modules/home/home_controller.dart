@@ -24,48 +24,33 @@ class HomeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    // Listen to the journal entries box for real-time updates
     _hiveService.getJournalEntriesNotifier().addListener(loadJournalEntries);
-    // Initial load of entries
     loadJournalEntries();
   }
 
   @override
   void onClose() {
-    // Remove the listener when the controller is disposed
     _hiveService.getJournalEntriesNotifier().removeListener(loadJournalEntries);
     super.onClose();
   }
 
-  /// Loads and sorts journal entries from the Hive box.
-  /// This is now public so it can be called from other controllers (e.g., after a restore).
   Future<void> loadJournalEntries() async {
     final entriesFromDb = _hiveService.getAllJournalEntries();
-    // Asynchronously load asset entities (for images/videos from gallery)
     final loadedEntries = await _hiveService.loadAssetEntities(entriesFromDb);
     journalEntries.assignAll(loadedEntries);
     sortEntries(currentSortType.value);
   }
 
-  /// Adds a new journal entry and saves it to Hive.
   void addJournalEntry(JournalEntry entry) {
     _hiveService.addJournalEntry(entry);
-    // The listener will automatically update the UI, but we can sort immediately
-    // for a more responsive feel.
     journalEntries.insert(0, entry);
     sortEntries(currentSortType.value);
   }
 
-  /// Updates an existing journal entry in Hive and the in-memory list.
   void updateJournalEntry(JournalEntry updatedEntry) {
-    // Persist the change to the database.
     _hiveService.updateJournalEntry(updatedEntry);
-
-    // Find the index of the entry to update in our reactive list.
     final index = journalEntries.indexWhere((e) => e.id == updatedEntry.id);
-
     if (index != -1) {
-      // Check if the update resulted in an empty entry.
       final isTextEmpty = updatedEntry.content.toPlainText().trim().isEmpty;
       final isMediaEmpty = updatedEntry.galleryImages.isEmpty &&
           updatedEntry.cameraPhotos.isEmpty &&
@@ -73,27 +58,23 @@ class HomeController extends GetxController {
           updatedEntry.recordings.isEmpty;
 
       if (isTextEmpty && isMediaEmpty) {
-        // If the entry is now empty, remove it from the list.
         journalEntries.removeAt(index);
       } else {
-        // Otherwise, replace the old entry with the updated one for instant UI feedback.
         journalEntries[index] = updatedEntry;
       }
     }
   }
 
-  /// Deletes a journal entry from Hive.
   void deleteJournalEntry(String entryId) {
     _hiveService.deleteJournalEntry(entryId);
   }
 
-  /// Toggles the bookmark status of a journal entry in Hive.
   void toggleBookmarkStatus(String entryId) {
     final index = journalEntries.indexWhere((e) => e.id == entryId);
     if (index != -1) {
       final entry = journalEntries[index];
       entry.isBookmarked = !entry.isBookmarked;
-      _hiveService.updateJournalEntry(entry); // Save the change to Hive
+      _hiveService.updateJournalEntry(entry);
       if (currentSortType.value == 'bookmark') {
         sortEntries('bookmark');
       }
@@ -101,7 +82,6 @@ class HomeController extends GetxController {
     }
   }
 
-  /// Sorts the journal entries based on the provided sort type.
   void sortEntries(String sortType) {
     currentSortType.value = sortType;
     switch (sortType) {
@@ -124,7 +104,6 @@ class HomeController extends GetxController {
         break;
       case 'media':
         journalEntries.sort((a, b) {
-          // FIX: Included audio in the definition of "media"
           final aHasMedia = a.galleryImages.isNotEmpty ||
               a.cameraPhotos.isNotEmpty ||
               a.galleryAudios.isNotEmpty ||
@@ -140,7 +119,6 @@ class HomeController extends GetxController {
         break;
       case 'text':
         journalEntries.sort((a, b) {
-          // FIX: Included audio when checking for "text only"
           final aIsTextOnly = a.galleryImages.isEmpty &&
               a.cameraPhotos.isEmpty &&
               a.galleryAudios.isEmpty &&
@@ -177,8 +155,9 @@ class HomeController extends GetxController {
   }
 
   Map<int, int> getMonthlyEntriesForYear(int year) {
-    final monthlyCounts = { for (var i = 1; i <= 12; i++) i : 0 };
-    final yearlyEntries = journalEntries.where((entry) => entry.createdAt.year == year);
+    final monthlyCounts = {for (var i = 1; i <= 12; i++) i: 0};
+    final yearlyEntries =
+    journalEntries.where((entry) => entry.createdAt.year == year);
     for (final entry in yearlyEntries) {
       final month = entry.createdAt.month;
       monthlyCounts[month] = (monthlyCounts[month] ?? 0) + 1;

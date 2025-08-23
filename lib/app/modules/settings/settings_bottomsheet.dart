@@ -19,7 +19,7 @@ class SettingsBottomSheet extends StatefulWidget {
 
 class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
   final SettingsScreenController controller =
-      Get.put(SettingsScreenController());
+  Get.put(SettingsScreenController());
   String _appVersion = AppConstants.loading;
 
   @override
@@ -28,7 +28,6 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     _getAppVersion();
   }
 
-  /// Fetches and sets the application version.
   Future<void> _getAppVersion() async {
     final packageInfo = await PackageInfo.fromPlatform();
     setState(() {
@@ -41,7 +40,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime:
-          controller.reminderTime.value ?? const TimeOfDay(hour: 20, minute: 0),
+      controller.reminderTime.value ?? const TimeOfDay(hour: 20, minute: 0),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -62,11 +61,11 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
               ),
             ),
             colorScheme: Theme.of(context).colorScheme.copyWith(
-                  surface: appThemeColors.grey5,
-                  onSurface: appThemeColors.grey10,
-                  primary: appThemeColors.primary,
-                  onPrimary: appThemeColors.onPrimary,
-                ),
+              surface: appThemeColors.grey5,
+              onSurface: appThemeColors.grey10,
+              primary: appThemeColors.primary,
+              onPrimary: appThemeColors.onPrimary,
+            ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(
                 foregroundColor: appThemeColors.primary,
@@ -114,9 +113,9 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 Get.back();
               },
               trailing: Obx(() =>
-                  controller.theme.value == AppConstants.themeLight
-                      ? Icon(Icons.check, color: appThemeColors.primary)
-                      : const SizedBox.shrink()),
+              controller.theme.value == AppConstants.themeLight
+                  ? Icon(Icons.check, color: appThemeColors.primary)
+                  : const SizedBox.shrink()),
             ),
             Divider(color: appThemeColors.grey4, height: 1),
             ListTile(
@@ -127,9 +126,9 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 Get.back();
               },
               trailing: Obx(() =>
-                  controller.theme.value == AppConstants.themeDark
-                      ? Icon(Icons.check, color: appThemeColors.primary)
-                      : const SizedBox.shrink()),
+              controller.theme.value == AppConstants.themeDark
+                  ? Icon(Icons.check, color: appThemeColors.primary)
+                  : const SizedBox.shrink()),
             ),
             Divider(color: appThemeColors.grey4, height: 1),
             ListTile(
@@ -140,9 +139,9 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 Get.back();
               },
               trailing: Obx(() =>
-                  controller.theme.value == AppConstants.themeSystem
-                      ? Icon(Icons.check, color: appThemeColors.primary)
-                      : const SizedBox.shrink()),
+              controller.theme.value == AppConstants.themeSystem
+                  ? Icon(Icons.check, color: appThemeColors.primary)
+                  : const SizedBox.shrink()),
             ),
           ],
         ),
@@ -162,15 +161,15 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
       Widget? trailing,
       VoidCallback? onTap,
       String? subtitle,
-      bool showDivider = true, // Added parameter to control divider visibility
+      bool showDivider = true,
     }) {
       return Container(
         decoration: BoxDecoration(
           color: tileBackgroundColor,
-          border: showDivider // Conditionally apply the border
+          border: showDivider
               ? Border(
-                  bottom: BorderSide(color: appThemeColors.grey4, width: 1.w),
-                )
+            bottom: BorderSide(color: appThemeColors.grey4, width: 1.w),
+          )
               : null,
         ),
         child: ListTile(
@@ -207,152 +206,169 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
-        body: Column(
+        body: ListView(
+          padding: const EdgeInsets.symmetric(
+              horizontal: 16.0, vertical: 20.0),
           children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16.0, vertical: 20.0),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12.0),
+              child: Obx(() {
+                final reminderEnabled = controller.dailyReminder.value;
+                final onThisDayEnabled = controller.onThisDay.value; // NEW
+                final selectedTime = controller.reminderTime.value;
+                final appLockEnabled = controller.appLock.value;
+
+                String formattedTime = '';
+                if (selectedTime != null) {
+                  final now = DateTime.now();
+                  final dt = DateTime(now.year, now.month, now.day,
+                      selectedTime.hour, selectedTime.minute);
+                  formattedTime = DateFormat.jm().format(dt);
+                }
+
+                return Column(
+                  children: [
+                    _buildListTile(
+                      title: AppConstants.dailyReminder,
+                      subtitle: reminderEnabled && selectedTime != null
+                          ? formattedTime
+                          : AppConstants.dailyReminderDescription,
+                      icon: Icons.notifications,
+                      trailing: Switch(
+                        value: reminderEnabled,
+                        onChanged: (bool value) {
+                          controller.toggleDailyReminder(value);
+                          if (value) {
+                            _showTimePicker();
+                          }
+                        },
+                        activeColor: appThemeColors.primary,
+                      ),
+                      onTap: reminderEnabled ? _showTimePicker : null,
+                    ),
+                    // --- NEW: "On This Day" Toggle ---
+                    _buildListTile(
+                      title: AppConstants.onThisDay,
+                      subtitle: AppConstants.onThisDayDescription,
+                      icon: Icons.history,
+                      trailing: Switch(
+                        value: onThisDayEnabled,
+                        onChanged: controller.toggleOnThisDay,
+                        activeColor: appThemeColors.primary,
+                      ),
+                    ),
+                    // --- END NEW ---
+                    _buildListTile(
+                      title: AppConstants.appLock,
+                      subtitle: AppConstants.appLockDescription,
+                      icon: Icons.lock,
+                      trailing: Switch(
+                        value: appLockEnabled,
+                        onChanged: (bool value) {
+                          controller.toggleAppLock(value);
+                        },
+                        activeColor: appThemeColors.primary,
+                      ),
+                    ),
+                    if (appLockEnabled)
+                      _buildListTile(
+                        title: AppConstants.changePin,
+                        subtitle: AppConstants.changePinDescription,
+                        icon: Icons.password,
+                        onTap: controller.changePin,
+                        showDivider: false,
+                      ),
+                  ],
+                );
+              }),
+            ),
+            const SizedBox(height: 20),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12.0),
+              child: Column(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12.0),
-                    child: Obx(() {
-                      final reminderEnabled = controller.dailyReminder.value;
-                      final selectedTime = controller.reminderTime.value;
-                      final appLockEnabled = controller.appLock.value;
-
-                      String formattedTime = '';
-                      if (selectedTime != null) {
-                        final now = DateTime.now();
-                        final dt = DateTime(now.year, now.month, now.day,
-                            selectedTime.hour, selectedTime.minute);
-                        formattedTime = DateFormat.jm().format(dt);
-                      }
-
-                      return Column(
-                        children: [
-                          _buildListTile(
-                            title: AppConstants.dailyReminder,
-                            subtitle: reminderEnabled && selectedTime != null
-                                ? formattedTime
-                                : null,
-                            icon: Icons.notifications,
-                            trailing: Switch(
-                              value: reminderEnabled,
-                              onChanged: (bool value) {
-                                controller.toggleDailyReminder(value);
-                                if (value) {
-                                  _showTimePicker();
-                                }
-                              },
-                              activeColor: appThemeColors.primary,
-                            ),
-                            onTap: reminderEnabled ? _showTimePicker : null,
-                          ),
-                          _buildListTile(
-                            title: AppConstants.appLock,
-                            icon: Icons.lock,
-                            trailing: Switch(
-                              value: appLockEnabled,
-                              onChanged: (bool value) {
-                                controller.toggleAppLock(value);
-                              },
-                              activeColor: appThemeColors.primary,
-                            ),
-                          ),
-                          if (appLockEnabled)
-                            _buildListTile(
-                              title: AppConstants.changePin,
-                              icon: Icons.password,
-                              onTap: controller.changePin,
-                              showDivider: false,
-                            ),
-                        ],
-                      );
-                    }),
+                  Obx(() => _buildListTile(
+                    title: AppConstants.theme,
+                    subtitle:
+                    "${controller.theme.value} - ${AppConstants.themeDescription}",
+                    icon: Icons.style_rounded,
+                    trailing:
+                    const Icon(Icons.arrow_forward_ios, size: 18),
+                    onTap: _showThemeSelectionBottomSheet,
+                    showDivider: false,
+                  )),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12.0),
+              child: Column(
+                children: [
+                  _buildListTile(
+                    title: AppConstants.backup,
+                    subtitle: AppConstants.backupDescription,
+                    icon: Icons.cloud_upload,
+                    trailing:
+                    const Icon(Icons.arrow_forward_ios, size: 18),
+                    onTap: () => controller.backup(),
                   ),
-                  const SizedBox(height: 20),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12.0),
-                    child: Column(
-                      children: [
-                        Obx(() => _buildListTile(
-                              title: AppConstants.theme,
-                              subtitle: controller.theme.value,
-                              icon: Icons.style_rounded,
-                              trailing:
-                                  const Icon(Icons.arrow_forward_ios, size: 18),
-                              onTap: _showThemeSelectionBottomSheet,
-                              showDivider: false, // Only tile in the group
-                            )),
-                      ],
-                    ),
+                  _buildListTile(
+                    title: AppConstants.restore,
+                    subtitle: AppConstants.restoreDescription,
+                    icon: Icons.cloud_download,
+                    trailing:
+                    const Icon(Icons.arrow_forward_ios, size: 18),
+                    onTap: () => controller.restore(),
+                    showDivider: false,
                   ),
-                  const SizedBox(height: 20),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12.0),
-                    child: Column(
-                      children: [
-                        _buildListTile(
-                          title: AppConstants.backup,
-                          icon: Icons.cloud_upload,
-                          trailing:
-                              const Icon(Icons.arrow_forward_ios, size: 18),
-                          onTap: () => controller.backup(),
-                        ),
-                        _buildListTile(
-                          title: AppConstants.restore,
-                          icon: Icons.cloud_download,
-                          trailing:
-                              const Icon(Icons.arrow_forward_ios, size: 18),
-                          onTap: () => controller.restore(),
-                          showDivider: false, // Last tile in the group
-                        ),
-                      ],
-                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12.0),
+              child: Column(
+                children: [
+                  _buildListTile(
+                    title: AppConstants.termsNConditions,
+                    subtitle: AppConstants.termsNConditionsDescription,
+                    icon: Icons.file_copy_rounded,
+                    trailing:
+                    const Icon(Icons.arrow_forward_ios, size: 18),
+                    onTap: () =>
+                        Get.to(() => const TermsAndConditionsScreen()),
                   ),
-                  const SizedBox(height: 20),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12.0),
-                    child: Column(
-                      children: [
-                        _buildListTile(
-                          title: AppConstants.termsNConditions,
-                          icon: Icons.file_copy_rounded,
-                          trailing:
-                              const Icon(Icons.arrow_forward_ios, size: 18),
-                          onTap: () =>
-                              Get.to(() => const TermsAndConditionsScreen()),
-                        ),
-                        _buildListTile(
-                          title: AppConstants.privacyPolicy,
-                          icon: Icons.privacy_tip,
-                          trailing:
-                              const Icon(Icons.open_in_new_rounded, size: 18),
-                          onTap: () => controller.launchURL(
-                              'https://thegandabherunda.github.io/OpenJot/privacy_policy'),
-                        ),
-                        _buildListTile(
-                          title: AppConstants.about,
-                          icon: Icons.info,
-                          trailing:
-                              const Icon(Icons.arrow_forward_ios, size: 18),
-                          onTap: () => Get.to(() => const AboutScreen()),
-                          showDivider: false, // Last tile in the group
-                        ),
-                      ],
-                    ),
+                  _buildListTile(
+                    title: AppConstants.privacyPolicy,
+                    subtitle: AppConstants.privacyPolicyDescription,
+                    icon: Icons.privacy_tip,
+                    trailing:
+                    const Icon(Icons.open_in_new_rounded, size: 18),
+                    onTap: () => controller.launchURL(
+                        'https://thegandabherunda.github.io/OpenJot/privacy_policy'),
+                  ),
+                  _buildListTile(
+                    title: AppConstants.about,
+                    subtitle: AppConstants.aboutDescription,
+                    icon: Icons.info,
+                    trailing:
+                    const Icon(Icons.arrow_forward_ios, size: 18),
+                    onTap: () => Get.to(() => const AboutScreen()),
+                    showDivider: false,
                   ),
                 ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.only(bottom: 30.0),
-              child: Text(
-                'v $_appVersion',
-                style: TextStyle(
-                  color: appThemeColors.grey3,
-                  fontSize: 16,
+              padding: const EdgeInsets.symmetric(vertical: 30.0),
+              child: Center(
+                child: Text(
+                  'v $_appVersion',
+                  style: TextStyle(
+                    color: appThemeColors.grey3,
+                    fontSize: 16,
+                  ),
                 ),
               ),
             ),

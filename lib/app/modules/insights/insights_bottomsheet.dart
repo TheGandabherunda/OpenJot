@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/core/constants.dart';
+import 'package:open_jot/app/core/models/journal_entry.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/read_journal/read_journal_bottom_sheet.dart';
 
@@ -13,7 +15,9 @@ import '../../core/theme.dart';
 import '../../core/widgets/journal_tile.dart';
 
 class InsightsBottomSheet extends StatefulWidget {
-  const InsightsBottomSheet({super.key});
+  final DateTime? openOnThisDayDate;
+
+  const InsightsBottomSheet({super.key, this.openOnThisDayDate});
 
   @override
   State<InsightsBottomSheet> createState() => _InsightsBottomSheetState();
@@ -29,9 +33,18 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
     final now = DateTime.now();
     _selectedYearDate = now;
     _calendarDate = DateTime(now.year, now.month);
+
+    if (widget.openOnThisDayDate != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showEntriesForDate(
+          context,
+          widget.openOnThisDayDate!,
+          Get.find<HomeController>(),
+        );
+      });
+    }
   }
 
-  /// Changes the year for the bar chart.
   void _changeYear(int yearDelta) {
     setState(() {
       _selectedYearDate = DateTime(
@@ -42,7 +55,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
     });
   }
 
-  /// Changes the month for the calendar view.
   void _changeMonth(int monthDelta) {
     setState(() {
       _calendarDate = DateTime(
@@ -52,16 +64,15 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
     });
   }
 
-  /// Shows a bottom sheet with journal entries for the selected date.
+  // MODIFIED: Simplified the method call. It will now always show memories from all years.
   void _showEntriesForDate(
       BuildContext context, DateTime date, HomeController controller) {
-    // The list of entries is now fetched reactively inside the bottom sheet itself.
     showCupertinoModalBottomSheet(
       context: context,
       expand: false,
       backgroundColor: Colors.transparent,
       builder: (modalContext) {
-        return _EntriesForDateBottomSheet(
+        return EntriesForDateBottomSheet(
           date: date,
         );
       },
@@ -71,7 +82,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
-    // Find the already existing HomeController instance to access stats
     final HomeController controller = Get.find();
 
     return Material(
@@ -90,7 +100,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
             ),
           ),
           leading: Padding(
-            // Add padding around the container to "shrink" it visually
             padding: const EdgeInsets.all(8.0),
             child: Container(
               decoration: BoxDecoration(
@@ -98,7 +107,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                 shape: BoxShape.circle,
               ),
               child: IconButton(
-                // The icon button's own padding might need to be removed
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
                 icon: const Icon(Icons.close),
@@ -114,10 +122,8 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- Stats Section ---
               _buildStatsSection(context, controller),
               SizedBox(height: 32.h),
-              // --- Calendar Section ---
               _buildCalendarSection(context, controller),
               SizedBox(height: 32.h),
             ],
@@ -127,7 +133,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
     );
   }
 
-  /// Builds the stats section with the 1-over-2 grid layout.
   Widget _buildStatsSection(BuildContext context, HomeController controller) {
     final appThemeColors = AppTheme.colorsOf(context);
     return Column(
@@ -142,10 +147,8 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
           ),
         ),
         SizedBox(height: 16.h),
-        // Top container (full width) - Now a bar chart
         _buildYearlyEntriesChart(context, controller),
         SizedBox(height: 16.h),
-        // Bottom two containers (half width each)
         Row(
           children: [
             Expanded(
@@ -187,7 +190,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
     );
   }
 
-  /// Builds the interactive bar chart for yearly entries.
   Widget _buildYearlyEntriesChart(
       BuildContext context, HomeController controller) {
     final appThemeColors = AppTheme.colorsOf(context);
@@ -196,17 +198,14 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
     final totalEntries =
     monthlyData.values.fold(0, (sum, count) => sum + count);
 
-    // Calculate the max entries for a single month across ALL journal entries
     final allTimeMaxEntries = () {
-      if (controller.journalEntries.isEmpty)
-        return 1; // Avoid division by zero
+      if (controller.journalEntries.isEmpty) return 1;
       final Map<String, int> allMonthlyCounts = {};
       for (final entry in controller.journalEntries) {
         final key = '${entry.createdAt.year}-${entry.createdAt.month}';
         allMonthlyCounts[key] = (allMonthlyCounts[key] ?? 0) + 1;
       }
       if (allMonthlyCounts.isEmpty) return 1;
-      // Return the highest value found, or 1 if none exist.
       return allMonthlyCounts.values.reduce(max);
     }();
 
@@ -220,7 +219,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
       ),
       child: Column(
         children: [
-          // Header with year navigation and total count
           SizedBox(
             height: 24.h,
             child: Row(
@@ -266,7 +264,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
             ),
           ),
           SizedBox(height: 8.h),
-          // Bar chart visualization
           Expanded(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -274,25 +271,20 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
               children: List.generate(12, (index) {
                 final month = index + 1;
                 final count = monthlyData[month] ?? 0;
-                // Max height for the bar area itself
-                final double maxHeight =
-                    50.h; // Reduced height to fix overflow
-                // Calculate bar height relative to the all-time max entries
+                final double maxHeight = 50.h;
                 final barHeight = (count / allTimeMaxEntries) * maxHeight;
 
                 return Column(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    // Container to hold the bar and the text above it
                     Container(
-                      height: maxHeight + 16.h, // Space for bar + text
-                      width: 24.w, // Wider to fit text
+                      height: maxHeight + 16.h,
+                      width: 24.w,
                       alignment: Alignment.bottomCenter,
                       child: Stack(
                         alignment: Alignment.bottomCenter,
-                        clipBehavior: Clip.none, // Allow text to overflow
+                        clipBehavior: Clip.none,
                         children: [
-                          // The bar
                           Container(
                             width: 12.w,
                             height: barHeight,
@@ -303,7 +295,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                               ),
                             ),
                           ),
-                          // The count text, positioned above the bar
                           if (count > 0)
                             Positioned(
                               bottom: barHeight + 2.h,
@@ -320,7 +311,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                       ),
                     ),
                     SizedBox(height: 4.h),
-                    // Month initial
                     Text(
                       DateFormat('MMM').format(DateTime(0, month))[0],
                       style: TextStyle(
@@ -339,7 +329,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
     );
   }
 
-  /// Helper widget for a single statistic item inside a container.
   Widget _buildStatItem(
       String label, Widget valueWidget, IconData icon, AppThemeColors colors) {
     return Column(
@@ -375,7 +364,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
     );
   }
 
-  /// Builds the calendar section.
   Widget _buildCalendarSection(
       BuildContext context, HomeController controller) {
     final appThemeColors = AppTheme.colorsOf(context);
@@ -384,7 +372,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
     DateUtils.getDaysInMonth(_calendarDate.year, _calendarDate.month);
     final firstDayOfMonth =
     DateTime(_calendarDate.year, _calendarDate.month, 1);
-    // Adjust weekday to start from Sunday = 0
     final weekdayOfFirstDay =
     firstDayOfMonth.weekday == 7 ? 0 : firstDayOfMonth.weekday;
 
@@ -408,7 +395,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
           ),
           child: Column(
             children: [
-              // Header with month and year
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -433,7 +419,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                 ],
               ),
               SizedBox(height: 16.h),
-              // Row for days of the week
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -444,7 +429,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                     .toList(),
               ),
               SizedBox(height: 8.h),
-              // Grid for the calendar days
               GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -454,8 +438,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                 itemCount: daysInMonth + weekdayOfFirstDay,
                 itemBuilder: (context, index) {
                   if (index < weekdayOfFirstDay) {
-                    return const SizedBox
-                        .shrink(); // Empty space for alignment
+                    return const SizedBox.shrink();
                   }
                   final day = index - weekdayOfFirstDay + 1;
                   final currentDate =
@@ -464,7 +447,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                       _calendarDate.month == now.month &&
                       _calendarDate.year == now.year;
 
-                  // Check if there is a journal entry for this date.
                   final hasJournalEntry =
                   controller.journaledDates.contains(currentDate);
 
@@ -478,7 +460,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          // Background container for journal entries
                           if (hasJournalEntry)
                             Container(
                               decoration: BoxDecoration(
@@ -486,7 +467,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                                 borderRadius: BorderRadius.circular(8.r),
                               ),
                             ),
-                          // The day number with a circle for 'today'
                           Container(
                             width: 32.w,
                             height: 32.w,
@@ -523,19 +503,24 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
   }
 }
 
-/// A bottom sheet that displays journal entries for a specific date.
-class _EntriesForDateBottomSheet extends StatelessWidget {
+class EntriesForDateBottomSheet extends StatelessWidget {
   final DateTime date;
+  // MODIFIED: This is no longer needed as the behavior is now unified.
+  // final bool isOnThisDay;
 
-  const _EntriesForDateBottomSheet({
+  const EntriesForDateBottomSheet({
+    super.key,
     required this.date,
+    // this.isOnThisDay = false, // Removed
   });
 
   @override
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
-    // --- FIX: Get the controller to access the reactive list of entries ---
     final HomeController controller = Get.find();
+
+    // MODIFIED: The title will now always show the date, which is more intuitive.
+    final String title = DateFormat('MMMM d').format(date);
 
     return Material(
       child: Scaffold(
@@ -545,7 +530,7 @@ class _EntriesForDateBottomSheet extends StatelessWidget {
           elevation: 0,
           centerTitle: true,
           title: Text(
-            DateFormat('MMMM d, yyyy').format(date),
+            title,
             style: TextStyle(
               color: appThemeColors.grey10,
               fontWeight: FontWeight.bold,
@@ -570,59 +555,93 @@ class _EntriesForDateBottomSheet extends StatelessWidget {
             ),
           ),
         ),
-        // --- FIX: Wrap the body in an Obx to make it reactive ---
         body: Obx(() {
-          // --- FIX: Filter the entries list inside Obx to get the latest data ---
-          final entriesForDate = controller.journalEntries.where((entry) {
-            final entryDate = entry.createdAt;
-            return entryDate.year == date.year &&
-                entryDate.month == date.month &&
-                entryDate.day == date.day;
+          // MODIFIED: The logic now always filters for the same day and month across all years.
+          final entriesToShow = controller.journalEntries.where((entry) {
+            return entry.createdAt.month == date.month &&
+                entry.createdAt.day == date.day;
           }).toList();
 
-          return entriesForDate.isEmpty
-              ? Center(
-            child: Text(
-              AppConstants.noEntriesForDate,
-              style: TextStyle(
-                color: appThemeColors.grey2,
-                fontSize: 16.sp,
+          if (entriesToShow.isEmpty) {
+            return Center(
+              child: Text(
+                AppConstants.noEntriesForDate,
+                style: TextStyle(
+                  color: appThemeColors.grey2,
+                  fontSize: 16.sp,
+                ),
               ),
-            ),
-          )
-              : ListView.separated(
-            padding:
-            EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-            itemCount: entriesForDate.length,
-            separatorBuilder: (context, index) => SizedBox(height: 16.h),
+            );
+          }
+
+          // Group entries by year using a SplayTreeMap to sort years descendingly.
+          final groupedByYear =
+          SplayTreeMap<int, List<JournalEntry>>.from({}, (a, b) => b.compareTo(a));
+
+          for (final entry in entriesToShow) {
+            final year = entry.createdAt.year;
+            if (!groupedByYear.containsKey(year)) {
+              groupedByYear[year] = [];
+            }
+            groupedByYear[year]!.add(entry);
+          }
+
+          return ListView.builder(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+            itemCount: groupedByYear.length,
             itemBuilder: (context, index) {
-              final entry = entriesForDate[index];
-              return JournalTile(
-                reflectionBackground: appThemeColors.grey3,
-                backgroundColor: appThemeColors.grey5,
-                dividerColor: appThemeColors.grey3,
-                footerTextColor: appThemeColors.grey2,
-                entry: entry,
-                onTap: () {
-                  // Pop the current bottom sheet first
-                  Navigator.of(context).pop();
-                  // Then show the read journal sheet
-                  showCupertinoModalBottomSheet(
-                    context: Get.context!,
-                    expand: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (modalContext) {
-                      return SafeArea(
-                        child: ReadJournalBottomSheet(entry: entry),
-                      );
-                    },
-                  );
-                },
+              final year = groupedByYear.keys.elementAt(index);
+              final entriesInYear = groupedByYear[year]!;
+              entriesInYear.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.only(
+                        bottom: 12.h, top: index > 0 ? 24.h : 0),
+                    child: Text(
+                      year.toString(),
+                      style: TextStyle(
+                        color: appThemeColors.grey1,
+                        fontSize: 20.sp,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  ...entriesInYear.map((entry) {
+                    return Padding(
+                      padding: EdgeInsets.only(bottom: 16.h),
+                      child: JournalTile(
+                        reflectionBackground: appThemeColors.grey3,
+                        backgroundColor: appThemeColors.grey5,
+                        dividerColor: appThemeColors.grey3,
+                        footerTextColor: appThemeColors.grey2,
+                        entry: entry,
+                        onTap: () => _onEntryTap(context, entry),
+                      ),
+                    );
+                  }).toList(),
+                ],
               );
             },
           );
         }),
       ),
+    );
+  }
+
+  void _onEntryTap(BuildContext context, JournalEntry entry) {
+    Navigator.of(context).pop();
+    showCupertinoModalBottomSheet(
+      context: Get.context!,
+      expand: true,
+      backgroundColor: Colors.transparent,
+      builder: (modalContext) {
+        return SafeArea(
+          child: ReadJournalBottomSheet(entry: entry),
+        );
+      },
     );
   }
 }

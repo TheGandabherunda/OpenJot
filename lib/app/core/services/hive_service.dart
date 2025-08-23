@@ -55,7 +55,7 @@ class HiveService extends GetxService {
     _adaptersRegistered = true;
   }
 
-  // --- Settings Box Methods (unchanged) ---
+  // --- Settings Box Methods ---
   bool get isFirstLaunch =>
       settingsBox.get(AppConstants.isFirstLaunchKey, defaultValue: true);
   Future<void> setFirstLaunch(bool value) async =>
@@ -68,6 +68,14 @@ class HiveService extends GetxService {
       settingsBox.get(AppConstants.dailyReminderKey, defaultValue: false);
   Future<void> setDailyReminder(bool value) async =>
       await settingsBox.put(AppConstants.dailyReminderKey, value);
+
+  // --- NEW: Getter and Setter for "On This Day" feature ---
+  bool get onThisDay =>
+      settingsBox.get(AppConstants.onThisDayKey, defaultValue: false);
+  Future<void> setOnThisDay(bool value) async =>
+      await settingsBox.put(AppConstants.onThisDayKey, value);
+  // --- END NEW ---
+
   TimeOfDay? get reminderTime {
     final timeString = settingsBox.get(AppConstants.reminderTimeKey);
     if (timeString == null) return null;

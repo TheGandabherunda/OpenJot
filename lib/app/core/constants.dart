@@ -74,6 +74,7 @@ class AppConstants {
   static const String stats = "Stats";
   static const String calendar = "Calendar";
   static const String entriesSuffix = " entries";
+  static const String memoriesFromThisDay = "Memories from this day";
 
   // Onboarding
   static const String welcomeToOpenJot = "Welcome to OpenJot";
@@ -93,6 +94,21 @@ class AppConstants {
   static const String notificationChannelName = "Daily Journal Reminders";
   static const String notificationChannelDescription =
       "Channel for daily journal reminder notifications";
+
+  // --- NEW: On This Day Notification Constants ---
+  static const String onThisDayChannelId = "on_this_day_channel";
+  static const String onThisDayChannelName = "On This Day Memories";
+  static const String onThisDayChannelDescription =
+      "Notifications for memories from past years.";
+  static const String onThisDayNotificationTitle = "A memory from your journal";
+  static const String onThisDaySingleEntry =
+      "A year ago today, you wrote something special. Tap to revisit your thoughts.";
+  static const String onThisDaySingleEntryWithMedia =
+      "On this day last year, you shared this memory. Tap to relive it.";
+  static const String onThisDayMultipleEntries =
+      "You have memories from this day in past years. Tap to revisit them.";
+  static const String onThisDayGroupedNotification =
+      "You have %d memories from this day"; // %d will be replaced with the count
 
   // Write Journal Toolbar Content
   static const String today = "Today";
@@ -135,19 +151,30 @@ class AppConstants {
 
   // Settings Bottom Sheet
   static const String dailyReminder = "Daily Reminder";
+  static const String dailyReminderDescription = "Get a notification to write daily.";
+  static const String onThisDay = "On This Day";
+  static const String onThisDayDescription = "Get notified with past entries from this day.";
   static const String appLock = "App Lock";
+  static const String appLockDescription = "Secure your journal with a PIN.";
   static const String backup = "Backup";
+  static const String backupDescription = "Save your journal to a file.";
   static const String restore = "Restore";
+  static const String restoreDescription = "Load your journal from a backup.";
   static const String privacyPolicy = "Privacy Policy";
+  static const String privacyPolicyDescription = "Our policy on user data.";
   static const String termsNConditions = "Terms & Conditions";
+  static const String termsNConditionsDescription = "Rules for using the app.";
   static const String about = "About App";
+  static const String aboutDescription = "Information about OpenJot.";
   static const String version = "Version 1.0.0";
   static const String changeTheme = "Change theme";
   static const String theme = "Theme";
+  static const String themeDescription = "Change the app's look.";
   static const String themeLight = "Light";
   static const String themeDark = "Dark";
   static const String themeSystem = "System";
   static const String changePin = "Change PIN";
+  static const String changePinDescription = "Update your security PIN.";
   static const String loading = "Loading...";
   static const String confirmRestoreTitle = "Confirm Restore";
   static const String confirmRestoreMessage =
@@ -202,6 +229,7 @@ class AppConstants {
   static const String isFirstLaunchKey = 'isFirstLaunch';
   static const String themeKey = 'theme';
   static const String dailyReminderKey = 'dailyReminder';
+  static const String onThisDayKey = 'onThisDay'; // NEW
   static const String reminderTimeKey = 'reminderTime';
   static const String appLockEnabledKey = 'appLockEnabled';
   static const String appLockPinKey = 'appLockPin';
