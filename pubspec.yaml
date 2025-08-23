@@ -4,7 +4,7 @@ description: "A minimal and open-source journaling app to capture your thoughts,
 # Prevent accidental publishing to pub.dev.
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: '>=3.2.3 <4.0.0'
