@@ -151,25 +151,24 @@ class AppConstants {
 
   // Settings Bottom Sheet
   static const String dailyReminder = "Daily Reminder";
-  static const String dailyReminderDescription = "Get a notification to write daily.";
+  static const String dailyReminderDescription = "Get a daily reminder to write.";
   static const String onThisDay = "On This Day";
-  static const String onThisDayDescription = "Get notified with past entries from this day.";
+  static const String onThisDayDescription = "See memories from this day.";
   static const String appLock = "App Lock";
-  static const String appLockDescription = "Secure your journal with a PIN.";
+  static const String appLockDescription = "Lock your journal with a PIN.";
   static const String backup = "Backup";
-  static const String backupDescription = "Save your journal to a file.";
+  static const String backupDescription = "Save your entries to a file.";
   static const String restore = "Restore";
-  static const String restoreDescription = "Load your journal from a backup.";
+  static const String restoreDescription = "Load entries from a backup file.";
   static const String privacyPolicy = "Privacy Policy";
-  static const String privacyPolicyDescription = "Our policy on user data.";
+  static const String privacyPolicyDescription = "How we handle your data.";
   static const String termsNConditions = "Terms & Conditions";
-  static const String termsNConditionsDescription = "Rules for using the app.";
+  static const String termsNConditionsDescription = "Guidelines for using the app.";
   static const String about = "About App";
-  static const String aboutDescription = "Information about OpenJot.";
-  static const String version = "Version 1.0.0";
+  static const String aboutDescription = "App version and information.";
   static const String changeTheme = "Change theme";
   static const String theme = "Theme";
-  static const String themeDescription = "Change the app's look.";
+  static const String themeDescription = "Customize the app's appearance.";
   static const String themeLight = "Light";
   static const String themeDark = "Dark";
   static const String themeSystem = "System";
