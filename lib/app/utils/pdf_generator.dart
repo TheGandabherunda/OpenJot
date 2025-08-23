@@ -127,31 +127,30 @@ class PdfGenerator {
             pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                // --- Header: Date and Time ---
-                _buildDateHeader(entry, mediumFont),
-                pw.SizedBox(height: 24),
-
                 // --- Attached Images & Video Thumbnails ---
                 if (visualMedia.isNotEmpty) ...[
-                  _buildMediaGrid(visualMedia),
-                  pw.SizedBox(height: 20),
+                  pw.Center(child: _buildMediaGrid(visualMedia)),
+                  pw.SizedBox(height: 32),
                 ],
 
                 // --- Attached Audio Files ---
                 if (entry.recordings.isNotEmpty ||
                     entry.galleryAudios.isNotEmpty) ...[
-                  // ** UPDATED: Pass the specific symbol font. **
-                  _buildAudioList(entry, symbolFont),
-                  pw.SizedBox(height: 20),
+                  pw.Center(child: _buildAudioList(entry, symbolFont)),
+                  pw.SizedBox(height: 32),
                 ],
+
+                // --- Header: Date and Time ---
+                _buildDateHeader(entry, mediumFont),
+                pw.SizedBox(height: 8),
+
+                // --- Location and Mood ---
+                pw.Center(child: _buildLocationAndMood(entry, moodSvg)),
+                pw.SizedBox(height: 40),
 
                 // --- Journal Text (from Quill Delta) ---
                 if (entry.content.toPlainText().trim().isNotEmpty)
                   _buildJournalTextFromDelta(entry),
-                pw.SizedBox(height: 20),
-
-                // --- Location and Mood ---
-                _buildLocationAndMood(entry, moodSvg),
               ],
             )
           ];
@@ -170,14 +169,14 @@ class PdfGenerator {
   /// Builds the header section with the formatted date.
   static pw.Widget _buildDateHeader(JournalEntry entry, pw.Font mediumFont) {
     final formattedDate =
-    intl.DateFormat('EEEE, MMM d').format(entry.createdAt);
+    intl.DateFormat('EEEE, MMM d, yyyy  •  h:mm a').format(entry.createdAt);
     return pw.Container(
-      alignment: pw.Alignment.centerRight,
+      alignment: pw.Alignment.center,
       child: pw.Text(
         formattedDate,
         style: pw.TextStyle(
           font: mediumFont, // Keep specific font for styling
-          fontSize: 16,
+          fontSize: 14,
           color: PdfColors.grey600,
         ),
       ),
@@ -428,27 +427,23 @@ class PdfGenerator {
       return pw.SizedBox.shrink();
     }
 
-    return pw.Container(
-      alignment: pw.Alignment.centerRight,
-      child: pw.Row(
-        mainAxisSize: pw.MainAxisSize.min,
-        crossAxisAlignment: pw.CrossAxisAlignment.center,
-        children: [
-          if (entry.location != null)
-            pw.Row(children: [
-              pw.SizedBox(width: 6),
-              pw.Text(
-                '${entry.location!.coordinates.latitude.toStringAsFixed(4)}, ${entry.location!.coordinates.longitude.toStringAsFixed(4)}',
-                style: const pw.TextStyle(
-                  fontSize: 14,
-                  color: PdfColors.grey700,
-                ),
-              ),
-            ]),
-          if (entry.location != null && moodSvg != null) pw.SizedBox(width: 12),
-          if (moodSvg != null) pw.SvgImage(svg: moodSvg, width: 28, height: 28),
+    return pw.Row(
+      mainAxisSize: pw.MainAxisSize.min,
+      crossAxisAlignment: pw.CrossAxisAlignment.center,
+      children: [
+        if (moodSvg != null) ...[
+          pw.SvgImage(svg: moodSvg, width: 24, height: 24),
+          pw.SizedBox(width: 12),
         ],
-      ),
+        if (entry.location != null)
+          pw.Text(
+            '${entry.location!.coordinates.latitude.toStringAsFixed(4)}, ${entry.location!.coordinates.longitude.toStringAsFixed(4)}',
+            style: const pw.TextStyle(
+              fontSize: 14,
+              color: PdfColors.grey700,
+            ),
+          ),
+      ],
     );
   }
 
@@ -458,20 +453,18 @@ class PdfGenerator {
       child: pw.Container(
         padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 16),
         decoration: pw.BoxDecoration(
-          color: PdfColor.fromHex('#EFEFEF'),
           borderRadius: pw.BorderRadius.circular(20),
         ),
         child: pw.Row(
           mainAxisSize: pw.MainAxisSize.min,
           crossAxisAlignment: pw.CrossAxisAlignment.center,
           children: [
-            pw.SvgImage(svg: appIconSvg, width: 20, height: 20),
+            pw.SvgImage(svg: appIconSvg, width: 18, height: 18),
             pw.SizedBox(width: 8),
             pw.Text(
               'OpenJot',
               style: pw.TextStyle(
-                font: boldFont, // Keep specific font for branding
-                fontSize: 16,
+                fontSize: 14,
                 color: PdfColors.black,
               ),
             ),
