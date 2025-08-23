@@ -329,14 +329,14 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                   _buildListTile(
                     title: AppConstants.termsNConditions,
                     subtitle: AppConstants.termsNConditionsDescription,
-                    icon: Icons.file_copy_rounded,
+                    icon: Icons.article_rounded,
                     trailing: const Icon(Icons.arrow_forward_ios, size: 18),
                     onTap: () => Get.to(() => const TermsAndConditionsScreen()),
                   ),
                   _buildListTile(
                     title: AppConstants.privacyPolicy,
                     subtitle: AppConstants.privacyPolicyDescription,
-                    icon: Icons.privacy_tip,
+                    icon: Icons.policy,
                     trailing: const Icon(Icons.open_in_new_rounded, size: 18),
                     onTap: () => controller.launchURL(
                         'https://thegandabherunda.github.io/OpenJot/privacy_policy'),
