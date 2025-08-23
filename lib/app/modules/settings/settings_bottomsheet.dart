@@ -352,7 +352,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 ],
               ),
             ),
-            SizedBox(height: 40.h,),
+            SizedBox(height: 48.h,),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 30.0),
               child: Center(
