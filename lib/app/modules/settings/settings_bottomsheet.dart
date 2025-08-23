@@ -19,7 +19,7 @@ class SettingsBottomSheet extends StatefulWidget {
 
 class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
   final SettingsScreenController controller =
-  Get.put(SettingsScreenController());
+      Get.put(SettingsScreenController());
   String _appVersion = AppConstants.loading;
 
   @override
@@ -40,7 +40,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime:
-      controller.reminderTime.value ?? const TimeOfDay(hour: 20, minute: 0),
+          controller.reminderTime.value ?? const TimeOfDay(hour: 20, minute: 0),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -61,11 +61,11 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
               ),
             ),
             colorScheme: Theme.of(context).colorScheme.copyWith(
-              surface: appThemeColors.grey5,
-              onSurface: appThemeColors.grey10,
-              primary: appThemeColors.primary,
-              onPrimary: appThemeColors.onPrimary,
-            ),
+                  surface: appThemeColors.grey5,
+                  onSurface: appThemeColors.grey10,
+                  primary: appThemeColors.primary,
+                  onPrimary: appThemeColors.onPrimary,
+                ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(
                 foregroundColor: appThemeColors.primary,
@@ -113,9 +113,9 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 Get.back();
               },
               trailing: Obx(() =>
-              controller.theme.value == AppConstants.themeLight
-                  ? Icon(Icons.check, color: appThemeColors.primary)
-                  : const SizedBox.shrink()),
+                  controller.theme.value == AppConstants.themeLight
+                      ? Icon(Icons.check, color: appThemeColors.primary)
+                      : const SizedBox.shrink()),
             ),
             Divider(color: appThemeColors.grey4, height: 1),
             ListTile(
@@ -126,9 +126,9 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 Get.back();
               },
               trailing: Obx(() =>
-              controller.theme.value == AppConstants.themeDark
-                  ? Icon(Icons.check, color: appThemeColors.primary)
-                  : const SizedBox.shrink()),
+                  controller.theme.value == AppConstants.themeDark
+                      ? Icon(Icons.check, color: appThemeColors.primary)
+                      : const SizedBox.shrink()),
             ),
             Divider(color: appThemeColors.grey4, height: 1),
             ListTile(
@@ -139,9 +139,9 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 Get.back();
               },
               trailing: Obx(() =>
-              controller.theme.value == AppConstants.themeSystem
-                  ? Icon(Icons.check, color: appThemeColors.primary)
-                  : const SizedBox.shrink()),
+                  controller.theme.value == AppConstants.themeSystem
+                      ? Icon(Icons.check, color: appThemeColors.primary)
+                      : const SizedBox.shrink()),
             ),
           ],
         ),
@@ -168,16 +168,16 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
           color: tileBackgroundColor,
           border: showDivider
               ? Border(
-            bottom: BorderSide(color: appThemeColors.grey4, width: 1.w),
-          )
+                  bottom: BorderSide(color: appThemeColors.grey4, width: 1.w),
+                )
               : null,
         ),
         child: ListTile(
           leading: Icon(icon, color: textColor),
           title: Text(title, style: TextStyle(color: textColor)),
-          subtitle: subtitle != null
-              ? Text(subtitle, style: TextStyle(color: appThemeColors.grey2))
-              : null,
+          // subtitle: subtitle != null
+          //     ? Text(subtitle, style: TextStyle(color: appThemeColors.grey2,))
+          //     : null,
           trailing: trailing,
           onTap: onTap,
         ),
@@ -207,8 +207,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
           ),
         ),
         body: ListView(
-          padding: const EdgeInsets.symmetric(
-              horizontal: 16.0, vertical: 20.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(12.0),
@@ -288,15 +287,14 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
               child: Column(
                 children: [
                   Obx(() => _buildListTile(
-                    title: AppConstants.theme,
-                    subtitle:
-                    "${controller.theme.value} - ${AppConstants.themeDescription}",
-                    icon: Icons.style_rounded,
-                    trailing:
-                    const Icon(Icons.arrow_forward_ios, size: 18),
-                    onTap: _showThemeSelectionBottomSheet,
-                    showDivider: false,
-                  )),
+                        title: AppConstants.theme,
+                        subtitle:
+                            "${controller.theme.value} - ${AppConstants.themeDescription}",
+                        icon: Icons.style_rounded,
+                        trailing: const Icon(Icons.arrow_forward_ios, size: 18),
+                        onTap: _showThemeSelectionBottomSheet,
+                        showDivider: false,
+                      )),
                 ],
               ),
             ),
@@ -309,16 +307,14 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                     title: AppConstants.backup,
                     subtitle: AppConstants.backupDescription,
                     icon: Icons.cloud_upload,
-                    trailing:
-                    const Icon(Icons.arrow_forward_ios, size: 18),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 18),
                     onTap: () => controller.backup(),
                   ),
                   _buildListTile(
                     title: AppConstants.restore,
                     subtitle: AppConstants.restoreDescription,
                     icon: Icons.cloud_download,
-                    trailing:
-                    const Icon(Icons.arrow_forward_ios, size: 18),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 18),
                     onTap: () => controller.restore(),
                     showDivider: false,
                   ),
@@ -334,17 +330,14 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                     title: AppConstants.termsNConditions,
                     subtitle: AppConstants.termsNConditionsDescription,
                     icon: Icons.file_copy_rounded,
-                    trailing:
-                    const Icon(Icons.arrow_forward_ios, size: 18),
-                    onTap: () =>
-                        Get.to(() => const TermsAndConditionsScreen()),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 18),
+                    onTap: () => Get.to(() => const TermsAndConditionsScreen()),
                   ),
                   _buildListTile(
                     title: AppConstants.privacyPolicy,
                     subtitle: AppConstants.privacyPolicyDescription,
                     icon: Icons.privacy_tip,
-                    trailing:
-                    const Icon(Icons.open_in_new_rounded, size: 18),
+                    trailing: const Icon(Icons.open_in_new_rounded, size: 18),
                     onTap: () => controller.launchURL(
                         'https://thegandabherunda.github.io/OpenJot/privacy_policy'),
                   ),
@@ -352,19 +345,19 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                     title: AppConstants.about,
                     subtitle: AppConstants.aboutDescription,
                     icon: Icons.info,
-                    trailing:
-                    const Icon(Icons.arrow_forward_ios, size: 18),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 18),
                     onTap: () => Get.to(() => const AboutScreen()),
                     showDivider: false,
                   ),
                 ],
               ),
             ),
+            SizedBox(height: 40.h,),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 30.0),
               child: Center(
                 child: Text(
-                  'v $_appVersion',
+                  'v • $_appVersion',
                   style: TextStyle(
                     color: appThemeColors.grey3,
                     fontSize: 16,
