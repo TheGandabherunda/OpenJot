@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:location/location.dart'; // <-- CHANGED from geolocator
-import 'package:permission_handler/permission_handler.dart' as perm_handler; // Used for opening app settings
 
 import '../../core/constants.dart';
 import '../../core/theme.dart';
+import '../../utils/foss_location.dart';
 import 'custom_button.dart';
 
 class LocationMapView extends StatefulWidget {
@@ -25,7 +24,6 @@ class LocationMapView extends StatefulWidget {
 
 class _LocationMapViewState extends State<LocationMapView> {
   final MapController _mapController = MapController();
-  final Location _location = Location(); // <-- ADDED location instance
   LatLng? _selectedLocation;
   LatLng? _currentLocation;
   bool _isLoading = false;
@@ -34,51 +32,20 @@ class _LocationMapViewState extends State<LocationMapView> {
   @override
   void initState() {
     super.initState();
-    _checkLocationPermission();
+    _checkPermissionAndFetch();
   }
 
-  // REWRITTEN to use the 'location' package
-  Future<void> _checkLocationPermission() async {
-    bool serviceEnabled = await _location.serviceEnabled();
-    if (!serviceEnabled) {
-      serviceEnabled = await _location.requestService();
-      if (!serviceEnabled) {
-        if (mounted) {
-          setState(() {
-            _permissionMessage = 'Location services are disabled.';
-          });
-        }
-        return;
-      }
+  Future<void> _checkPermissionAndFetch() async {
+    final granted = await FossLocation.requestPermission();
+    if (granted) {
+      _getCurrentLocation();
+    } else {
+      setState(() {
+        _permissionMessage = 'Location permission denied.';
+      });
     }
-
-    PermissionStatus permissionGranted = await _location.hasPermission();
-    if (permissionGranted == PermissionStatus.denied) {
-      permissionGranted = await _location.requestPermission();
-      if (permissionGranted == PermissionStatus.deniedForever) {
-        if (mounted) {
-          setState(() {
-            _permissionMessage =
-            'Location permission is permanently denied. Please enable it from settings.';
-          });
-        }
-        return;
-      }
-      if (permissionGranted != PermissionStatus.granted) {
-        if (mounted) {
-          setState(() {
-            _permissionMessage = 'Location permission is required to use the map.';
-          });
-        }
-        return;
-      }
-    }
-
-    // If we have permission, get the location
-    _getCurrentLocation();
   }
 
-  // REWRITTEN to use the 'location' package
   Future<void> _getCurrentLocation() async {
     setState(() {
       _isLoading = true;
@@ -86,14 +53,17 @@ class _LocationMapViewState extends State<LocationMapView> {
     });
 
     try {
-      final LocationData locationData = await _location.getLocation();
-      if (locationData.latitude != null && locationData.longitude != null) {
-        final latLng = LatLng(locationData.latitude!, locationData.longitude!);
+      final result = await FossLocation.getCurrentLocation();
+      if (result != null) {
+        final latLng = LatLng(result['latitude']!, result['longitude']!);
 
+        // Adjust map center slightly
         const double latitudeOffset = 0.0008;
         const double longitudeOffset = 0.0000;
-        final mapCenter = LatLng(latLng.latitude - latitudeOffset,
-            latLng.longitude - longitudeOffset);
+        final mapCenter = LatLng(
+          latLng.latitude - latitudeOffset,
+          latLng.longitude - longitudeOffset,
+        );
 
         if (mounted) {
           setState(() {
@@ -103,6 +73,11 @@ class _LocationMapViewState extends State<LocationMapView> {
           });
           _mapController.move(mapCenter, 18.0);
         }
+      } else {
+        setState(() {
+          _isLoading = false;
+          _permissionMessage = 'Failed to get current location.';
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -133,7 +108,7 @@ class _LocationMapViewState extends State<LocationMapView> {
       return false;
     }
     return (_selectedLocation!.latitude.toStringAsFixed(5) ==
-        _currentLocation!.latitude.toStringAsFixed(5) &&
+            _currentLocation!.latitude.toStringAsFixed(5) &&
         _selectedLocation!.longitude.toStringAsFixed(5) ==
             _currentLocation!.longitude.toStringAsFixed(5));
   }
@@ -146,26 +121,15 @@ class _LocationMapViewState extends State<LocationMapView> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                _permissionMessage!,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: colors.grey10,
-                  fontSize: 16.sp,
-                  decoration: TextDecoration.none,
-                  fontFamily: AppConstants.font,
-                ),
-              ),
-              SizedBox(height: 16.h),
-              if (_permissionMessage!.contains('settings'))
-                ElevatedButton(
-                  onPressed: perm_handler.openAppSettings,
-                  child: const Text('Open Settings'),
-                ),
-            ],
+          child: Text(
+            _permissionMessage!,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: colors.grey10,
+              fontSize: 16.sp,
+              decoration: TextDecoration.none,
+              fontFamily: AppConstants.font,
+            ),
           ),
         ),
       );
@@ -185,14 +149,15 @@ class _LocationMapViewState extends State<LocationMapView> {
                     mapController: _mapController,
                     options: MapOptions(
                       initialCenter: const LatLng(20.5937, 78.9629),
+                      // India center
                       initialZoom: 10.0,
                       onTap: _handleTap,
                     ),
                     children: [
                       TileLayer(
                         urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.example.openjot',
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'org.thegandabherunda.openjot',
                       ),
                       if (_selectedLocation != null)
                         MarkerLayer(
@@ -233,18 +198,19 @@ class _LocationMapViewState extends State<LocationMapView> {
             onPressed: _isLoading ? null : _getCurrentLocation,
             child: _isLoading
                 ? SizedBox(
-              width: 24.w,
-              height: 24.h,
-              child: CircularProgressIndicator(
-                color: colors.grey10,
-                strokeWidth: 2,
-              ),
-            )
+                    width: 24.w,
+                    height: 24.h,
+                    child: CircularProgressIndicator(
+                      color: colors.grey10,
+                      strokeWidth: 2,
+                    ),
+                  )
                 : Icon(
-                _isSelectedLocationCurrentUserLocation()
-                    ? Icons.my_location_rounded
-                    : Icons.location_searching_rounded,
-                size: 24.sp),
+                    _isSelectedLocationCurrentUserLocation()
+                        ? Icons.my_location_rounded
+                        : Icons.location_searching_rounded,
+                    size: 24.sp,
+                  ),
           ),
         ),
         if (_selectedLocation != null)
@@ -262,7 +228,7 @@ class _LocationMapViewState extends State<LocationMapView> {
                 color: colors.grey8,
                 textColor: colors.grey10,
                 textPadding:
-                EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                    EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
               ),
             ),
           ),
