@@ -33,6 +33,11 @@ android {
         checkReleaseBuilds = false
     }
 
+    // --- FIX FOR MANIFEST BINARY DIFF ---
+    aaptOptions {
+        noCompress("AndroidManifest.xml")
+    }
+
     defaultConfig {
         applicationId = "org.thegandabherunda.openjot"
         minSdk = 24
