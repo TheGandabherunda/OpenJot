@@ -59,7 +59,8 @@ class _SearchViewState extends State<SearchView> {
           return false;
         }
         if (_isTextOnly &&
-            (entry.galleryImages.isNotEmpty || entry.cameraPhotos.isNotEmpty)) {
+            (entry.galleryImages.isNotEmpty ||
+                entry.cameraPhotos.isNotEmpty)) {
           return false;
         }
         if (_isMediaOnly &&
@@ -92,6 +93,8 @@ class _SearchViewState extends State<SearchView> {
       backgroundColor: appThemeColors.grey6,
       selectedColor: appThemeColors.primary,
       labelStyle: TextStyle(
+        fontFamily: AppConstants.font,
+        letterSpacing: -0.2,
         color: isSelected ? appThemeColors.onPrimary : appThemeColors.grey1,
       ),
       // Set the shape to StadiumBorder for a circular (pill) shape
@@ -107,7 +110,8 @@ class _SearchViewState extends State<SearchView> {
 
     // Determine icon brightness based on the overall theme brightness.
     final Brightness platformBrightness = Theme.of(context).brightness;
-    final Brightness iconBrightness = platformBrightness == Brightness.dark ? Brightness.light : Brightness.dark;
+    final Brightness iconBrightness =
+    platformBrightness == Brightness.dark ? Brightness.light : Brightness.dark;
 
     return Scaffold(
       backgroundColor: appThemeColors.grey7,
@@ -131,10 +135,16 @@ class _SearchViewState extends State<SearchView> {
             child: TextField(
               controller: _searchController,
               autofocus: true,
-              style: TextStyle(color: appThemeColors.grey10),
+              style: TextStyle(
+                  color: appThemeColors.grey10,
+                  fontFamily: AppConstants.font,
+                  letterSpacing: -0.2),
               decoration: InputDecoration(
                 hintText: AppConstants.searchJournalsHint,
-                hintStyle: TextStyle(color: appThemeColors.grey3),
+                hintStyle: TextStyle(
+                    color: appThemeColors.grey3,
+                    fontFamily: AppConstants.font,
+                    letterSpacing: -0.2),
                 filled: true,
                 fillColor: appThemeColors.grey6,
                 enabledBorder: OutlineInputBorder(
@@ -218,14 +228,16 @@ class _SearchViewState extends State<SearchView> {
               child: Text(
                 AppConstants.noResultsFound,
                 style: TextStyle(
+                  fontFamily: AppConstants.font,
+                  letterSpacing: -0.2,
                   color: appThemeColors.grey3,
                   fontSize: 16.sp,
                 ),
               ),
             )
                 : ListView.separated(
-              padding: EdgeInsets.symmetric(
-                  horizontal: 16.w, vertical: 16.h),
+              padding:
+              EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
               itemCount: _filteredEntries.length,
               separatorBuilder: (context, index) =>
                   SizedBox(height: 16.h),

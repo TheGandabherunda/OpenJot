@@ -19,7 +19,7 @@ class SettingsBottomSheet extends StatefulWidget {
 
 class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
   final SettingsScreenController controller =
-      Get.put(SettingsScreenController());
+  Get.put(SettingsScreenController());
   String _appVersion = AppConstants.loading;
 
   @override
@@ -40,7 +40,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime:
-          controller.reminderTime.value ?? const TimeOfDay(hour: 20, minute: 0),
+      controller.reminderTime.value ?? const TimeOfDay(hour: 20, minute: 0),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -61,11 +61,11 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
               ),
             ),
             colorScheme: Theme.of(context).colorScheme.copyWith(
-                  surface: appThemeColors.grey5,
-                  onSurface: appThemeColors.grey10,
-                  primary: appThemeColors.primary,
-                  onPrimary: appThemeColors.onPrimary,
-                ),
+              surface: appThemeColors.grey5,
+              onSurface: appThemeColors.grey10,
+              primary: appThemeColors.primary,
+              onPrimary: appThemeColors.onPrimary,
+            ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(
                 foregroundColor: appThemeColors.primary,
@@ -101,47 +101,58 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
               AppConstants.changeTheme,
               style: TextStyle(
                 fontSize: 16.sp,
+                letterSpacing: -0.2,
                 color: appThemeColors.grey10,
                 fontWeight: FontWeight.bold,
+                fontFamily: AppConstants.font,
               ),
             ),
             ListTile(
               title: Text(AppConstants.themeLight,
-                  style: TextStyle(color: appThemeColors.grey10)),
+                  style: TextStyle(
+                      letterSpacing: -0.2,
+                      color: appThemeColors.grey10,
+                      fontFamily: AppConstants.font)),
               onTap: () {
                 controller.changeTheme(AppConstants.themeLight);
                 Get.back();
               },
               trailing: Obx(() =>
-                  controller.theme.value == AppConstants.themeLight
-                      ? Icon(Icons.check, color: appThemeColors.primary)
-                      : const SizedBox.shrink()),
+              controller.theme.value == AppConstants.themeLight
+                  ? Icon(Icons.check, color: appThemeColors.primary)
+                  : const SizedBox.shrink()),
             ),
             Divider(color: appThemeColors.grey4, height: 1),
             ListTile(
               title: Text(AppConstants.themeDark,
-                  style: TextStyle(color: appThemeColors.grey10)),
+                  style: TextStyle(
+                      letterSpacing: -0.2,
+                      color: appThemeColors.grey10,
+                      fontFamily: AppConstants.font)),
               onTap: () {
                 controller.changeTheme(AppConstants.themeDark);
                 Get.back();
               },
               trailing: Obx(() =>
-                  controller.theme.value == AppConstants.themeDark
-                      ? Icon(Icons.check, color: appThemeColors.primary)
-                      : const SizedBox.shrink()),
+              controller.theme.value == AppConstants.themeDark
+                  ? Icon(Icons.check, color: appThemeColors.primary)
+                  : const SizedBox.shrink()),
             ),
             Divider(color: appThemeColors.grey4, height: 1),
             ListTile(
               title: Text(AppConstants.themeSystem,
-                  style: TextStyle(color: appThemeColors.grey10)),
+                  style: TextStyle(
+                      letterSpacing: -0.2,
+                      color: appThemeColors.grey10,
+                      fontFamily: AppConstants.font)),
               onTap: () {
                 controller.changeTheme(AppConstants.themeSystem);
                 Get.back();
               },
               trailing: Obx(() =>
-                  controller.theme.value == AppConstants.themeSystem
-                      ? Icon(Icons.check, color: appThemeColors.primary)
-                      : const SizedBox.shrink()),
+              controller.theme.value == AppConstants.themeSystem
+                  ? Icon(Icons.check, color: appThemeColors.primary)
+                  : const SizedBox.shrink()),
             ),
           ],
         ),
@@ -168,13 +179,15 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
           color: tileBackgroundColor,
           border: showDivider
               ? Border(
-                  bottom: BorderSide(color: appThemeColors.grey4, width: 1.w),
-                )
+            bottom: BorderSide(color: appThemeColors.grey4, width: 1.w),
+          )
               : null,
         ),
         child: ListTile(
           leading: Icon(icon, color: textColor),
-          title: Text(title, style: TextStyle(color: textColor)),
+          title: Text(title,
+              style:
+              TextStyle(color: textColor,fontWeight: FontWeight.w500,letterSpacing: -0.2, fontFamily: AppConstants.font)),
           // subtitle: subtitle != null
           //     ? Text(subtitle, style: TextStyle(color: appThemeColors.grey2,))
           //     : null,
@@ -194,6 +207,8 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
             style: TextStyle(
               color: appThemeColors.grey10,
               fontWeight: FontWeight.bold,
+              fontFamily: AppConstants.font,
+              letterSpacing: -0.2,
             ),
           ),
           centerTitle: true,
@@ -229,19 +244,43 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                   children: [
                     _buildListTile(
                       title: AppConstants.dailyReminder,
-                      subtitle: reminderEnabled && selectedTime != null
-                          ? formattedTime
-                          : AppConstants.dailyReminderDescription,
                       icon: Icons.notifications,
-                      trailing: Switch(
-                        value: reminderEnabled,
-                        onChanged: (bool value) {
-                          controller.toggleDailyReminder(value);
-                          if (value) {
-                            _showTimePicker();
-                          }
-                        },
-                        activeColor: appThemeColors.primary,
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (reminderEnabled && selectedTime != null)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8.0),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8.0, vertical: 4.0),
+                                decoration: BoxDecoration(
+                                  color: appThemeColors.grey4,
+                                  borderRadius: BorderRadius.circular(20.0),
+                                ),
+                                child: Text(
+                                  formattedTime,
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontSize: 14.sp,
+                                    letterSpacing: -0.4,
+                                    fontWeight: FontWeight.w500,
+                                    fontFamily: AppConstants.font,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          Switch(
+                            value: reminderEnabled,
+                            onChanged: (bool value) {
+                              controller.toggleDailyReminder(value);
+                              if (value) {
+                                _showTimePicker();
+                              }
+                            },
+                            activeColor: appThemeColors.primary,
+                          ),
+                        ],
                       ),
                       onTap: reminderEnabled ? _showTimePicker : null,
                     ),
@@ -287,14 +326,14 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
               child: Column(
                 children: [
                   Obx(() => _buildListTile(
-                        title: AppConstants.theme,
-                        subtitle:
-                            "${controller.theme.value} - ${AppConstants.themeDescription}",
-                        icon: Icons.style_rounded,
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 18),
-                        onTap: _showThemeSelectionBottomSheet,
-                        showDivider: false,
-                      )),
+                    title: AppConstants.theme,
+                    subtitle:
+                    "${controller.theme.value} - ${AppConstants.themeDescription}",
+                    icon: Icons.style_rounded,
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 18),
+                    onTap: _showThemeSelectionBottomSheet,
+                    showDivider: false,
+                  )),
                 ],
               ),
             ),
@@ -359,8 +398,10 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 child: Text(
                   'v • $_appVersion',
                   style: TextStyle(
+                    letterSpacing: -0.4,
                     color: appThemeColors.grey3,
                     fontSize: 16,
+                    fontFamily: AppConstants.font,
                   ),
                 ),
               ),
@@ -371,3 +412,4 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     );
   }
 }
+

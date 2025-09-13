@@ -181,7 +181,10 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(AppConstants.sortBy,
-                            style: TextStyle(color: appThemeColors.grey10)),
+                            style: TextStyle(
+                                color: appThemeColors.grey10,
+                                fontFamily: AppConstants.font,
+                                letterSpacing: -0.2)),
                         SizedBox(
                           width: 68.w,
                           child: Text(
@@ -190,6 +193,8 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                             style: TextStyle(
                               fontSize: 12.sp,
                               color: appThemeColors.grey2,
+                              fontFamily: AppConstants.font,
+                              letterSpacing: -0.2,
                             ),
                           ),
                         ),
@@ -211,7 +216,10 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
               Icon(Icons.insights_outlined, color: appThemeColors.grey10),
               SizedBox(width: 8.w),
               Text(AppConstants.insights,
-                  style: TextStyle(color: appThemeColors.grey10)),
+                  style: TextStyle(
+                      color: appThemeColors.grey10,
+                      fontFamily: AppConstants.font,
+                      letterSpacing: -0.2)),
             ],
           ),
         ),
@@ -224,7 +232,10 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                   color: appThemeColors.grey10),
               SizedBox(width: 8.w),
               Text(AppConstants.reflections,
-                  style: TextStyle(color: appThemeColors.grey10)),
+                  style: TextStyle(
+                      color: appThemeColors.grey10,
+                      fontFamily: AppConstants.font,
+                      letterSpacing: -0.2)),
             ],
           ),
         ),
@@ -236,7 +247,10 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
               Icon(Icons.settings_outlined, color: appThemeColors.grey10),
               SizedBox(width: 8.w),
               Text(AppConstants.settings,
-                  style: TextStyle(color: appThemeColors.grey10)),
+                  style: TextStyle(
+                      color: appThemeColors.grey10,
+                      fontFamily: AppConstants.font,
+                      letterSpacing: -0.2)),
             ],
           ),
         ),
@@ -274,43 +288,64 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         PopupMenuItem(
           value: 'time',
           child: Text(AppConstants.entryTime,
-              style: TextStyle(color: appThemeColors.grey10)),
+              style: TextStyle(
+                  color: appThemeColors.grey10,
+                  fontFamily: AppConstants.font,
+                  letterSpacing: -0.2)),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'bookmark',
           child: Text(AppConstants.bookmarkFirst,
-              style: TextStyle(color: appThemeColors.grey10)),
+              style: TextStyle(
+                  color: appThemeColors.grey10,
+                  fontFamily: AppConstants.font,
+                  letterSpacing: -0.2)),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'reflection',
           child: Text(AppConstants.reflectionFirst,
-              style: TextStyle(color: appThemeColors.grey10)),
+              style: TextStyle(
+                  color: appThemeColors.grey10,
+                  fontFamily: AppConstants.font,
+                  letterSpacing: -0.2)),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'media',
           child: Text(AppConstants.withMediaFirst,
-              style: TextStyle(color: appThemeColors.grey10)),
+              style: TextStyle(
+                  color: appThemeColors.grey10,
+                  fontFamily: AppConstants.font,
+                  letterSpacing: -0.2)),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'text',
           child: Text(AppConstants.textOnlyFirst,
-              style: TextStyle(color: appThemeColors.grey10)),
+              style: TextStyle(
+                  color: appThemeColors.grey10,
+                  fontFamily: AppConstants.font,
+                  letterSpacing: -0.2)),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'location',
           child: Text(AppConstants.withLocationFirst,
-              style: TextStyle(color: appThemeColors.grey10)),
+              style: TextStyle(
+                  color: appThemeColors.grey10,
+                  fontFamily: AppConstants.font,
+                  letterSpacing: -0.2)),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'mood',
           child: Text(AppConstants.withMoodFirst,
-              style: TextStyle(color: appThemeColors.grey10)),
+              style: TextStyle(
+                  color: appThemeColors.grey10,
+                  fontFamily: AppConstants.font,
+                  letterSpacing: -0.2)),
         ),
       ],
     ).then((sortValue) {
@@ -425,6 +460,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                 fontWeight: FontWeight.bold,
                 fontSize: 20.sp,
                 color: appThemeColors.grey10,
+                letterSpacing: -0.2,
               ),
             ),
           ],
@@ -437,6 +473,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
             fontWeight: FontWeight.w500,
             fontSize: 12.sp,
             color: appThemeColors.grey2,
+            letterSpacing: -0.2,
           ),
         ),
       ],
@@ -501,6 +538,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                       fontWeight: FontWeight.bold,
                                       fontSize: 24.sp,
                                       color: appThemeColors.grey10,
+                                      letterSpacing: -0.2,
                                     ),
                                   ),
                                 ),
@@ -580,6 +618,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                               fontSize: 20.sp,
                               height: 1.2.sp,
                               color: appThemeColors.grey1,
+                              letterSpacing: -0.2,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -591,6 +630,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                               fontSize: 14.sp,
                               height: 1.2.sp,
                               color: appThemeColors.grey2,
+                              letterSpacing: -0.2,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -726,6 +766,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                     height: 1.2.sp,
                                     fontSize: 14.sp,
                                     color: appThemeColors.grey10,
+                                    letterSpacing: -0.2,
                                   ),
                                 ),
                               )

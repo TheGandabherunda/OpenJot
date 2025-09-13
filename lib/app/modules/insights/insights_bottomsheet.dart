@@ -97,6 +97,8 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
               color: appThemeColors.grey10,
               fontWeight: FontWeight.bold,
               fontSize: 18.sp,
+              fontFamily: AppConstants.font,
+              letterSpacing: -0.2,
             ),
           ),
           leading: Padding(
@@ -144,6 +146,8 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
             fontSize: 20.sp,
             fontWeight: FontWeight.bold,
             color: appThemeColors.grey10,
+            fontFamily: AppConstants.font,
+            letterSpacing: -0.2,
           ),
         ),
         SizedBox(height: 16.h),
@@ -235,6 +239,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                     style: TextStyle(
                       fontFamily: AppConstants.font,
                       color: appThemeColors.grey10,
+                      letterSpacing: -0.2,
                     ),
                     children: [
                       TextSpan(
@@ -304,6 +309,8 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                                   fontSize: 10.sp,
                                   color: appThemeColors.grey2,
                                   fontWeight: FontWeight.bold,
+                                  fontFamily: AppConstants.font,
+                                  letterSpacing: -0.2,
                                 ),
                               ),
                             ),
@@ -317,6 +324,8 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                         fontSize: 10.sp,
                         color: appThemeColors.grey2,
                         fontWeight: FontWeight.w600,
+                        fontFamily: AppConstants.font,
+                        letterSpacing: -0.2,
                       ),
                     ),
                   ],
@@ -347,6 +356,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
             fontWeight: FontWeight.bold,
             fontSize: 24.sp,
             color: colors.grey10,
+            letterSpacing: -0.2,
           ),
           child: valueWidget,
         ),
@@ -358,6 +368,8 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
             fontWeight: FontWeight.w500,
             fontSize: 14.sp,
             color: colors.grey2,
+            fontFamily: AppConstants.font,
+            letterSpacing: -0.2,
           ),
         ),
       ],
@@ -384,6 +396,8 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
             fontSize: 20.sp,
             fontWeight: FontWeight.bold,
             color: appThemeColors.grey10,
+            fontFamily: AppConstants.font,
+            letterSpacing: -0.2,
           ),
         ),
         SizedBox(height: 16.h),
@@ -409,6 +423,8 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                       fontSize: 16.sp,
                       fontWeight: FontWeight.bold,
                       color: appThemeColors.grey10,
+                      fontFamily: AppConstants.font,
+                      letterSpacing: -0.2,
                     ),
                   ),
                   InkWell(
@@ -425,7 +441,9 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                     .map((day) => Text(day,
                     style: TextStyle(
                         color: appThemeColors.grey2,
-                        fontWeight: FontWeight.bold)))
+                        fontWeight: FontWeight.bold,
+                        fontFamily: AppConstants.font,
+                        letterSpacing: -0.2)))
                     .toList(),
               ),
               SizedBox(height: 8.h),
@@ -486,6 +504,8 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                                 fontWeight: isToday
                                     ? FontWeight.bold
                                     : FontWeight.normal,
+                                fontFamily: AppConstants.font,
+                                letterSpacing: -0.2,
                               ),
                             ),
                           ),
@@ -535,6 +555,8 @@ class EntriesForDateBottomSheet extends StatelessWidget {
               color: appThemeColors.grey10,
               fontWeight: FontWeight.bold,
               fontSize: 18.sp,
+              fontFamily: AppConstants.font,
+              letterSpacing: -0.2,
             ),
           ),
           leading: Padding(
@@ -569,6 +591,8 @@ class EntriesForDateBottomSheet extends StatelessWidget {
                 style: TextStyle(
                   color: appThemeColors.grey2,
                   fontSize: 16.sp,
+                  fontFamily: AppConstants.font,
+                  letterSpacing: -0.2,
                 ),
               ),
             );
@@ -606,6 +630,8 @@ class EntriesForDateBottomSheet extends StatelessWidget {
                         color: appThemeColors.grey1,
                         fontSize: 20.sp,
                         fontWeight: FontWeight.bold,
+                        fontFamily: AppConstants.font,
+                        letterSpacing: -0.2,
                       ),
                     ),
                   ),

@@ -161,7 +161,7 @@ class _AnimatedOnboardingContentState extends State<_AnimatedOnboardingContent>
                 fontFamily: AppConstants.font,
                 fontWeight: FontWeight.bold,
                 fontSize: 32.sp,
-                letterSpacing: -0.4,
+                letterSpacing: -0.2,
               ),
               textAlign: TextAlign.center,
             ),

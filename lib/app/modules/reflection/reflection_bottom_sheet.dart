@@ -58,7 +58,7 @@ class _ReflectionBottomSheetState extends State<ReflectionBottomSheet> {
                 child: IconButton(
                   // The icon button's own padding might need to be removed
                   padding: EdgeInsets.zero,
-                  constraints: BoxConstraints(),
+                  constraints: const BoxConstraints(),
                   icon: const Icon(Icons.close),
                   iconSize: 24,
                   color: appThemeColors.grey10,
@@ -98,7 +98,8 @@ class _ReflectionBottomSheetState extends State<ReflectionBottomSheet> {
                                   color: appThemeColors.grey10,
                                   fontSize: 14,
                                   fontFamily: AppConstants.font,
-                                  fontWeight: FontWeight.w500),
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: -0.2),
                             ),
                           ),
                         ),
@@ -110,7 +111,8 @@ class _ReflectionBottomSheetState extends State<ReflectionBottomSheet> {
                                 color: appThemeColors.grey10,
                                 fontSize: 24,
                                 fontFamily: AppConstants.font,
-                                fontWeight: FontWeight.w800),
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.2),
                           ),
                         ),
                         Align(
