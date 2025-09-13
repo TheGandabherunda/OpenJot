@@ -127,8 +127,12 @@ class _JournalTileState extends State<JournalTile> {
       context: context,
       builder: (BuildContext ctx) {
         return CupertinoAlertDialog(
-          title: const Text(AppConstants.pleaseConfirm),
-          content: const Text(AppConstants.confirmDeleteJournalEntry),
+          title: const Text(
+            AppConstants.pleaseConfirm,
+          ),
+          content: const Text(
+            AppConstants.confirmDeleteJournalEntry,
+          ),
           actions: [
             CupertinoDialogAction(
               onPressed: () {
@@ -207,6 +211,7 @@ class _JournalTileState extends State<JournalTile> {
                           fontWeight: FontWeight.w500,
                           fontSize: 16.sp,
                           color: appThemeColors.grey10,
+                          letterSpacing: -0.2,
                         ),
                       ),
                     ),
@@ -307,7 +312,8 @@ class _JournalTileState extends State<JournalTile> {
                     fontSize: 32.sp,
                     fontFamily: AppConstants.font,
                     fontWeight: FontWeight.w500,
-                    decoration: TextDecoration.none),
+                    decoration: TextDecoration.none,
+                    letterSpacing: -0.2),
               ),
             ),
           ),
@@ -395,6 +401,7 @@ class _JournalTileState extends State<JournalTile> {
                       decoration: TextDecoration.none,
                       overflow: TextOverflow.ellipsis,
                       fontFamily: AppConstants.font,
+                      letterSpacing: -0.2,
                     ),
                     maxLines: 1,
                   ),
@@ -467,6 +474,7 @@ class _JournalTileState extends State<JournalTile> {
                           decoration: TextDecoration.none,
                           overflow: TextOverflow.ellipsis,
                           fontFamily: AppConstants.font,
+                          letterSpacing: -0.2,
                         ),
                         maxLines: 1,
                       ),
@@ -477,6 +485,7 @@ class _JournalTileState extends State<JournalTile> {
                           fontSize: 12.sp,
                           decoration: TextDecoration.none,
                           fontFamily: AppConstants.font,
+                          letterSpacing: -0.2,
                         ),
                       ),
                     ],
@@ -507,6 +516,7 @@ class _JournalTileState extends State<JournalTile> {
                       fontWeight: FontWeight.w500,
                       fontSize: 14.sp,
                       color: widget.footerTextColor ?? appThemeColors.grey3,
+                      letterSpacing: -0.2,
                     ),
                   ),
                   VerticalDivider(
@@ -534,6 +544,7 @@ class _JournalTileState extends State<JournalTile> {
                               fontSize: 12.sp,
                               fontFamily: AppConstants.font,
                               fontWeight: FontWeight.w500,
+                              letterSpacing: -0.2,
                             ),
                           ),
                         ),
@@ -587,7 +598,10 @@ class _JournalTileState extends State<JournalTile> {
                             Icon(Icons.edit, color: appThemeColors.grey10),
                             SizedBox(width: 8.w),
                             Text(AppConstants.edit,
-                                style: TextStyle(color: appThemeColors.grey10)),
+                                style: TextStyle(
+                                    color: appThemeColors.grey10,
+                                    fontFamily: AppConstants.font,
+                                    letterSpacing: -0.2)),
                           ],
                         ),
                       ),
@@ -610,7 +624,10 @@ class _JournalTileState extends State<JournalTile> {
                               widget.entry.isBookmarked
                                   ? AppConstants.removeBookmark
                                   : AppConstants.bookmark,
-                              style: TextStyle(color: appThemeColors.grey10),
+                              style: TextStyle(
+                                  color: appThemeColors.grey10,
+                                  fontFamily: AppConstants.font,
+                                  letterSpacing: -0.2),
                             ),
                           ],
                         ),
@@ -628,7 +645,10 @@ class _JournalTileState extends State<JournalTile> {
                             SizedBox(width: 8.w),
                             Text(AppConstants.share,
                                 style:
-                                TextStyle(color: appThemeColors.grey10)),
+                                TextStyle(
+                                    color: appThemeColors.grey10,
+                                    fontFamily: AppConstants.font,
+                                    letterSpacing: -0.2)),
                           ],
                         ),
                       ),
@@ -645,7 +665,10 @@ class _JournalTileState extends State<JournalTile> {
                             SizedBox(width: 8.w),
                             Text(AppConstants.saveAsPdf,
                                 style:
-                                TextStyle(color: appThemeColors.grey10)),
+                                TextStyle(
+                                    color: appThemeColors.grey10,
+                                    fontFamily: AppConstants.font,
+                                    letterSpacing: -0.2)),
                           ],
                         ),
                       ),
@@ -661,7 +684,10 @@ class _JournalTileState extends State<JournalTile> {
                                 color: appThemeColors.error),
                             SizedBox(width: 8.w),
                             Text(AppConstants.delete,
-                                style: TextStyle(color: appThemeColors.error)),
+                                style: TextStyle(
+                                    color: appThemeColors.error,
+                                    fontFamily: AppConstants.font,
+                                    letterSpacing: -0.2)),
                           ],
                         ),
                       ),

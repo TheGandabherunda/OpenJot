@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
+import 'package:open_jot/app/core/constants.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -54,8 +55,7 @@ class _AboutScreenState extends State<AboutScreen> {
           gravity: ToastGravity.BOTTOM,
           backgroundColor: appColors.grey7,
           textColor: appColors.grey10,
-          fontSize: 16.0
-      );
+          fontSize: 16.0);
     }
   }
 
@@ -80,8 +80,7 @@ class _AboutScreenState extends State<AboutScreen> {
           gravity: ToastGravity.BOTTOM,
           backgroundColor: appColors.grey7,
           textColor: appColors.grey10,
-          fontSize: 16.0
-      );
+          fontSize: 16.0);
     }
   }
 
@@ -104,9 +103,10 @@ class _AboutScreenState extends State<AboutScreen> {
         title: Text(
           'About OpenJot',
           style: TextStyle(
+            fontFamily: AppConstants.font,
+            letterSpacing: -0.2,
             fontSize: 24,
             height: 1.3,
-            letterSpacing: -0.4,
             color: appColors.onSurface,
             fontWeight: FontWeight.w600,
           ),
@@ -136,6 +136,8 @@ class _AboutScreenState extends State<AboutScreen> {
                     'OpenJot',
                     textAlign: TextAlign.center,
                     style: TextStyle(
+                      fontFamily: AppConstants.font,
+                      letterSpacing: -0.2,
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
                       color: appColors.onSurface,
@@ -146,6 +148,8 @@ class _AboutScreenState extends State<AboutScreen> {
                     'Version: $_appVersion',
                     textAlign: TextAlign.center,
                     style: TextStyle(
+                      fontFamily: AppConstants.font,
+                      letterSpacing: -0.2,
                       fontSize: 14,
                       color: appColors.onSurfaceVariant,
                     ),
@@ -158,6 +162,8 @@ class _AboutScreenState extends State<AboutScreen> {
               'A minimal, open-source journal to log your thoughts, moods, and memories. All your data stays on your device.',
               textAlign: TextAlign.center,
               style: TextStyle(
+                fontFamily: AppConstants.font,
+                letterSpacing: -0.2,
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
                 color: appColors.onSurfaceVariant,
@@ -168,6 +174,8 @@ class _AboutScreenState extends State<AboutScreen> {
               'Key Features',
               textAlign: TextAlign.start,
               style: TextStyle(
+                fontFamily: AppConstants.font,
+                letterSpacing: -0.2,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
                 color: appColors.onSurface,
@@ -178,10 +186,12 @@ class _AboutScreenState extends State<AboutScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 FeatureText(text: '• Clean, distraction-free writing experience.'),
-                FeatureText(text: '• Add photos, voice notes, and music to your entries.'),
+                FeatureText(
+                    text: '• Add photos, voice notes, and music to your entries.'),
                 FeatureText(text: '• Record your mood alongside your journals.'),
                 FeatureText(text: '• Personalize with different text styles.'),
-                FeatureText(text: '• Works fully offline, your data stays on your device.'),
+                FeatureText(
+                    text: '• Works fully offline, your data stays on your device.'),
               ],
             ),
             const SizedBox(height: 32),
@@ -189,6 +199,8 @@ class _AboutScreenState extends State<AboutScreen> {
               'Open Source',
               textAlign: TextAlign.start,
               style: TextStyle(
+                fontFamily: AppConstants.font,
+                letterSpacing: -0.2,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
                 color: appColors.onSurface,
@@ -199,6 +211,8 @@ class _AboutScreenState extends State<AboutScreen> {
               'OpenJot is an open-source application. The source code is publicly available for anyone to inspect, modify, and contribute. We believe in transparency and community collaboration.',
               textAlign: TextAlign.start,
               style: TextStyle(
+                fontFamily: AppConstants.font,
+                letterSpacing: -0.2,
                 fontSize: 16,
                 fontWeight: FontWeight.w400,
                 color: appColors.onSurfaceVariant,
@@ -209,6 +223,8 @@ class _AboutScreenState extends State<AboutScreen> {
               'Data Privacy',
               textAlign: TextAlign.start,
               style: TextStyle(
+                fontFamily: AppConstants.font,
+                letterSpacing: -0.2,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
                 color: appColors.onSurface,
@@ -219,6 +235,8 @@ class _AboutScreenState extends State<AboutScreen> {
               'We value your privacy. OpenJot does not collect, store, or transmit any of your personal data. All your journal entries, including text, images, and audio files, are stored exclusively on your device.',
               textAlign: TextAlign.start,
               style: TextStyle(
+                fontFamily: AppConstants.font,
+                letterSpacing: -0.2,
                 fontSize: 16,
                 fontWeight: FontWeight.w400,
                 color: appColors.onSurfaceVariant,
@@ -229,6 +247,8 @@ class _AboutScreenState extends State<AboutScreen> {
               'Links',
               textAlign: TextAlign.start,
               style: TextStyle(
+                fontFamily: AppConstants.font,
+                letterSpacing: -0.2,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
                 color: appColors.onSurface,
@@ -241,6 +261,8 @@ class _AboutScreenState extends State<AboutScreen> {
                   title: Text(
                     'Source Code on GitHub',
                     style: TextStyle(
+                      fontFamily: AppConstants.font,
+                      letterSpacing: -0.2,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                       color: appColors.primary,
@@ -248,13 +270,15 @@ class _AboutScreenState extends State<AboutScreen> {
                   ),
                   trailing: Icon(Icons.open_in_new,
                       size: 20, color: appColors.primary),
-                  onTap: () => _launchURL(
-                      'https://github.com/TheGandabherunda/OpenJot'),
+                  onTap: () =>
+                      _launchURL('https://github.com/TheGandabherunda/OpenJot'),
                 ),
                 ListTile(
                   title: Text(
                     'Send Feedback',
                     style: TextStyle(
+                      fontFamily: AppConstants.font,
+                      letterSpacing: -0.2,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                       color: appColors.primary,
@@ -262,8 +286,8 @@ class _AboutScreenState extends State<AboutScreen> {
                   ),
                   trailing: Icon(Icons.mail_outline,
                       size: 20, color: appColors.primary),
-                  onTap: () => _sendEmail(
-                      'arunuserx@gmail.com', 'Feedback about OpenJot'),
+                  onTap: () =>
+                      _sendEmail('arunuserx@gmail.com', 'Feedback about OpenJot'),
                 ),
               ],
             ),
@@ -273,6 +297,8 @@ class _AboutScreenState extends State<AboutScreen> {
                 'Thank you for using OpenJot!',
                 textAlign: TextAlign.center,
                 style: TextStyle(
+                  fontFamily: AppConstants.font,
+                  letterSpacing: -0.2,
                   fontSize: 14,
                   color: appColors.onSurfaceVariant,
                   fontStyle: FontStyle.italic,
@@ -301,6 +327,8 @@ class FeatureText extends StatelessWidget {
         text,
         textAlign: TextAlign.start,
         style: TextStyle(
+          fontFamily: AppConstants.font,
+          letterSpacing: -0.2,
           fontSize: 16,
           fontWeight: FontWeight.w400,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
