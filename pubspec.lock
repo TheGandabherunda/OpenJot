@@ -550,11 +550,12 @@ packages:
   flutter_quill:
     dependency: "direct main"
     description:
-      name: flutter_quill
-      sha256: "8e33ef670abad16405582a37ce63ac82b7531998682e8bd8348d0f3da998b8ce"
-      url: "https://pub.dev"
-    source: hosted
-    version: "11.4.2"
+      path: "."
+      ref: "feature/removeXclip"
+      resolved-ref: dfb385d2c0f7f75e7a75da9019876fffb287855d
+      url: "https://github.com/T-Pro/flutter-quill.git"
+    source: git
+    version: "11.5.0"
   flutter_quill_delta_from_html:
     dependency: transitive
     description:
@@ -1174,68 +1175,76 @@ packages:
     source: hosted
     version: "3.0.2"
   quill_native_bridge:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: quill_native_bridge
-      sha256: "00752aca7d67cbd3254709a47558be78427750cb81aa42cfbed354d4a079bcfa"
-      url: "https://pub.dev"
-    source: hosted
-    version: "11.0.1"
+      path: quill_native_bridge
+      ref: "feature/removeXclip"
+      resolved-ref: "9c13a5688384b93339af1cf1c5255a0da461d44a"
+      url: "https://github.com/T-Pro/quill-native-bridge.git"
+    source: git
+    version: "11.1.0"
   quill_native_bridge_android:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: quill_native_bridge_android
-      sha256: b75c7e6ede362a7007f545118e756b1f19053994144ec9eda932ce5e54a57569
-      url: "https://pub.dev"
-    source: hosted
+      path: quill_native_bridge_android
+      ref: "feature/removeXclip"
+      resolved-ref: "9c13a5688384b93339af1cf1c5255a0da461d44a"
+      url: "https://github.com/T-Pro/quill-native-bridge.git"
+    source: git
     version: "0.0.1+2"
   quill_native_bridge_ios:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: quill_native_bridge_ios
-      sha256: d23de3cd7724d482fe2b514617f8eedc8f296e120fb297368917ac3b59d8099f
-      url: "https://pub.dev"
-    source: hosted
+      path: quill_native_bridge_ios
+      ref: "feature/removeXclip"
+      resolved-ref: "9c13a5688384b93339af1cf1c5255a0da461d44a"
+      url: "https://github.com/T-Pro/quill-native-bridge.git"
+    source: git
     version: "0.0.1"
   quill_native_bridge_linux:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: quill_native_bridge_linux
-      sha256: "388aaa62017dbd746742ce0bfae99f4ffe1dda2462e8a866df630c67b63c54fe"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.0.2"
+      path: quill_native_bridge_linux
+      ref: "feature/removeXclip"
+      resolved-ref: "9c13a5688384b93339af1cf1c5255a0da461d44a"
+      url: "https://github.com/T-Pro/quill-native-bridge.git"
+    source: git
+    version: "0.0.3"
   quill_native_bridge_macos:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: quill_native_bridge_macos
-      sha256: "1c0631bd1e2eee765a8b06017c5286a4e829778f4585736e048eb67c97af8a77"
-      url: "https://pub.dev"
-    source: hosted
+      path: quill_native_bridge_macos
+      ref: "feature/removeXclip"
+      resolved-ref: "9c13a5688384b93339af1cf1c5255a0da461d44a"
+      url: "https://github.com/T-Pro/quill-native-bridge.git"
+    source: git
     version: "0.0.1"
   quill_native_bridge_platform_interface:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: quill_native_bridge_platform_interface
-      sha256: "8264a2bdb8a294c31377a27b46c0f8717fa9f968cf113f7dc52d332ed9c84526"
-      url: "https://pub.dev"
-    source: hosted
+      path: quill_native_bridge_platform_interface
+      ref: "feature/removeXclip"
+      resolved-ref: "9c13a5688384b93339af1cf1c5255a0da461d44a"
+      url: "https://github.com/T-Pro/quill-native-bridge.git"
+    source: git
     version: "0.0.2+1"
   quill_native_bridge_web:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: quill_native_bridge_web
-      sha256: "7c723f6824b0250d7f33e8b6c23f2f8eb0103fe48ee7ebf47ab6786b64d5c05d"
-      url: "https://pub.dev"
-    source: hosted
+      path: quill_native_bridge_web
+      ref: "feature/removeXclip"
+      resolved-ref: "9c13a5688384b93339af1cf1c5255a0da461d44a"
+      url: "https://github.com/T-Pro/quill-native-bridge.git"
+    source: git
     version: "0.0.2"
   quill_native_bridge_windows:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: quill_native_bridge_windows
-      sha256: "3f96ced19e3206ddf4f6f7dde3eb16bdd05e10294964009ea3a806d995aa7caa"
-      url: "https://pub.dev"
-    source: hosted
+      path: quill_native_bridge_windows
+      ref: "feature/removeXclip"
+      resolved-ref: "9c13a5688384b93339af1cf1c5255a0da461d44a"
+      url: "https://github.com/T-Pro/quill-native-bridge.git"
+    source: git
     version: "0.0.2"
   quiver:
     dependency: transitive
@@ -1683,7 +1692,7 @@ packages:
     source: hosted
     version: "3.0.3"
   win32:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: win32
       sha256: "66814138c3562338d05613a6e368ed8cfb237ad6d64a9e9334be3f309acfca03"
