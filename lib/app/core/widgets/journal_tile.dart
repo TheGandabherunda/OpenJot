@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
+import 'package:get_thumbnail_video/video_thumbnail.dart';
 import 'package:intl/intl.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
@@ -15,7 +16,6 @@ import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.da
 import 'package:open_jot/app/utils/pdf_generator.dart'; // <-- ADD THIS IMPORT
 import 'package:photo_manager/photo_manager.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../constants.dart';
 import '../models/journal_entry.dart';

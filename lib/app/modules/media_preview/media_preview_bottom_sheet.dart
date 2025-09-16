@@ -4,12 +4,13 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get_thumbnail_video/index.dart';
+import 'package:get_thumbnail_video/video_thumbnail.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 import 'package:video_player/video_player.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../../core/models/journal_entry.dart';
 import '../../core/theme.dart';
@@ -141,7 +142,6 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet>
         if (item.type == AssetType.video) {
           imageData = await VideoThumbnail.thumbnailData(
             video: file.path,
-            imageFormat: ImageFormat.JPEG,
             maxWidth: 150,
             maxHeight: 150,
             quality: 70,

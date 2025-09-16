@@ -1,7 +1,7 @@
 import java.io.FileInputStream
 import java.util.Properties
 
-// This initial block reads the keystore properties.
+// --- Read keystore properties if available ---
 val keystoreProperties = Properties()
 val keystorePropertiesFile = project.rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
@@ -33,11 +33,6 @@ android {
         checkReleaseBuilds = false
     }
 
-    // --- FIX FOR MANIFEST BINARY DIFF ---
-    aaptOptions {
-        noCompress("AndroidManifest.xml")
-    }
-
     defaultConfig {
         applicationId = "org.thegandabherunda.openjot"
         minSdk = 24
@@ -46,8 +41,6 @@ android {
         versionName = flutter.versionName
     }
 
-    // --- CORRECTED SIGNING CONFIG ---
-    // The signing configuration is now created only if the keystore file exists.
     signingConfigs {
         if (keystorePropertiesFile.exists() && keystoreProperties.isNotEmpty()) {
             create("release") {
@@ -61,12 +54,9 @@ android {
 
     buildTypes {
         getByName("release") {
-            // This will now correctly find a valid signing config or none at all,
-            // resulting in an unsigned build if key.properties is absent.
             if (signingConfigs.findByName("release") != null) {
                 signingConfig = signingConfigs.getByName("release")
             }
-
             isMinifyEnabled = true
             isShrinkResources = false
             proguardFiles(
