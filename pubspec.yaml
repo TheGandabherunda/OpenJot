@@ -51,14 +51,11 @@ dependencies:
   record: ^6.1.1
   video_player: ^2.10.0
   get_thumbnail_video: ^0.7.3
+  image: ^4.5.4
 
   # --- LOCATION & MAPS ---
   flutter_map: ^8.2.1
   latlong2: ^0.9.0
-
-  # --- SHARING & INTENTS ---
-  receive_sharing_intent: ^1.8.1
-  share_plus: ^12.0.0
 
   # --- NOTIFICATIONS ---
   flutter_local_notifications: ^19.4.0

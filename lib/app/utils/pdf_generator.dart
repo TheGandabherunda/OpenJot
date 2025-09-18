@@ -86,10 +86,8 @@ class PdfGenerator {
             maxWidth: 300,
             quality: 50,
           );
-          if (thumbnail != null) {
-            visualMedia.add(_VisualMedia(thumbnail, true));
-          }
-        } else {
+          visualMedia.add(_VisualMedia(thumbnail, true));
+                } else {
           visualMedia.add(_VisualMedia(await file.readAsBytes(), false));
         }
       }
@@ -104,10 +102,8 @@ class PdfGenerator {
           maxWidth: 300,
           quality: 50,
         );
-        if (thumbnail != null) {
-          visualMedia.add(_VisualMedia(thumbnail, true));
-        }
-      } else {
+        visualMedia.add(_VisualMedia(thumbnail, true));
+            } else {
         visualMedia.add(_VisualMedia(await file.readAsBytes(), false));
       }
     }

@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:image/image.dart' as img;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
@@ -13,9 +14,10 @@ import 'package:intl/intl.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
-import 'package:open_jot/app/utils/pdf_generator.dart'; // <-- ADD THIS IMPORT
+import 'package:open_jot/app/utils/pdf_generator.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:photo_manager/photo_manager.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../constants.dart';
 import '../models/journal_entry.dart';
@@ -48,6 +50,7 @@ class JournalTile extends StatefulWidget {
 }
 
 class _JournalTileState extends State<JournalTile> {
+  static const _platform = MethodChannel('app.channel.shared.data');
   final GlobalKey _menuKey = GlobalKey();
   final AudioPlayer _audioPlayer = AudioPlayer();
   String? _currentlyPlayingPath;
@@ -98,27 +101,60 @@ class _JournalTileState extends State<JournalTile> {
 
   void _onSharePressed() async {
     final plainText = widget.entry.content.toPlainText().trim();
-    final galleryFileFutures =
-    widget.entry.galleryImages.map((asset) => asset.file).toList();
-    final galleryFiles = await Future.wait(galleryFileFutures);
-    final List<String> imagePaths = [];
+    final allFilePaths = <String>[];
 
-    for (final file in galleryFiles) {
+    // Get paths from gallery images
+    final galleryImageFiles = await Future.wait(
+      widget.entry.galleryImages.map((asset) => asset.file),
+    );
+    for (final file in galleryImageFiles) {
       if (file != null) {
-        imagePaths.add(file.path);
+        allFilePaths.add(file.path);
       }
     }
 
+    // Get paths from camera photos
     for (final photo in widget.entry.cameraPhotos) {
-      imagePaths.add(photo.file.path);
+      allFilePaths.add(photo.file.path);
     }
 
-    if (imagePaths.isNotEmpty) {
-      final imageXFiles = imagePaths.map((path) => XFile(path)).toList();
-      await Share.shareXFiles(imageXFiles,
-          text: plainText.isNotEmpty ? plainText : null);
-    } else if (plainText.isNotEmpty) {
-      await Share.share(plainText);
+    // Get paths from gallery audios
+    final galleryAudioFiles = await Future.wait(
+      widget.entry.galleryAudios.map((asset) => asset.file),
+    );
+    for (final file in galleryAudioFiles) {
+      if (file != null) {
+        allFilePaths.add(file.path);
+      }
+    }
+
+    // For recordings, which might be in a private app directory, we copy them
+    // to a temporary (shareable) cache location before sharing.
+    final tempDir = await getTemporaryDirectory();
+    for (final recording in widget.entry.recordings) {
+      try {
+        final originalFile = File(recording.path);
+        if (await originalFile.exists()) {
+          final fileName = p.basename(recording.path);
+          // Create a new path in the temporary directory
+          final newPath = p.join(tempDir.path, fileName);
+          // Copy the file to the new path
+          final newFile = await originalFile.copy(newPath);
+          // Add the path of the copied file to the list
+          allFilePaths.add(newFile.path);
+        }
+      } catch (e) {
+        debugPrint("Could not copy recording for sharing: $e");
+      }
+    }
+
+    try {
+      await _platform.invokeMethod('shareContent', {
+        'text': plainText.isNotEmpty ? plainText : null,
+        'files': allFilePaths.isNotEmpty ? allFilePaths : null,
+      });
+    } on PlatformException catch (e) {
+      debugPrint("Failed to share content: '${e.message}'.");
     }
   }
 
@@ -644,8 +680,7 @@ class _JournalTileState extends State<JournalTile> {
                                 color: appThemeColors.grey10),
                             SizedBox(width: 8.w),
                             Text(AppConstants.share,
-                                style:
-                                TextStyle(
+                                style: TextStyle(
                                     color: appThemeColors.grey10,
                                     fontFamily: AppConstants.font,
                                     letterSpacing: -0.2)),
@@ -664,8 +699,7 @@ class _JournalTileState extends State<JournalTile> {
                                 color: appThemeColors.grey10),
                             SizedBox(width: 8.w),
                             Text(AppConstants.saveAsPdf,
-                                style:
-                                TextStyle(
+                                style: TextStyle(
                                     color: appThemeColors.grey10,
                                     fontFamily: AppConstants.font,
                                     letterSpacing: -0.2)),
@@ -692,7 +726,7 @@ class _JournalTileState extends State<JournalTile> {
                         ),
                       ),
                     ],
-                  ).then((value) async { // <-- Make this async
+                  ).then((value) async {
                     if (value == 'edit') {
                       _onEditPressed();
                     } else if (value == 'bookmark') {
@@ -701,23 +735,18 @@ class _JournalTileState extends State<JournalTile> {
                     } else if (value == 'share') {
                       _onSharePressed();
                     } else if (value == 'pdf') {
-                      // --- MODIFICATION START ---
-                      // Show a quick feedback message
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                             content: Text('Generating PDF...'),
                             duration: Duration(seconds: 2)),
                       );
                       try {
-                        // Call the PDF generator
                         await PdfGenerator.generateAndSharePdf(widget.entry);
                       } catch (e) {
-                        // Show an error if something goes wrong
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text('Failed to generate PDF: $e')),
                         );
                       }
-                      // --- MODIFICATION END ---
                     } else if (value == 'delete') {
                       _onDeletePressed();
                     }
@@ -735,7 +764,6 @@ class _JournalTileState extends State<JournalTile> {
   }
 }
 
-// *** NEW: Unified thumbnail widget for all media types ***
 class MediaThumbnail extends StatefulWidget {
   final dynamic media; // Can be AssetEntity or CapturedPhoto
 
@@ -770,6 +798,12 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
     }
   }
 
+  Future<String> _getThumbnailPath(String originalPath) async {
+    final tempDir = await getTemporaryDirectory();
+    final fileName = p.basenameWithoutExtension(originalPath);
+    return p.join(tempDir.path, '$fileName.thumb.jpg');
+  }
+
   Future<void> _loadThumbnail() async {
     if (!mounted) return;
 
@@ -786,15 +820,31 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
       final photo = widget.media as CapturedPhoto;
       final path = photo.file.path;
       _isVideo = _isVideoFile(path);
-      if (_isVideo) {
-        data = await VideoThumbnail.thumbnailData(
-          video: path,
-          maxWidth: thumbnailSize.width,
-          quality: quality,
-        );
+
+      final thumbPath = await _getThumbnailPath(path);
+      final thumbFile = File(thumbPath);
+
+      if (await thumbFile.exists()) {
+        data = await thumbFile.readAsBytes();
       } else {
-        // For local image files, we can read them directly.
-        data = await File(path).readAsBytes();
+        if (_isVideo) {
+          data = await VideoThumbnail.thumbnailData(
+            video: path,
+            maxWidth: thumbnailSize.width,
+            quality: quality,
+          );
+        } else {
+          final originalFile = File(path);
+          final imageBytes = await originalFile.readAsBytes();
+          final image = img.decodeImage(imageBytes);
+          if (image != null) {
+            final thumbnail = img.copyResize(image, width: 500);
+            data = Uint8List.fromList(img.encodeJpg(thumbnail, quality: 85));
+          }
+        }
+        if (data != null) {
+          await thumbFile.writeAsBytes(data);
+        }
       }
     }
 
@@ -836,7 +886,7 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
         ],
       );
     }
-    // Consistent placeholder
     return Container(color: AppTheme.colorsOf(context).grey4);
   }
 }
+
