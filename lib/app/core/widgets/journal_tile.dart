@@ -681,6 +681,7 @@ class _JournalTileState extends State<JournalTile> {
                             SizedBox(width: 8.w),
                             Text(AppConstants.share,
                                 style: TextStyle(
+
                                     color: appThemeColors.grey10,
                                     fontFamily: AppConstants.font,
                                     letterSpacing: -0.2)),
