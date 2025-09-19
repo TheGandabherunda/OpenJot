@@ -82,7 +82,26 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
   void initState() {
     super.initState();
     _shareService.startListening();
-    _shareService.onShareReceived = _handleShare;
+    // FIX: Defer handling the share action until after the first frame has been built.
+    // This prevents issues where the context is not ready for showing a modal.
+    _shareService.onShareReceived = ({
+      String? text,
+      List<String>? photos,
+      List<String>? videos,
+      List<String>? audios,
+    }) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _handleShare(
+            text: text,
+            photos: photos,
+            videos: videos,
+            audios: audios,
+          );
+        }
+      });
+    };
+
     _currentMonthYearNotifier = ValueNotifier<String?>(null);
     _showChipNotifier = ValueNotifier<bool>(false);
     _slideAnimationController = AnimationController(
@@ -131,6 +150,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     List<String>? videos,
     List<String>? audios,
   }) {
+    if (!mounted) return;
     showCupertinoModalBottomSheet(
       context: context,
       expand: true,

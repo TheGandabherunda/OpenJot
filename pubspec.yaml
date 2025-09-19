@@ -50,15 +50,12 @@ dependencies:
   printing: ^5.14.2
   record: ^6.1.1
   video_player: ^2.10.0
-  video_thumbnail: ^0.5.6
+  get_thumbnail_video: ^0.7.3
+  image: ^4.5.4
 
   # --- LOCATION & MAPS ---
   flutter_map: ^8.2.1
   latlong2: ^0.9.0
-
-  # --- SHARING & INTENTS ---
-  receive_sharing_intent: ^1.8.1
-  share_plus: ^11.1.0
 
   # --- NOTIFICATIONS ---
   flutter_local_notifications: ^19.4.0
@@ -69,9 +66,9 @@ dependencies:
   local_auth: ^2.2.0
 
   # --- UTILITIES ---
-  device_info_plus: ^11.5.0
+  device_info_plus: ^12.1.0
   intl: ^0.20.2
-  package_info_plus: ^8.3.1
+  package_info_plus: ^9.0.0
   palette_generator: ^0.3.3+7
   path: ^1.9.0
   path_provider: ^2.1.5

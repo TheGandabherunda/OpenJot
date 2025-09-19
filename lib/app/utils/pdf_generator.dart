@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:get_thumbnail_video/video_thumbnail.dart';
 import 'package:intl/intl.dart' as intl;
 // Assuming JournalEntry is in this path, adjust if necessary.
 import 'package:open_jot/app/core/models/journal_entry.dart';
@@ -6,7 +7,6 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:photo_manager/photo_manager.dart';
 import 'package:printing/printing.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
 
 // A helper class to hold the parsed information for a single line of text.
 class _PdfLine {
@@ -83,14 +83,11 @@ class PdfGenerator {
         if (asset.type == AssetType.video) {
           final thumbnail = await VideoThumbnail.thumbnailData(
             video: file.path,
-            imageFormat: ImageFormat.JPEG,
             maxWidth: 300,
             quality: 50,
           );
-          if (thumbnail != null) {
-            visualMedia.add(_VisualMedia(thumbnail, true));
-          }
-        } else {
+          visualMedia.add(_VisualMedia(thumbnail, true));
+                } else {
           visualMedia.add(_VisualMedia(await file.readAsBytes(), false));
         }
       }
@@ -102,14 +99,11 @@ class PdfGenerator {
       if (isVideoFile(file.path)) {
         final thumbnail = await VideoThumbnail.thumbnailData(
           video: file.path,
-          imageFormat: ImageFormat.JPEG,
           maxWidth: 300,
           quality: 50,
         );
-        if (thumbnail != null) {
-          visualMedia.add(_VisualMedia(thumbnail, true));
-        }
-      } else {
+        visualMedia.add(_VisualMedia(thumbnail, true));
+            } else {
         visualMedia.add(_VisualMedia(await file.readAsBytes(), false));
       }
     }

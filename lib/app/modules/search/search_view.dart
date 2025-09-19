@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -22,6 +24,7 @@ class _SearchViewState extends State<SearchView> {
   final TextEditingController _searchController = TextEditingController();
   final HomeController _homeController = Get.find();
   List<JournalEntry> _filteredEntries = [];
+  StreamSubscription? _journalSubscription;
 
   bool _isBookmarked = false;
   bool _isTextOnly = false;
@@ -35,12 +38,21 @@ class _SearchViewState extends State<SearchView> {
     super.initState();
     _applyFilters();
     _searchController.addListener(_onSearchChanged);
+
+    // Listen for changes in the journal entries list and refresh the search results.
+    _journalSubscription = _homeController.journalEntries.listen((_) {
+      if (mounted) {
+        _applyFilters();
+      }
+    });
   }
 
   @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    // Cancel the subscription to avoid memory leaks.
+    _journalSubscription?.cancel();
     super.dispose();
   }
 
@@ -58,13 +70,20 @@ class _SearchViewState extends State<SearchView> {
         if (_isBookmarked && !entry.isBookmarked) {
           return false;
         }
+        // An entry is "Text Only" if it has no images, photos, gallery audio, or recordings.
         if (_isTextOnly &&
             (entry.galleryImages.isNotEmpty ||
-                entry.cameraPhotos.isNotEmpty)) {
+                entry.cameraPhotos.isNotEmpty ||
+                entry.galleryAudios.isNotEmpty ||
+                entry.recordings.isNotEmpty)) {
           return false;
         }
+        // An entry is "With Media" if it has at least one of any media type.
         if (_isMediaOnly &&
-            (entry.galleryImages.isEmpty && entry.cameraPhotos.isEmpty)) {
+            (entry.galleryImages.isEmpty &&
+                entry.cameraPhotos.isEmpty &&
+                entry.galleryAudios.isEmpty &&
+                entry.recordings.isEmpty)) {
           return false;
         }
         if (_withMood && entry.moodIndex == null) {
@@ -264,3 +283,4 @@ class _SearchViewState extends State<SearchView> {
     );
   }
 }
+

@@ -1,15 +1,16 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get_thumbnail_video/video_thumbnail.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 import 'package:video_player/video_player.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../../core/models/journal_entry.dart';
 import '../../core/theme.dart';
@@ -38,100 +39,109 @@ class MediaPreviewBottomSheet extends StatefulWidget {
   MediaPreviewBottomSheetState createState() => MediaPreviewBottomSheetState();
 }
 
-class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet>
-    with TickerProviderStateMixin {
+class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
   late PageController _pageController;
   int _currentIndex = 0;
 
   // A cache to store generated background colors to prevent re-computation.
   final Map<int, List<Color>> _colorCache = {};
+  final Set<int> _processingIndexes = {};
 
   // Default gradient colors
   Color _dominantColor = Colors.black;
   Color _vibrantColor = Colors.grey.shade800;
-
-  // Animation controller for smooth color transitions
-  late AnimationController _colorAnimationController;
-  late Animation<Color?> _dominantAnimation;
-  late Animation<Color?> _vibrantAnimation;
-
-  // Debounce color updates to prevent excessive calls
-  bool _isUpdatingColors = false;
+  bool _isPreloadingInitiated = false;
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: _currentIndex);
+  }
 
-    // Initialize animation controller for smooth color transitions
-    _colorAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 500),
-      vsync: this,
-    );
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Preload content here, as context is available.
+    if (!_isPreloadingInitiated) {
+      _preloadInitialContent();
+      _isPreloadingInitiated = true;
+    }
+  }
 
-    _dominantAnimation = ColorTween(
-      begin: _dominantColor,
-      end: _dominantColor,
-    ).animate(CurvedAnimation(
-      parent: _colorAnimationController,
-      curve: Curves.easeInOut,
-    ));
+  void _preloadInitialContent() {
+    // We want the UI to be interactive immediately, so we don't wait for this.
+    // Fetch the color for the initial item.
+    _updateBackgroundColor(_currentIndex);
 
-    _vibrantAnimation = ColorTween(
-      begin: _vibrantColor,
-      end: _vibrantColor,
-    ).animate(CurvedAnimation(
-      parent: _colorAnimationController,
-      curve: Curves.easeInOut,
-    ));
-
-    // Pre-load colors for nearby items
-    _preloadColors();
+    // Pre-load colors and images for adjacent items to make scrolling smooth.
+    if (_currentIndex > 0) {
+      _updateBackgroundColor(_currentIndex - 1);
+      _precacheImage(_currentIndex - 1);
+    }
+    if (_currentIndex < widget.mediaItems.length - 1) {
+      _updateBackgroundColor(_currentIndex + 1);
+      _precacheImage(_currentIndex + 1);
+    }
   }
 
   @override
   void dispose() {
     _pageController.dispose();
-    _colorAnimationController.dispose();
     super.dispose();
   }
 
-  /// Pre-load colors for current and adjacent items to improve performance
-  void _preloadColors() {
-    final currentIndex = _currentIndex;
-    final startIndex = (currentIndex - 1).clamp(0, widget.mediaItems.length - 1);
-    final endIndex = (currentIndex + 1).clamp(0, widget.mediaItems.length - 1);
+  /// Pre-caches a specific image to improve scrolling performance.
+  void _precacheImage(int index) {
+    if (index < 0 || index >= widget.mediaItems.length) return;
 
-    for (int i = startIndex; i <= endIndex; i++) {
-      _updateBackgroundColor(i, skipAnimation: i != currentIndex);
+    final item = widget.mediaItems[index];
+    if (item.type == AssetType.image) {
+      ImageProvider? imageProvider;
+      try {
+        if (item.asset is AssetEntity) {
+          imageProvider =
+              AssetEntityImageProvider(item.asset as AssetEntity, isOriginal: true);
+        } else if (item.asset is CapturedPhoto) {
+          imageProvider = FileImage(File((item.asset as CapturedPhoto).file.path));
+        }
+        if (imageProvider != null && mounted) {
+          precacheImage(imageProvider, context);
+        }
+      } catch (e) {
+        debugPrint("Error creating image provider for precaching: $e");
+      }
     }
   }
 
   /// Extracts colors from a media item to create a gradient.
-  /// Uses caching and debouncing for better performance.
-  Future<void> _updateBackgroundColor(int index, {bool skipAnimation = false}) async {
-    if (index < 0 || index >= widget.mediaItems.length || _isUpdatingColors) return;
+  Future<void> _updateBackgroundColor(int index) async {
+    if (index < 0 ||
+        index >= widget.mediaItems.length ||
+        _processingIndexes.contains(index)) {
+      return;
+    }
 
-    // Check the cache first to avoid expensive re-computation.
     if (_colorCache.containsKey(index)) {
       if (mounted && index == _currentIndex) {
         final colors = _colorCache[index]!;
-        _animateToColors(colors[0], colors[1], skipAnimation);
+        setState(() {
+          _vibrantColor = colors[0];
+          _dominantColor = colors[1];
+        });
       }
       return;
     }
 
-    _isUpdatingColors = true;
-
-    final item = widget.mediaItems[index];
-    Uint8List? imageData;
-    ImageProvider? imageProvider;
-
     try {
+      _processingIndexes.add(index);
+
+      final item = widget.mediaItems[index];
+      Uint8List? imageData;
+      ImageProvider? imageProvider;
+
       if (item.asset is AssetEntity) {
         final asset = item.asset as AssetEntity;
-        // Use smaller thumbnail size ONLY for color extraction, not for display
         imageData = await asset.thumbnailDataWithSize(
           const ThumbnailSize(150, 150),
           quality: 70,
@@ -141,13 +151,11 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet>
         if (item.type == AssetType.video) {
           imageData = await VideoThumbnail.thumbnailData(
             video: file.path,
-            imageFormat: ImageFormat.JPEG,
             maxWidth: 150,
             maxHeight: 150,
             quality: 70,
           );
         } else {
-          // For images, read and resize ONLY for color extraction
           final bytes = await file.readAsBytes();
           final codec = await ui.instantiateImageCodec(
             bytes,
@@ -155,7 +163,8 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet>
             targetHeight: 150,
           );
           final frame = await codec.getNextFrame();
-          final data = await frame.image.toByteData(format: ui.ImageByteFormat.png);
+          final data =
+          await frame.image.toByteData(format: ui.ImageByteFormat.png);
           imageData = data?.buffer.asUint8List();
         }
       }
@@ -168,108 +177,72 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet>
         final palette = await PaletteGenerator.fromImageProvider(
           imageProvider,
           size: const Size(75, 75),
-          maximumColorCount: 15, // Balanced for good colors and performance
+          maximumColorCount: 15,
         );
 
         if (mounted) {
-          final dominantColor = palette.dominantColor?.color ?? Colors.grey.shade900;
+          final dominantColor =
+              palette.dominantColor?.color ?? Colors.grey.shade900;
           final vibrantColor = palette.vibrantColor?.color ??
               palette.lightVibrantColor?.color ??
               palette.darkVibrantColor?.color ??
               dominantColor;
 
-          // Store the generated colors in the cache.
           _colorCache[index] = [vibrantColor, dominantColor];
 
-          // Only animate if this is the current index
           if (index == _currentIndex) {
-            _animateToColors(vibrantColor, dominantColor, skipAnimation);
+            setState(() {
+              _vibrantColor = vibrantColor;
+              _dominantColor = dominantColor;
+            });
           }
         }
       } else {
-        // Fallback for videos without thumbnails
         final fallbackColors = [Colors.black, Colors.grey.shade900];
         _colorCache[index] = fallbackColors;
-
         if (mounted && index == _currentIndex) {
-          _animateToColors(fallbackColors[0], fallbackColors[1], skipAnimation);
+          setState(() {
+            _vibrantColor = fallbackColors[0];
+            _dominantColor = fallbackColors[1];
+          });
         }
       }
     } catch (e) {
-      // In case of an error, fall back to default colors.
       final fallbackColors = [Colors.black, Colors.grey.shade900];
       _colorCache[index] = fallbackColors;
-
       if (mounted && index == _currentIndex) {
-        _animateToColors(fallbackColors[0], fallbackColors[1], skipAnimation);
-      }
-    } finally {
-      _isUpdatingColors = false;
-    }
-  }
-
-  /// Animate to new colors smoothly
-  void _animateToColors(Color vibrant, Color dominant, bool skipAnimation) {
-    if (!mounted) return;
-
-    if (skipAnimation) {
-      setState(() {
-        _vibrantColor = vibrant;
-        _dominantColor = dominant;
-      });
-      return;
-    }
-
-    _dominantAnimation = ColorTween(
-      begin: _dominantColor,
-      end: dominant,
-    ).animate(CurvedAnimation(
-      parent: _colorAnimationController,
-      curve: Curves.easeInOut,
-    ));
-
-    _vibrantAnimation = ColorTween(
-      begin: _vibrantColor,
-      end: vibrant,
-    ).animate(CurvedAnimation(
-      parent: _colorAnimationController,
-      curve: Curves.easeInOut,
-    ));
-
-    _colorAnimationController.forward(from: 0).then((_) {
-      if (mounted) {
         setState(() {
-          _dominantColor = dominant;
-          _vibrantColor = vibrant;
+          _vibrantColor = fallbackColors[0];
+          _dominantColor = fallbackColors[1];
         });
       }
-    });
+    } finally {
+      if (mounted) {
+        _processingIndexes.remove(index);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return BackdropFilter(
       filter: ui.ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
-      child: AnimatedBuilder(
-        animation: _colorAnimationController,
-        builder: (context, child) {
-          final currentVibrant = _vibrantAnimation.value ?? _vibrantColor;
-          final currentDominant = _dominantAnimation.value ?? _dominantColor;
-
-          return Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  currentVibrant.withOpacity(0.7),
-                  currentDominant.withOpacity(0.8)
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Scaffold(
-              backgroundColor: Colors.transparent,
-              body: SafeArea(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              _vibrantColor.withOpacity(0.7),
+              _dominantColor.withOpacity(0.8)
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: SafeArea(
                 child: Stack(
                   children: [
                     PageView.builder(
@@ -279,11 +252,15 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet>
                         setState(() {
                           _currentIndex = index;
                         });
+                        // Update background and precache for smooth scrolling.
                         _updateBackgroundColor(index);
-                        // Pre-load adjacent items
-                        if (index > 0) _updateBackgroundColor(index - 1, skipAnimation: true);
+                        if (index > 0) {
+                          _updateBackgroundColor(index - 1);
+                          _precacheImage(index - 1);
+                        }
                         if (index < widget.mediaItems.length - 1) {
-                          _updateBackgroundColor(index + 1, skipAnimation: true);
+                          _updateBackgroundColor(index + 1);
+                          _precacheImage(index + 1);
                         }
                       },
                       itemBuilder: (context, index) {
@@ -303,7 +280,8 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet>
                       top: 10.h,
                       left: 10.w,
                       child: IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                        icon:
+                        const Icon(Icons.close, color: Colors.white, size: 28),
                         onPressed: () => Navigator.of(context).pop(),
                         style: ButtonStyle(
                           backgroundColor: WidgetStateProperty.all(
@@ -319,11 +297,7 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet>
                         child: _buildPageIndicator(),
                       ),
                   ],
-                ),
-              ),
-            ),
-          );
-        },
+                ))),
       ),
     );
   }
@@ -342,7 +316,6 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet>
   Widget _buildImageItem(MediaItem item) {
     ImageProvider imageProvider;
     if (item.asset is AssetEntity) {
-      // Use ORIGINAL size for display - this is what you see
       imageProvider = AssetEntityImageProvider(item.asset, isOriginal: true);
     } else if (item.asset is CapturedPhoto) {
       imageProvider = FileImage(File((item.asset as CapturedPhoto).file.path));
@@ -357,6 +330,17 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet>
       child: Image(
         image: imageProvider,
         fit: BoxFit.contain,
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          if (wasSynchronouslyLoaded) {
+            return child;
+          }
+          return AnimatedOpacity(
+            opacity: frame == null ? 0 : 1,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            child: child,
+          );
+        },
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
           return Center(
@@ -431,8 +415,9 @@ class VideoPlayerItemState extends State<VideoPlayerItem> {
   @override
   void didUpdateWidget(VideoPlayerItem oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Pause video when not active to save resources
-    if (!widget.isActive && _controller != null && _controller!.value.isPlaying) {
+    if (!widget.isActive &&
+        _controller != null &&
+        _controller!.value.isPlaying) {
       _controller!.pause();
     }
   }
@@ -449,45 +434,28 @@ class VideoPlayerItemState extends State<VideoPlayerItem> {
       }
 
       if (file == null || !file.existsSync()) {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-            _hasError = true;
-          });
-        }
+        if (mounted) setState(() {_isLoading = false; _hasError = true;});
         return;
       }
 
       _controller = VideoPlayerController.file(file);
-
       await _controller!.initialize();
 
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
         _controller!.setLooping(true);
       }
-
       _controller!.addListener(_videoListener);
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _hasError = true;
-        });
-      }
+      if (mounted) setState(() {_isLoading = false; _hasError = true;});
     }
   }
 
   void _videoListener() {
     if (!mounted) return;
-
     final isPlaying = _controller?.value.isPlaying ?? false;
     if (_isPlaying != isPlaying) {
-      setState(() {
-        _isPlaying = isPlaying;
-      });
+      setState(() => _isPlaying = isPlaying);
     }
   }
 
@@ -561,3 +529,4 @@ class VideoPlayerItemState extends State<VideoPlayerItem> {
     );
   }
 }
+

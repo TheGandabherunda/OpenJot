@@ -279,9 +279,7 @@ class HiveService extends GetxService {
       final zipData = ZipEncoder().encode(archive);
 
       // Check if encoding was successful and write the bytes to the backup file.
-      if (zipData != null) {
-        await backupFile.writeAsBytes(zipData);
-      }
+      await backupFile.writeAsBytes(zipData);
 
       // 8. Clean up by deleting the temporary directory.
       await tempDir.delete(recursive: true);
