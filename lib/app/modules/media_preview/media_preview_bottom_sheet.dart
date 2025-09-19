@@ -5,7 +5,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:get_thumbnail_video/index.dart';
 import 'package:get_thumbnail_video/video_thumbnail.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:palette_generator/palette_generator.dart';
@@ -435,7 +434,7 @@ class VideoPlayerItemState extends State<VideoPlayerItem> {
       }
 
       if (file == null || !file.existsSync()) {
-        if (mounted) setState(() => {_isLoading = false, _hasError = true});
+        if (mounted) setState(() {_isLoading = false; _hasError = true;});
         return;
       }
 
@@ -448,7 +447,7 @@ class VideoPlayerItemState extends State<VideoPlayerItem> {
       }
       _controller!.addListener(_videoListener);
     } catch (e) {
-      if (mounted) setState(() => {_isLoading = false, _hasError = true});
+      if (mounted) setState(() {_isLoading = false; _hasError = true;});
     }
   }
 

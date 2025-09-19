@@ -158,6 +158,7 @@ class _ReflectionBottomSheetState extends State<ReflectionBottomSheet> {
                           return SafeArea(
                             child: WriteJournalBottomSheet(
                               initialText: _currentPrompt,
+                              isFromReflection: true,
                             ),
                           );
                         },
