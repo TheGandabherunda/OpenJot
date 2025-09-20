@@ -8,7 +8,6 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:open_jot/app/core/models/journal_entry.dart';
@@ -18,6 +17,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart';
 
+import '../../utils/custom_toast.dart';
 import '../constants.dart';
 import '../hive/hive_adapters.dart';
 
@@ -156,7 +156,7 @@ class HiveService extends GetxService {
     // 1. Request necessary permissions before proceeding.
     final bool permissionsGranted = await _requestPermissions();
     if (!permissionsGranted) {
-      Fluttertoast.showToast(msg: AppConstants.storagePermissionsRequired);
+      CustomToast.showToast(AppConstants.storagePermissionsRequired);
       return false;
     }
 
@@ -279,16 +279,16 @@ class HiveService extends GetxService {
       final zipData = ZipEncoder().encode(archive);
 
       // Check if encoding was successful and write the bytes to the backup file.
-      await backupFile.writeAsBytes(zipData);
+      await backupFile.writeAsBytes(zipData!);
 
       // 8. Clean up by deleting the temporary directory.
       await tempDir.delete(recursive: true);
 
-      Fluttertoast.showToast(msg: AppConstants.backupCreatedSuccess);
+      CustomToast.showToast(AppConstants.backupCreatedSuccess);
       return true;
     } catch (e) {
-      Fluttertoast.showToast(
-          msg: AppConstants.backupFailed.replaceFirst('%s', e.toString()));
+      CustomToast.showToast(
+          AppConstants.backupFailed.replaceFirst('%s', e.toString()));
       debugPrint(
           AppConstants.backupFailed.replaceFirst('%s', e.toString()));
       return false;
@@ -300,7 +300,7 @@ class HiveService extends GetxService {
     // 1. Request necessary permissions before proceeding.
     final bool permissionsGranted = await _requestPermissions();
     if (!permissionsGranted) {
-      Fluttertoast.showToast(msg: AppConstants.restorePermissionsRequired);
+      CustomToast.showToast(AppConstants.restorePermissionsRequired);
       return false;
     }
 
@@ -357,7 +357,7 @@ class HiveService extends GetxService {
       final manifestFile =
       File('${tempDir.path}${AppConstants.mediaManifestFileName}');
       if (!await manifestFile.exists()) {
-        Fluttertoast.showToast(msg: AppConstants.databaseRestoredNoMedia);
+        CustomToast.showToast(AppConstants.databaseRestoredNoMedia);
         await tempDir.delete(recursive: true);
         // --- CHANGE: Force reload even if there's no media ---
         await Get.find<HomeController>().loadJournalEntries();
@@ -461,13 +461,15 @@ class HiveService extends GetxService {
       await Get.find<HomeController>().loadJournalEntries();
       // --- CHANGE END ---
 
-      Fluttertoast.showToast(
-          msg: "Restore successful!", toastLength: Toast.LENGTH_LONG);
+      CustomToast.showToast(
+        "Restore successful!",
+        duration: const Duration(seconds: 3),
+      );
       return true;
     } catch (e) {
       await init(); // Attempt to recover to a stable state if restore fails.
-      Fluttertoast.showToast(
-          msg: AppConstants.restoreFailed.replaceFirst('%s', e.toString()));
+      CustomToast.showToast(
+          AppConstants.restoreFailed.replaceFirst('%s', e.toString()));
       debugPrint(
           AppConstants.restoreFailed.replaceFirst('%s', e.toString()));
       return false;

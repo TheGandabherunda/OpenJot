@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
@@ -21,6 +20,7 @@ import '../../core/models/journal_entry.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/journal_tile.dart';
+import '../../utils/custom_toast.dart';
 import '../media_preview/media_preview_bottom_sheet.dart';
 
 class ReadJournalBottomSheet extends StatefulWidget {
@@ -56,20 +56,20 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
     _initializeController();
     _playerStateSubscription =
         _audioPlayer.onPlayerStateChanged.listen((state) {
-      if (mounted) {
-        setState(() {
-          _playerState = state;
-          if (state == PlayerState.completed) {
-            _currentlyPlayingId = null;
+          if (mounted) {
+            setState(() {
+              _playerState = state;
+              if (state == PlayerState.completed) {
+                _currentlyPlayingId = null;
+              }
+            });
           }
         });
-      }
-    });
   }
 
   void _initializeController() {
     final document =
-        quill.Document.fromJson(_currentEntry.content.toDelta().toJson());
+    quill.Document.fromJson(_currentEntry.content.toDelta().toJson());
     _quillController = quill.QuillController(
       document: document,
       selection: const TextSelection.collapsed(offset: 0),
@@ -138,13 +138,10 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
         await launchUrl(uri);
       } else {
         if (!mounted) return;
-        Fluttertoast.showToast(
-          msg: AppConstants.couldNotOpenMap,
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
+        CustomToast.showToast(
+          AppConstants.couldNotOpenMap,
           backgroundColor: Colors.black87,
           textColor: Colors.white,
-          fontSize: 16.0,
         );
       }
     }
@@ -162,18 +159,18 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
   void _openMediaPreview(List<dynamic> allMedia, int initialIndex) {
     final mediaItems = allMedia
         .map((m) {
-          if (m is AssetEntity) {
-            return MediaItem(asset: m, type: m.type, id: m.id);
-          } else if (m is CapturedPhoto) {
-            return MediaItem(
-                asset: m,
-                type: _isVideoFile(m.file.path)
-                    ? AssetType.video
-                    : AssetType.image,
-                id: m.file.path);
-          }
-          return null;
-        })
+      if (m is AssetEntity) {
+        return MediaItem(asset: m, type: m.type, id: m.id);
+      } else if (m is CapturedPhoto) {
+        return MediaItem(
+            asset: m,
+            type: _isVideoFile(m.file.path)
+                ? AssetType.video
+                : AssetType.image,
+            id: m.file.path);
+      }
+      return null;
+    })
         .whereType<MediaItem>()
         .toList();
 
@@ -306,7 +303,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
     final overlayColor = (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
         .withOpacity(0.6);
     final onOverlayColor =
-        isDark ? appThemeColors.grey10 : appThemeColors.grey7;
+    isDark ? appThemeColors.grey10 : appThemeColors.grey7;
 
     Widget buildMediaContainer(dynamic media,
         {Widget? overlay, required VoidCallback onTap}) {

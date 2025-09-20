@@ -5,9 +5,9 @@ import 'package:get/get.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 
 import '../../core/theme.dart';
+import '../../utils/custom_toast.dart';
 
 class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
@@ -49,13 +49,11 @@ class _AboutScreenState extends State<AboutScreen> {
         throw 'Could not launch $url';
       }
     } catch (e) {
-      Fluttertoast.showToast(
-          msg: "Could not launch URL",
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
-          backgroundColor: appColors.grey7,
-          textColor: appColors.grey10,
-          fontSize: 16.0);
+      CustomToast.showToast(
+        "Could not launch URL",
+        backgroundColor: appColors.grey7,
+        textColor: appColors.grey10,
+      );
     }
   }
 
@@ -74,13 +72,11 @@ class _AboutScreenState extends State<AboutScreen> {
         throw 'Could not launch email client.';
       }
     } catch (e) {
-      Fluttertoast.showToast(
-          msg: "Could not open email app. Is one installed?",
-          toastLength: Toast.LENGTH_LONG,
-          gravity: ToastGravity.BOTTOM,
-          backgroundColor: appColors.grey7,
-          textColor: appColors.grey10,
-          fontSize: 16.0);
+      CustomToast.showToast(
+        "Could not open email app. Is one installed?",
+        backgroundColor: appColors.grey7,
+        textColor: appColors.grey10,
+      );
     }
   }
 
