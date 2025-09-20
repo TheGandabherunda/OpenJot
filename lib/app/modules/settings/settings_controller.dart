@@ -1,6 +1,5 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/services/app_lock_service.dart';
@@ -10,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/services/notification_service.dart';
 import '../../core/theme.dart';
+import '../../utils/custom_toast.dart';
 import '../app_lock/set_pin_bottomsheet.dart';
 import '../app_lock/verify_pin_bottomsheet.dart';
 
@@ -57,13 +57,10 @@ class SettingsScreenController extends GetxController {
         }
       } else {
         dailyReminder.value = false;
-        Fluttertoast.showToast(
-          msg: AppConstants.notificationPermissionRequired,
-          toastLength: Toast.LENGTH_LONG,
-          gravity: ToastGravity.BOTTOM,
+        CustomToast.showToast(
+          AppConstants.notificationPermissionRequired,
           backgroundColor: appColors.grey1,
           textColor: appColors.grey10,
-          fontSize: 16.0,
         );
       }
     } else {
@@ -86,13 +83,10 @@ class SettingsScreenController extends GetxController {
         _notificationService.checkForOnThisDayMemories();
       } else {
         onThisDay.value = false;
-        Fluttertoast.showToast(
-          msg: AppConstants.notificationPermissionRequired,
-          toastLength: Toast.LENGTH_LONG,
-          gravity: ToastGravity.BOTTOM,
+        CustomToast.showToast(
+          AppConstants.notificationPermissionRequired,
           backgroundColor: appColors.grey1,
           textColor: appColors.grey10,
-          fontSize: 16.0,
         );
       }
     } else {
@@ -189,13 +183,11 @@ class SettingsScreenController extends GetxController {
         isScrollControlled: true,
       );
       if (result == true) {
-        Fluttertoast.showToast(
-            msg: AppConstants.pinChangedSuccess,
-            toastLength: Toast.LENGTH_SHORT,
-            gravity: ToastGravity.BOTTOM,
-            backgroundColor: appColors.grey7,
-            textColor: appColors.grey10,
-            fontSize: 16.0);
+        CustomToast.showToast(
+          AppConstants.pinChangedSuccess,
+          backgroundColor: appColors.grey7,
+          textColor: appColors.grey10,
+        );
       }
     }
   }

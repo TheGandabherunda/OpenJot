@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:open_jot/app/core/services/app_lock_service.dart';
 
 import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/custom_button.dart';
+import '../../utils/custom_toast.dart';
 
 class SetPinBottomSheet extends StatefulWidget {
   const SetPinBottomSheet({super.key});
@@ -60,17 +60,15 @@ class _SetPinBottomSheetState extends State<SetPinBottomSheet> {
   }
 
   void _onSetPin() async {
+    final appColors = AppTheme.colorsOf(context);
     if (_pin == _confirmPin) {
       await _appLockService.setPin(_pin);
       Get.back(result: true);
     } else {
-      Fluttertoast.showToast(
-        msg: AppConstants.pinsDoNotMatch,
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
-        backgroundColor: AppTheme.colorsOf(context).grey7,
-        textColor: AppTheme.colorsOf(context).grey10,
-        fontSize: 16.0,
+      CustomToast.showToast(
+        AppConstants.pinsDoNotMatch,
+        backgroundColor: appColors.grey7,
+        textColor: appColors.grey10,
       );
       setState(() {
         _confirmPin = '';

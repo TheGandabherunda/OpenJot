@@ -11,7 +11,6 @@ import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_quill/quill_delta.dart' as quill;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
@@ -32,6 +31,7 @@ import '../../core/widgets/journal_tile.dart';
 import '../../core/widgets/text_styling_toolbar.dart';
 import '../../core/widgets/write_journal_toolbar.dart';
 import '../../core/widgets/write_journal_toolbar_content.dart';
+import '../../utils/custom_toast.dart';
 import '../media_preview/media_preview_bottom_sheet.dart';
 
 class WriteJournalBottomSheet extends StatefulWidget {
@@ -599,14 +599,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri);
       } else {
-        Fluttertoast.showToast(
-          msg: AppConstants.couldNotOpenMap,
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
-          backgroundColor: Colors.black87,
-          textColor: Colors.white,
-          fontSize: 16.0,
-        );
+        CustomToast.showToast(AppConstants.couldNotOpenMap);
       }
     }
   }
