@@ -22,7 +22,9 @@ void main() async {
 
   tz.initializeTimeZones();
   try {
-    String timeZoneName = await FlutterTimezone.getLocalTimezone();
+    final tzInfo = await FlutterTimezone.getLocalTimezone();
+    String timeZoneName = tzInfo.identifier;
+
     if (timeZoneName == 'Asia/Calcutta') {
       timeZoneName = 'Asia/Kolkata';
     }
@@ -38,14 +40,13 @@ void main() async {
     final service = HiveService();
     return await service.init();
   });
-  // --- MODIFIED: Await the init and then check for memories ---
+
   final notificationService = await Get.putAsync<NotificationService>(() async {
     final service = NotificationService();
     return await service.init();
   });
-  // Check for "On This Day" memories after services are initialized
+
   await notificationService.checkForOnThisDayMemories();
-  // --- END MODIFIED ---
 
   Get.lazyPut(() => AppLockService());
 
@@ -100,7 +101,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  // --- NEW: Check for "On This Day" when app comes to foreground ---
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
@@ -108,9 +108,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
-  // --- NEW: Handle notification tap from terminated state ---
   void handleInitialNotification() {
-    // Use a post-frame callback to ensure the widget tree is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (NotificationService.initialPayload != null) {
         try {
@@ -126,7 +124,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             print('Error decoding initial payload: $e');
           }
         }
-        // Clear the payload after handling it
         NotificationService.initialPayload = null;
       }
     });

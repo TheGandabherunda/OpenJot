@@ -75,27 +75,6 @@ flutter {
     source = "../.."
 }
 
-val abiCodes = mapOf(
-    "x86_64" to 1,
-    "armeabi-v7a" to 2,
-    "arm64-v8a" to 3
-)
-
-androidComponents {
-    onVariants { variant ->
-        variant.outputs.forEach { output ->
-            val abi = output.filters.find { it.filterType.name == "ABI" }?.identifier
-            val baseVersionCode = flutter.versionCode
-            val abiCode = abiCodes[abi]
-            if (abiCode != null) {
-                output.versionCode.set(baseVersionCode * 10 + abiCode)
-            } else {
-                output.versionCode.set(flutter.versionCode)
-            }
-        }
-    }
-}
-
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

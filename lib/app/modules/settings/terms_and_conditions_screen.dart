@@ -10,69 +10,61 @@ class TermsAndConditionsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).colorScheme;
 
-// List of third-party libraries from pubspec.yaml
+    // List of third-party libraries from pubspec.yaml
     final List<String> thirdPartyLibraries = [
-      // State Management & Routing
+      // --- STATE MANAGEMENT & ROUTING ---
       'get',
 
-      // Local Storage
+      // --- LOCAL STORAGE ---
       'hive',
       'hive_flutter',
 
-      // UI & UX
-      'cupertino_icons',
-      'smooth_corner',
+      // --- UI & UX ---
+      'flutter_quill',
       'flutter_screenutil',
+      'flutter_staggered_grid_view',
       'flutter_svg',
       'modal_bottom_sheet',
-      'flutter_quill',
-      'shimmer',
-      'flutter_staggered_grid_view',
       'progressive_blur',
-      'pinput',
-      'fluttertoast',
+      'shimmer',
+      'smooth_corner',
 
-      // Media & File Handling
+      // --- MEDIA & FILE HANDLING ---
+      'archive',
+      'audioplayers',
+      'camera',
+      'file_picker',
+      'pdf',
       'permission_handler',
       'photo_manager',
       'photo_manager_image_provider',
-      'camera',
-      'video_player',
-      'video_thumbnail',
-      'record',
-      'audioplayers',
-      'file_picker',
-      'archive',
-      'pdf',
       'printing',
+      'record',
+      'video_player',
+      'get_thumbnail_video',
+      'image',
 
-      // Location & Maps
+      // --- LOCATION & MAPS ---
       'flutter_map',
       'latlong2',
-      'geolocator',
 
-      // Sharing & Intents
-      'share_plus',
-      'receive_sharing_intent',
-
-      // Notifications
+      // --- NOTIFICATIONS ---
       'flutter_local_notifications',
       'flutter_timezone',
       'timezone',
 
-      // Authentication
+      // --- AUTHENTICATION ---
       'local_auth',
 
-      // Utilities
-      'intl',
-      'path_provider',
-      'path',
-      'uuid',
-      'palette_generator',
-      'url_launcher',
-      'package_info_plus',
+      // --- UTILITIES ---
       'device_info_plus',
-      'change_app_package_name',
+      'intl',
+      'package_info_plus',
+      'palette_generator',
+      'path',
+      'path_provider',
+      'url_launcher',
+      'uuid',
     ];
 
     return Scaffold(

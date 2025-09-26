@@ -187,6 +187,9 @@ class AppConstants {
   static const String notificationPermissionRequired =
       "Notification permission is required to set reminders.";
   static const String pinChangedSuccess = "PIN changed successfully";
+  static const String onThisDayOn = "You'll now get memories from this day.";
+  static const String onThisDayOff = "'On This Day' reminders are turned off.";
+  static const String themeChanged = "%s theme selected.";
 
   // Write Journal Bottom Sheet
   static const String sharedImage = "Shared Image";
@@ -258,6 +261,7 @@ class AppConstants {
   static const String databaseRestoredNoMedia =
       "Database restored. No media found in backup.";
   static const String errorRestoringFile = 'Error restoring file %s: %s';
+  static const String restoreSuccess = "Restore successful!";
   static const String restoreSuccessRestartRecommended =
       "Restore successful. A restart is recommended to apply all changes.";
   static const String restoreFailed = "Failed to restore data: %s";

@@ -8,7 +8,7 @@ version: 1.0.0+1
 
 environment:
   sdk: '>=3.2.3 <4.0.0'
-  flutter: ^3.35.3
+  flutter: ^3.35.4
 
 dependencies:
   # --- CORE FLUTTER ---
@@ -58,7 +58,7 @@ dependencies:
 
   # --- NOTIFICATIONS ---
   flutter_local_notifications: ^19.4.0
-  flutter_timezone: ^4.1.1
+  flutter_timezone: ^5.0.0
   timezone: ^0.10.1
 
   # --- AUTHENTICATION ---
