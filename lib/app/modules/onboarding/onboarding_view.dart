@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
@@ -20,8 +22,8 @@ class OnboardingView extends GetView<OnboardingController> {
       backgroundColor: appThemeColors.grey7,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(0.0),
-          child: _AnimatedOnboardingContent(
+          padding: const EdgeInsets.all(16.0),
+          child: _OnboardingContent(
             appThemeColors: appThemeColors,
             controller: controller,
           ),
@@ -31,129 +33,39 @@ class OnboardingView extends GetView<OnboardingController> {
   }
 }
 
-class _AnimatedOnboardingContent extends StatefulWidget {
+class _OnboardingContent extends StatelessWidget {
   final dynamic appThemeColors;
   final OnboardingController controller;
 
-  const _AnimatedOnboardingContent({
+  const _OnboardingContent({
     required this.appThemeColors,
     required this.controller,
   });
-
-  @override
-  State<_AnimatedOnboardingContent> createState() =>
-      _AnimatedOnboardingContentState();
-}
-
-class _AnimatedOnboardingContentState extends State<_AnimatedOnboardingContent>
-    with TickerProviderStateMixin {
-  late List<AnimationController> _animationControllers;
-  late List<Animation<double>> _fadeAnimations;
-  late List<Animation<Offset>> _slideAnimations;
-
-  // Animation timing constants (Apple-like)
-  static const Duration _baseDuration = Duration(milliseconds: 600);
-  static const Duration _staggerDelay = Duration(milliseconds: 150);
-  static const Curve _animationCurve = Curves.easeOutCubic;
-
-  @override
-  void initState() {
-    super.initState();
-    _setupAnimations();
-    _startAnimations();
-  }
-
-  void _setupAnimations() {
-    // Create 6 animation controllers for each element
-    _animationControllers = List.generate(
-      6,
-          (index) => AnimationController(duration: _baseDuration, vsync: this),
-    );
-
-    // Create fade animations
-    _fadeAnimations = _animationControllers.map((controller) {
-      return Tween<double>(
-        begin: 0.0,
-        end: 1.0,
-      ).animate(CurvedAnimation(parent: controller, curve: _animationCurve));
-    }).toList();
-
-    // Create slide animations (slide up from bottom)
-    _slideAnimations = _animationControllers.map((controller) {
-      return Tween<Offset>(
-        begin: const Offset(0.0, 0.3), // Start slightly below
-        end: Offset.zero,
-      ).animate(CurvedAnimation(parent: controller, curve: _animationCurve));
-    }).toList();
-  }
-
-  void _startAnimations() {
-    // Start animations with staggered delays
-    for (int i = 0; i < _animationControllers.length; i++) {
-      Future.delayed(
-        Duration(milliseconds: i * _staggerDelay.inMilliseconds),
-            () {
-          if (mounted) {
-            _animationControllers[i].forward();
-          }
-        },
-      );
-    }
-  }
-
-  @override
-  void dispose() {
-    for (final controller in _animationControllers) {
-      controller.dispose();
-    }
-    super.dispose();
-  }
-
-  Widget _buildAnimatedWidget(int index, Widget child) {
-    return AnimatedBuilder(
-      animation: _animationControllers[index],
-      builder: (context, child) {
-        return FadeTransition(
-          opacity: _fadeAnimations[index],
-          child: SlideTransition(
-            position: _slideAnimations[index],
-            child: child,
-          ),
-        );
-      },
-      child: child,
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // App Icon (Element 0)
-        _buildAnimatedWidget(
-          0,
-          Column(
+        // App Icon
+        _AnimatedElement(
+          delay: const Duration(milliseconds: 200),
+          child: Column(
             children: [
               SizedBox(height: 80.sp),
               SvgPicture.asset(
                 'assets/app_icon.svg',
                 height: 150.sp,
-                // Apply a color filter to change the SVG color
-                // colorFilter: ColorFilter.mode(
-                //   appThemeColors.grey1,
-                //   BlendMode.srcIn,
-                // ),
               ),
               SizedBox(height: 48.sp),
             ],
           ),
         ),
 
-        // Welcome Text (Element 1)
-        _buildAnimatedWidget(
-          1,
-          Padding(
+        // Welcome Text
+        _AnimatedElement(
+          delay: const Duration(milliseconds: 400),
+          child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.sp),
             child: Text(
               AppConstants.welcomeToOpenJot,
@@ -170,54 +82,47 @@ class _AnimatedOnboardingContentState extends State<_AnimatedOnboardingContent>
 
         const SizedBox(height: 16),
 
-        // Feature Tiles (Elements 2, 3, 4)
-        Padding(
-          padding: EdgeInsets.all(16.sp),
-          child: Column(
-            children: [
-              _buildAnimatedWidget(
-                2,
-                Tile(
-                  iconColor: widget.appThemeColors.primary,
-                  textColor: widget.appThemeColors.grey1,
-                  iconSize: 32.sp,
-                  title: AppConstants.feature1,
-                  icon: Icons.auto_fix_high_outlined,
-                  fontSize: 16.sp,
-                ),
-              ),
-              _buildAnimatedWidget(
-                3,
-                Tile(
-                  iconColor: widget.appThemeColors.primary,
-                  textColor: widget.appThemeColors.grey1,
-                  iconSize: 32.sp,
-                  title: AppConstants.feature2,
-                  icon: Icons.sentiment_satisfied_alt_rounded,
-                  fontSize: 16.sp,
-                ),
-              ),
-              _buildAnimatedWidget(
-                4,
-                Tile(
-                  iconColor: widget.appThemeColors.primary,
-                  textColor: widget.appThemeColors.grey1,
-                  iconSize: 32.sp,
-                  fontSize: 16.sp,
-                  title: AppConstants.feature3,
-                  icon: Icons.lock_outlined,
-                ),
-              ),
-            ],
+        // Feature Tiles
+        _AnimatedElement(
+          delay: const Duration(milliseconds: 600),
+          child: Tile(
+            iconColor: appThemeColors.primary,
+            textColor: appThemeColors.grey1,
+            iconSize: 32.sp,
+            title: AppConstants.feature1,
+            icon: Icons.auto_fix_high_outlined,
+            fontSize: 16.sp,
+          ),
+        ),
+        _AnimatedElement(
+          delay: const Duration(milliseconds: 800),
+          child: Tile(
+            iconColor: appThemeColors.primary,
+            textColor: appThemeColors.grey1,
+            iconSize: 32.sp,
+            title: AppConstants.feature2,
+            icon: Icons.sentiment_satisfied_alt_rounded,
+            fontSize: 16.sp,
+          ),
+        ),
+        _AnimatedElement(
+          delay: const Duration(milliseconds: 1000),
+          child: Tile(
+            iconColor: appThemeColors.primary,
+            textColor: appThemeColors.grey1,
+            iconSize: 32.sp,
+            fontSize: 16.sp,
+            title: AppConstants.feature3,
+            icon: Icons.lock_outlined,
           ),
         ),
 
         const Spacer(),
 
-        // Continue Button (Element 5)
-        _buildAnimatedWidget(
-          5,
-          Column(
+        // Continue Button
+        _AnimatedElement(
+          delay: const Duration(milliseconds: 1200),
+          child: Column(
             children: [
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 24.sp),
@@ -225,10 +130,10 @@ class _AnimatedOnboardingContentState extends State<_AnimatedOnboardingContent>
                   width: double.infinity,
                   child: CustomButton(
                     text: AppConstants.continueButton,
-                    color: widget.appThemeColors.primary,
-                    textColor: widget.appThemeColors.onPrimary,
+                    color: appThemeColors.primary,
+                    textColor: appThemeColors.onPrimary,
                     onPressed: () {
-                      widget.controller.navigateToHome();
+                      controller.navigateToHome();
                     },
                     textPadding: EdgeInsets.symmetric(
                       horizontal: 56.sp,
@@ -242,6 +147,102 @@ class _AnimatedOnboardingContentState extends State<_AnimatedOnboardingContent>
           ),
         ),
       ],
+    );
+  }
+}
+
+// Custom animated element widget with blur, fade-in, and slide-up effect
+class _AnimatedElement extends StatefulWidget {
+  final Widget child;
+  final Duration delay;
+  final Duration duration;
+
+  const _AnimatedElement({
+    required this.child,
+    required this.delay,
+    this.duration = const Duration(milliseconds: 800),
+  });
+
+  @override
+  State<_AnimatedElement> createState() => _AnimatedElementState();
+}
+
+class _AnimatedElementState extends State<_AnimatedElement>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _slideAnimation;
+  late Animation<double> _blurAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      duration: widget.duration,
+      vsync: this,
+    );
+
+    // Fade animation (0 to 1)
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.0, 1.0, curve: Curves.easeOut),
+    ));
+
+    // Slide animation (from 30 pixels up to 0)
+    _slideAnimation = Tween<double>(
+      begin: 30.0,
+      end: 0.0,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.0, 0.8, curve: Curves.easeOutCubic),
+    ));
+
+    // Blur animation (from 10 to 0)
+    _blurAnimation = Tween<double>(
+      begin: 10.0,
+      end: 0.0,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+    ));
+
+    // Start animation after delay
+    Future.delayed(widget.delay, () {
+      if (mounted) {
+        _controller.forward();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, _slideAnimation.value),
+          child: Opacity(
+            opacity: _fadeAnimation.value,
+            child: ImageFiltered(
+              imageFilter: ImageFilter.blur(
+                sigmaX: _blurAnimation.value,
+                sigmaY: _blurAnimation.value,
+              ),
+              child: widget.child,
+            ),
+          ),
+        );
+      },
     );
   }
 }

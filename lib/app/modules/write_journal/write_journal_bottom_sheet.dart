@@ -1692,6 +1692,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
               selectedToolbarIcon: _selectedToolbarIcon,
               scrollController: scrollController,
               selectedMoodIndex: _selectedMoodIndex,
+              selectedLocation: _selectedLocation?.coordinates,
               onRecordingComplete: (path, duration) {
                 setState(() {
                   final recordingName = AppConstants.openJotRecording

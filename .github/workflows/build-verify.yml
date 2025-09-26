@@ -27,7 +27,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.35.3' # Or flutter-version-file: pubspec.yaml
+          flutter-version: '3.35.4' # Or flutter-version-file: pubspec.yaml
 
       - name: Display Flutter Version (for verification)
         run: flutter --version
@@ -50,6 +50,17 @@ jobs:
 
       - name: Build Android APK (Release)
         run: flutter build apk --release --split-per-abi
+
+      - name: Show APK Version Info
+        run: |
+          AaptPath=$(ls ${ANDROID_HOME}/build-tools/*/aapt | sort -V | tail -n 1)
+          echo "Using aapt from: $AaptPath"
+          
+          for apk in build/app/outputs/flutter-apk/*.apk; do
+          echo ""
+          echo "APK: $apk"
+          $AaptPath dump badging "$apk" | grep versionCode
+          done
 
       - name: Upload Android APK Artifact
         uses: actions/upload-artifact@v4

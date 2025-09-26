@@ -8,45 +8,130 @@ import '../../core/theme.dart';
 import '../../utils/foss_location.dart';
 import 'custom_button.dart';
 
+// Animation Helper: A custom Tween for animating between two LatLng points.
+class LatLngTween extends Tween<LatLng> {
+  LatLngTween({required LatLng begin, required LatLng end})
+      : super(begin: begin, end: end);
+
+  @override
+  LatLng lerp(double t) {
+    return LatLng(
+      begin!.latitude + (end!.latitude - begin!.latitude) * t,
+      begin!.longitude + (end!.longitude - begin!.longitude) * t,
+    );
+  }
+}
+
 class LocationMapView extends StatefulWidget {
   final ScrollController scrollController;
   final Function(LatLng location)? onLocationSelected;
+  final LatLng? initialLocation;
 
   const LocationMapView({
     super.key,
     required this.scrollController,
     this.onLocationSelected,
+    this.initialLocation,
   });
 
   @override
   State<LocationMapView> createState() => _LocationMapViewState();
 }
 
-class _LocationMapViewState extends State<LocationMapView> {
+class _LocationMapViewState extends State<LocationMapView>
+    with TickerProviderStateMixin {
   final MapController _mapController = MapController();
   LatLng? _selectedLocation;
   LatLng? _currentLocation;
   bool _isLoading = false;
   String? _permissionMessage;
 
+  late final AnimationController _animationController;
+
+  // This offset shifts the map's center down, making the pin appear higher.
+  static const double _latitudeOffset = 0.0009;
+  static const double _longitudeOffset = 0.0;
+
   @override
   void initState() {
     super.initState();
-    _checkPermissionAndFetch();
-  }
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
 
-  Future<void> _checkPermissionAndFetch() async {
-    final granted = await FossLocation.requestPermission();
-    if (granted) {
-      _getCurrentLocation();
-    } else {
-      setState(() {
-        _permissionMessage = 'Location permission denied.';
+    // If a location is passed, show it. Otherwise, fetch the current location.
+    if (widget.initialLocation != null) {
+      _selectedLocation = widget.initialLocation;
+      _checkPermissionAndFetch(moveMap: false);
+      // This ensures the map moves to the initial location after the widget is built.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          final mapCenter = LatLng(
+            widget.initialLocation!.latitude - _latitudeOffset,
+            widget.initialLocation!.longitude - _longitudeOffset,
+          );
+          _animatedMapMove(mapCenter, 18.0);
+        }
       });
+    } else {
+      _checkPermissionAndFetch(moveMap: true);
     }
   }
 
-  Future<void> _getCurrentLocation() async {
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _animatedMapMove(LatLng destLocation, double destZoom) {
+    final latTween =
+    LatLngTween(begin: _mapController.camera.center, end: destLocation);
+    final zoomTween =
+    Tween<double>(begin: _mapController.camera.zoom, end: destZoom);
+
+    final animation = CurvedAnimation(
+      parent: _animationController,
+      // This custom cubic curve provides a fast start and a long, gentle deceleration for a natural feel.
+      curve: const Cubic(0.23, 1, 0.32, 1),
+    );
+
+    void listener() {
+      if (mounted) {
+        _mapController.move(
+          latTween.evaluate(animation),
+          zoomTween.evaluate(animation),
+        );
+      }
+    }
+
+    _animationController.reset();
+    animation.addListener(listener);
+    animation.addStatusListener((status) {
+      if (status == AnimationStatus.completed ||
+          status == AnimationStatus.dismissed) {
+        animation.removeListener(listener);
+      }
+    });
+    _animationController.forward();
+  }
+
+  Future<void> _checkPermissionAndFetch({bool moveMap = true}) async {
+    final granted = await FossLocation.requestPermission();
+    if (granted) {
+      _getCurrentLocation(moveMap: moveMap);
+    } else {
+      if (mounted) {
+        setState(() {
+          _permissionMessage = 'Location permission denied.';
+        });
+      }
+    }
+  }
+
+  Future<void> _getCurrentLocation({bool moveMap = true}) async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _permissionMessage = null;
@@ -57,27 +142,31 @@ class _LocationMapViewState extends State<LocationMapView> {
       if (result != null) {
         final latLng = LatLng(result['latitude']!, result['longitude']!);
 
-        // Adjust map center slightly
-        const double latitudeOffset = 0.0008;
-        const double longitudeOffset = 0.0000;
+        // Apply offsets for visual centering.
         final mapCenter = LatLng(
-          latLng.latitude - latitudeOffset,
-          latLng.longitude - longitudeOffset,
+          latLng.latitude - _latitudeOffset,
+          latLng.longitude - _longitudeOffset,
         );
 
         if (mounted) {
           setState(() {
             _currentLocation = latLng;
-            _selectedLocation = latLng;
+            if (moveMap) {
+              _selectedLocation = latLng;
+            }
             _isLoading = false;
           });
-          _mapController.move(mapCenter, 18.0);
+          if (moveMap) {
+            _animatedMapMove(mapCenter, 18.0);
+          }
         }
       } else {
-        setState(() {
-          _isLoading = false;
-          _permissionMessage = 'Failed to get current location.';
-        });
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _permissionMessage = 'Failed to get current location.';
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -94,6 +183,12 @@ class _LocationMapViewState extends State<LocationMapView> {
       setState(() {
         _selectedLocation = latLng;
       });
+      // Apply offsets for visual centering.
+      final mapCenter = LatLng(
+        latLng.latitude - _latitudeOffset,
+        latLng.longitude - _longitudeOffset,
+      );
+      _animatedMapMove(mapCenter, _mapController.camera.zoom);
     }
   }
 
@@ -108,7 +203,7 @@ class _LocationMapViewState extends State<LocationMapView> {
       return false;
     }
     return (_selectedLocation!.latitude.toStringAsFixed(5) ==
-            _currentLocation!.latitude.toStringAsFixed(5) &&
+        _currentLocation!.latitude.toStringAsFixed(5) &&
         _selectedLocation!.longitude.toStringAsFixed(5) ==
             _currentLocation!.longitude.toStringAsFixed(5));
   }
@@ -148,15 +243,15 @@ class _LocationMapViewState extends State<LocationMapView> {
                   child: FlutterMap(
                     mapController: _mapController,
                     options: MapOptions(
-                      initialCenter: const LatLng(20.5937, 78.9629),
-                      // India center
-                      initialZoom: 10.0,
+                      initialCenter:
+                      _selectedLocation ?? const LatLng(20.5937, 78.9629),
+                      initialZoom: _selectedLocation != null ? 18.0 : 10.0,
                       onTap: _handleTap,
                     ),
                     children: [
                       TileLayer(
                         urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                         userAgentPackageName: 'org.thegandabherunda.openjot',
                       ),
                       if (_selectedLocation != null)
@@ -166,10 +261,20 @@ class _LocationMapViewState extends State<LocationMapView> {
                               width: 80.w,
                               height: 80.w,
                               point: _selectedLocation!,
-                              child: Icon(
-                                Icons.location_pin,
-                                color: colors.aOrange[1],
-                                size: 40.sp,
+                              child: TweenAnimationBuilder<double>(
+                                key: ValueKey(_selectedLocation),
+                                tween: Tween(begin: 0.3, end: 1.0),
+                                duration: const Duration(milliseconds: 500),
+                                curve: Curves.easeOutBack,
+                                builder: (context, scale, child) {
+                                  return Transform.scale(
+                                      scale: scale, child: child);
+                                },
+                                child: Icon(
+                                  Icons.location_pin,
+                                  color: colors.aOrange[1],
+                                  size: 40.sp,
+                                ),
                               ),
                             ),
                           ],
@@ -195,44 +300,65 @@ class _LocationMapViewState extends State<LocationMapView> {
             backgroundColor: colors.grey6,
             foregroundColor: colors.grey10,
             elevation: 0.0,
-            onPressed: _isLoading ? null : _getCurrentLocation,
-            child: _isLoading
-                ? SizedBox(
-                    width: 24.w,
-                    height: 24.h,
-                    child: CircularProgressIndicator(
-                      color: colors.grey10,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : Icon(
-                    _isSelectedLocationCurrentUserLocation()
-                        ? Icons.my_location_rounded
-                        : Icons.location_searching_rounded,
-                    size: 24.sp,
-                  ),
+            onPressed:
+            _isLoading ? null : () => _getCurrentLocation(moveMap: true),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (child, animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: ScaleTransition(
+                      scale:
+                      Tween<double>(begin: 0.8, end: 1.0).animate(animation),
+                      child: child),
+                );
+              },
+              child: _isLoading
+                  ? SizedBox(
+                key: const ValueKey('loader'),
+                width: 24.w,
+                height: 24.h,
+                child: CircularProgressIndicator(
+                  color: colors.grey10,
+                  strokeWidth: 2,
+                ),
+              )
+                  : Icon(
+                key: ValueKey(_isSelectedLocationCurrentUserLocation()),
+                _isSelectedLocationCurrentUserLocation()
+                    ? Icons.my_location_rounded
+                    : Icons.location_searching_rounded,
+                size: 24.sp,
+              ),
+            ),
           ),
         ),
-        if (_selectedLocation != null)
-          Positioned(
-            bottom: 16.h,
-            left: 0,
-            right: 0,
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOutCubic,
+          bottom: _selectedLocation != null ? 16.h : -100.h,
+          left: 0,
+          right: 0,
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 400),
+            opacity: _selectedLocation != null ? 1.0 : 0.0,
             child: Center(
               child: CustomButton(
                 onPressed: _addLocation,
-                borderRadius: 56,
+                borderRadius: 60,
                 text: 'Add',
                 icon: Icons.add_location_alt_outlined,
                 iconSize: 24,
                 color: colors.grey8,
                 textColor: colors.grey10,
                 textPadding:
-                    EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
               ),
             ),
           ),
+        ),
       ],
     );
   }
 }
+

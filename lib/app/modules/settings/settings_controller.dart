@@ -59,14 +59,19 @@ class SettingsScreenController extends GetxController {
         dailyReminder.value = false;
         CustomToast.showToast(
           AppConstants.notificationPermissionRequired,
-          backgroundColor: appColors.grey1,
-          textColor: appColors.grey10,
+          backgroundColor: appColors.grey10,
+          textColor: appColors.grey8,
         );
       }
     } else {
       dailyReminder.value = false;
       _hiveService.setDailyReminder(false);
       _notificationService.cancelAllNotifications();
+      CustomToast.showToast(
+        AppConstants.notificationCanceled,
+        backgroundColor: appColors.grey10,
+        textColor: appColors.grey8,
+      );
     }
   }
 
@@ -81,33 +86,54 @@ class SettingsScreenController extends GetxController {
         _hiveService.setOnThisDay(true);
         // Immediately check for memories to schedule a notification if applicable
         _notificationService.checkForOnThisDayMemories();
+        CustomToast.showToast(
+          AppConstants.onThisDayOn,
+          backgroundColor: appColors.grey10,
+          textColor: appColors.grey8,
+        );
       } else {
         onThisDay.value = false;
         CustomToast.showToast(
           AppConstants.notificationPermissionRequired,
-          backgroundColor: appColors.grey1,
-          textColor: appColors.grey10,
+          backgroundColor: appColors.grey10,
+          textColor: appColors.grey8,
         );
       }
     } else {
       onThisDay.value = false;
       _hiveService.setOnThisDay(false);
-      // You might want to cancel only the "On This Day" notification
-      // but cancelling all is simpler and safer for now.
       _notificationService.cancelAllNotifications();
+      CustomToast.showToast(
+        AppConstants.onThisDayOff,
+        backgroundColor: appColors.grey10,
+        textColor: appColors.grey8,
+      );
     }
   }
 
   void setReminderTime(TimeOfDay time) {
+    final appColors = AppTheme.colorsOf(Get.context!);
+    final timeFormat = time.format(Get.context!);
+    final isReschedule = reminderTime.value != null;
+
     reminderTime.value = time;
     _hiveService.setReminderTime(time);
 
     if (dailyReminder.value) {
       _notificationService.scheduleDailyJournalReminder(time);
+      CustomToast.showToast(
+        (isReschedule
+            ? AppConstants.notificationRescheduled
+            : AppConstants.notificationScheduled)
+            .replaceFirst('%s', timeFormat),
+        backgroundColor: appColors.grey10,
+        textColor: appColors.grey8,
+      );
     }
   }
 
   void changeTheme(String themeValue) {
+    final appColors = AppTheme.colorsOf(Get.context!);
     theme.value = themeValue;
     _hiveService.setTheme(themeValue);
 
@@ -124,6 +150,12 @@ class SettingsScreenController extends GetxController {
         break;
     }
     Get.changeThemeMode(themeMode);
+
+    CustomToast.showToast(
+      AppConstants.themeChanged.replaceFirst('%s', themeValue),
+      backgroundColor: appColors.grey10,
+      textColor: appColors.grey8,
+    );
   }
 
   void toggleAppLock(bool value) async {
@@ -185,8 +217,8 @@ class SettingsScreenController extends GetxController {
       if (result == true) {
         CustomToast.showToast(
           AppConstants.pinChangedSuccess,
-          backgroundColor: appColors.grey7,
-          textColor: appColors.grey10,
+          backgroundColor: appColors.grey10,
+          textColor: appColors.grey8,
         );
       }
     }
@@ -245,3 +277,4 @@ class SettingsScreenController extends GetxController {
     );
   }
 }
+

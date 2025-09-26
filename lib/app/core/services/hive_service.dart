@@ -289,8 +289,7 @@ class HiveService extends GetxService {
     } catch (e) {
       CustomToast.showToast(
           AppConstants.backupFailed.replaceFirst('%s', e.toString()));
-      debugPrint(
-          AppConstants.backupFailed.replaceFirst('%s', e.toString()));
+      debugPrint(AppConstants.backupFailed.replaceFirst('%s', e.toString()));
       return false;
     }
   }
@@ -462,7 +461,7 @@ class HiveService extends GetxService {
       // --- CHANGE END ---
 
       CustomToast.showToast(
-        "Restore successful!",
+        AppConstants.restoreSuccess,
         duration: const Duration(seconds: 3),
       );
       return true;
@@ -470,8 +469,7 @@ class HiveService extends GetxService {
       await init(); // Attempt to recover to a stable state if restore fails.
       CustomToast.showToast(
           AppConstants.restoreFailed.replaceFirst('%s', e.toString()));
-      debugPrint(
-          AppConstants.restoreFailed.replaceFirst('%s', e.toString()));
+      debugPrint(AppConstants.restoreFailed.replaceFirst('%s', e.toString()));
       return false;
     }
   }

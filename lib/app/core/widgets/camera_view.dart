@@ -37,12 +37,17 @@ class _CameraViewState extends State<CameraView> {
       _cameraController = CameraController(
         _cameras!.first,
         ResolutionPreset.high,
+        enableAudio: false, // Explicitly disable audio
       );
-      await _cameraController!.initialize();
-      if (mounted) {
-        setState(() {
-          _isCameraInitialized = true;
-        });
+      try {
+        await _cameraController!.initialize();
+        if (mounted) {
+          setState(() {
+            _isCameraInitialized = true;
+          });
+        }
+      } catch (e) {
+        // Handle camera initialization error, e.g., show a message to the user
       }
     }
   }
@@ -85,11 +90,23 @@ class _CameraViewState extends State<CameraView> {
   @override
   Widget build(BuildContext context) {
     final colors = AppTheme.colorsOf(context);
-    if (!_isCameraInitialized) {
+    final controller = _cameraController;
+
+    if (controller == null || !_isCameraInitialized || !controller.value.isInitialized) {
       return const Center(child: CircularProgressIndicator());
     }
 
     if (_capturedImage == null) {
+      // This is the definitive fix for the camera preview.
+      final cameraPreviewWidget = FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: controller.value.previewSize!.height,
+          height: controller.value.previewSize!.width,
+          child: CameraPreview(controller),
+        ),
+      );
+
       return Stack(
         alignment: Alignment.center,
         children: [
@@ -98,15 +115,17 @@ class _CameraViewState extends State<CameraView> {
             padding: EdgeInsets.zero,
             children: [
               SizedBox(
-                height: MediaQuery.of(context).size.height,
+                height: 440.h,
+                width: double.infinity,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12.r),
-                  child: CameraPreview(_cameraController!),
+                  child: cameraPreviewWidget,
                 ),
               ),
+              // Add space at the bottom so the capture button doesn't hide the view
+              SizedBox(height: 100.h),
             ],
           ),
-          // This button is outside the ListView, so it won't scroll.
           Positioned(
             bottom: 16.h,
             child: GestureDetector(
@@ -128,7 +147,6 @@ class _CameraViewState extends State<CameraView> {
         ],
       );
     } else {
-      // After capture, the preview and buttons are in a simple ListView.
       return ListView(
         controller: widget.scrollController,
         padding: EdgeInsets.zero,
@@ -140,7 +158,6 @@ class _CameraViewState extends State<CameraView> {
   }
 
   Widget _buildPreview(AppThemeColors colors) {
-    // This Column is the content for the post-capture ListView.
     return Column(
       children: [
         SizedBox(
@@ -155,29 +172,38 @@ class _CameraViewState extends State<CameraView> {
           ),
         ),
         SizedBox(height: 16.h),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            CustomButton(
-              onPressed: _retakePicture,
-              text: 'Retake',
-              color: colors.grey3,
-              textColor: colors.grey10,
-              textPadding:
-              EdgeInsets.symmetric(horizontal: 32.w, vertical: 12.h),
-            ),
-            CustomButton(
-              onPressed: _addPicture,
-              text: 'Add',
-              color: Theme.of(context).primaryColor,
-              textColor: colors.grey8,
-              textPadding:
-              EdgeInsets.symmetric(horizontal: 32.w, vertical: 12.h),
-            ),
-          ],
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Expanded(
+                child: CustomButton(
+                  onPressed: _retakePicture,
+                  text: 'Retake',
+                  color: colors.grey3,
+                  textColor: colors.grey10,
+                  textPadding:
+                  EdgeInsets.symmetric(horizontal: 32.w, vertical: 12.h),
+                ),
+              ),
+              SizedBox(width: 16.w),
+              Expanded(
+                child: CustomButton(
+                  onPressed: _addPicture,
+                  text: 'Add',
+                  color: Theme.of(context).primaryColor,
+                  textColor: colors.grey8,
+                  textPadding:
+                  EdgeInsets.symmetric(horizontal: 32.w, vertical: 12.h),
+                ),
+              ),
+            ],
+          ),
         ),
-        SizedBox(height: 16.h), // Add some padding at the bottom
+        SizedBox(height: 16.h),
       ],
     );
   }
 }
+

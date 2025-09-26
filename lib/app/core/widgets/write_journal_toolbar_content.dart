@@ -31,6 +31,7 @@ class WriteJournalToolbarContent extends StatefulWidget {
   final Function(XFile photo)? onPhotoTaken;
   final Function(int? moodIndex)? onMoodChanged;
   final int? selectedMoodIndex;
+  final LatLng? selectedLocation;
 
   const WriteJournalToolbarContent({
     super.key,
@@ -42,6 +43,7 @@ class WriteJournalToolbarContent extends StatefulWidget {
     this.onPhotoTaken,
     this.onMoodChanged,
     this.selectedMoodIndex,
+    this.selectedLocation,
   });
 
   @override
@@ -90,6 +92,9 @@ class _WriteJournalToolbarContentState
       _isLoading = true;
       _groupedAssets = {};
     });
+
+    // ROBUSTNESS: Add a small delay to ensure the shimmer effect is noticeable on fast devices.
+    await Future.delayed(const Duration(milliseconds: 300));
 
     final type = _getRequestTypeForSegment(_selectedSegment);
     final albums = await PhotoManager.getAssetPathList(type: type);
@@ -219,6 +224,7 @@ class _WriteJournalToolbarContentState
     if (widget.selectedToolbarIcon == Icons.location_on_rounded) {
       return LocationMapView(
         scrollController: widget.scrollController,
+        initialLocation: widget.selectedLocation,
         onLocationSelected: (location) {
           widget.onLocationSelected?.call(location);
         },
@@ -321,12 +327,22 @@ class _WriteJournalToolbarContentState
             ),
           ],
         ),
-        if (_selectedAssets.isNotEmpty)
-          Positioned(
-            bottom: 20.h,
-            left: 0,
-            right: 0,
-            child: Center(
+        Positioned(
+          bottom: 20.h,
+          left: 0,
+          right: 0,
+          // ANIMATION: Animate the appearance and disappearance of the 'Add' button.
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            transitionBuilder: (child, animation) {
+              return ScaleTransition(
+                scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+                child: FadeTransition(opacity: animation, child: child),
+              );
+            },
+            child: _selectedAssets.isNotEmpty
+                ? Center(
+              key: const ValueKey('add_button'),
               child: CustomButton(
                 onPressed: () {
                   widget.onAssetsSelected?.call(_selectedAssets);
@@ -334,17 +350,19 @@ class _WriteJournalToolbarContentState
                     _selectedAssets.clear();
                   });
                 },
-                borderRadius: 56,
+                borderRadius: 60,
                 text: '${AppConstants.add} ${_selectedAssets.length}',
                 icon: Icons.add,
                 iconSize: 24,
                 color: Theme.of(context).primaryColor,
                 textColor: colors.grey8,
                 textPadding:
-                EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
               ),
-            ),
+            )
+                : const SizedBox.shrink(key: ValueKey('empty_button')),
           ),
+        ),
       ],
     );
   }
@@ -374,11 +392,20 @@ class _WriteJournalToolbarContentState
     );
   }
 
+  // ROBUST CHANGE: Added AnimatedSwitcher for a smooth fade from shimmer to content.
   Widget _buildMediaGrid(AppThemeColors colors) {
-    if (_isLoading) {
-      return _buildSkeletonLoading(colors);
-    }
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 400),
+      transitionBuilder: (child, animation) {
+        return FadeTransition(opacity: animation, child: child);
+      },
+      child: _isLoading
+          ? _buildSkeletonLoading(colors)
+          : _buildMediaContent(colors),
+    );
+  }
 
+  Widget _buildMediaContent(AppThemeColors colors) {
     if (_permissionStatus == null) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -447,40 +474,47 @@ class _WriteJournalToolbarContentState
                             AssetThumbnailItem(asset: asset, colors: colors);
                       }
 
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            // MODIFICATION: Allow multiple selections for all types
-                            if (isSelected) {
-                              _selectedAssets.remove(asset);
-                            } else {
-                              _selectedAssets.add(asset);
-                            }
-                          });
-                        },
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8.r),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              child,
-                              if (isSelected)
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: overlayColor,
-                                    border: Border.all(
-                                      color: Theme.of(context).primaryColor,
-                                      width: 1.5,
+                      // ANIMATION: Wrap each grid item in an animation for a smooth entrance.
+                      return AnimatedGridItem(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              if (isSelected) {
+                                _selectedAssets.remove(asset);
+                              } else {
+                                _selectedAssets.add(asset);
+                              }
+                            });
+                          },
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8.r),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                child,
+                                // ANIMATION: Animate the selection overlay for a smoother feel.
+                                AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 200),
+                                  opacity: isSelected ? 1.0 : 0.0,
+                                  curve: Curves.easeOut,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: overlayColor,
+                                      border: Border.all(
+                                        color: Theme.of(context).primaryColor,
+                                        width: 1.5,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8.r),
                                     ),
-                                    borderRadius: BorderRadius.circular(8.r),
-                                  ),
-                                  child: Icon(
-                                    Icons.check_circle,
-                                    color: onOverlayColor,
-                                    size: 24.sp,
+                                    child: Icon(
+                                      Icons.check_circle,
+                                      color: onOverlayColor,
+                                      size: 24.sp,
+                                    ),
                                   ),
                                 ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       );
@@ -629,7 +663,6 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
 
   Future<void> _loadThumbnail() async {
     if (!mounted) return;
-    // *** CHANGE: Request a higher quality thumbnail for the picker grid ***
     final data = await widget.asset.thumbnailDataWithSize(
       const ThumbnailSize(250, 250),
       quality: 90,
@@ -643,26 +676,29 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
 
   @override
   Widget build(BuildContext context) {
-    if (_thumbnailData == null) {
-      return Container(color: widget.colors.grey3);
-    }
-
-    final thumbnail = Image.memory(
+    // DEFINITIVE FIX: Build the Image widget with BoxFit.cover and ensure it expands.
+    final imageWidget = _thumbnailData != null
+        ? Image.memory(
       _thumbnailData!,
       fit: BoxFit.cover,
       gaplessPlayback: true,
-    );
+      // These ensure the image widget itself fills the cell before BoxFit.cover is applied.
+      width: double.infinity,
+      height: double.infinity,
+    )
+        : null;
 
-    // OPTIMIZATION: Wrapping the thumbnail in a RepaintBoundary.
-    // This caches the loaded image and prevents it from being repainted
-    // when other parts of the grid update (e.g., when another item is selected).
-    final content = RepaintBoundary(
-      child: widget.asset.type == AssetType.video
-          ? _buildVideoOverlay(context, widget.asset, thumbnail)
-          : thumbnail,
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      child: imageWidget == null
+          ? Container(key: const ValueKey('loader'), color: widget.colors.grey3)
+          : RepaintBoundary(
+        key: ValueKey(widget.asset.id),
+        child: widget.asset.type == AssetType.video
+            ? _buildVideoOverlay(context, widget.asset, imageWidget)
+            : imageWidget,
+      ),
     );
-
-    return content;
   }
 
   String _formatDuration(int seconds) {
@@ -1050,7 +1086,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
                   ? Align(
                 alignment: Alignment.center,
                 child: IconButton(
-                  icon: Icon(Icons.stop_circle_outlined,
+                  icon: Icon(Icons.stop_circle_rounded,
                       color: colors.grey10, size: 40.sp),
                   onPressed: _stopRecording,
                 ),
@@ -1310,6 +1346,58 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+// NEW WIDGET: A reusable animation widget for grid items.
+class AnimatedGridItem extends StatefulWidget {
+  final Widget child;
+
+  const AnimatedGridItem({super.key, required this.child});
+
+  @override
+  State<AnimatedGridItem> createState() => _AnimatedGridItemState();
+}
+
+class _AnimatedGridItemState extends State<AnimatedGridItem>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _fadeAnimation;
+  late final Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: widget.child,
       ),
     );
   }
