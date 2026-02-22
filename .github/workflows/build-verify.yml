@@ -32,13 +32,11 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          # Alternatively, specify the exact version from pubspec.yaml
-          # flutter-version: '3.27.0' 
 
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Decode Keystore File (Optional for F-Droid verification)
+      - name: Decode Keystore File
         if: github.event_name == 'workflow_dispatch'
         run: |
           if [ -n "${{ secrets.ANDROID_UPLOAD_KEYSTORE }}" ]; then
@@ -50,13 +48,13 @@ jobs:
           fi
 
       - name: Build Android FOSS APK
-        # F-Droid builds typically use the 'foss' flavor if defined
         run: flutter build apk --flavor foss --release --split-per-abi
 
-      - name: Show APK Version Info
+      - name: Find and Verify APKs
         run: |
           AaptPath=$(ls ${ANDROID_HOME}/build-tools/*/aapt | sort -V | tail -n 1)
-          for apk in build/app/outputs/flutter-apk/*.apk; do
+          # Use find to locate APKs regardless of exact directory structure
+          find build -name "*.apk" -type f | while read apk; do
             echo "Verifying APK: $apk"
             $AaptPath dump badging "$apk" | grep -E 'package|versionCode|versionName'
           done
@@ -65,4 +63,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: openjot-foss-apk
-          path: build/app/outputs/flutter-apk/app-foss-*.apk
+          # More flexible path to catch APKs wherever they end up in the build folder
+          path: build/**/outputs/flutter-apk/*.apk
+          if-no-files-found: error
