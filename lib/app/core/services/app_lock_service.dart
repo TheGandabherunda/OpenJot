@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:local_auth/local_auth.dart';
@@ -15,15 +16,12 @@ class AppLockService extends GetxService {
   Future<bool> authenticate() async {
     try {
       return await _auth.authenticate(
-        localizedReason: ' ',
-        options: const AuthenticationOptions(
-          biometricOnly: true,
-          useErrorDialogs: true,
-          stickyAuth: true,
-        ),
+        localizedReason: 'Please authenticate to unlock the app',
+        biometricOnly: true,
+        persistAcrossBackgrounding: true,
       );
     } on PlatformException catch (e) {
-      print(e);
+      debugPrint(e.toString());
       return false;
     }
   }

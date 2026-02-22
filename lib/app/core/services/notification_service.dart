@@ -63,7 +63,7 @@ class NotificationService {
     );
 
     await flutterLocalNotificationsPlugin.initialize(
-      initializationSettings,
+      settings: initializationSettings,
       onDidReceiveNotificationResponse: onDidReceiveNotificationResponse,
       onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
     );
@@ -151,11 +151,11 @@ class NotificationService {
           "[NotificationService] Scheduling daily reminder for: $scheduledDateTime");
     }
     await flutterLocalNotificationsPlugin.zonedSchedule(
-      0,
-      AppConstants.notificationTitle,
-      AppConstants.notificationBody,
-      scheduledDateTime,
-      const NotificationDetails(
+      id: 0,
+      title: AppConstants.notificationTitle,
+      body: AppConstants.notificationBody,
+      scheduledDate: scheduledDateTime,
+      notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
           AppConstants.notificationChannelId,
           AppConstants.notificationChannelName,
@@ -262,11 +262,11 @@ class NotificationService {
     );
 
     await flutterLocalNotificationsPlugin.zonedSchedule(
-      1,
-      title,
-      body,
-      scheduledDateTime,
-      NotificationDetails(android: androidDetails),
+      id: 1,
+      title: title,
+      body: body,
+      scheduledDate: scheduledDateTime,
+      notificationDetails: NotificationDetails(android: androidDetails),
       payload: payload,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,

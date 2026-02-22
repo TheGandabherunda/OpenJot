@@ -32,6 +32,7 @@ import '../../core/widgets/text_styling_toolbar.dart';
 import '../../core/widgets/write_journal_toolbar.dart';
 import '../../core/widgets/write_journal_toolbar_content.dart';
 import '../../utils/custom_toast.dart';
+import '../../utils/foss_location.dart';
 import '../media_preview/media_preview_bottom_sheet.dart';
 
 class WriteJournalBottomSheet extends StatefulWidget {
@@ -58,7 +59,7 @@ class WriteJournalBottomSheet extends StatefulWidget {
 
 enum _SheetTransitionState { none, opening, open }
 
-class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
+class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> with WidgetsBindingObserver {
   late quill.QuillController _quillController;
   final _focusNode = FocusNode();
   final _sheetController = DraggableScrollableController();
@@ -86,6 +87,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   int? _selectedMoodIndex;
 
   _SheetTransitionState _sheetState = _SheetTransitionState.none;
+  bool _pendingLocationResume = false;
 
   final AudioPlayer _audioPlayer = AudioPlayer();
   String? _currentlyPlayingPath;
@@ -120,6 +122,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializeState();
     // FIX: Delay media loading until after the bottom sheet has had time to animate open.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -130,6 +133,28 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
         }
       });
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _pendingLocationResume) {
+      _pendingLocationResume = false;
+      _resumeLocationFlow();
+    }
+  }
+
+  Future<void> _resumeLocationFlow() async {
+    bool isLocationEnabled = await FossLocation.isLocationServiceEnabled();
+    if (isLocationEnabled) {
+      var status = await Permission.locationWhenInUse.request();
+      if (status.isGranted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _handleAttachmentTap(Icons.location_on_rounded, bypassSettingsCheck: true);
+          }
+        });
+      }
+    }
   }
 
   void _initializeState() {
@@ -264,6 +289,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _quillController.document.changes.listen(null);
     _quillController.dispose();
     _focusNode.dispose();
@@ -493,7 +519,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
     return minSize.clamp(0.1, _maxChildSize);
   }
 
-  Future<void> _handleAttachmentTap(IconData iconData) async {
+  Future<void> _handleAttachmentTap(IconData iconData, {bool bypassSettingsCheck = false}) async {
     final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
     if (_isDraggableSheetActive && _selectedToolbarIcon == iconData) {
       _closeSheet();
@@ -502,12 +528,29 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
       }
       return;
     }
+
+    if (iconData == Icons.location_on_rounded) {
+      if (!bypassSettingsCheck) {
+        bool isLocationEnabled = await FossLocation.isLocationServiceEnabled();
+        if (!isLocationEnabled) {
+          _pendingLocationResume = true;
+          await FossLocation.openLocationSettings();
+          return;
+        }
+      }
+      var status = await Permission.locationWhenInUse.request();
+      if (!status.isGranted) {
+        return;
+      }
+    }
+
     if (_isDraggableSheetActive && _selectedToolbarIcon != iconData) {
       setState(() {
         _selectedToolbarIcon = iconData;
       });
       return;
     }
+
     if (iconData == Icons.image_rounded) {
       var status = await Permission.photos.request();
       if (!status.isGranted) {
@@ -520,12 +563,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> {
         return;
       }
     }
-    if (iconData == Icons.location_on_rounded) {
-      var status = await Permission.locationWhenInUse.request();
-      if (!status.isGranted) {
-        return;
-      }
-    }
+
     if (isKeyboardVisible) {
       _handleSheetOpeningWithKeyboard(iconData);
     } else {

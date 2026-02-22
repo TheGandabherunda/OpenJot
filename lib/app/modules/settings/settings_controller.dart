@@ -38,41 +38,35 @@ class SettingsScreenController extends GetxController {
     appLock.value = _hiveService.appLockEnabled;
   }
 
-  void toggleDailyReminder(bool value) async {
+  Future<bool> checkAndRequestNotificationPermissions() async {
     final appColors = AppTheme.colorsOf(Get.context!);
-    if (value) {
-      final bool permissionsGranted =
-      await _notificationService.requestPermissions();
-
-      if (permissionsGranted) {
-        dailyReminder.value = true;
-        _hiveService.setDailyReminder(true);
-
-        if (reminderTime.value == null) {
-          final defaultTime = const TimeOfDay(hour: 20, minute: 0);
-          setReminderTime(defaultTime);
-        } else {
-          _notificationService
-              .scheduleDailyJournalReminder(reminderTime.value!);
-        }
-      } else {
-        dailyReminder.value = false;
-        CustomToast.showToast(
-          AppConstants.notificationPermissionRequired,
-          backgroundColor: appColors.grey10,
-          textColor: appColors.grey8,
-        );
-      }
-    } else {
-      dailyReminder.value = false;
-      _hiveService.setDailyReminder(false);
-      _notificationService.cancelAllNotifications();
+    final bool permissionsGranted = await _notificationService.requestPermissions();
+    if (!permissionsGranted) {
       CustomToast.showToast(
-        AppConstants.notificationCanceled,
+        AppConstants.notificationPermissionRequired,
         backgroundColor: appColors.grey10,
         textColor: appColors.grey8,
       );
     }
+    return permissionsGranted;
+  }
+
+  void turnOnDailyReminder(TimeOfDay time) {
+    dailyReminder.value = true;
+    _hiveService.setDailyReminder(true);
+    setReminderTime(time);
+  }
+
+  void turnOffDailyReminder() {
+    final appColors = AppTheme.colorsOf(Get.context!);
+    dailyReminder.value = false;
+    _hiveService.setDailyReminder(false);
+    _notificationService.cancelAllNotifications();
+    CustomToast.showToast(
+      AppConstants.notificationCanceled,
+      backgroundColor: appColors.grey10,
+      textColor: appColors.grey8,
+    );
   }
 
   // --- NEW: Logic for "On This Day" toggle ---
@@ -277,4 +271,3 @@ class SettingsScreenController extends GetxController {
     );
   }
 }
-

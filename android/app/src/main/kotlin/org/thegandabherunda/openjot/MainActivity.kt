@@ -7,8 +7,10 @@ import android.location.Location
 import android.location.LocationManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.Looper
 import android.webkit.MimeTypeMap
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -49,25 +51,125 @@ class MainActivity : FlutterFragmentActivity() {
                     }
                 }
 
+                "isLocationServiceEnabled" -> {
+                    val locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
+                    val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                    val isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+                    result.success(isGpsEnabled || isNetworkEnabled)
+                }
+
+                "openLocationSettings" -> {
+                    val intent = Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(intent)
+                    result.success(null)
+                }
+
                 "getCurrentLocation" -> {
                     val locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
                     if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
                         ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                        result.error("PERMISSION_DENIED", "Location permission not granted", null)
+                        result.success(null) // Safe return so Flutter side doesn't break
                         return@setMethodCallHandler
                     }
+
+                    val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                    val isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+
+                    if (!isGpsEnabled && !isNetworkEnabled) {
+                        result.success(null) // Safe return so Flutter side doesn't break
+                        return@setMethodCallHandler
+                    }
+
                     val providers = locationManager.getProviders(true)
                     var bestLocation: Location? = null
                     for (provider in providers) {
                         val l = locationManager.getLastKnownLocation(provider)
-                        if (bestLocation == null || (l != null && l.accuracy < bestLocation.accuracy)) {
+                        if (l != null && (bestLocation == null || l.accuracy < bestLocation!!.accuracy)) {
                             bestLocation = l
                         }
                     }
-                    if (bestLocation != null) {
+
+                    // If we have a cached location less than 2 minutes old, use it immediately
+                    if (bestLocation != null && (System.currentTimeMillis() - bestLocation.time) < 2 * 60 * 1000) {
                         result.success(mapOf("latitude" to bestLocation.latitude, "longitude" to bestLocation.longitude))
+                        return@setMethodCallHandler
+                    }
+
+                    // Prioritize NETWORK_PROVIDER. It resolves almost instantly, whereas GPS can hang a long time right after turning it on.
+                    val provider = if (isNetworkEnabled) LocationManager.NETWORK_PROVIDER else LocationManager.GPS_PROVIDER
+
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                        val cancellationSignal = android.os.CancellationSignal()
+                        var hasResponded = false
+
+                        val timeoutHandler = android.os.Handler(Looper.getMainLooper())
+                        val timeoutRunnable = Runnable {
+                            if (!hasResponded) {
+                                hasResponded = true
+                                cancellationSignal.cancel()
+                                if (bestLocation != null) {
+                                    result.success(mapOf("latitude" to bestLocation!!.latitude, "longitude" to bestLocation!!.longitude))
+                                } else {
+                                    // Prevents infinite loop/hang if unable to get fix
+                                    result.success(null)
+                                }
+                            }
+                        }
+                        timeoutHandler.postDelayed(timeoutRunnable, 8000) // 8-second safety timeout
+
+                        locationManager.getCurrentLocation(
+                            provider,
+                            cancellationSignal,
+                            ContextCompat.getMainExecutor(this)
+                        ) { location ->
+                            if (!hasResponded) {
+                                hasResponded = true
+                                timeoutHandler.removeCallbacks(timeoutRunnable)
+                                if (location != null) {
+                                    result.success(mapOf("latitude" to location.latitude, "longitude" to location.longitude))
+                                } else if (bestLocation != null) {
+                                    result.success(mapOf("latitude" to bestLocation.latitude, "longitude" to bestLocation.longitude))
+                                } else {
+                                    result.success(null)
+                                }
+                            }
+                        }
                     } else {
-                        result.error("NO_LOCATION", "Could not fetch location", null)
+                        var hasResponded = false
+                        val listener = object : android.location.LocationListener {
+                            override fun onLocationChanged(location: Location) {
+                                if (!hasResponded) {
+                                    hasResponded = true
+                                    locationManager.removeUpdates(this)
+                                    result.success(mapOf("latitude" to location.latitude, "longitude" to location.longitude))
+                                }
+                            }
+                            override fun onStatusChanged(p0: String?, p1: Int, p2: Bundle?) {}
+                            override fun onProviderEnabled(p0: String) {}
+                            override fun onProviderDisabled(p0: String) {}
+                        }
+
+                        val timeoutHandler = android.os.Handler(Looper.getMainLooper())
+                        val timeoutRunnable = Runnable {
+                            if (!hasResponded) {
+                                hasResponded = true
+                                locationManager.removeUpdates(listener)
+                                if (bestLocation != null) {
+                                    result.success(mapOf("latitude" to bestLocation!!.latitude, "longitude" to bestLocation!!.longitude))
+                                } else {
+                                    result.success(null)
+                                }
+                            }
+                        }
+                        timeoutHandler.postDelayed(timeoutRunnable, 8000) // 8-second safety timeout
+
+                        @Suppress("DEPRECATION")
+                        locationManager.requestSingleUpdate(
+                            provider,
+                            listener,
+                            Looper.getMainLooper()
+                        )
                     }
                 }
                 else -> result.notImplemented()
@@ -217,4 +319,3 @@ class MainActivity : FlutterFragmentActivity() {
         return this::shareChannel.isInitialized
     }
 }
-

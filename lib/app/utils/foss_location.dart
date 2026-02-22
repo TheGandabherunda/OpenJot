@@ -9,6 +9,17 @@ class FossLocation {
     return granted ?? false;
   }
 
+  /// Check if device location services are enabled
+  static Future<bool> isLocationServiceEnabled() async {
+    final enabled = await _channel.invokeMethod<bool>('isLocationServiceEnabled');
+    return enabled ?? false;
+  }
+
+  /// Open Android location settings
+  static Future<void> openLocationSettings() async {
+    await _channel.invokeMethod<void>('openLocationSettings');
+  }
+
   /// Get current location (lat/lng). Returns null if failed.
   static Future<Map<String, double>?> getCurrentLocation() async {
     final result = await _channel.invokeMethod<Map>('getCurrentLocation');

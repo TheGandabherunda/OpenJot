@@ -35,7 +35,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     });
   }
 
-  void _showTimePicker() async {
+  Future<TimeOfDay?> _showTimePicker() async {
     final appThemeColors = AppTheme.colorsOf(context);
     final TimeOfDay? picked = await showTimePicker(
       context: context,
@@ -77,9 +77,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
         );
       },
     );
-    if (picked != null && picked != controller.reminderTime.value) {
-      controller.setReminderTime(picked);
-    }
+    return picked;
   }
 
   void _showThemeSelectionBottomSheet() {
@@ -188,9 +186,6 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
           title: Text(title,
               style:
               TextStyle(color: textColor,fontWeight: FontWeight.w500,letterSpacing: -0.2, fontFamily: AppConstants.font)),
-          // subtitle: subtitle != null
-          //     ? Text(subtitle, style: TextStyle(color: appThemeColors.grey2,))
-          //     : null,
           trailing: trailing,
           onTap: onTap,
         ),
@@ -272,17 +267,33 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                             ),
                           Switch(
                             value: reminderEnabled,
-                            onChanged: (bool value) {
-                              controller.toggleDailyReminder(value);
+                            onChanged: (bool value) async {
                               if (value) {
-                                _showTimePicker();
+                                final hasPermission = await controller.checkAndRequestNotificationPermissions();
+                                if (hasPermission) {
+                                  final picked = await _showTimePicker();
+                                  if (picked != null) {
+                                    // Wait for the dialog to fully close to avoid Overlay context errors
+                                    await Future.delayed(const Duration(milliseconds: 300));
+                                    controller.turnOnDailyReminder(picked);
+                                  }
+                                }
+                              } else {
+                                controller.turnOffDailyReminder();
                               }
                             },
                             activeColor: appThemeColors.primary,
                           ),
                         ],
                       ),
-                      onTap: reminderEnabled ? _showTimePicker : null,
+                      onTap: reminderEnabled ? () async {
+                        final picked = await _showTimePicker();
+                        if (picked != null && picked != controller.reminderTime.value) {
+                          // Wait for the dialog to fully close to avoid Overlay context errors
+                          await Future.delayed(const Duration(milliseconds: 300));
+                          controller.setReminderTime(picked);
+                        }
+                      } : null,
                     ),
                     // --- NEW: "On This Day" Toggle ---
                     _buildListTile(
@@ -412,4 +423,3 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     );
   }
 }
-
