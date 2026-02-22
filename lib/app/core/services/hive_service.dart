@@ -25,21 +25,18 @@ class HiveService extends GetxService {
   late Box<dynamic> settingsBox;
   late Box<JournalEntry> journalsBox;
 
-  // ADDED: Flag to ensure adapters are only registered once.
   bool _adaptersRegistered = false;
 
   Future<HiveService> init() async {
     final appDocumentDir = await getApplicationDocumentsDirectory();
-    await Hive.initFlutter(appDocumentDir.path);
+    Hive.init(appDocumentDir.path);
     _registerAdapters();
     settingsBox = await Hive.openBox(AppConstants.settingsBoxName);
-    journalsBox =
-    await Hive.openBox<JournalEntry>(AppConstants.journalsBoxName);
+    journalsBox = await Hive.openBox<JournalEntry>(AppConstants.journalsBoxName);
     return this;
   }
 
   void _registerAdapters() {
-    // FIX: Check if adapters are already registered to prevent HiveError on re-initialization.
     if (_adaptersRegistered) return;
 
     Hive.registerAdapter(JournalEntryAdapter());
@@ -69,12 +66,10 @@ class HiveService extends GetxService {
   Future<void> setDailyReminder(bool value) async =>
       await settingsBox.put(AppConstants.dailyReminderKey, value);
 
-  // --- NEW: Getter and Setter for "On This Day" feature ---
   bool get onThisDay =>
       settingsBox.get(AppConstants.onThisDayKey, defaultValue: false);
   Future<void> setOnThisDay(bool value) async =>
       await settingsBox.put(AppConstants.onThisDayKey, value);
-  // --- END NEW ---
 
   TimeOfDay? get reminderTime {
     final timeString = settingsBox.get(AppConstants.reminderTimeKey);
@@ -93,7 +88,7 @@ class HiveService extends GetxService {
   Future<void> setAppLockPin(String pin) async =>
       await settingsBox.put(AppConstants.appLockPinKey, pin);
 
-  // --- Journals Box Methods (unchanged) ---
+  // --- Journals Box Methods ---
   Future<void> addJournalEntry(JournalEntry entry) async =>
       await journalsBox.put(entry.id, entry);
   Future<void> updateJournalEntry(JournalEntry entry) async {
@@ -116,12 +111,10 @@ class HiveService extends GetxService {
   ValueListenable<Box<JournalEntry>> getJournalEntriesNotifier() =>
       journalsBox.listenable();
 
-  // --- NEW AND IMPROVED Backup & Restore Methods ---
+  // --- Backup & Restore Methods ---
 
-  /// Requests the necessary permissions for backup and restore based on the OS and SDK version.
   Future<bool> _requestPermissions() async {
     if (Platform.isIOS) {
-      // On iOS, photo library permission is typically what's needed.
       final photoStatus = await Permission.photos.request();
       return photoStatus.isGranted;
     }
@@ -131,29 +124,22 @@ class HiveService extends GetxService {
       final sdkInt = deviceInfo.version.sdkInt;
       List<Permission> permissionsToRequest = [];
 
-      // Android 13 (SDK 33) and above require granular media permissions.
-      // The general 'storage' permission no longer provides access to media.
       if (sdkInt >= 33) {
         permissionsToRequest.add(Permission.photos);
         permissionsToRequest.add(Permission.audio);
-        // Add Permission.videos if your app handles videos.
       } else {
-        // For older Android versions, the 'storage' permission is sufficient.
         permissionsToRequest.add(Permission.storage);
       }
 
       final Map<Permission, PermissionStatus> statuses =
       await permissionsToRequest.request();
-      // Ensure all requested permissions were granted.
       return statuses.values.every((status) => status.isGranted);
     }
 
-    return false; // Deny for other unhandled platforms.
+    return false;
   }
 
-  /// Creates a complete backup including the database and all media files into a single .zip file.
   Future<bool> backupData() async {
-    // 1. Request necessary permissions before proceeding.
     final bool permissionsGranted = await _requestPermissions();
     if (!permissionsGranted) {
       CustomToast.showToast(AppConstants.storagePermissionsRequired);
@@ -161,42 +147,29 @@ class HiveService extends GetxService {
     }
 
     try {
-      // 2. Let the user choose where to save the backup file.
-      final directoryPath = await FilePicker.platform.getDirectoryPath(
-        dialogTitle: AppConstants.selectBackupFolder,
-      );
-      if (directoryPath == null) return false; // User canceled the picker.
-
-      // 3. Create a temporary directory to stage all files for zipping.
-      final tempDir = Directory(
-          '${(await getTemporaryDirectory()).path}${AppConstants.backupTempDir}');
-      if (await tempDir.exists()) await tempDir.delete(recursive: true);
-      await tempDir.create(recursive: true);
-      final mediaDir = Directory('${tempDir.path}${AppConstants.mediaDir}');
-      await mediaDir.create();
-
-      // 4. Copy Hive database files (.hive and .lock) to the temp directory.
+      final archive = Archive();
       final appDocDir = await getApplicationDocumentsDirectory();
-      for (var boxName in [journalsBox.name, settingsBox.name]) {
-        final boxFile =
-        File('${appDocDir.path}/$boxName${AppConstants.hiveExtension}');
-        final lockFile =
-        File('${appDocDir.path}/$boxName${AppConstants.lockExtension}');
+
+      debugPrint("Starting backup process...");
+
+      // 1. Add Hive database files
+      for (var boxName in [AppConstants.journalsBoxName, AppConstants.settingsBoxName]) {
+        final boxFile = File(p.join(appDocDir.path, '$boxName${AppConstants.hiveExtension}'));
         if (await boxFile.exists()) {
-          await boxFile
-              .copy('${tempDir.path}/$boxName${AppConstants.hiveExtension}');
-        }
-        if (await lockFile.exists()) {
-          await lockFile
-              .copy('${tempDir.path}/$boxName${AppConstants.lockExtension}');
+          final bytes = await boxFile.readAsBytes();
+          archive.addFile(ArchiveFile('$boxName${AppConstants.hiveExtension}', bytes.length, bytes));
+          debugPrint("Added Hive box to archive: $boxName");
+        } else {
+          debugPrint("Hive box file not found: ${boxFile.path}");
         }
       }
 
-      // 5. Copy all media files and create a manifest.
-      // The manifest maps original file paths/IDs to new unique filenames in the backup
-      // to prevent name collisions and to help with re-linking during restore.
+      // 2. Process media files and build manifest
       final mediaManifest = <String, dynamic>{};
-      for (final entry in journalsBox.values) {
+      final entries = journalsBox.values.toList();
+      debugPrint("Processing ${entries.length} entries for media backup");
+
+      for (final entry in entries) {
         final entryManifest = <String, List<Map<String, String>>>{
           AppConstants.cameraPhotosKey: [],
           AppConstants.galleryImagesKey: [],
@@ -204,46 +177,42 @@ class HiveService extends GetxService {
           AppConstants.recordingsKey: [],
         };
 
-        Future<void> processMediaFile(
-            String originalPath, String type, String id) async {
+        Future<void> processMediaFile(String originalPath, String type, String id) async {
           try {
             final sourceFile = File(originalPath);
-            if (!await sourceFile.exists()) return; // Skip if file is missing
-            // Create a unique name to avoid collisions inside the zip file.
+            if (!await sourceFile.exists()) return;
+            
+            final bytes = await sourceFile.readAsBytes();
             final backupFileName = '${entry.id}-${p.basename(originalPath)}';
-            await sourceFile.copy('${mediaDir.path}/$backupFileName');
+            
+            archive.addFile(ArchiveFile('media/$backupFileName', bytes.length, bytes));
+            
             entryManifest[type]!.add({
               AppConstants.idKey: id,
               AppConstants.backupFileNameKey: backupFileName
             });
+            debugPrint("Added media file to archive: $backupFileName");
           } catch (e) {
-            debugPrint(AppConstants.backupFileError
-                .replaceFirst('%s', originalPath)
-                .replaceFirst('%s', e.toString()));
+            debugPrint("Error processing media file $originalPath: $e");
           }
         }
 
-        // Process all media types associated with the journal entry.
         for (final photo in entry.cameraPhotos) {
-          await processMediaFile(
-              photo.file.path, AppConstants.cameraPhotosKey, photo.file.path);
+          await processMediaFile(photo.file.path, AppConstants.cameraPhotosKey, photo.file.path);
         }
         for (final audio in entry.recordings) {
-          await processMediaFile(
-              audio.path, AppConstants.recordingsKey, audio.path);
+          await processMediaFile(audio.path, AppConstants.recordingsKey, audio.path);
         }
         for (final asset in entry.galleryImages) {
           final file = await asset.file;
           if (file != null) {
-            await processMediaFile(
-                file.path, AppConstants.galleryImagesKey, asset.id);
+            await processMediaFile(file.path, AppConstants.galleryImagesKey, asset.id);
           }
         }
         for (final asset in entry.galleryAudios) {
           final file = await asset.file;
           if (file != null) {
-            await processMediaFile(
-                file.path, AppConstants.galleryAudiosKey, asset.id);
+            await processMediaFile(file.path, AppConstants.galleryAudiosKey, asset.id);
           }
         }
 
@@ -252,51 +221,48 @@ class HiveService extends GetxService {
         }
       }
 
-      // 6. Write the manifest to a JSON file in the temp directory.
-      final manifestFile =
-      File('${tempDir.path}${AppConstants.mediaManifestFileName}');
-      await manifestFile.writeAsString(jsonEncode(mediaManifest));
+      // 3. Add Manifest to archive
+      final manifestJson = jsonEncode(mediaManifest);
+      final manifestBytes = utf8.encode(manifestJson);
+      archive.addFile(ArchiveFile('media_manifest.json', manifestBytes.length, manifestBytes));
+      debugPrint("Added media manifest to archive");
 
-      // 7. Zip the entire temporary directory into a single backup file.
-      final backupFileName =
-          '${AppConstants.backupFileNamePrefix}${DateTime.now().toIso8601String().replaceAll(':', '-')}${AppConstants.backupFileExtension}';
-      final backupFile = File('$directoryPath/$backupFileName');
+      // 4. Encode archive to Zip
+      final zipData = ZipEncoder().encode(archive);
+      if (zipData == null) {
+        debugPrint("Zip encoding failed: returned null");
+        return false;
+      }
+      final uint8ZipData = Uint8List.fromList(zipData);
+      debugPrint("Zip archive encoded. Size: ${uint8ZipData.length} bytes");
 
-      // FIX: Switched to an in-memory archive creation process for better reliability.
-      // This builds the zip file content and then writes it to disk in one go.
-      final archive = Archive();
-      await for (final entity
-      in tempDir.list(recursive: true, followLinks: false)) {
-        if (entity is File) {
-          final relativePath = p.relative(entity.path, from: tempDir.path);
-          final fileBytes = await entity.readAsBytes();
-          archive
-              .addFile(ArchiveFile(relativePath, fileBytes.length, fileBytes));
-        }
+      // 5. Save Zip file
+      final backupFileName = '${AppConstants.backupFileNamePrefix}${DateTime.now().toIso8601String().replaceAll(':', '-')}${AppConstants.backupFileExtension}';
+      
+      final String? selectedPath = await FilePicker.platform.saveFile(
+        dialogTitle: AppConstants.selectBackupFolder,
+        fileName: backupFileName,
+        type: FileType.custom,
+        allowedExtensions: ['zip'],
+        bytes: uint8ZipData,
+      );
+
+      if (selectedPath == null) {
+        debugPrint("User canceled backup file save");
+        return false;
       }
 
-      // Encode the archive into a zip format (list of bytes).
-      final zipData = ZipEncoder().encode(archive);
-
-      // Check if encoding was successful and write the bytes to the backup file.
-      await backupFile.writeAsBytes(zipData!);
-
-      // 8. Clean up by deleting the temporary directory.
-      await tempDir.delete(recursive: true);
-
+      debugPrint("Backup saved successfully to: $selectedPath");
       CustomToast.showToast(AppConstants.backupCreatedSuccess);
       return true;
     } catch (e) {
-      CustomToast.showToast(
-          AppConstants.backupFailed.replaceFirst('%s', e.toString()));
-      debugPrint(AppConstants.backupFailed.replaceFirst('%s', e.toString()));
+      debugPrint("Backup failed with exception: $e");
+      CustomToast.showToast(AppConstants.backupFailed.replaceFirst('%s', e.toString()));
       return false;
     }
   }
 
-  /// Restores data from a complete backup file, making the data self-contained.
   Future<bool> restoreData() async {
-    // 1. Request necessary permissions before proceeding.
     final bool permissionsGranted = await _requestPermissions();
     if (!permissionsGranted) {
       CustomToast.showToast(AppConstants.restorePermissionsRequired);
@@ -304,27 +270,23 @@ class HiveService extends GetxService {
     }
 
     try {
-      // 2. Let the user pick the .zip backup file.
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['zip'],
       );
-      if (result == null || result.files.single.path == null) {
-        return false;
-      } // User canceled
+      if (result == null || result.files.single.path == null) return false;
 
       final zipFile = File(result.files.single.path!);
       final appDocDir = await getApplicationDocumentsDirectory();
 
-      // 3. Extract the entire backup to a temporary directory.
-      final tempDir = Directory(
-          '${(await getTemporaryDirectory()).path}${AppConstants.restoreTempDir}');
+      final tempDir = Directory(p.join((await getTemporaryDirectory()).path, 'restore_temp'));
       if (await tempDir.exists()) await tempDir.delete(recursive: true);
       await tempDir.create(recursive: true);
 
-      final archive = ZipDecoder().decodeBytes(zipFile.readAsBytesSync());
+      final bytes = await zipFile.readAsBytes();
+      final archive = ZipDecoder().decodeBytes(bytes);
       for (final file in archive) {
-        final filename = '${tempDir.path}/${file.name}';
+        final filename = p.join(tempDir.path, file.name);
         if (file.isFile) {
           File(filename)
             ..createSync(recursive: true)
@@ -334,40 +296,30 @@ class HiveService extends GetxService {
         }
       }
 
-      // 4. CRITICAL STEP: Close current database boxes, replace the files with the backup, and re-initialize Hive.
+      // Close Hive before replacing files
       await Hive.close();
-      for (var boxName in [journalsBox.name, settingsBox.name]) {
-        final tempBoxFile =
-        File('${tempDir.path}/$boxName${AppConstants.hiveExtension}');
-        final tempLockFile =
-        File('${tempDir.path}/$boxName${AppConstants.lockExtension}');
+      
+      for (var boxName in [AppConstants.journalsBoxName, AppConstants.settingsBoxName]) {
+        final tempBoxFile = File(p.join(tempDir.path, '$boxName${AppConstants.hiveExtension}'));
         if (await tempBoxFile.exists()) {
-          await tempBoxFile
-              .copy('${appDocDir.path}/$boxName${AppConstants.hiveExtension}');
-        }
-        if (await tempLockFile.exists()) {
-          await tempLockFile
-              .copy('${appDocDir.path}/$boxName${AppConstants.lockExtension}');
+          await tempBoxFile.copy(p.join(appDocDir.path, '$boxName${AppConstants.hiveExtension}'));
+          debugPrint("Restored Hive box file: $boxName");
         }
       }
-      await init(); // Re-opens boxes with the newly restored database data.
+      
+      // Re-initialize Hive and open boxes
+      await init();
 
-      // 5. Restore media files using the manifest. This makes the data self-contained.
-      final manifestFile =
-      File('${tempDir.path}${AppConstants.mediaManifestFileName}');
+      final manifestFile = File(p.join(tempDir.path, 'media_manifest.json'));
       if (!await manifestFile.exists()) {
-        CustomToast.showToast(AppConstants.databaseRestoredNoMedia);
+        debugPrint("No media manifest found in backup. Skipping media restore.");
         await tempDir.delete(recursive: true);
-        // --- CHANGE: Force reload even if there's no media ---
         await Get.find<HomeController>().loadJournalEntries();
         return true;
       }
 
-      final mediaManifest =
-      jsonDecode(await manifestFile.readAsString()) as Map<String, dynamic>;
-      // Create a persistent directory inside the app's folder to store all media.
-      final persistentMediaDir =
-      Directory('${appDocDir.path}${AppConstants.mediaDir}');
+      final mediaManifest = jsonDecode(await manifestFile.readAsString()) as Map<String, dynamic>;
+      final persistentMediaDir = Directory(p.join(appDocDir.path, 'media'));
       await persistentMediaDir.create(recursive: true);
 
       for (final entry in journalsBox.values) {
@@ -376,60 +328,41 @@ class HiveService extends GetxService {
         final entryManifest = mediaManifest[entry.id] as Map<String, dynamic>;
         bool wasModified = false;
 
-        // After restore, all media (camera, gallery, etc.) will be treated as local, internal files.
-        // This removes dependency on the device's gallery, which is crucial for data integrity.
         final newCameraPhotos = <CapturedPhoto>[];
         final newRecordings = <RecordedAudio>[];
 
         Future<String?> restoreFile(String backupFileName) async {
           try {
-            final sourceFile = File('${tempDir.path}/media/$backupFileName');
+            final sourceFile = File(p.join(tempDir.path, 'media', backupFileName));
             if (!await sourceFile.exists()) return null;
-            final destPath = '${persistentMediaDir.path}/$backupFileName';
+            final destPath = p.join(persistentMediaDir.path, backupFileName);
             await sourceFile.copy(destPath);
             return destPath;
           } catch (e) {
-            debugPrint(AppConstants.errorRestoringFile
-                .replaceFirst('%s', backupFileName)
-                .replaceFirst('%s', e.toString()));
+            debugPrint("Error restoring media file $backupFileName: $e");
             return null;
           }
         }
 
-        // Process all image types, converting them to CapturedPhoto pointing to the new internal path.
-        final imageLists = [
-          AppConstants.cameraPhotosKey,
-          AppConstants.galleryImagesKey
-        ];
+        final imageLists = [AppConstants.cameraPhotosKey, AppConstants.galleryImagesKey];
         for (var listName in imageLists) {
-          final manifestList =
-              (entryManifest[listName] as List<dynamic>?) ?? [];
+          final manifestList = (entryManifest[listName] as List<dynamic>?) ?? [];
           for (final item in manifestList) {
-            final newPath =
-            await restoreFile(item[AppConstants.backupFileNameKey]);
+            final newPath = await restoreFile(item[AppConstants.backupFileNameKey]);
             if (newPath != null) {
-              newCameraPhotos.add(CapturedPhoto(
-                  file: XFile(newPath),
-                  name: item[AppConstants.backupFileNameKey]));
+              newCameraPhotos.add(CapturedPhoto(file: XFile(newPath), name: item[AppConstants.backupFileNameKey]));
               wasModified = true;
             }
           }
         }
 
-        // Process all audio types, converting them to RecordedAudio pointing to the new internal path.
-        final audioLists = [
-          AppConstants.recordingsKey,
-          AppConstants.galleryAudiosKey
-        ];
+        final audioLists = [AppConstants.recordingsKey, AppConstants.galleryAudiosKey];
         for (var listName in audioLists) {
-          final manifestList =
-              (entryManifest[listName] as List<dynamic>?) ?? [];
+          final manifestList = (entryManifest[listName] as List<dynamic>?) ?? [];
           for (final item in manifestList) {
-            final newPath =
-            await restoreFile(item[AppConstants.backupFileNameKey]);
+            final newPath = await restoreFile(item[AppConstants.backupFileNameKey]);
             if (newPath != null) {
-              final originalAudio = entry.recordings
-                  .firstWhereOrNull((r) => r.path == item[AppConstants.idKey]);
+              final originalAudio = entry.recordings.firstWhereOrNull((r) => r.path == item[AppConstants.idKey]);
               newRecordings.add(RecordedAudio(
                   path: newPath,
                   duration: originalAudio?.duration ?? Duration.zero,
@@ -439,44 +372,33 @@ class HiveService extends GetxService {
           }
         }
 
-        // If media was restored for this entry, update it in the database with the new internal paths
-        // and clear the old (and now invalid) gallery references.
         if (wasModified) {
           final updatedEntry = entry.copyWith(
             cameraPhotos: newCameraPhotos,
             recordings: newRecordings,
-            galleryImages: [], // Clear old invalid gallery references.
-            galleryAudios: [], // Clear old invalid gallery references.
+            galleryImages: [],
+            galleryAudios: [],
           );
           await journalsBox.put(entry.id, updatedEntry);
         }
       }
 
-      // 6. Clean up the temporary restore directory.
       await tempDir.delete(recursive: true);
-
-      // --- CHANGE START: Force the HomeController to reload all data from the new database ---
-      // This crucial step refreshes the UI without needing an app restart.
+      
+      // Force reload UI
       await Get.find<HomeController>().loadJournalEntries();
-      // --- CHANGE END ---
-
-      CustomToast.showToast(
-        AppConstants.restoreSuccess,
-        duration: const Duration(seconds: 3),
-      );
+      
+      CustomToast.showToast(AppConstants.restoreSuccess);
       return true;
     } catch (e) {
-      await init(); // Attempt to recover to a stable state if restore fails.
-      CustomToast.showToast(
-          AppConstants.restoreFailed.replaceFirst('%s', e.toString()));
-      debugPrint(AppConstants.restoreFailed.replaceFirst('%s', e.toString()));
+      debugPrint("Restore failed with exception: $e");
+      await init();
+      CustomToast.showToast(AppConstants.restoreFailed.replaceFirst('%s', e.toString()));
       return false;
     }
   }
 
-  // --- Asset Loading Methods (unchanged) ---
-  Future<List<JournalEntry>> loadAssetEntities(
-      List<JournalEntry> entries) async {
+  Future<List<JournalEntry>> loadAssetEntities(List<JournalEntry> entries) async {
     List<JournalEntry> updatedEntries = [];
     for (var entry in entries) {
       final loadedGalleryImages = await _loadAssets(entry.galleryImages);
@@ -511,7 +433,6 @@ class HiveService extends GetxService {
   }
 }
 
-// Helper extension to find an item in a list safely
 extension FirstWhereOrNull<T> on Iterable<T> {
   T? firstWhereOrNull(bool Function(T) test) {
     for (var element in this) {

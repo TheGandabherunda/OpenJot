@@ -12,20 +12,17 @@ class CustomToast {
         Color? backgroundColor,
         Color? textColor,
       }) {
-    final context = Get.overlayContext;
+    // Get the most appropriate context for theme data.
+    final context = Get.overlayContext ?? Get.context;
     if (context == null) return;
 
     final appColors = AppTheme.colorsOf(context);
     final finalBackgroundColor = backgroundColor ?? appColors.grey10;
     final finalTextColor = textColor ?? appColors.grey8;
 
-    // Define the animation duration for fading in and out.
     const animationDuration = Duration(milliseconds: 300);
-    // The total duration is the animation duration plus the time the toast is fully visible.
     final displayDuration = duration + animationDuration;
 
-    // We create a new OverlayEntry and pass it to the animated toast widget.
-    // This allows the widget to remove itself when the animation is complete.
     late OverlayEntry overlayEntry;
     overlayEntry = OverlayEntry(
       builder: (context) => _AnimatedToast(
@@ -34,15 +31,37 @@ class CustomToast {
         textColor: finalTextColor,
         animationDuration: animationDuration,
         displayDuration: displayDuration,
-        overlayEntry: overlayEntry, // Pass the entry to the widget
+        overlayEntry: overlayEntry,
       ),
     );
 
-    Overlay.of(context).insert(overlayEntry);
+    // Use Get.key to find the NavigatorState and its OverlayState.
+    // This is more reliable than Overlay.of(context) when the context is above the Overlay.
+    final overlayState = Get.key.currentState?.overlay ?? Overlay.maybeOf(context);
+
+    if (overlayState != null) {
+      overlayState.insert(overlayEntry);
+    } else {
+      // Fallback to Get.snackbar if for some reason the custom overlay fails.
+      Get.rawSnackbar(
+        messageText: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: finalTextColor,
+            fontSize: 16.sp,
+          ),
+        ),
+        backgroundColor: finalBackgroundColor,
+        margin: EdgeInsets.symmetric(horizontal: 24.w, vertical: 50.h),
+        borderRadius: 25.r,
+        duration: duration,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
   }
 }
 
-// A stateful widget to manage the animated opacity of the toast.
 class _AnimatedToast extends StatefulWidget {
   final String message;
   final Color backgroundColor;
@@ -65,14 +84,12 @@ class _AnimatedToast extends StatefulWidget {
 }
 
 class _AnimatedToastState extends State<_AnimatedToast> {
-  // Opacity value that will be animated.
   double _opacity = 0.0;
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    // Start fade-in animation after the widget is built.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         setState(() {
@@ -81,15 +98,15 @@ class _AnimatedToastState extends State<_AnimatedToast> {
       }
     });
 
-    // Set a timer to start the fade-out animation after the toast has been displayed.
     _timer = Timer(widget.displayDuration, () {
       if (mounted) {
         setState(() {
           _opacity = 0.0;
         });
-        // Remove the overlay entry after the fade-out animation completes.
         Future.delayed(widget.animationDuration, () {
-          widget.overlayEntry.remove();
+          try {
+            widget.overlayEntry.remove();
+          } catch (_) {}
         });
       }
     });
@@ -128,6 +145,7 @@ class _AnimatedToastState extends State<_AnimatedToast> {
                     fontSize: 16.sp,
                     color: widget.textColor,
                     decoration: TextDecoration.none,
+                    fontFamily: 'OpenRunde',
                   ),
                 ),
               ),
