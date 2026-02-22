@@ -37,33 +37,43 @@ android {
     }
 
     signingConfigs {
-        val keystorePropertiesFile = project.rootProject.file("key.properties")
-        if (keystorePropertiesFile.exists()) {
-            val props = Properties()
-            keystorePropertiesFile.inputStream().use { stream: InputStream ->
-                props.load(stream)
-            }
-            val storeFileProp = props.getProperty("storeFile")
-            if (storeFileProp != null) {
-                val storeFileObj = file(storeFileProp)
-                if (storeFileObj.exists()) {
-                    create("release") {
-                        storeFile = storeFileObj
-                        storePassword = props.getProperty("storePassword")
-                        keyAlias = props.getProperty("keyAlias")
-                        keyPassword = props.getProperty("keyPassword")
-                    }
+        // We always define a release config, but its content depends on availability of keys
+        create("release") {
+            val keystorePropertiesFile = project.rootProject.file("key.properties")
+            if (keystorePropertiesFile.exists()) {
+                val props = Properties()
+                keystorePropertiesFile.inputStream().use { stream: InputStream ->
+                    props.load(stream)
                 }
+                val storeFileProp = props.getProperty("storeFile")
+                if (storeFileProp != null && file(storeFileProp).exists()) {
+                    storeFile = file(storeFileProp)
+                    storePassword = props.getProperty("storePassword")
+                    keyAlias = props.getProperty("keyAlias")
+                    keyPassword = props.getProperty("keyPassword")
+                } else {
+                    // Fallback to debug keys if file is missing (typical for CI)
+                    val debugConfig = getByName("debug")
+                    storeFile = debugConfig.storeFile
+                    storePassword = debugConfig.storePassword
+                    keyAlias = debugConfig.keyAlias
+                    keyPassword = debugConfig.keyPassword
+                }
+            } else {
+                // Fallback to debug keys if key.properties is missing
+                val debugConfig = getByName("debug")
+                storeFile = debugConfig.storeFile
+                storePassword = debugConfig.storePassword
+                keyAlias = debugConfig.keyAlias
+                keyPassword = debugConfig.keyPassword
             }
         }
     }
 
     buildTypes {
         getByName("release") {
-            val releaseConfig = signingConfigs.findByName("release")
-            if (releaseConfig != null) {
-                signingConfig = releaseConfig
-            }
+            // Always use our 'release' config, which now handles its own fallback
+            signingConfig = signingConfigs.getByName("release")
 
             isMinifyEnabled = true
             isShrinkResources = true
