@@ -1,11 +1,6 @@
 import java.io.FileInputStream
+import java.io.InputStream
 import java.util.Properties
-
-val keystoreProperties = Properties()
-val keystorePropertiesFile = project.rootProject.file("key.properties")
-if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
-}
 
 plugins {
     id("com.android.application")
@@ -42,26 +37,34 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            if (keystorePropertiesFile.exists() && keystoreProperties.isNotEmpty()) {
-                storeFile = file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-            } else {
-                // Fallback to debug keys for CI/Verification builds so an APK is always produced
-                val debugConfig = getByName("debug")
-                storeFile = debugConfig.storeFile
-                storePassword = debugConfig.storePassword
-                keyAlias = debugConfig.keyAlias
-                keyPassword = debugConfig.keyPassword
+        val keystorePropertiesFile = project.rootProject.file("key.properties")
+        if (keystorePropertiesFile.exists()) {
+            val props = Properties()
+            keystorePropertiesFile.inputStream().use { stream: InputStream ->
+                props.load(stream)
+            }
+            val storeFileProp = props.getProperty("storeFile")
+            if (storeFileProp != null) {
+                val storeFileObj = file(storeFileProp)
+                if (storeFileObj.exists()) {
+                    create("release") {
+                        storeFile = storeFileObj
+                        storePassword = props.getProperty("storePassword")
+                        keyAlias = props.getProperty("keyAlias")
+                        keyPassword = props.getProperty("keyPassword")
+                    }
+                }
             }
         }
     }
 
     buildTypes {
         getByName("release") {
-            signingConfig = signingConfigs.getByName("release")
+            val releaseConfig = signingConfigs.findByName("release")
+            if (releaseConfig != null) {
+                signingConfig = releaseConfig
+            }
+
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
