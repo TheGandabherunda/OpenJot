@@ -17,7 +17,7 @@ plugins {
 android {
     namespace = "org.thegandabherunda.openjot"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973"
+    ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -31,6 +31,8 @@ android {
 
     lint {
         checkReleaseBuilds = false
+        // F-Droid builds shouldn't fail on lint errors
+        abortOnError = false
     }
 
     defaultConfig {
@@ -58,15 +60,25 @@ android {
                 signingConfig = signingConfigs.getByName("release")
             }
             isMinifyEnabled = true
-            isShrinkResources = false
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // F-Droid scanners prefer not having extra metadata about dependencies
             dependenciesInfo {
                 includeInApk = false
                 includeInBundle = false
             }
+        }
+    }
+
+    // Defining flavors is a best practice for F-Droid, 
+    // allowing a "foss" version to be explicitly targeted.
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("foss") {
+            dimension = "distribution"
         }
     }
 }

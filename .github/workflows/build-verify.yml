@@ -1,22 +1,26 @@
-name: Android Release Build
+name: Android Release Build (F-Droid Ready)
 
 on:
-  workflow_dispatch: # This makes the workflow runnable manually from the GitHub Actions UI
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
     inputs:
       branch:
-        description: 'Branch to build from' # This is the label the user sees
-        required: true                   # User must provide a value
-        default: 'main'                  # Pre-fills the input field with 'main'
+        description: 'Branch to build from'
+        required: true
+        default: 'main'
 
 jobs:
   build_android_apk:
-    runs-on: ubuntu-latest # Using Ubuntu for Android builds
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.branch }} # <<< IMPORTANT CHANGE: Use the input branch here
+          ref: ${{ github.event.inputs.branch || github.ref }}
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -27,43 +31,38 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.35.4' # Or flutter-version-file: pubspec.yaml
-
-      - name: Display Flutter Version (for verification)
-        run: flutter --version
+          channel: 'stable'
+          # Alternatively, specify the exact version from pubspec.yaml
+          # flutter-version: '3.27.0' 
 
       - name: Install Dependencies
         run: flutter pub get
 
-      # --- ADD THESE STEPS FOR SIGNING ---
-      - name: Decode Keystore File
-        run: echo "${{ secrets.ANDROID_UPLOAD_KEYSTORE }}" | base64 --decode > android/app/release-key.jks
-        # Ensure 'android/app/' is the correct path for your keystore
-
-      - name: Create Keystore Properties File
+      - name: Decode Keystore File (Optional for F-Droid verification)
+        if: github.event_name == 'workflow_dispatch'
         run: |
-          echo "storeFile=release-key.jks" > android/key.properties
-          echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> android/key.properties
-          echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> android/key.properties
-          echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/key.properties
-        # Ensure 'android/' is the correct path for your key.properties
+          if [ -n "${{ secrets.ANDROID_UPLOAD_KEYSTORE }}" ]; then
+            echo "${{ secrets.ANDROID_UPLOAD_KEYSTORE }}" | base64 --decode > android/app/release-key.jks
+            echo "storeFile=release-key.jks" > android/key.properties
+            echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> android/key.properties
+            echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> android/key.properties
+            echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/key.properties
+          fi
 
-      - name: Build Android APK (Release)
-        run: flutter build apk --release --split-per-abi
+      - name: Build Android FOSS APK
+        # F-Droid builds typically use the 'foss' flavor if defined
+        run: flutter build apk --flavor foss --release --split-per-abi
 
       - name: Show APK Version Info
         run: |
           AaptPath=$(ls ${ANDROID_HOME}/build-tools/*/aapt | sort -V | tail -n 1)
-          echo "Using aapt from: $AaptPath"
-          
           for apk in build/app/outputs/flutter-apk/*.apk; do
-          echo ""
-          echo "APK: $apk"
-          $AaptPath dump badging "$apk" | grep versionCode
+            echo "Verifying APK: $apk"
+            $AaptPath dump badging "$apk" | grep -E 'package|versionCode|versionName'
           done
 
-      - name: Upload Android APK Artifact
+      - name: Upload FOSS APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-apk # Name of the artifact
-          path: build/app/outputs/apk/release/
+          name: openjot-foss-apk
+          path: build/app/outputs/flutter-apk/app-foss-*.apk
