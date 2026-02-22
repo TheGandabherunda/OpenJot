@@ -1,7 +1,6 @@
 import java.io.FileInputStream
 import java.util.Properties
 
-// --- Read keystore properties if available ---
 val keystoreProperties = Properties()
 val keystorePropertiesFile = project.rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
@@ -31,7 +30,6 @@ android {
 
     lint {
         checkReleaseBuilds = false
-        // F-Droid builds shouldn't fail on lint errors
         abortOnError = false
     }
 
@@ -44,28 +42,32 @@ android {
     }
 
     signingConfigs {
-        if (keystorePropertiesFile.exists() && keystoreProperties.isNotEmpty()) {
-            create("release") {
+        create("release") {
+            if (keystorePropertiesFile.exists() && keystoreProperties.isNotEmpty()) {
                 storeFile = file(keystoreProperties["storeFile"] as String)
                 storePassword = keystoreProperties["storePassword"] as String
                 keyAlias = keystoreProperties["keyAlias"] as String
                 keyPassword = keystoreProperties["keyPassword"] as String
+            } else {
+                // Fallback to debug keys for CI/Verification builds so an APK is always produced
+                val debugConfig = getByName("debug")
+                storeFile = debugConfig.storeFile
+                storePassword = debugConfig.storePassword
+                keyAlias = debugConfig.keyAlias
+                keyPassword = debugConfig.keyPassword
             }
         }
     }
 
     buildTypes {
         getByName("release") {
-            if (signingConfigs.findByName("release") != null) {
-                signingConfig = signingConfigs.getByName("release")
-            }
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // F-Droid scanners prefer not having extra metadata about dependencies
             dependenciesInfo {
                 includeInApk = false
                 includeInBundle = false
@@ -73,9 +75,7 @@ android {
         }
     }
 
-    // Defining flavors is a best practice for F-Droid, 
-    // allowing a "foss" version to be explicitly targeted.
-    flavorDimensions += "distribution"
+    flavorDimensions.add("distribution")
     productFlavors {
         create("foss") {
             dimension = "distribution"
