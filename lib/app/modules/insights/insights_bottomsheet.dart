@@ -1,8 +1,10 @@
 import 'dart:collection';
 import 'dart:math';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
@@ -13,6 +15,8 @@ import 'package:open_jot/app/modules/read_journal/read_journal_bottom_sheet.dart
 
 import '../../core/theme.dart';
 import '../../core/widgets/journal_tile.dart';
+
+enum CalendarType { standard, media, mood }
 
 class InsightsBottomSheet extends StatefulWidget {
   final DateTime? openOnThisDayDate;
@@ -26,6 +30,15 @@ class InsightsBottomSheet extends StatefulWidget {
 class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
   late DateTime _selectedYearDate;
   late DateTime _calendarDate;
+  CalendarType _selectedCalendarType = CalendarType.standard;
+
+  static const List<Map<String, String>> _moods = [
+    {'svg': 'assets/1.svg', 'label': AppConstants.veryUnpleasant},
+    {'svg': 'assets/2.svg', 'label': AppConstants.unpleasant},
+    {'svg': 'assets/3.svg', 'label': AppConstants.neutral},
+    {'svg': 'assets/4.svg', 'label': AppConstants.pleasant},
+    {'svg': 'assets/5.svg', 'label': AppConstants.veryPleasant},
+  ];
 
   @override
   void initState() {
@@ -64,7 +77,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
     });
   }
 
-  // MODIFIED: Simplified the method call. It will now always show memories from all years.
   void _showEntriesForDate(
       BuildContext context, DateTime date, HomeController controller) {
     showCupertinoModalBottomSheet(
@@ -74,6 +86,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
       builder: (modalContext) {
         return EntriesForDateBottomSheet(
           date: date,
+          calendarType: _selectedCalendarType,
         );
       },
     );
@@ -390,15 +403,70 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          AppConstants.calendar,
-          style: TextStyle(
-            fontSize: 20.sp,
-            fontWeight: FontWeight.bold,
-            color: appThemeColors.grey10,
-            fontFamily: AppConstants.font,
-            letterSpacing: -0.2,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              AppConstants.calendar,
+              style: TextStyle(
+                fontSize: 20.sp,
+                fontWeight: FontWeight.bold,
+                color: appThemeColors.grey10,
+                fontFamily: AppConstants.font,
+                letterSpacing: -0.2,
+              ),
+            ),
+            SizedBox(
+              width: 200.w,
+              child: CupertinoSlidingSegmentedControl<CalendarType>(
+                backgroundColor: appThemeColors.grey5,
+                thumbColor: appThemeColors.grey7,
+                groupValue: _selectedCalendarType,
+                onValueChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedCalendarType = value;
+                    });
+                  }
+                },
+                children: {
+                  CalendarType.standard: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4.w),
+                    child: Text(
+                      AppConstants.standard,
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        fontFamily: AppConstants.font,
+                        color: appThemeColors.grey10,
+                      ),
+                    ),
+                  ),
+                  CalendarType.media: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4.w),
+                    child: Text(
+                      AppConstants.media,
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        fontFamily: AppConstants.font,
+                        color: appThemeColors.grey10,
+                      ),
+                    ),
+                  ),
+                  CalendarType.mood: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4.w),
+                    child: Text(
+                      AppConstants.mood,
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        fontFamily: AppConstants.font,
+                        color: appThemeColors.grey10,
+                      ),
+                    ),
+                  ),
+                },
+              ),
+            ),
+          ],
         ),
         SizedBox(height: 16.h),
         Container(
@@ -465,8 +533,13 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                       _calendarDate.month == now.month &&
                       _calendarDate.year == now.year;
 
-                  final hasJournalEntry =
-                  controller.journaledDates.contains(currentDate);
+                  final entriesForDay = controller.journalEntries.where((e) {
+                    return e.createdAt.year == currentDate.year &&
+                        e.createdAt.month == currentDate.month &&
+                        e.createdAt.day == currentDate.day;
+                  }).toList();
+
+                  final hasJournalEntry = entriesForDay.isNotEmpty;
 
                   return GestureDetector(
                     onTap: () =>
@@ -474,31 +547,42 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                     child: Container(
                       margin: EdgeInsets.all(2.w),
                       alignment: Alignment.center,
-                      color: Colors.transparent,
+                      decoration: BoxDecoration(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(8.r),
+                      ),
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          if (hasJournalEntry)
+                          if (_selectedCalendarType == CalendarType.standard && hasJournalEntry)
                             Container(
                               decoration: BoxDecoration(
                                 color: appThemeColors.grey4,
                                 borderRadius: BorderRadius.circular(8.r),
                               ),
                             ),
+                          if (_selectedCalendarType == CalendarType.media && hasJournalEntry)
+                            _buildMediaCell(entriesForDay),
+                          if (_selectedCalendarType == CalendarType.mood && hasJournalEntry)
+                            _buildMoodCell(entriesForDay),
+                          
                           Container(
                             width: 32.w,
                             height: 32.w,
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
-                              color: isToday
+                              color: isToday && _selectedCalendarType == CalendarType.standard
                                   ? appThemeColors.primary.withOpacity(0.8)
                                   : Colors.transparent,
                               shape: BoxShape.circle,
+                              border: isToday && _selectedCalendarType != CalendarType.standard
+                                  ? Border.all(color: appThemeColors.primary, width: 2)
+                                  : null,
                             ),
                             child: Text(
                               '$day',
                               style: TextStyle(
-                                color: isToday
+                                color: isToday && _selectedCalendarType == CalendarType.standard
                                     ? appThemeColors.grey7
                                     : appThemeColors.grey10,
                                 fontWeight: isToday
@@ -506,6 +590,13 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                                     : FontWeight.normal,
                                 fontFamily: AppConstants.font,
                                 letterSpacing: -0.2,
+                                shadows: _selectedCalendarType != CalendarType.standard && hasJournalEntry ? [
+                                  const Shadow(
+                                    color: Colors.black,
+                                    offset: Offset(0, 0),
+                                    blurRadius: 4,
+                                  )
+                                ] : null,
                               ),
                             ),
                           ),
@@ -521,17 +612,58 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
       ],
     );
   }
+
+  Widget _buildMediaCell(List<JournalEntry> entries) {
+    for (var entry in entries) {
+      if (entry.galleryImages.isNotEmpty) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(8.r),
+          child: Opacity(
+            opacity: 0.6,
+            child: MediaThumbnail(media: entry.galleryImages.first),
+          ),
+        );
+      }
+      if (entry.cameraPhotos.isNotEmpty) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(8.r),
+          child: Opacity(
+            opacity: 0.6,
+            child: MediaThumbnail(media: entry.cameraPhotos.first),
+          ),
+        );
+      }
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildMoodCell(List<JournalEntry> entries) {
+    for (var entry in entries) {
+      if (entry.moodIndex != null) {
+        return Center(
+          child: Opacity(
+            opacity: 0.5,
+            child: SvgPicture.asset(
+              _moods[entry.moodIndex!]['svg']!,
+              width: 24.w,
+              height: 24.h,
+            ),
+          ),
+        );
+      }
+    }
+    return const SizedBox.shrink();
+  }
 }
 
 class EntriesForDateBottomSheet extends StatelessWidget {
   final DateTime date;
-  // MODIFIED: This is no longer needed as the behavior is now unified.
-  // final bool isOnThisDay;
+  final CalendarType calendarType;
 
   const EntriesForDateBottomSheet({
     super.key,
     required this.date,
-    // this.isOnThisDay = false, // Removed
+    this.calendarType = CalendarType.standard,
   });
 
   @override
@@ -539,7 +671,6 @@ class EntriesForDateBottomSheet extends StatelessWidget {
     final appThemeColors = AppTheme.colorsOf(context);
     final HomeController controller = Get.find();
 
-    // MODIFIED: The title will now always show the date, which is more intuitive.
     final String title = DateFormat('MMMM d').format(date);
 
     return Material(
@@ -578,10 +709,17 @@ class EntriesForDateBottomSheet extends StatelessWidget {
           ),
         ),
         body: Obx(() {
-          // MODIFIED: The logic now always filters for the same day and month across all years.
           final entriesToShow = controller.journalEntries.where((entry) {
-            return entry.createdAt.month == date.month &&
+            final isSameDay = entry.createdAt.month == date.month &&
                 entry.createdAt.day == date.day;
+            if (!isSameDay) return false;
+
+            if (calendarType == CalendarType.media) {
+              return entry.galleryImages.isNotEmpty || entry.cameraPhotos.isNotEmpty;
+            } else if (calendarType == CalendarType.mood) {
+              return entry.moodIndex != null;
+            }
+            return true;
           }).toList();
 
           if (entriesToShow.isEmpty) {
@@ -598,7 +736,6 @@ class EntriesForDateBottomSheet extends StatelessWidget {
             );
           }
 
-          // Group entries by year using a SplayTreeMap to sort years descendingly.
           final groupedByYear =
           SplayTreeMap<int, List<JournalEntry>>.from({}, (a, b) => b.compareTo(a));
 

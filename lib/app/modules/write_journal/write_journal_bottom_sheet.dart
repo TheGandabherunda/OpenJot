@@ -466,11 +466,62 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> with W
         );
       },
     );
+
     if (pickedDate != null) {
-      setState(() {
-        _selectedDate = pickedDate;
-        _isCustomDate = true;
-      });
+      if (!mounted) return;
+
+      final pickedTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.fromDateTime(_selectedDate),
+        builder: (BuildContext context, Widget? child) {
+          return Theme(
+            data: Theme.of(context).copyWith(
+              timePickerTheme: TimePickerThemeData(
+                backgroundColor: appThemeColors.grey6,
+                hourMinuteTextColor: appThemeColors.grey10,
+                hourMinuteColor: appThemeColors.grey4,
+                dayPeriodTextColor: appThemeColors.grey10,
+                dayPeriodColor: appThemeColors.grey4,
+                dialHandColor: appThemeColors.primary,
+                dialBackgroundColor: appThemeColors.grey5,
+                entryModeIconColor: appThemeColors.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16.r),
+                ),
+                hourMinuteShape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+              ),
+              colorScheme: Theme.of(context).colorScheme.copyWith(
+                surface: appThemeColors.grey5,
+                onSurface: appThemeColors.grey10,
+                primary: appThemeColors.primary,
+                onPrimary: appThemeColors.onPrimary,
+              ),
+              textButtonTheme: TextButtonThemeData(
+                style: TextButton.styleFrom(
+                  foregroundColor: appThemeColors.primary,
+                ),
+              ),
+              dialogBackgroundColor: appThemeColors.grey6,
+            ),
+            child: child!,
+          );
+        },
+      );
+
+      if (pickedTime != null) {
+        setState(() {
+          _selectedDate = DateTime(
+            pickedDate.year,
+            pickedDate.month,
+            pickedDate.day,
+            pickedTime.hour,
+            pickedTime.minute,
+          );
+          _isCustomDate = true;
+        });
+      }
     }
   }
 
@@ -939,7 +990,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> with W
                                 fontFamily: AppConstants.font,
                                 color: appThemeColors.grey10)),
                         Text(
-                          DateFormat('EEEE, MMM d').format(DateTime.now()),
+                          DateFormat('MMM d  •  h:mm a').format(DateTime.now()),
                           style: TextStyle(
                               fontSize: 14.sp,
                               fontWeight: FontWeight.w400,
@@ -971,7 +1022,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> with W
                                 color: appThemeColors.grey10)),
                         if (_isCustomDate)
                           Text(
-                            DateFormat('EEEE, MMM d').format(_selectedDate),
+                            DateFormat('MMM d  •  h:mm a').format(_selectedDate),
                             style: TextStyle(
                               fontSize: 14.sp,
                               color: appThemeColors.grey1,
@@ -998,7 +1049,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet> with W
                 children: [
                   SizedBox(width: 16.w),
                   Text(
-                    DateFormat('EEEE, MMM d').format(_selectedDate),
+                    DateFormat('MMM d  •  h:mm a').format(_selectedDate),
                     style: TextStyle(
                       fontSize: 16.sp,
                       fontWeight: FontWeight.w500,

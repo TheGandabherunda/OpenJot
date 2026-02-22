@@ -75,6 +75,9 @@ class AppConstants {
   static const String calendar = "Calendar";
   static const String entriesSuffix = " entries";
   static const String memoriesFromThisDay = "Memories from this day";
+  static const String standard = "Standard";
+  static const String media = "Media";
+  static const String mood = "Mood";
 
   // Onboarding
   static const String welcomeToOpenJot = "Welcome to OpenJot";
