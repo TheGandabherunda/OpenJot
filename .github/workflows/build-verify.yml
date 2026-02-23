@@ -45,6 +45,8 @@ jobs:
             echo "::error::ANDROID_UPLOAD_KEYSTORE is missing! Check Organization Secret settings."
             exit 1
           fi
+          # Ensure directory exists
+          mkdir -p android/app
           printf '%s' "$KEYSTORE_BASE64" | base64 -d > android/app/release-key.jks
 
       - name: Create Keystore Properties File
@@ -56,32 +58,23 @@ jobs:
           keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
           EOF
 
-      - name: Build Android APKs with Gradle
+      - name: Build Android APKs
         run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleFossRelease assembleStandardRelease --no-daemon
-      
-      - name: Debug - List Build Output
-        run: |
-          echo "Listing contents of build/app/outputs/ to find APKs..."
-          ls -R build/app/outputs/
+          # We use flutter build and ignore its internal "not found" error,
+          # as the gradle task actually succeeds in creating the APK.
+          flutter build apk --flavor foss --release --no-tree-shake-icons || true
+          flutter build apk --flavor standard --release --no-tree-shake-icons || true
 
       - name: Prepare Release Artifacts
         run: |
           mkdir -p release_artifacts
-          # Search both possible output directories for the APKs
-          find build/app/outputs/apk -name "*foss-release.apk" -exec cp {} release_artifacts/OpenJot-FOSS-${{ github.ref_name }}.apk \;
-          find build/app/outputs/apk -name "*standard-release.apk" -exec cp {} release_artifacts/OpenJot-Standard-${{ github.ref_name }}.apk \;
+          
+          # Use a broad find to locate the flavor-specific APKs
+          find build -name "*foss-release.apk" -exec cp {} release_artifacts/OpenJot-FOSS-${{ github.ref_name }}.apk \;
+          find build -name "*standard-release.apk" -exec cp {} release_artifacts/OpenJot-Standard-${{ github.ref_name }}.apk \;
 
           if [ -z "$(ls -A release_artifacts)" ]; then
-            echo "Searching in flutter-apk directory..."
-            find build/app/outputs/flutter-apk -name "*foss-release.apk" -exec cp {} release_artifacts/OpenJot-FOSS-${{ github.ref_name }}.apk \;
-            find build/app/outputs/flutter-apk -name "*standard-release.apk" -exec cp {} release_artifacts/OpenJot-Standard-${{ github.ref_name }}.apk \;
-          fi
-
-          if [ -z "$(ls -A release_artifacts)" ]; then
-            echo "::error::No APKs were found after the build. Check the 'List Build Output' step for clues."
+            echo "::error::No APKs were found after the build. Check your flavor names and build logs."
             exit 1
           fi
 
