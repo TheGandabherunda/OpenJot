@@ -17,8 +17,7 @@ plugins {
 android {
     namespace = "org.thegandabherunda.openjot"
     compileSdk = flutter.compileSdkVersion
-    // Use a version more likely to be pre-installed on GitHub Runners to save time
-    ndkVersion = "25.2.9519653" 
+    ndkVersion = "27.0.12077973" // Restored to match plugin requirements
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -53,7 +52,7 @@ android {
         }
     }
 
-    flavorDimensions += "type"
+    flavorDimensions.add("type")
     productFlavors {
         create("foss") {
             dimension = "type"
