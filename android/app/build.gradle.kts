@@ -56,6 +56,7 @@ android {
     productFlavors {
         create("foss") {
             dimension = "type"
+            // Keep applicationId the same as requested, but ensure it's clean for F-Droid
         }
         create("standard") {
             dimension = "type"
@@ -64,6 +65,7 @@ android {
 
     buildTypes {
         getByName("release") {
+            // Only attach signingConfig if it was successfully created above
             if (signingConfigs.findByName("release") != null) {
                 signingConfig = signingConfigs.getByName("release")
             }

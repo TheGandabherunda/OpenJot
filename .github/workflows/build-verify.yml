@@ -42,7 +42,7 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::error::ANDROID_UPLOAD_KEYSTORE is missing! Build failed intentionally."
+            echo "::error::ANDROID_UPLOAD_KEYSTORE is missing! Make sure Organization Secrets are shared with this repo."
             exit 1
           fi
           printf '%s' "$KEYSTORE_BASE64" | base64 -d > android/app/release-key.jks
@@ -56,11 +56,11 @@ jobs:
           keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
           EOF
 
-      - name: Build FOSS APK (F-Droid)
-        run: flutter build apk --flavor foss --release --target-platform android-arm,android-arm64,android-x64
+      - name: Build FOSS APK
+        run: flutter build apk --flavor foss --release --target-platform android-arm,android-arm64,android-x64 --no-tree-shake-icons
 
       - name: Build Standard APK
-        run: flutter build apk --flavor standard --release --target-platform android-arm,android-arm64,android-x64
+        run: flutter build apk --flavor standard --release --target-platform android-arm,android-arm64,android-x64 --no-tree-shake-icons
 
       - name: Prepare Release Artifacts
         run: |
@@ -69,6 +69,7 @@ jobs:
           cp build/app/outputs/flutter-apk/app-standard-release.apk release_artifacts/OpenJot-Standard-${{ github.ref_name }}.apk
 
       - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: release_artifacts/*.apk
