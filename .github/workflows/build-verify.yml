@@ -58,20 +58,30 @@ jobs:
 
       - name: Build Android APKs
         run: |
-          # We run the build and ignore the "failed to produce apk" tool-specific error, 
-          # as the gradle task itself actually succeeds.
+          # Use flutter to assemble the project and build APKs
+          # We ignore the tool error because it often fails to 'find' the apk it just built when using flavors
           flutter build apk --flavor foss --release --no-tree-shake-icons || true
           flutter build apk --flavor standard --release --no-tree-shake-icons || true
 
       - name: Prepare Release Artifacts
         run: |
           mkdir -p release_artifacts
-          # Locate the APKs regardless of subfolder structure
-          find build/app/outputs/apk/ -name "*foss-release.apk" -exec cp {} release_artifacts/OpenJot-FOSS-${{ github.ref_name }}.apk \;
-          find build/app/outputs/apk/ -name "*standard-release.apk" -exec cp {} release_artifacts/OpenJot-Standard-${{ github.ref_name }}.apk \;
+          echo "Listing all built APKs for debugging:"
+          find build -name "*.apk"
           
-          # Double check if files were copied
-          ls -R release_artifacts/
+          # Copy the specific flavor APKs
+          # We search from the 'build' directory to be safe
+          find build -name "*foss-release.apk" -exec cp {} release_artifacts/OpenJot-FOSS-${{ github.ref_name }}.apk \;
+          find build -name "*standard-release.apk" -exec cp {} release_artifacts/OpenJot-Standard-${{ github.ref_name }}.apk \;
+          
+          # Check if we actually found anything
+          if [ -z "$(ls -A release_artifacts)" ]; then
+            echo "::error::No APKs were found in the build directory. Build failed."
+            exit 1
+          fi
+          
+          echo "Successfully collected artifacts:"
+          ls -l release_artifacts/
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
