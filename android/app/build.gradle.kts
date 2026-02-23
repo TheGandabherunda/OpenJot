@@ -56,8 +56,7 @@ android {
     productFlavors {
         create("foss") {
             dimension = "type"
-            // F-Droid usually builds from source and doesn't use the suffix, 
-            // but we can add it for our own builds to distinguish.
+            // FOSS flavor can be explicitly identified in the version name
             versionNameSuffix = "-foss"
         }
         create("standard") {
@@ -67,6 +66,7 @@ android {
 
     buildTypes {
         getByName("release") {
+            // Only use signing if the config exists
             if (signingConfigs.findByName("release") != null) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -80,6 +80,15 @@ android {
                 includeInApk = false
                 includeInBundle = false
             }
+        }
+    }
+
+    // Optional: Customize APK name for easier identification
+    applicationVariants.all {
+        outputs.all {
+            val output = this as com.android.build.gradle.internal.api.ApkVariantOutputImpl
+            val flavor = productFlavors[0].name
+            output.outputFileName = "OpenJot-${flavor}-${buildType.name}-v${defaultConfig.versionName}.apk"
         }
     }
 }
