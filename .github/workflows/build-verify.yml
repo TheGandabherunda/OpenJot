@@ -2,8 +2,9 @@ name: Android Release Build
 
 on:
   push:
+    branches: [ main ] # Trigger on push to main for testing
     tags:
-      - 'v*' # Trigger on version tags like v1.0.0
+      - 'v*' # Trigger on version tags
   workflow_dispatch:
     inputs:
       branch:
@@ -15,7 +16,7 @@ jobs:
   build_android_apk:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Needed to create a release
+      contents: write
 
     steps:
       - name: Checkout Repository
@@ -42,7 +43,7 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::error::ANDROID_UPLOAD_KEYSTORE is missing. Check 'Settings > Secrets and variables > Actions' and ensure the secret is shared with this repo."
+            echo "::error::ANDROID_UPLOAD_KEYSTORE is missing! Ensure Organization Secrets are shared with this repo."
             exit 1
           fi
           printf '%s' "$KEYSTORE_BASE64" | base64 -d > android/app/release-key.jks
@@ -62,11 +63,11 @@ jobs:
       - name: Build Standard APK
         run: flutter build apk --flavor standard --release --target-platform android-arm,android-arm64,android-x64
 
-      - name: Prepare Release Artifacts
+      - name: Prepare Artifacts
         run: |
           mkdir -p release_artifacts
-          cp build/app/outputs/flutter-apk/app-foss-release.apk release_artifacts/OpenJot-FOSS-${{ github.ref_name }}.apk
-          cp build/app/outputs/flutter-apk/app-standard-release.apk release_artifacts/OpenJot-Standard-${{ github.ref_name }}.apk
+          cp build/app/outputs/flutter-apk/app-foss-release.apk release_artifacts/OpenJot-FOSS.apk
+          cp build/app/outputs/flutter-apk/app-standard-release.apk release_artifacts/OpenJot-Standard.apk
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
@@ -82,5 +83,5 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: openjot-apks
+          name: openjot-test-apks
           path: release_artifacts/
