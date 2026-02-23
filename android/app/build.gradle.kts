@@ -17,7 +17,8 @@ plugins {
 android {
     namespace = "org.thegandabherunda.openjot"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973"
+    // Use a version more likely to be pre-installed on GitHub Runners to save time
+    ndkVersion = "25.2.9519653" 
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -52,11 +53,10 @@ android {
         }
     }
 
-    flavorDimensions.add("type")
+    flavorDimensions += "type"
     productFlavors {
         create("foss") {
             dimension = "type"
-            // Keep applicationId the same as requested, but ensure it's clean for F-Droid
         }
         create("standard") {
             dimension = "type"
@@ -65,7 +65,6 @@ android {
 
     buildTypes {
         getByName("release") {
-            // Only attach signingConfig if it was successfully created above
             if (signingConfigs.findByName("release") != null) {
                 signingConfig = signingConfigs.getByName("release")
             }
