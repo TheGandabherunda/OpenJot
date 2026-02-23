@@ -32,7 +32,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.35.4'
+          flutter-version: '3.41.2' # Matches pubspec.yaml requirement
 
       - name: Install Dependencies
         run: flutter pub get
