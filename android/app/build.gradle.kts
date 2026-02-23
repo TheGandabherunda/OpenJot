@@ -56,8 +56,6 @@ android {
     productFlavors {
         create("foss") {
             dimension = "type"
-            // FOSS flavor can be explicitly identified in the version name
-            versionNameSuffix = "-foss"
         }
         create("standard") {
             dimension = "type"
@@ -66,7 +64,6 @@ android {
 
     buildTypes {
         getByName("release") {
-            // Only use signing if the config exists
             if (signingConfigs.findByName("release") != null) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -80,15 +77,6 @@ android {
                 includeInApk = false
                 includeInBundle = false
             }
-        }
-    }
-
-    // Optional: Customize APK name for easier identification
-    applicationVariants.all {
-        outputs.all {
-            val output = this as com.android.build.gradle.internal.api.ApkVariantOutputImpl
-            val flavor = productFlavors[0].name
-            output.outputFileName = "OpenJot-${flavor}-${buildType.name}-v${defaultConfig.versionName}.apk"
         }
     }
 }
