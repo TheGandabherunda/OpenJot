@@ -1,10 +1,9 @@
-name: Android Release Build (F-Droid Ready)
+name: Android Release Build
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    tags:
+      - 'v*' # Trigger on version tags like v1.0.0
   workflow_dispatch:
     inputs:
       branch:
@@ -15,6 +14,8 @@ on:
 jobs:
   build_android_apk:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Needed to create a release
 
     steps:
       - name: Checkout Repository
@@ -31,38 +32,49 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          flutter-version: '3.35.4'
 
       - name: Install Dependencies
         run: flutter pub get
 
       - name: Decode Keystore File
-        if: github.event_name == 'workflow_dispatch'
+        run: echo "${{ secrets.ANDROID_UPLOAD_KEYSTORE }}" | base64 --decode > android/app/release-key.jks
+
+      - name: Create Keystore Properties File
         run: |
-          if [ -n "${{ secrets.ANDROID_UPLOAD_KEYSTORE }}" ]; then
-            echo "${{ secrets.ANDROID_UPLOAD_KEYSTORE }}" | base64 --decode > android/app/release-key.jks
-            echo "storeFile=release-key.jks" > android/key.properties
-            echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> android/key.properties
-            echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> android/key.properties
-            echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/key.properties
-          fi
+          echo "storeFile=release-key.jks" > android/key.properties
+          echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> android/key.properties
+          echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/key.properties
 
-      - name: Build Android FOSS APK
-        run: flutter build apk --flavor foss --release --split-per-abi
+      - name: Build FOSS APK (for F-Droid)
+        run: flutter build apk --flavor foss --release --target-platform android-arm,android-arm64,android-x64
 
-      - name: Find and Verify APKs
+      - name: Build Standard APK (for Git/Play)
+        run: flutter build apk --flavor standard --release --target-platform android-arm,android-arm64,android-x64
+
+      - name: Rename APKs for release
         run: |
-          AaptPath=$(ls ${ANDROID_HOME}/build-tools/*/aapt | sort -V | tail -n 1)
-          # Use find to locate APKs regardless of exact directory structure
-          find build -name "*.apk" -type f | while read apk; do
-            echo "Verifying APK: $apk"
-            $AaptPath dump badging "$apk" | grep -E 'package|versionCode|versionName'
-          done
+          mv build/app/outputs/flutter-apk/app-foss-release.apk OpenJot-foss.apk
+          mv build/app/outputs/flutter-apk/app-standard-release.apk OpenJot-standard.apk
 
-      - name: Upload FOSS APK Artifact
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            OpenJot-foss.apk
+            OpenJot-standard.apk
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: openjot-foss-apk
-          # More flexible path to catch APKs wherever they end up in the build folder
-          path: build/**/outputs/flutter-apk/*.apk
-          if-no-files-found: error
+          name: openjot-apks
+          path: |
+            OpenJot-foss.apk
+            OpenJot-standard.apk

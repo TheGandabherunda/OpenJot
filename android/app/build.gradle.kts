@@ -1,6 +1,12 @@
 import java.io.FileInputStream
-import java.io.InputStream
 import java.util.Properties
+
+// --- Read keystore properties if available ---
+val keystoreProperties = Properties()
+val keystorePropertiesFile = project.rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
 
 plugins {
     id("com.android.application")
@@ -11,7 +17,7 @@ plugins {
 android {
     namespace = "org.thegandabherunda.openjot"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -25,7 +31,6 @@ android {
 
     lint {
         checkReleaseBuilds = false
-        abortOnError = false
     }
 
     defaultConfig {
@@ -37,44 +42,34 @@ android {
     }
 
     signingConfigs {
-        // We always define a release config, but its content depends on availability of keys
-        create("release") {
-            val keystorePropertiesFile = project.rootProject.file("key.properties")
-            if (keystorePropertiesFile.exists()) {
-                val props = Properties()
-                keystorePropertiesFile.inputStream().use { stream: InputStream ->
-                    props.load(stream)
-                }
-                val storeFileProp = props.getProperty("storeFile")
-                if (storeFileProp != null && file(storeFileProp).exists()) {
-                    storeFile = file(storeFileProp)
-                    storePassword = props.getProperty("storePassword")
-                    keyAlias = props.getProperty("keyAlias")
-                    keyPassword = props.getProperty("keyPassword")
-                } else {
-                    // Fallback to debug keys if file is missing (typical for CI)
-                    val debugConfig = getByName("debug")
-                    storeFile = debugConfig.storeFile
-                    storePassword = debugConfig.storePassword
-                    keyAlias = debugConfig.keyAlias
-                    keyPassword = debugConfig.keyPassword
-                }
-            } else {
-                // Fallback to debug keys if key.properties is missing
-                val debugConfig = getByName("debug")
-                storeFile = debugConfig.storeFile
-                storePassword = debugConfig.storePassword
-                keyAlias = debugConfig.keyAlias
-                keyPassword = debugConfig.keyPassword
+        if (keystorePropertiesFile.exists() && keystoreProperties.isNotEmpty()) {
+            create("release") {
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
             }
+        }
+    }
+
+    flavorDimensions.add("type")
+    productFlavors {
+        create("foss") {
+            dimension = "type"
+            // F-Droid usually builds from source and doesn't use the suffix, 
+            // but we can add it for our own builds to distinguish.
+            versionNameSuffix = "-foss"
+        }
+        create("standard") {
+            dimension = "type"
         }
     }
 
     buildTypes {
         getByName("release") {
-            // Always use our 'release' config, which now handles its own fallback
-            signingConfig = signingConfigs.getByName("release")
-
+            if (signingConfigs.findByName("release") != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -85,13 +80,6 @@ android {
                 includeInApk = false
                 includeInBundle = false
             }
-        }
-    }
-
-    flavorDimensions.add("distribution")
-    productFlavors {
-        create("foss") {
-            dimension = "distribution"
         }
     }
 }
