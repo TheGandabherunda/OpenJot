@@ -2,9 +2,8 @@ name: Android Release Build
 
 on:
   push:
-    branches: [ main ] # Trigger on push to main for testing
     tags:
-      - 'v*' # Trigger on version tags
+      - 'v*' # Trigger on version tags (e.g., v1.0.0)
   workflow_dispatch:
     inputs:
       branch:
@@ -43,7 +42,7 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::error::ANDROID_UPLOAD_KEYSTORE is missing! Ensure Organization Secrets are shared with this repo."
+            echo "::error::ANDROID_UPLOAD_KEYSTORE is missing! Build failed intentionally."
             exit 1
           fi
           printf '%s' "$KEYSTORE_BASE64" | base64 -d > android/app/release-key.jks
@@ -57,20 +56,19 @@ jobs:
           keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
           EOF
 
-      - name: Build FOSS APK
+      - name: Build FOSS APK (F-Droid)
         run: flutter build apk --flavor foss --release --target-platform android-arm,android-arm64,android-x64
 
       - name: Build Standard APK
         run: flutter build apk --flavor standard --release --target-platform android-arm,android-arm64,android-x64
 
-      - name: Prepare Artifacts
+      - name: Prepare Release Artifacts
         run: |
           mkdir -p release_artifacts
-          cp build/app/outputs/flutter-apk/app-foss-release.apk release_artifacts/OpenJot-FOSS.apk
-          cp build/app/outputs/flutter-apk/app-standard-release.apk release_artifacts/OpenJot-Standard.apk
+          cp build/app/outputs/flutter-apk/app-foss-release.apk release_artifacts/OpenJot-FOSS-${{ github.ref_name }}.apk
+          cp build/app/outputs/flutter-apk/app-standard-release.apk release_artifacts/OpenJot-Standard-${{ github.ref_name }}.apk
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: release_artifacts/*.apk
@@ -83,5 +81,5 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: openjot-test-apks
+          name: openjot-release-apks
           path: release_artifacts/
