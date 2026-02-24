@@ -47,13 +47,12 @@ jobs:
             mkdir -p android/app
             printf '%s' "$KEYSTORE_BASE64" | base64 -d > android/app/release-key.jks
             
-            # Create the properties file required by build.gradle.kts
-            cat <<EOF > android/key.properties
-            storeFile=release-key.jks
-            storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-            keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
-            keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
-            EOF
+            # Create the properties file required by build.gradle.kts using echo to avoid EOF indent issues
+            echo "storeFile=release-key.jks" > android/key.properties
+            echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> android/key.properties
+            echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> android/key.properties
+            echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/key.properties
+            
             echo "SIGNING_ENABLED=true" >> $GITHUB_ENV
           else
             echo "::warning::ANDROID_UPLOAD_KEYSTORE is missing! Building unsigned APKs (Suitable for F-Droid)."
