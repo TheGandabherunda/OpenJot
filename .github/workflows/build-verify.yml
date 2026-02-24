@@ -64,34 +64,56 @@ jobs:
 
       - name: Build Android APKs
         run: |
-          # 1. Let Flutter prepare the Android project (resolves plugins, generates local.properties)
+          # 1. Let Flutter prepare the Android project
           flutter build apk --flavor foss --config-only
           
-          # 2. Use the system Gradle to build directly. 
-          # This avoids the "Already watching path" bug in the Flutter tool.
+          # 2. Use Gradle to build split APKs directly.
+          # Passing -Ptarget-platform ensures we get the specific ABIs requested.
           cd android
-          # Use 'gradle' if 'gradlew' is missing from the repo
           GRADLE_CMD="gradle"
           if [ -f "gradlew" ]; then
             chmod +x gradlew
             GRADLE_CMD="./gradlew"
           fi
           
-          $GRADLE_CMD assembleFossRelease assembleStandardRelease --no-daemon
+          $GRADLE_CMD assembleFossRelease assembleStandardRelease \
+            -Ptarget-platform=android-arm,android-arm64,android-x64 \
+            --no-daemon
 
       - name: Prepare Release Artifacts
         run: |
           mkdir -p release_artifacts
           
-          echo "Debug: Listing all APKs found in the project..."
-          find . -name "*.apk"
+          echo "Locating and renaming split APKs..."
           
-          # Copy the specific flavor APKs. We search the whole tree to be safe.
-          find . -name "*foss-release.apk" -exec cp {} release_artifacts/OpenJot-FOSS-${{ github.ref_name }}.apk \;
-          find . -name "*standard-release.apk" -exec cp {} release_artifacts/OpenJot-Standard-${{ github.ref_name }}.apk \;
+          # Function to rename and copy APKs
+          # Pattern matches: app-<flavor>-<abi>-release.apk
+          find . -name "*.apk" | while read -r apk_path; do
+            filename=$(basename "$apk_path")
+            
+            # Determine flavor
+            if [[ "$filename" == *"foss"* ]]; then
+              flavor="FOSS"
+            else
+              flavor="Standard"
+            fi
+            
+            # Determine ABI
+            if [[ "$filename" == *"armeabi-v7a"* ]]; then
+              abi="armeabi-v7a"
+            elif [[ "$filename" == *"arm64-v8a"* ]]; then
+              abi="arm64-v8a"
+            elif [[ "$filename" == *"x86_64"* ]]; then
+              abi="x86_64"
+            else
+              abi="universal"
+            fi
+            
+            cp "$apk_path" "release_artifacts/OpenJot-${flavor}-${abi}-${{ github.ref_name }}.apk"
+          done
 
           if [ -z "$(ls -A release_artifacts)" ]; then
-            echo "::error::No APKs were found after the build. Check the Gradle output above for errors."
+            echo "::error::No APKs were found after the build."
             exit 1
           fi
 
