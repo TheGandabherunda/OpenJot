@@ -60,29 +60,32 @@ jobs:
           keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
           EOF
 
-      - name: Build FOSS APK
-        run: flutter build apk --flavor foss --release --no-tree-shake-icons
-
-      - name: Build Standard APK
+      - name: Build Android APKs with Gradle
         run: |
-          # Clean before second flavor to avoid "Already watching path" errors
-          flutter clean
-          flutter pub get
-          flutter build apk --flavor standard --release --no-tree-shake-icons
+          # Use flutter to prepare the android project (generate plugins, wrappers etc)
+          flutter build apk --flavor foss --config-only
+          
+          # Build both flavors directly with Gradle to avoid Flutter tool bugs
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleFossRelease assembleStandardRelease --no-daemon
 
       - name: Prepare Release Artifacts
         run: |
           mkdir -p release_artifacts
           
-          echo "Finding FOSS APK..."
+          # Find and copy flavored APKs
           find build/app/outputs/flutter-apk -name "*foss-release.apk" -exec cp {} release_artifacts/OpenJot-FOSS-${{ github.ref_name }}.apk \;
-          
-          echo "Finding Standard APK..."
           find build/app/outputs/flutter-apk -name "*standard-release.apk" -exec cp {} release_artifacts/OpenJot-Standard-${{ github.ref_name }}.apk \;
+          
+          # Fallback search if path is different
+          if [ -z "$(ls -A release_artifacts)" ]; then
+            find build/app/outputs/apk -name "*foss-release.apk" -exec cp {} release_artifacts/OpenJot-FOSS-${{ github.ref_name }}.apk \;
+            find build/app/outputs/apk -name "*standard-release.apk" -exec cp {} release_artifacts/OpenJot-Standard-${{ github.ref_name }}.apk \;
+          fi
 
           if [ -z "$(ls -A release_artifacts)" ]; then
-            echo "::error::No APKs were found after the build. Checking build directory content..."
-            ls -R build/app/outputs/
+            echo "::error::No APKs were found after the build."
             exit 1
           fi
 
