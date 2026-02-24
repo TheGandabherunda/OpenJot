@@ -1,107 +1,69 @@
-name: Android Release Build
+name: Build and Release
 
 on:
   push:
     branches:
       - main
     tags:
-      - 'v*' # Trigger on version tags (e.g., v1.0.0)
-  workflow_dispatch:
-    inputs:
-      branch:
-        description: 'Branch to build from'
-        required: true
-        default: 'main'
+      - 'v*'
 
 jobs:
-  build_android_apk:
+  build:
+    name: Build APKs
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.branch || github.ref }}
+      - uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.2'
+          channel: 'stable'
 
-      - name: Install Dependencies
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.jks
+          echo "storeFile=release.jks" > android/key.properties
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+
+      - name: Get Dependencies
         run: flutter pub get
 
-      - name: Decode Keystore File
-        env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE }}
+      - name: Build FOSS Flavor
         run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            mkdir -p android/app
-            printf '%s' "$KEYSTORE_BASE64" | base64 -d > android/app/release-key.jks
-            echo "SIGNING_ENABLED=true" >> $GITHUB_ENV
-          else
-            echo "::warning::ANDROID_UPLOAD_KEYSTORE is missing! Building unsigned APKs."
-            echo "SIGNING_ENABLED=false" >> $GITHUB_ENV
-          fi
+          flutter build apk --flavor foss --target-platform android-arm,android-arm64,android-x64 --split-per-abi
+          mkdir -p build/outputs/renamed-apks
+          mv build/app/outputs/flutter-apk/app-foss-armeabi-v7a-release.apk build/outputs/renamed-apks/OpenJot-foss-armeabi-v7a.apk
+          mv build/app/outputs/flutter-apk/app-foss-arm64-v8a-release.apk build/outputs/renamed-apks/OpenJot-foss-arm64-v8a.apk
+          mv build/app/outputs/flutter-apk/app-foss-x86_64-release.apk build/outputs/renamed-apks/OpenJot-foss-x86_64.apk
 
-      - name: Create Keystore Properties File
-        if: env.SIGNING_ENABLED == 'true'
+      - name: Clean Build for Standard
+        run: flutter clean && flutter pub get
+
+      - name: Build Standard Flavor
         run: |
-          cat <<EOF > android/key.properties
-          storeFile=release-key.jks
-          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
-          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
-          EOF
-
-      - name: Build Android APKs
-        run: |
-          # Build FOSS flavor with per-ABI splits
-          flutter build apk --flavor foss --release --split-per-abi --target-platform=android-arm,android-arm64,android-x64
-          
-          # Clean and build Standard flavor with per-ABI splits
-          flutter clean
-          flutter pub get
-          flutter build apk --flavor standard --release --split-per-abi --target-platform=android-arm,android-arm64,android-x64
-
-      - name: Prepare Release Artifacts
-        run: |
-          mkdir -p release_artifacts
-          
-          echo "Locating and renaming split APKs..."
-          
-          # Find all release APKs in the build output
-          find build/app/outputs/flutter-apk -name "*.apk" -print -exec cp {} release_artifacts/ \;
-
-          if [ -z "$(ls -A release_artifacts)" ]; then
-            echo "::error::No APKs were found after the build."
-            exit 1
-          fi
-
-          echo "Successfully collected artifacts:"
-          ls -l release_artifacts/
-
-      - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: release_artifacts/*.apk
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          flutter build apk --flavor standard --target-platform android-arm,android-arm64,android-x64 --split-per-abi
+          mv build/app/outputs/flutter-apk/app-standard-armeabi-v7a-release.apk build/outputs/renamed-apks/OpenJot-standard-armeabi-v7a.apk
+          mv build/app/outputs/flutter-apk/app-standard-arm64-v8a-release.apk build/outputs/renamed-apks/OpenJot-standard-arm64-v8a.apk
+          mv build/app/outputs/flutter-apk/app-standard-x86_64-release.apk build/outputs/renamed-apks/OpenJot-standard-x86_64.apk
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: openjot-build-${{ github.ref_name }}
-          path: release_artifacts/
+          name: split-apks
+          path: build/outputs/renamed-apks/*.apk
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/outputs/renamed-apks/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

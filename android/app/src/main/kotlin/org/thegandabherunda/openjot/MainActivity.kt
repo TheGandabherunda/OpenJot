@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Looper
 import android.webkit.MimeTypeMap
@@ -99,7 +100,7 @@ class MainActivity : FlutterFragmentActivity() {
                     // Prioritize NETWORK_PROVIDER. It resolves almost instantly, whereas GPS can hang a long time right after turning it on.
                     val provider = if (isNetworkEnabled) LocationManager.NETWORK_PROVIDER else LocationManager.GPS_PROVIDER
 
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                         val cancellationSignal = android.os.CancellationSignal()
                         var hasResponded = false
 
@@ -145,6 +146,7 @@ class MainActivity : FlutterFragmentActivity() {
                                     result.success(mapOf("latitude" to location.latitude, "longitude" to location.longitude))
                                 }
                             }
+                            @Deprecated("Deprecated in Java")
                             override fun onStatusChanged(p0: String?, p1: Int, p2: Bundle?) {}
                             override fun onProviderEnabled(p0: String) {}
                             override fun onProviderDisabled(p0: String) {}
@@ -187,6 +189,7 @@ class MainActivity : FlutterFragmentActivity() {
                 "shareContent" -> {
                     val args = call.arguments as? Map<*, *>
                     val text = args?.get("text") as? String
+                    @Suppress("UNCHECKED_CAST")
                     val files = args?.get("files") as? List<String>
                     shareContent(text, files)
                     result.success(null)
@@ -221,13 +224,25 @@ class MainActivity : FlutterFragmentActivity() {
         val files = mutableListOf<Map<String, String>>()
 
         if (intent.action == Intent.ACTION_SEND) {
-            intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)?.let { uri ->
-                copyUriToCache(uri)?.let { (path, mimeType) ->
+            val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(Intent.EXTRA_STREAM)
+            }
+            uri?.let {
+                copyUriToCache(it)?.let { (path, mimeType) ->
                     files.add(mapOf("path" to path, "mimeType" to mimeType))
                 }
             }
         } else if (intent.action == Intent.ACTION_SEND_MULTIPLE) {
-            intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)?.forEach { uri ->
+            val uris = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM)
+            }
+            uris?.forEach { uri ->
                 copyUriToCache(uri)?.let { (path, mimeType) ->
                     files.add(mapOf("path" to path, "mimeType" to mimeType))
                 }
