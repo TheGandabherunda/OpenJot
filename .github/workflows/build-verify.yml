@@ -12,7 +12,8 @@ jobs:
     name: Build APKs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -41,7 +42,7 @@ jobs:
       - name: Get Dependencies
         run: flutter pub get
 
-      - name: Build FOSS Flavor
+      - name: Build FOSS Flavor (Split APKs)
         run: |
           flutter build apk --flavor foss --target-platform android-arm,android-arm64,android-x64 --split-per-abi
           mkdir -p build/outputs/renamed-apks
@@ -49,10 +50,10 @@ jobs:
           mv build/app/outputs/flutter-apk/app-foss-arm64-v8a-release.apk build/outputs/renamed-apks/OpenJot-foss-arm64-v8a.apk
           mv build/app/outputs/flutter-apk/app-foss-x86_64-release.apk build/outputs/renamed-apks/OpenJot-foss-x86_64.apk
 
-      - name: Clean Build for Standard
+      - name: Clean Build for Standard (Prevents "Already watching path" bug)
         run: flutter clean && flutter pub get
 
-      - name: Build Standard Flavor
+      - name: Build Standard Flavor (Split APKs)
         run: |
           flutter build apk --flavor standard --target-platform android-arm,android-arm64,android-x64 --split-per-abi
           mv build/app/outputs/flutter-apk/app-standard-armeabi-v7a-release.apk build/outputs/renamed-apks/OpenJot-standard-armeabi-v7a.apk
@@ -65,10 +66,11 @@ jobs:
           name: split-apks
           path: build/outputs/renamed-apks/*.apk
 
-      - name: Create Release
+      - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: build/outputs/renamed-apks/*.apk
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

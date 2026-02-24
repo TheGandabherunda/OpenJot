@@ -1,7 +1,7 @@
 import java.io.FileInputStream
 import java.util.Properties
 
-// --- Read keystore properties if available ---
+// --- Read keystore properties if available (Optional for F-Droid) ---
 val keystoreProperties = Properties()
 val keystorePropertiesFile = project.rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
@@ -41,6 +41,17 @@ android {
         versionName = flutter.versionName
     }
 
+    // Explicitly configure Split APKs for the requested architectures
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86_64")
+            isUniversalApk = false // Ensures it does NOT generate a universal APK
+        }
+    }
+
+    // Only create the release signing config if keys are physically present
     signingConfigs {
         if (keystorePropertiesFile.exists() && keystoreProperties.isNotEmpty()) {
             create("release") {
@@ -66,7 +77,8 @@ android {
 
     buildTypes {
         getByName("release") {
-            if (signingConfigs.findByName("release") != null) {
+            // Apply signing config ONLY if it was created successfully above
+            if (keystorePropertiesFile.exists() && keystoreProperties.isNotEmpty()) {
                 signingConfig = signingConfigs.getByName("release")
             }
             isMinifyEnabled = true
@@ -84,5 +96,5 @@ flutter {
 }
 
 dependencies {
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }
