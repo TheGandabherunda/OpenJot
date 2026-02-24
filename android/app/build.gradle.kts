@@ -52,11 +52,12 @@ android {
         }
     }
 
-    flavorDimensions.add("type")
+    flavorDimensions += "type"
     productFlavors {
         create("foss") {
             dimension = "type"
-            // Ensure no proprietary bits if you had any
+            applicationIdSuffix = ".foss"
+            versionNameSuffix = "-foss"
         }
         create("standard") {
             dimension = "type"

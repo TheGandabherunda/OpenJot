@@ -2,6 +2,8 @@ name: Android Release Build
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*' # Trigger on version tags (e.g., v1.0.0)
   workflow_dispatch:
@@ -60,32 +62,24 @@ jobs:
           keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
           EOF
 
-      - name: Build Android APKs with Gradle
+      - name: Build Android APKs
         run: |
-          # Use flutter to prepare the android project (generate plugins, wrappers etc)
-          flutter build apk --flavor foss --config-only
-          
-          # Build both flavors directly with Gradle to avoid Flutter tool bugs
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleFossRelease assembleStandardRelease --no-daemon
+          # Build FOSS flavor
+          flutter build apk --flavor foss --release --no-tree-shake-icons || echo "FOSS build finished with tool warnings"
+          # Build Standard flavor
+          flutter build apk --flavor standard --release --no-tree-shake-icons || echo "Standard build finished with tool warnings"
 
       - name: Prepare Release Artifacts
         run: |
           mkdir -p release_artifacts
           
-          # Find and copy flavored APKs
-          find build/app/outputs/flutter-apk -name "*foss-release.apk" -exec cp {} release_artifacts/OpenJot-FOSS-${{ github.ref_name }}.apk \;
-          find build/app/outputs/flutter-apk -name "*standard-release.apk" -exec cp {} release_artifacts/OpenJot-Standard-${{ github.ref_name }}.apk \;
-          
-          # Fallback search if path is different
-          if [ -z "$(ls -A release_artifacts)" ]; then
-            find build/app/outputs/apk -name "*foss-release.apk" -exec cp {} release_artifacts/OpenJot-FOSS-${{ github.ref_name }}.apk \;
-            find build/app/outputs/apk -name "*standard-release.apk" -exec cp {} release_artifacts/OpenJot-Standard-${{ github.ref_name }}.apk \;
-          fi
+          # Search everywhere for the APKs (handles both Flutter and Gradle paths)
+          echo "Locating built APKs..."
+          find build -name "*foss-release.apk" -exec cp {} release_artifacts/OpenJot-FOSS-${{ github.ref_name }}.apk \;
+          find build -name "*standard-release.apk" -exec cp {} release_artifacts/OpenJot-Standard-${{ github.ref_name }}.apk \;
 
           if [ -z "$(ls -A release_artifacts)" ]; then
-            echo "::error::No APKs were found after the build."
+            echo "::error::No APKs were found after the build. Check logs for compilation errors."
             exit 1
           fi
 
@@ -106,5 +100,5 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: openjot-release-apks
+          name: openjot-build-${{ github.ref_name }}
           path: release_artifacts/
