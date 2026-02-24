@@ -64,21 +64,13 @@ jobs:
 
       - name: Build Android APKs
         run: |
-          # 1. Let Flutter prepare the Android project
-          flutter build apk --flavor foss --config-only
+          # Build FOSS flavor with per-ABI splits
+          flutter build apk --flavor foss --release --split-per-abi --target-platform=android-arm,android-arm64,android-x64
           
-          # 2. Use Gradle to build split APKs directly.
-          # Passing -Ptarget-platform ensures we get the specific ABIs requested.
-          cd android
-          GRADLE_CMD="gradle"
-          if [ -f "gradlew" ]; then
-            chmod +x gradlew
-            GRADLE_CMD="./gradlew"
-          fi
-          
-          $GRADLE_CMD assembleFossRelease assembleStandardRelease \
-            -Ptarget-platform=android-arm,android-arm64,android-x64 \
-            --no-daemon
+          # Clean and build Standard flavor with per-ABI splits
+          flutter clean
+          flutter pub get
+          flutter build apk --flavor standard --release --split-per-abi --target-platform=android-arm,android-arm64,android-x64
 
       - name: Prepare Release Artifacts
         run: |
@@ -86,31 +78,8 @@ jobs:
           
           echo "Locating and renaming split APKs..."
           
-          # Function to rename and copy APKs
-          # Pattern matches: app-<flavor>-<abi>-release.apk
-          find . -name "*.apk" | while read -r apk_path; do
-            filename=$(basename "$apk_path")
-            
-            # Determine flavor
-            if [[ "$filename" == *"foss"* ]]; then
-              flavor="FOSS"
-            else
-              flavor="Standard"
-            fi
-            
-            # Determine ABI
-            if [[ "$filename" == *"armeabi-v7a"* ]]; then
-              abi="armeabi-v7a"
-            elif [[ "$filename" == *"arm64-v8a"* ]]; then
-              abi="arm64-v8a"
-            elif [[ "$filename" == *"x86_64"* ]]; then
-              abi="x86_64"
-            else
-              abi="universal"
-            fi
-            
-            cp "$apk_path" "release_artifacts/OpenJot-${flavor}-${abi}-${{ github.ref_name }}.apk"
-          done
+          # Find all release APKs in the build output
+          find build/app/outputs/flutter-apk -name "*.apk" -print -exec cp {} release_artifacts/ \;
 
           if [ -z "$(ls -A release_artifacts)" ]; then
             echo "::error::No APKs were found after the build."
