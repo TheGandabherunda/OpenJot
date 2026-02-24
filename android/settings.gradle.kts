@@ -18,8 +18,9 @@ pluginManagement {
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id ("com.android.application") version "8.5.0" apply false
-    id("org.jetbrains.kotlin.android") version "2.0.0" apply false
+    id("com.android.application") version "8.5.0" apply false
+    // Downgraded from 2.0.0 to 1.9.24 to fix the plugin 'Unresolved reference' errors
+    id("org.jetbrains.kotlin.android") version "1.9.24" apply false
 }
 
 include(":app")
