@@ -75,16 +75,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            dependenciesInfo {
-                includeInApk = false
-                includeInBundle = false
-            }
         }
     }
 
     splits {
         abi {
-            isEnable = true
+            enable = true
             reset()
             include("x86_64", "armeabi-v7a", "arm64-v8a")
             isUniversalApk = false
