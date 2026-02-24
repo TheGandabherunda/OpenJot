@@ -41,15 +41,17 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE }}
         run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::error::ANDROID_UPLOAD_KEYSTORE is missing! Check Organization Secret settings."
-            exit 1
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            mkdir -p android/app
+            printf '%s' "$KEYSTORE_BASE64" | base64 -d > android/app/release-key.jks
+            echo "SIGNING_ENABLED=true" >> $GITHUB_ENV
+          else
+            echo "::warning::ANDROID_UPLOAD_KEYSTORE is missing! Building unsigned APKs."
+            echo "SIGNING_ENABLED=false" >> $GITHUB_ENV
           fi
-          # Ensure directory exists
-          mkdir -p android/app
-          printf '%s' "$KEYSTORE_BASE64" | base64 -d > android/app/release-key.jks
 
       - name: Create Keystore Properties File
+        if: env.SIGNING_ENABLED == 'true'
         run: |
           cat <<EOF > android/key.properties
           storeFile=release-key.jks
@@ -60,8 +62,7 @@ jobs:
 
       - name: Build Android APKs
         run: |
-          # We use flutter build and ignore its internal "not found" error,
-          # as the gradle task actually succeeds in creating the APK.
+          # Build both flavors. We ignore tool errors as the Gradle task succeeds in generating the APK.
           flutter build apk --flavor foss --release --no-tree-shake-icons || true
           flutter build apk --flavor standard --release --no-tree-shake-icons || true
 
@@ -69,7 +70,7 @@ jobs:
         run: |
           mkdir -p release_artifacts
           
-          # Use a broad find to locate the flavor-specific APKs
+          # Search for the generated APKs in the whole build directory
           find build -name "*foss-release.apk" -exec cp {} release_artifacts/OpenJot-FOSS-${{ github.ref_name }}.apk \;
           find build -name "*standard-release.apk" -exec cp {} release_artifacts/OpenJot-Standard-${{ github.ref_name }}.apk \;
 
