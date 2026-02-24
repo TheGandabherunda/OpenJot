@@ -60,22 +60,29 @@ jobs:
           keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
           EOF
 
-      - name: Build Android APKs
+      - name: Build FOSS APK
+        run: flutter build apk --flavor foss --release --no-tree-shake-icons
+
+      - name: Build Standard APK
         run: |
-          # Build both flavors. We ignore tool errors as the Gradle task succeeds in generating the APK.
-          flutter build apk --flavor foss --release --no-tree-shake-icons || true
-          flutter build apk --flavor standard --release --no-tree-shake-icons || true
+          # Clean before second flavor to avoid "Already watching path" errors
+          flutter clean
+          flutter pub get
+          flutter build apk --flavor standard --release --no-tree-shake-icons
 
       - name: Prepare Release Artifacts
         run: |
           mkdir -p release_artifacts
           
-          # Search for the generated APKs in the whole build directory
-          find build -name "*foss-release.apk" -exec cp {} release_artifacts/OpenJot-FOSS-${{ github.ref_name }}.apk \;
-          find build -name "*standard-release.apk" -exec cp {} release_artifacts/OpenJot-Standard-${{ github.ref_name }}.apk \;
+          echo "Finding FOSS APK..."
+          find build/app/outputs/flutter-apk -name "*foss-release.apk" -exec cp {} release_artifacts/OpenJot-FOSS-${{ github.ref_name }}.apk \;
+          
+          echo "Finding Standard APK..."
+          find build/app/outputs/flutter-apk -name "*standard-release.apk" -exec cp {} release_artifacts/OpenJot-Standard-${{ github.ref_name }}.apk \;
 
           if [ -z "$(ls -A release_artifacts)" ]; then
-            echo "::error::No APKs were found after the build. Check your flavor names and build logs."
+            echo "::error::No APKs were found after the build. Checking build directory content..."
+            ls -R build/app/outputs/
             exit 1
           fi
 
