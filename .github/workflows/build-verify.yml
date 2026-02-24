@@ -39,59 +39,70 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Decode Keystore File
+      - name: Decode Keystore File (If Available)
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE }}
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
             mkdir -p android/app
             printf '%s' "$KEYSTORE_BASE64" | base64 -d > android/app/release-key.jks
+            
+            # Create the properties file required by build.gradle.kts
+            cat <<EOF > android/key.properties
+            storeFile=release-key.jks
+            storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+            keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+            keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+            EOF
             echo "SIGNING_ENABLED=true" >> $GITHUB_ENV
           else
-            echo "::warning::ANDROID_UPLOAD_KEYSTORE is missing! Building unsigned APKs."
+            echo "::warning::ANDROID_UPLOAD_KEYSTORE is missing! Building unsigned APKs (Suitable for F-Droid)."
             echo "SIGNING_ENABLED=false" >> $GITHUB_ENV
           fi
-      - name: Create Keystore Properties File
-        if: env.SIGNING_ENABLED == 'true'
+
+      - name: Build FOSS Flavor (Split APKs)
         run: |
-          cat <<EOF > android/key.properties
-          storeFile=release-key.jks
-          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
-          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
-          EOF
-      - name: Build Android APKs
-        run: |
-          # 1. Let Flutter prepare the Android project (resolves plugins, generates local.properties)
-          flutter build apk --flavor foss --config-only
+          # Use Flutter's native splitting command for the first flavor
+          flutter build apk --release --flavor foss --split-per-abi
           
-          # 2. Use the system Gradle to build directly. 
-          # This avoids the "Already watching path" bug in the Flutter tool.
-          cd android
-          # Use 'gradle' if 'gradlew' is missing from the repo
-          GRADLE_CMD="gradle"
-          if [ -f "gradlew" ]; then
-            chmod +x gradlew
-            GRADLE_CMD="./gradlew"
-          fi
-          
-          $GRADLE_CMD assembleFossRelease assembleStandardRelease --no-daemon
-      - name: Prepare Release Artifacts
-        run: |
           mkdir -p release_artifacts
+          echo "Finding and renaming FOSS Split APKs..."
           
-          echo "Debug: Listing all APKs found in the project..."
-          find . -name "*.apk"
+          # Dynamically find the APKs to avoid hardcoded path errors depending on Flutter versions
+          find build/app/outputs/flutter-apk/ -name "*foss*armeabi-v7a*.apk" -exec cp {} release_artifacts/OpenJot-FOSS-armeabi-v7a.apk \;
+          find build/app/outputs/flutter-apk/ -name "*foss*arm64-v8a*.apk" -exec cp {} release_artifacts/OpenJot-FOSS-arm64-v8a.apk \;
+          find build/app/outputs/flutter-apk/ -name "*foss*x86_64*.apk" -exec cp {} release_artifacts/OpenJot-FOSS-x86_64.apk \;
+
+      - name: Clean Environment for Sequential Build
+        run: |
+          # Prevent the 'Already watching path' bug by cleaning the workspace before Flavor 2
+          flutter clean
+          flutter pub get
+
+      - name: Build Standard Flavor (Split APKs)
+        run: |
+          # Build the second flavor 
+          flutter build apk --release --flavor standard --split-per-abi
           
-          # Copy the specific flavor APKs. We search the whole tree to be safe.
-          find . -name "*foss-release.apk" -exec cp {} release_artifacts/OpenJot-FOSS-${{ github.ref_name }}.apk \;
-          find . -name "*standard-release.apk" -exec cp {} release_artifacts/OpenJot-Standard-${{ github.ref_name }}.apk \;
-          if [ -z "$(ls -A release_artifacts)" ]; then
-            echo "::error::No APKs were found after the build. Check the Gradle output above for errors."
-            exit 1
-          fi
+          echo "Finding and renaming Standard Split APKs..."
+          
+          # Dynamically collect the standard flavor split APKs
+          find build/app/outputs/flutter-apk/ -name "*standard*armeabi-v7a*.apk" -exec cp {} release_artifacts/OpenJot-Standard-armeabi-v7a.apk \;
+          find build/app/outputs/flutter-apk/ -name "*standard*arm64-v8a*.apk" -exec cp {} release_artifacts/OpenJot-Standard-arm64-v8a.apk \;
+          find build/app/outputs/flutter-apk/ -name "*standard*x86_64*.apk" -exec cp {} release_artifacts/OpenJot-Standard-x86_64.apk \;
+
+      - name: Verify Collected Artifacts
+        run: |
           echo "Successfully collected artifacts:"
           ls -l release_artifacts/
+          
+          # Robust check to ensure we generated all 6 split APKs
+          APK_COUNT=$(ls -1 release_artifacts/*.apk 2>/dev/null | wc -l)
+          if [ "$APK_COUNT" -ne 6 ]; then
+            echo "::error::Expected 6 APKs, but found $APK_COUNT! Review the build logs above."
+            exit 1
+          fi
+
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
