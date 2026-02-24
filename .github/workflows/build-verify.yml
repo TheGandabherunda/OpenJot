@@ -64,22 +64,34 @@ jobs:
 
       - name: Build Android APKs
         run: |
-          # Build FOSS flavor
-          flutter build apk --flavor foss --release --no-tree-shake-icons || echo "FOSS build finished with tool warnings"
-          # Build Standard flavor
-          flutter build apk --flavor standard --release --no-tree-shake-icons || echo "Standard build finished with tool warnings"
+          # 1. Let Flutter prepare the Android project (resolves plugins, generates local.properties)
+          flutter build apk --flavor foss --config-only
+          
+          # 2. Use the system Gradle to build directly. 
+          # This avoids the "Already watching path" bug in the Flutter tool.
+          cd android
+          # Use 'gradle' if 'gradlew' is missing from the repo
+          GRADLE_CMD="gradle"
+          if [ -f "gradlew" ]; then
+            chmod +x gradlew
+            GRADLE_CMD="./gradlew"
+          fi
+          
+          $GRADLE_CMD assembleFossRelease assembleStandardRelease --no-daemon
 
       - name: Prepare Release Artifacts
         run: |
           mkdir -p release_artifacts
           
-          # Search everywhere for the APKs (handles both Flutter and Gradle paths)
-          echo "Locating built APKs..."
-          find build -name "*foss-release.apk" -exec cp {} release_artifacts/OpenJot-FOSS-${{ github.ref_name }}.apk \;
-          find build -name "*standard-release.apk" -exec cp {} release_artifacts/OpenJot-Standard-${{ github.ref_name }}.apk \;
+          echo "Debug: Listing all APKs found in the project..."
+          find . -name "*.apk"
+          
+          # Copy the specific flavor APKs. We search the whole tree to be safe.
+          find . -name "*foss-release.apk" -exec cp {} release_artifacts/OpenJot-FOSS-${{ github.ref_name }}.apk \;
+          find . -name "*standard-release.apk" -exec cp {} release_artifacts/OpenJot-Standard-${{ github.ref_name }}.apk \;
 
           if [ -z "$(ls -A release_artifacts)" ]; then
-            echo "::error::No APKs were found after the build. Check logs for compilation errors."
+            echo "::error::No APKs were found after the build. Check the Gradle output above for errors."
             exit 1
           fi
 
