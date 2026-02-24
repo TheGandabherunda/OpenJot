@@ -25,8 +25,9 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
+    @Suppress("DEPRECATION")
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = "11"
     }
 
     lint {
@@ -75,15 +76,6 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-        }
-    }
-
-    splits {
-        abi {
-            enable = true
-            reset()
-            include("x86_64", "armeabi-v7a", "arm64-v8a")
-            isUniversalApk = false
         }
     }
 }
