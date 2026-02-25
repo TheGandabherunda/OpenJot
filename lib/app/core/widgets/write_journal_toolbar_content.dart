@@ -7,47 +7,46 @@ import 'package:camera/camera.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart'; // ADD THIS IMPORT
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:open_jot/app/core/constants.dart';
+import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/core/widgets/camera_view.dart';
+import 'package:open_jot/app/core/widgets/custom_button.dart';
+import 'package:open_jot/app/core/widgets/custom_slider.dart';
+import 'package:open_jot/app/core/widgets/location_map_view.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart' hide LatLng;
 import 'package:record/record.dart';
 import 'package:shimmer/shimmer.dart';
 
-import '../theme.dart';
-import 'camera_view.dart';
-import 'custom_button.dart';
-import 'custom_slider.dart';
-import 'location_map_view.dart'; // NEW IMPORT
-
 class WriteJournalToolbarContent extends StatefulWidget {
-  final IconData? selectedToolbarIcon;
-  final ScrollController scrollController;
-  final Function(List<AssetEntity> assets)? onAssetsSelected;
-  final Function(String path, Duration duration)? onRecordingComplete;
-  final Function(LatLng location)? onLocationSelected; // NEW CALLBACK
-  final Function(XFile photo)? onPhotoTaken;
-  final Function(int? moodIndex)? onMoodChanged;
-  final int? selectedMoodIndex;
-  final LatLng? selectedLocation;
-
   const WriteJournalToolbarContent({
     super.key,
     required this.selectedToolbarIcon,
     required this.scrollController,
     this.onAssetsSelected,
     this.onRecordingComplete,
-    this.onLocationSelected, // NEW PARAMETER
+    this.onLocationSelected,
     this.onPhotoTaken,
     this.onMoodChanged,
     this.selectedMoodIndex,
     this.selectedLocation,
   });
 
+  final IconData? selectedToolbarIcon;
+  final ScrollController scrollController;
+  final Function(List<AssetEntity> assets)? onAssetsSelected;
+  final Function(String path, Duration duration)? onRecordingComplete;
+  final Function(LatLng location)? onLocationSelected;
+  final Function(XFile photo)? onPhotoTaken;
+  final Function(int? moodIndex)? onMoodChanged;
+  final int? selectedMoodIndex;
+  final LatLng? selectedLocation;
+
   @override
-  _WriteJournalToolbarContentState createState() =>
+  State<WriteJournalToolbarContent> createState() =>
       _WriteJournalToolbarContentState();
 }
 
@@ -108,7 +107,7 @@ class _WriteJournalToolbarContentState
     }
 
     final List<AssetEntity> assets = [];
-    final Set<String> processedAssetIds = <String>{};
+    final processedAssetIds = <String>{};
     for (final album in albums) {
       final assetList = await album.getAssetListRange(start: 0, end: 2000);
       for (final asset in assetList) {
@@ -120,7 +119,7 @@ class _WriteJournalToolbarContentState
 
     assets.sort((a, b) => b.createDateTime.compareTo(a.createDateTime));
 
-    final Map<DateTime, List<AssetEntity>> grouped = {};
+    final grouped = <DateTime, List<AssetEntity>>{};
     for (final asset in assets) {
       final date = DateTime(
         asset.createDateTime.year,
@@ -598,7 +597,7 @@ class _WriteJournalToolbarContentState
           SizedBox(height: 8.h),
           ElevatedButton(
             onPressed: () {
-              openAppSettings();
+              unawaited(openAppSettings());
             },
             child: const Text(
               AppConstants.openSettings,
@@ -627,17 +626,17 @@ class _WriteJournalToolbarContentState
 }
 
 class AssetThumbnailItem extends StatefulWidget {
-  final AssetEntity asset;
-  final AppThemeColors colors;
-
   const AssetThumbnailItem({
     super.key,
     required this.asset,
     required this.colors,
   });
 
+  final AssetEntity asset;
+  final AppThemeColors colors;
+
   @override
-  _AssetThumbnailItemState createState() => _AssetThumbnailItemState();
+  State<AssetThumbnailItem> createState() => _AssetThumbnailItemState();
 }
 
 class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
@@ -768,14 +767,14 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
 
 // New Audio Recorder Widget
 class AudioRecorderView extends StatefulWidget {
-  final ScrollController scrollController;
-  final Function(String path, Duration duration) onRecordingComplete;
-
   const AudioRecorderView({
     super.key,
     required this.scrollController,
     required this.onRecordingComplete,
   });
+
+  final ScrollController scrollController;
+  final Function(String path, Duration duration) onRecordingComplete;
 
   @override
   State<AudioRecorderView> createState() => _AudioRecorderViewState();
@@ -957,10 +956,10 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
               _timer?.cancel();
               _animationController.reset();
               if (_isRecording) {
-                _audioRecorder.stop();
+                unawaited(_audioRecorder.stop());
               }
               if (_isPlayingPreview) {
-                _audioPlayer.stop();
+                unawaited(_audioPlayer.stop());
               }
               // Delete the file if it exists
               if (_recordingPath != null) {
@@ -1027,7 +1026,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
   }
 
   Widget _buildRecordingControls(AppThemeColors colors) {
-    final bool isActivelyRecording = _isRecording && !_isPaused;
+    final isActivelyRecording = _isRecording && !_isPaused;
 
     return Column(
       children: [
@@ -1176,15 +1175,15 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
 }
 
 class _MoodSelectorView extends StatefulWidget {
-  final ScrollController scrollController;
-  final Function(int? moodIndex)? onMoodChanged;
-  final int? initialMoodIndex;
-
   const _MoodSelectorView({
     required this.scrollController,
     this.onMoodChanged,
     this.initialMoodIndex,
   });
+
+  final ScrollController scrollController;
+  final Function(int? moodIndex)? onMoodChanged;
+  final int? initialMoodIndex;
 
   @override
   State<_MoodSelectorView> createState() => _MoodSelectorViewState();
@@ -1222,7 +1221,7 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
 
   void _triggerRotationAnimation() {
     _rotationController.reset();
-    _rotationController.forward();
+    unawaited(_rotationController.forward());
   }
 
   @override
@@ -1231,7 +1230,7 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
     final moodIndex = _currentSliderValue.round().clamp(0, _moods.length - 1);
     final selectedMood = _moods[moodIndex];
 
-    final List<Color> backgroundColors = [
+    final backgroundColors = [
       colors.aRed[2],
       colors.aOrange[2],
       colors.aYellow[2],
@@ -1239,7 +1238,7 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
       colors.aTeal[2],
     ];
 
-    final List<Color> sliderAndTextColors = [
+    final sliderAndTextColors = [
       colors.aRed[0],
       colors.aOrange[0],
       colors.aYellow[0],
@@ -1353,9 +1352,9 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
 
 // NEW WIDGET: A reusable animation widget for grid items.
 class AnimatedGridItem extends StatefulWidget {
-  final Widget child;
-
   const AnimatedGridItem({super.key, required this.child});
+
+  final Widget child;
 
   @override
   State<AnimatedGridItem> createState() => _AnimatedGridItemState();
@@ -1375,14 +1374,14 @@ class _AnimatedGridItemState extends State<AnimatedGridItem>
       duration: const Duration(milliseconds: 300),
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOut),
     );
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOut),
     );
 
-    _controller.forward();
+    unawaited(_controller.forward());
   }
 
   @override

@@ -1,18 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../theme.dart';
+import 'package:open_jot/app/core/theme.dart';
 
 class TextStylingToolbar extends StatelessWidget {
-  final Function(String) onToolbarItemTap;
-  final VoidCallback onPinTap;
-  final bool isBoldActive;
-  final bool isItalicActive;
-  final bool isUnderlineActive;
-  final bool isStrikethroughActive;
-  final bool isTitleActive;
-  final bool isQuoteActive;
-  final bool isBulletActive;
-
   const TextStylingToolbar({
     super.key,
     required this.onToolbarItemTap,
@@ -26,11 +16,21 @@ class TextStylingToolbar extends StatelessWidget {
     this.isBulletActive = false,
   });
 
+  final Function(String) onToolbarItemTap;
+  final VoidCallback onPinTap;
+  final bool isBoldActive;
+  final bool isItalicActive;
+  final bool isUnderlineActive;
+  final bool isStrikethroughActive;
+  final bool isTitleActive;
+  final bool isQuoteActive;
+  final bool isBulletActive;
+
   @override
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
 
-    final Map<String, IconData> styleMap = {
+    final styleMap = <String, IconData>{
       'title': Icons.title,
       'bold': Icons.format_bold,
       'italic': Icons.format_italic,
@@ -40,10 +40,10 @@ class TextStylingToolbar extends StatelessWidget {
       'quote': Icons.format_quote_rounded,
     };
 
-    final List<String> styles = styleMap.keys.toList();
+    final styles = styleMap.keys.toList();
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 2.0),
+      padding: const EdgeInsets.only(bottom: 2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -52,7 +52,7 @@ class TextStylingToolbar extends StatelessWidget {
               for (var i = 0; i < styles.length; i++)
                 Padding(
                   padding: EdgeInsets.only(
-                    right: i < styles.length - 1 ? 2.0 : 0,
+                    right: i < styles.length - 1 ? 2 : 0,
                   ),
                   child: _buildToolbarIcon(
                     styleMap[styles[i]]!,
@@ -111,24 +111,24 @@ class TextStylingToolbar extends StatelessWidget {
     if (!isPin) {
       if (index == 0) {
         borderRadius = const BorderRadius.horizontal(
-          left: Radius.circular(50.0),
-          right: Radius.circular(16.0),
+          left: Radius.circular(50),
+          right: Radius.circular(16),
         );
       } else if (index == 6) {
         // 6 is the last index
         borderRadius = const BorderRadius.horizontal(
-          left: Radius.circular(16.0),
-          right: Radius.circular(50.0),
+          left: Radius.circular(16),
+          right: Radius.circular(50),
         );
       } else {
-        borderRadius = BorderRadius.circular(6.0);
+        borderRadius = BorderRadius.circular(6);
       }
     }
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(10.0),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: isActive
               ? appThemeColors.primary.withOpacity(0.3)

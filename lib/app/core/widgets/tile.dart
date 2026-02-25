@@ -1,10 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:open_jot/app/core/constants.dart';
-
-import '../theme.dart';
+import 'package:open_jot/app/core/theme.dart';
 
 class Tile extends StatelessWidget {
+  const Tile({
+    super.key,
+    required this.title,
+    required this.icon,
+    // required this.onTap, // REMOVED onTap from constructor
+    this.backgroundColor,
+    this.iconColor,
+    this.textColor,
+    this.iconSize = 20,
+    required this.fontSize,
+    this.fontWeight = FontWeight.w500,
+    this.showIconContainer = false,
+    this.iconContainerColor,
+    this.iconContainerPadding = const EdgeInsets.all(8),
+    this.tilePadding = const EdgeInsets.symmetric(vertical: 16),
+  });
+
   final String title;
   final IconData icon;
   // final VoidCallback onTap; // REMOVED onTap
@@ -24,23 +40,6 @@ class Tile extends StatelessWidget {
 
   // Main tile padding
   final EdgeInsetsGeometry tilePadding;
-
-  const Tile({
-    super.key,
-    required this.title,
-    required this.icon,
-    // required this.onTap, // REMOVED onTap from constructor
-    this.backgroundColor,
-    this.iconColor,
-    this.textColor,
-    this.iconSize = 20,
-    required this.fontSize,
-    this.fontWeight = FontWeight.w500,
-    this.showIconContainer = false,
-    this.iconContainerColor,
-    this.iconContainerPadding = const EdgeInsets.all(8),
-    this.tilePadding = const EdgeInsets.symmetric(vertical: 16, horizontal: 0),
-  });
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +66,7 @@ class Tile extends StatelessWidget {
     // REMOVED Material and InkWell, replaced with a simple Container
     // or just the Padding if backgroundColor is transparent by default
     // Using a Container to handle potential backgroundColor
-    return Container(
+    return ColoredBox(
       color: backgroundColor ?? Colors.transparent,
       child: Padding(
         padding: tilePadding,

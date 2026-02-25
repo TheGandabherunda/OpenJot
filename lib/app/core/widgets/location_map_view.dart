@@ -299,7 +299,7 @@ class _LocationMapViewState extends State<LocationMapView>
             heroTag: 'current_location_btn',
             backgroundColor: colors.grey6,
             foregroundColor: colors.grey10,
-            elevation: 0.0,
+            elevation: 0,
             onPressed:
             _isLoading ? null : () => _getCurrentLocation(moveMap: true),
             child: AnimatedSwitcher(
@@ -361,4 +361,3 @@ class _LocationMapViewState extends State<LocationMapView>
     );
   }
 }
-

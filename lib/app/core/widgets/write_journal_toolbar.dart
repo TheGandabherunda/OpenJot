@@ -1,13 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../theme.dart';
+import 'package:open_jot/app/core/theme.dart';
 
 class WriteJournalToolbar extends StatelessWidget {
-  final List<IconData> toolbarIcons;
-  final IconData? selectedToolbarIcon;
-  final bool isDraggableSheetActive;
-  final Function(IconData) onToolbarItemTap;
-
   const WriteJournalToolbar({
     super.key,
     required this.toolbarIcons,
@@ -15,6 +10,11 @@ class WriteJournalToolbar extends StatelessWidget {
     required this.isDraggableSheetActive,
     required this.onToolbarItemTap,
   });
+
+  final List<IconData> toolbarIcons;
+  final IconData? selectedToolbarIcon;
+  final bool isDraggableSheetActive;
+  final Function(IconData) onToolbarItemTap;
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +27,7 @@ class WriteJournalToolbar extends StatelessWidget {
     final groupedIcons = toolbarIcons.take(toolbarIcons.length - 1).toList();
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 2.0),
+      padding: const EdgeInsets.only(bottom: 2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -36,7 +36,7 @@ class WriteJournalToolbar extends StatelessWidget {
               for (var i = 0; i < groupedIcons.length; i++)
                 Padding(
                   padding: EdgeInsets.only(
-                    right: i < groupedIcons.length - 1 ? 2.0 : 0,
+                    right: i < groupedIcons.length - 1 ? 2 : 0,
                   ),
                   child: _buildToolbarIcon(
                     groupedIcons[i],
@@ -68,23 +68,23 @@ class WriteJournalToolbar extends StatelessWidget {
     if (icon != separatedIcon) {
       if (index == 0) {
         borderRadius = const BorderRadius.horizontal(
-          left: Radius.circular(50.0),
-          right: Radius.circular(16.0),
+          left: Radius.circular(50),
+          right: Radius.circular(16),
         );
       } else if (index == groupLength - 1) {
         borderRadius = const BorderRadius.horizontal(
-          left: Radius.circular(16.0),
-          right: Radius.circular(50.0),
+          left: Radius.circular(16),
+          right: Radius.circular(50),
         );
       } else {
-        borderRadius = BorderRadius.circular(6.0);
+        borderRadius = BorderRadius.circular(6);
       }
     }
 
     return GestureDetector(
       onTap: () => onToolbarItemTap(icon),
       child: Container(
-        padding: const EdgeInsets.all(10.0),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: isSelected ? appThemeColors.grey4 : appThemeColors.grey5,
           // Check if the icon is the separated one.
