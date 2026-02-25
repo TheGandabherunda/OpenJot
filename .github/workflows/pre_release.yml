@@ -45,8 +45,8 @@ jobs:
       # Statically analyze the Dart code for any errors.
       - run: flutter analyze .
 
-      # Build arm64 APK natively using Gradle
-      - name: Build arm64 APK natively using Gradle
+      # Build Split APKs natively using Gradle
+      - name: Build Split APKs natively using Gradle
         run: |
           cd android
           if [ ! -f "gradlew" ]; then
@@ -54,11 +54,28 @@ jobs:
           fi
           sed -i 's/\r$//' gradlew
           chmod +x gradlew
-          ./gradlew assembleGithubRelease -Ptarget-platform=android-arm64
+          ./gradlew assembleGithubRelease -Psplit-per-abi=true
 
-      # Upload arm64 generated APK using native path
-      - name: Upload arm64 APK
+      # Upload Split generated APKs
+      - name: Upload Split APKs
         uses: actions/upload-artifact@v4
         with:
-          name: OpenJot-arm64-v8a.apk
+          name: OpenJot-github-splits
+          path: android/app/build/outputs/apk/github/release/*.apk
+
+      # Clean the release directory to prevent the universal artifact from grabbing the splits
+      - name: Clean release directory
+        run: rm -rf android/app/build/outputs/apk/github/release/*.apk
+
+      # Build universal APK natively using Gradle
+      - name: Build universal APK natively using Gradle
+        run: |
+          cd android
+          ./gradlew assembleGithubRelease
+
+      # Upload universal generated APK using native path
+      - name: Upload universal APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenJot-github-universal
           path: android/app/build/outputs/apk/github/release/*.apk

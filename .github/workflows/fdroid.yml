@@ -65,8 +65,8 @@ jobs:
       # Statically analyze the Dart code for any errors.
       - run: flutter analyze .
 
-      # Build universal apk natively using Gradle.
-      - name: Build universal apk natively using Gradle
+      # Build Split APKs natively using Gradle
+      - name: Build Split APKs natively using Gradle
         run: |
           cd android
           if [ ! -f "gradlew" ]; then
@@ -74,10 +74,28 @@ jobs:
           fi
           sed -i 's/\r$//' gradlew
           chmod +x gradlew
+          ./gradlew assembleFdroidRelease -Psplit-per-abi=true
+
+      # Upload Split APKs as artifact
+      - name: Upload Split APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenJot-fdroid-splits
+          path: android/app/build/outputs/apk/fdroid/release/*.apk
+
+      # Clean release directory to prevent the universal artifact from grabbing splits
+      - name: Clean release directory
+        run: rm -rf android/app/build/outputs/apk/fdroid/release/*.apk
+
+      # Build universal APK natively using Gradle
+      - name: Build universal apk natively using Gradle
+        run: |
+          cd android
           ./gradlew assembleFdroidRelease
 
-      # Upload universal Fdroid apk using native path
-      - uses: actions/upload-artifact@v4
+      # Upload universal Fdroid apk
+      - name: Upload universal APK
+        uses: actions/upload-artifact@v4
         with:
-          name: OpenJot-fdroid.apk
+          name: OpenJot-fdroid-universal
           path: android/app/build/outputs/apk/fdroid/release/*.apk
