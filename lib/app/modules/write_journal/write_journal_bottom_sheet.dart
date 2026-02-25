@@ -386,7 +386,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
           r'(\+?\d{1,3}[-.\s]?)?(\(?\d{3}\)?[-.\s]?){1,2}\d{4,}',
           caseSensitive: false,
         );
-        final matches = [
+        final List<RegExpMatch> matches = [
           ...urlRegExp.allMatches(insertedText),
           ...emailRegExp.allMatches(insertedText),
           ...phoneRegExp.allMatches(insertedText),
