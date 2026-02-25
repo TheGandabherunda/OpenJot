@@ -10,18 +10,18 @@ import 'package:printing/printing.dart';
 
 // A helper class to hold the parsed information for a single line of text.
 class _PdfLine {
+  const _PdfLine(this.spans, this.attributes);
+
   final List<pw.InlineSpan> spans;
   final Map<String, dynamic>? attributes;
-
-  _PdfLine(this.spans, this.attributes);
 }
 
 // Helper class to distinguish between image bytes and video thumbnail bytes.
 class _VisualMedia {
+  const _VisualMedia(this.bytes, this.isVideo);
+
   final Uint8List bytes;
   final bool isVideo;
-
-  _VisualMedia(this.bytes, this.isVideo);
 }
 
 /// A PDF generator for journal entries with emoji support.
@@ -60,7 +60,7 @@ class PdfGenerator {
     String? moodSvg;
     if (entry.moodIndex != null) {
       moodSvg =
-      await rootBundle.loadString('assets/${entry.moodIndex! + 1}.svg');
+          await rootBundle.loadString('assets/${entry.moodIndex! + 1}.svg');
     }
 
     // --- 3. Load and Process Media Assets ---
@@ -86,8 +86,8 @@ class PdfGenerator {
             maxWidth: 300,
             quality: 50,
           );
-          visualMedia.add(_VisualMedia(thumbnail, true));
-                } else {
+          visualMedia.add(_VisualMedia(thumbnail!, true));
+        } else {
           visualMedia.add(_VisualMedia(await file.readAsBytes(), false));
         }
       }
@@ -102,8 +102,8 @@ class PdfGenerator {
           maxWidth: 300,
           quality: 50,
         );
-        visualMedia.add(_VisualMedia(thumbnail, true));
-            } else {
+        visualMedia.add(_VisualMedia(thumbnail!, true));
+      } else {
         visualMedia.add(_VisualMedia(await file.readAsBytes(), false));
       }
     }
@@ -163,7 +163,7 @@ class PdfGenerator {
   /// Builds the header section with the formatted date.
   static pw.Widget _buildDateHeader(JournalEntry entry, pw.Font mediumFont) {
     final formattedDate =
-    intl.DateFormat('EEEE, MMM d, yyyy  •  h:mm a').format(entry.createdAt);
+        intl.DateFormat('EEEE, MMM d, yyyy  •  h:mm a').format(entry.createdAt);
     return pw.Container(
       alignment: pw.Alignment.center,
       child: pw.Text(
@@ -205,7 +205,10 @@ class PdfGenerator {
             final isItalic = attributes['italic'] == true;
 
             if (isBold && isItalic) {
-              style = style.copyWith(fontWeight: pw.FontWeight.bold, fontStyle: pw.FontStyle.italic);
+              style = style.copyWith(
+                fontWeight: pw.FontWeight.bold,
+                fontStyle: pw.FontStyle.italic,
+              );
             } else if (isBold) {
               style = style.copyWith(fontWeight: pw.FontWeight.bold);
             } else if (isItalic) {
@@ -221,13 +224,25 @@ class PdfGenerator {
 
             if (attributes.containsKey('header')) {
               final level = attributes['header'];
-              if (level == 1) style = style.copyWith(fontSize: 24, fontWeight: pw.FontWeight.bold);
-              if (level == 2) style = style.copyWith(fontSize: 20, fontWeight: pw.FontWeight.bold);
+              if (level == 1) {
+                style = style.copyWith(
+                  fontSize: 24,
+                  fontWeight: pw.FontWeight.bold,
+                );
+              }
+              if (level == 2) {
+                style = style.copyWith(
+                  fontSize: 20,
+                  fontWeight: pw.FontWeight.bold,
+                );
+              }
             }
           }
           currentSpans.add(pw.TextSpan(
             text: lineText,
-            style: style.copyWith(decoration: pw.TextDecoration.combine(decorations)),
+            style: style.copyWith(
+              decoration: pw.TextDecoration.combine(decorations),
+            ),
           ));
         }
 
@@ -240,7 +255,7 @@ class PdfGenerator {
 
     if (currentSpans.isNotEmpty) {
       final lastOp =
-      delta.lastWhere((op) => op.containsKey('insert'), orElse: () => {});
+          delta.lastWhere((op) => op.containsKey('insert'), orElse: () => {});
       lines.add(_PdfLine(List.from(currentSpans), lastOp['attributes']));
     }
 
@@ -255,10 +270,10 @@ class PdfGenerator {
       }
 
       pw.Widget lineWidget =
-      pw.RichText(text: pw.TextSpan(children: line.spans));
+          pw.RichText(text: pw.TextSpan(children: line.spans));
 
       final attributes = line.attributes;
-      String? currentListType = attributes?['list'];
+      final String? currentListType = attributes?['list'];
 
       if (currentListType != lastListType) {
         orderedListCounter = 1;
@@ -271,7 +286,8 @@ class PdfGenerator {
             padding: const pw.EdgeInsets.only(left: 10, top: 4, bottom: 4),
             decoration: const pw.BoxDecoration(
               border: pw.Border(
-                  left: pw.BorderSide(color: PdfColors.grey300, width: 2)),
+                left: pw.BorderSide(color: PdfColors.grey300, width: 2),
+              ),
             ),
             child: lineWidget,
           );
@@ -283,7 +299,10 @@ class PdfGenerator {
             children: [
               pw.SizedBox(
                 width: 20,
-                child: pw.Text('•', style: const pw.TextStyle(fontSize: 16, height: 1.5)),
+                child: pw.Text(
+                  '•',
+                  style: const pw.TextStyle(fontSize: 16, height: 1.5),
+                ),
               ),
               pw.Expanded(child: lineWidget),
             ],
@@ -296,8 +315,10 @@ class PdfGenerator {
             children: [
               pw.SizedBox(
                 width: 20,
-                child: pw.Text('${orderedListCounter++}.',
-                    style: const pw.TextStyle(fontSize: 16, height: 1.5)),
+                child: pw.Text(
+                  '${orderedListCounter++}.',
+                  style: const pw.TextStyle(fontSize: 16, height: 1.5),
+                ),
               ),
               pw.Expanded(child: lineWidget),
             ],
@@ -362,7 +383,7 @@ class PdfGenerator {
   /// ** UPDATED: Accepts a specific font for the '♫' symbol. **
   static pw.Widget _buildAudioList(JournalEntry entry, pw.Font symbolFont) {
     String formatDuration(Duration duration) {
-      if (duration == Duration.zero) return "--:--";
+      if (duration == Duration.zero) return '--:--';
       String twoDigits(int n) => n.toString().padLeft(2, '0');
       final minutes = twoDigits(duration.inMinutes.remainder(60));
       final seconds = twoDigits(duration.inSeconds.remainder(60));
@@ -381,16 +402,24 @@ class PdfGenerator {
         child: pw.Row(
           mainAxisSize: pw.MainAxisSize.min,
           children: [
-            pw.Text('♫',
-                // ** UPDATED: Use the specific symbol font for this character. **
-                style: pw.TextStyle(font: symbolFont, fontSize: 16, color: PdfColors.grey800)),
+            pw.Text(
+              '♫',
+              // ** UPDATED: Use the specific symbol font for this character. **
+              style: pw.TextStyle(
+                font: symbolFont,
+                fontSize: 16,
+                color: PdfColors.grey800,
+              ),
+            ),
             pw.SizedBox(width: 8),
             pw.Expanded(
               child: pw.Text(title, style: const pw.TextStyle(fontSize: 14)),
             ),
             pw.SizedBox(width: 8),
-            pw.Text(durationStr,
-                style: const pw.TextStyle(fontSize: 14, color: PdfColors.grey600)),
+            pw.Text(
+              durationStr,
+              style: const pw.TextStyle(fontSize: 14, color: PdfColors.grey600),
+            ),
           ],
         ),
       );
@@ -398,13 +427,18 @@ class PdfGenerator {
 
     for (final recording in entry.recordings) {
       audioWidgets.add(
-          buildAudioItem(recording.name, formatDuration(recording.duration)));
+        buildAudioItem(recording.name, formatDuration(recording.duration)),
+      );
       audioWidgets.add(pw.SizedBox(height: 8));
     }
 
     for (final audio in entry.galleryAudios) {
-      audioWidgets.add(buildAudioItem(audio.title ?? "Audio Track",
-          formatDuration(Duration(seconds: audio.duration))));
+      audioWidgets.add(
+        buildAudioItem(
+          audio.title ?? 'Audio Track',
+          formatDuration(Duration(seconds: audio.duration)),
+        ),
+      );
       audioWidgets.add(pw.SizedBox(height: 8));
     }
 
@@ -457,7 +491,7 @@ class PdfGenerator {
             pw.SizedBox(width: 8),
             pw.Text(
               'OpenJot',
-              style: pw.TextStyle(
+              style: const pw.TextStyle(
                 fontSize: 14,
                 color: PdfColors.black,
               ),

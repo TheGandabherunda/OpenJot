@@ -10,12 +10,11 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:get/get.dart';
 import 'package:open_jot/app/core/services/app_lock_service.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
+import 'package:open_jot/app/core/services/notification_service.dart';
+import 'package:open_jot/app/core/theme.dart';
 import 'package:open_jot/app/routes/app_pages.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-
-import 'app/core/services/notification_service.dart';
-import 'app/core/theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,24 +30,24 @@ void main() async {
     tz.setLocalLocation(tz.getLocation(timeZoneName));
   } catch (e) {
     if (kDebugMode) {
-      print("Could not find location: $e. Falling back to UTC.");
+      print('Could not find location: $e. Falling back to UTC.');
     }
     tz.setLocalLocation(tz.getLocation('UTC'));
   }
 
   await Get.putAsync<HiveService>(() async {
     final service = HiveService();
-    return await service.init();
+    return service.init();
   });
 
   final notificationService = await Get.putAsync<NotificationService>(() async {
     final service = NotificationService();
-    return await service.init();
+    return service.init();
   });
 
   await notificationService.checkForOnThisDayMemories();
 
-  Get.lazyPut(() => AppLockService());
+  Get.lazyPut(AppLockService.new);
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -80,8 +79,9 @@ void main() async {
 }
 
 class MyApp extends StatefulWidget {
-  final String initialRoute;
   const MyApp({super.key, required this.initialRoute});
+
+  final String initialRoute;
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -113,7 +113,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       if (NotificationService.initialPayload != null) {
         try {
           final payloadData = jsonDecode(NotificationService.initialPayload!)
-          as Map<String, dynamic>;
+              as Map<String, dynamic>;
           if (payloadData['type'] == 'on_this_day') {
             final dateStr = payloadData['date'] as String;
             final date = DateTime.parse(dateStr);
@@ -146,7 +146,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
 
     return GetMaterialApp(
-      title: "OpenJot",
+      title: 'OpenJot',
       debugShowCheckedModeBanner: false,
       initialRoute: widget.initialRoute,
       getPages: AppPages.routes,
