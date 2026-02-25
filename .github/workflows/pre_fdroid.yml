@@ -44,10 +44,21 @@ jobs:
 
       # Get flutter dependencies.
       - run: flutter pub get
+
       # Statically analyze the Dart code for any errors.
       - run: flutter analyze .
-      # Build universal apk natively using Gradle.
-      - run: cd android && ./gradlew assembleFdroidRelease
+
+      # Build universal apk natively using Gradle with robust wrapper checks.
+      - name: Build universal apk natively using Gradle
+        run: |
+          cd android
+          if [ ! -f "gradlew" ]; then
+            gradle wrapper
+          fi
+          sed -i 's/\r$//' gradlew
+          chmod +x gradlew
+          ./gradlew assembleFdroidRelease
+
       # Release universal Fdroid pre-release apk.
       - uses: svenstaro/upload-release-action@v2
         with:
