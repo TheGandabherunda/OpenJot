@@ -1,10 +1,9 @@
-name: Test, Build and Release Fdroid apk
-
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
+
+name: Test, Build and Release apk
 
 env:
   PROPERTIES_PATH: './android/key.properties'
@@ -12,12 +11,12 @@ env:
 jobs:
   build:
     name: Build APK
-    runs-on: ubuntu-latest
     if: "contains(github.event.head_commit.message, 'Update:')"
+    runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       # Extract version from commit message
       - name: Extract version
@@ -27,13 +26,15 @@ jobs:
           echo "version=${version}" >> $GITHUB_OUTPUT
 
       # Setup Java environment in order to build the Android app.
-      - uses: actions/setup-java@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17.x'
 
       # Gradle cache for faster builds
-      - uses: actions/cache@v4
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
@@ -42,7 +43,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # Setup the flutter environment.
+      # Setup the Flutter environment.
       - run: |
           pip install -U yq
           echo "FLUTTER_VERSION=$(yq -r .environment.flutter pubspec.yaml | sed 's/\^//g')" >> $GITHUB_ENV
@@ -59,19 +60,42 @@ jobs:
       #
       - run: echo "${{ secrets.ANDROID_UPLOAD_KEYSTORE }}" | base64 --decode > android/app/key.jks
 
-      # Get flutter dependencies.
-      - run: flutter pub get
+      # Get Flutter dependencies.
+      - name: Get Flutter dependencies
+        run: flutter pub get
+
       # Statically analyze the Dart code for any errors.
-      - run: flutter analyze .
-      # Build universal apk.
-      - run: flutter build apk --release --flavor fdroid
-      # Release universal Fdroid apk.
-      - uses: svenstaro/upload-release-action@v2
+      - name: Analyze Dart code
+        run: flutter analyze .
+
+      # Build arm64 APK natively using Gradle
+      - name: Build arm64 APK
+        run: cd android && ./gradlew assembleGithubRelease -Ptarget-platform=android-arm64
+
+      # Release arm64 generated APK
+      - name: Release arm64 APK
+        uses: svenstaro/upload-release-action@v2
         with:
           repo_name: thegandabherunda/OpenJot
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: build/app/outputs/flutter-apk/app-fdroid-release.apk
-          asset_name: OpenJot-fdroid.apk
+          file: build/app/outputs/apk/github/release/app-github-release.apk
+          asset_name: OpenJot-arm64-v8a.apk
+          tag: ${{ steps.extract_version.outputs.version }}
+          prerelease: false
+          overwrite: true
+
+      # Build universal APK natively using Gradle
+      - name: Build universal APK
+        run: cd android && ./gradlew assembleGithubRelease
+
+      # Release universal generated APK
+      - name: Release universal APK
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_name: thegandabherunda/OpenJot
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: build/app/outputs/apk/github/release/app-github-release.apk
+          asset_name: OpenJot.apk
           tag: ${{ steps.extract_version.outputs.version }}
           prerelease: false
           overwrite: true
