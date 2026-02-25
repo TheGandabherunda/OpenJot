@@ -24,16 +24,29 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
+
       # Setup the flutter environment.
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+
       # Get flutter dependencies.
       - run: flutter pub get
+
       # Statically analyze the Dart code for any errors.
       - run: flutter analyze .
-      # Build universal apk natively using Gradle.
-      - run: cd android && ./gradlew assembleGithubDebug
+
+      # Build debug apk natively using Gradle
+      - name: Build debug apk natively using Gradle
+        run: |
+          cd android
+          if [ ! -f "gradlew" ]; then
+            gradle wrapper
+          fi
+          sed -i 's/\r$//' gradlew
+          chmod +x gradlew
+          ./gradlew assembleGithubDebug
+
       # Upload universal generated apk to the artifacts.
       - uses: actions/upload-artifact@v3
         with:

@@ -18,7 +18,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-
       # Extract version from commit message
       - name: Extract version
         id: extract_version
@@ -51,20 +50,32 @@ jobs:
           channel: 'stable'
           flutter-version: "${{ env.FLUTTER_VERSION }}"
 
-      #
+      # Setup keystore properties
       - run: |
           echo keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }} > ${{env.PROPERTIES_PATH}}
           echo storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} >> ${{env.PROPERTIES_PATH}}
           echo keyAlias=${{ secrets.ANDROID_KEY_ALIAS }} >> ${{env.PROPERTIES_PATH}}
-      #
+
+      # Decode Keystore
       - run: echo "${{ secrets.ANDROID_UPLOAD_KEYSTORE }}" | base64 --decode > android/app/key.jks
 
       # Get flutter dependencies.
       - run: flutter pub get
+
       # Statically analyze the Dart code for any errors.
       - run: flutter analyze .
+
       # Build universal apk natively using Gradle.
-      - run: cd android && ./gradlew assembleFdroidRelease
+      - name: Build universal apk natively using Gradle
+        run: |
+          cd android
+          if [ ! -f "gradlew" ]; then
+            gradle wrapper
+          fi
+          sed -i 's/\r$//' gradlew
+          chmod +x gradlew
+          ./gradlew assembleFdroidRelease
+
       # Release universal Fdroid apk.
       - uses: svenstaro/upload-release-action@v2
         with:

@@ -52,25 +52,33 @@ jobs:
           channel: 'stable'
           flutter-version: "${{ env.FLUTTER_VERSION }}"
 
-      #
+      # Setup keystore properties
       - run: |
           echo keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }} > ${{env.PROPERTIES_PATH}}
           echo storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} >> ${{env.PROPERTIES_PATH}}
           echo keyAlias=${{ secrets.ANDROID_KEY_ALIAS }} >> ${{env.PROPERTIES_PATH}}
-      #
+
+      # Decode Keystore
       - run: echo "${{ secrets.ANDROID_UPLOAD_KEYSTORE }}" | base64 --decode > android/app/key.jks
 
-      # Get Flutter dependencies.
+      # Get Flutter dependencies
       - name: Get Flutter dependencies
         run: flutter pub get
 
-      # Statically analyze the Dart code for any errors.
+      # Statically analyze the Dart code for any errors
       - name: Analyze Dart code
         run: flutter analyze .
 
       # Build arm64 APK natively using Gradle
-      - name: Build arm64 APK
-        run: cd android && ./gradlew assembleGithubRelease -Ptarget-platform=android-arm64
+      - name: Build arm64 APK natively using Gradle
+        run: |
+          cd android
+          if [ ! -f "gradlew" ]; then
+            gradle wrapper
+          fi
+          sed -i 's/\r$//' gradlew
+          chmod +x gradlew
+          ./gradlew assembleGithubRelease -Ptarget-platform=android-arm64
 
       # Release arm64 generated APK
       - name: Release arm64 APK
@@ -78,15 +86,17 @@ jobs:
         with:
           repo_name: thegandabherunda/OpenJot
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: build/app/outputs/apk/github/release/app-github-release.apk
+          file: build/app/outputs/apk/github/release/app-arm64-v8a-github-release.apk
           asset_name: OpenJot-arm64-v8a.apk
           tag: ${{ steps.extract_version.outputs.version }}
           prerelease: false
           overwrite: true
 
       # Build universal APK natively using Gradle
-      - name: Build universal APK
-        run: cd android && ./gradlew assembleGithubRelease
+      - name: Build universal APK natively using Gradle
+        run: |
+          cd android
+          ./gradlew assembleGithubRelease
 
       # Release universal generated APK
       - name: Release universal APK

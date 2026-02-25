@@ -8,11 +8,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       # Setup Java environment in order to build the Android app.
       - uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17.x'
+
       # Gradle cache for faster builds
       - uses: actions/cache@v4
         with:
@@ -22,35 +24,47 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
+
       # Setup the flutter environment.
       - uses: subosito/flutter-action@v2
         with:
           channel: "stable"
 
-      #
+      # Setup keystore properties
       - run: |
           echo keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }} > ${{env.PROPERTIES_PATH}}
           echo storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} >> ${{env.PROPERTIES_PATH}}
           echo keyAlias=${{ secrets.ANDROID_KEY_ALIAS }} >> ${{env.PROPERTIES_PATH}}
-      #
+
+      # Decode Keystore
       - run: echo "${{ secrets.ANDROID_UPLOAD_KEYSTORE }}" | base64 --decode > android/app/key.jks
 
       # Get flutter dependencies.
       - run: flutter pub get
+
       # Statically analyze the Dart code for any errors.
       - run: flutter analyze .
-      # Build arm64 APK natively using Gradle for GitHub pre-release
-      - name: Build arm64 APK
-        run: cd android && ./gradlew assembleGithubRelease -Ptarget-platform=android-arm64
+
+      # Build arm64 APK natively using Gradle
+      - name: Build arm64 APK natively using Gradle
+        run: |
+          cd android
+          if [ ! -f "gradlew" ]; then
+            gradle wrapper
+          fi
+          sed -i 's/\r$//' gradlew
+          chmod +x gradlew
+          ./gradlew assembleGithubRelease -Ptarget-platform=android-arm64
+
       # Pre-release arm64 generated APK
       - name: Release arm64 APK
         uses: svenstaro/upload-release-action@v2
         with:
           repo_name: thegandabherunda/OpenJot
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: build/app/outputs/apk/github/release/app-github-release.apk
+          file: build/app/outputs/apk/github/release/app-arm64-v8a-github-release.apk
           asset_name: OpenJot-arm64-v8a.apk
-          tag: ${{ github.ref }}
+          tag: "github-pre-release"
           prerelease: true
           overwrite: true
           body: "**New OpenJot Pre-Release!** \n

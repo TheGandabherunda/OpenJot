@@ -15,7 +15,6 @@ jobs:
           distribution: 'zulu'
           java-version: '17.x'
 
-
       # Gradle cache for faster builds
       - uses: actions/cache@v4
         with:
@@ -25,6 +24,7 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
+
       # Setup the flutter environment.
       - uses: subosito/flutter-action@v2
         with:
@@ -32,17 +32,28 @@ jobs:
 
       # Get flutter dependencies.
       - run: flutter pub get
+
       # Statically analyze the Dart code for any errors.
       - run: flutter analyze .
-      # Build universal apk natively using Gradle.
-      - run: cd android && ./gradlew assembleGithubDebug
+
+      # Build debug apk natively using Gradle
+      - name: Build debug apk natively using Gradle
+        run: |
+          cd android
+          if [ ! -f "gradlew" ]; then
+            gradle wrapper
+          fi
+          sed -i 's/\r$//' gradlew
+          chmod +x gradlew
+          ./gradlew assembleGithubDebug
+
       - uses: svenstaro/upload-release-action@v2
         with:
           repo_name: thegandabherunda/OpenJot
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: build/app/outputs/apk/github/debug/app-github-debug.apk
           asset_name: OpenJot-debug.apk
-          tag: ${{ github.ref }}
+          tag: "debug-pre-release"
           prerelease: true
           overwrite: true
           body: "**New OpenJot Debug App!** \n
