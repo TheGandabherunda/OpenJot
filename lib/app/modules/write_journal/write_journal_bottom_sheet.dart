@@ -14,15 +14,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
-import 'package:open_jot/app/modules/home/home_controller.dart';
-import 'package:path/path.dart' as p;
-import 'package:permission_handler/permission_handler.dart';
-import 'package:photo_manager/photo_manager.dart' hide LatLng;
-import 'package:shimmer/shimmer.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:uuid/uuid.dart';
-import 'package:video_player/video_player.dart';
-
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/models/journal_entry.dart';
 import 'package:open_jot/app/core/theme.dart';
@@ -31,9 +22,17 @@ import 'package:open_jot/app/core/widgets/journal_tile.dart';
 import 'package:open_jot/app/core/widgets/text_styling_toolbar.dart';
 import 'package:open_jot/app/core/widgets/write_journal_toolbar.dart';
 import 'package:open_jot/app/core/widgets/write_journal_toolbar_content.dart';
+import 'package:open_jot/app/modules/home/home_controller.dart';
+import 'package:open_jot/app/modules/media_preview/media_preview_bottom_sheet.dart';
 import 'package:open_jot/app/utils/custom_toast.dart';
 import 'package:open_jot/app/utils/foss_location.dart';
-import 'package:open_jot/app/modules/media_preview/media_preview_bottom_sheet.dart';
+import 'package:path/path.dart' as p;
+import 'package:permission_handler/permission_handler.dart';
+import 'package:photo_manager/photo_manager.dart' hide LatLng;
+import 'package:shimmer/shimmer.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:uuid/uuid.dart';
+import 'package:video_player/video_player.dart';
 
 class WriteJournalBottomSheet extends StatefulWidget {
   const WriteJournalBottomSheet({
@@ -145,14 +144,18 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   }
 
   Future<void> _resumeLocationFlow() async {
-    bool isLocationEnabled = await FossLocation.isLocationServiceEnabled();
+    final isLocationEnabled = await FossLocation.isLocationServiceEnabled();
     if (isLocationEnabled) {
-      var status = await Permission.locationWhenInUse.request();
+      final status = await Permission.locationWhenInUse.request();
       if (status.isGranted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            unawaited(_handleAttachmentTap(Icons.location_on_rounded,
-                bypassSettingsCheck: true));
+            unawaited(
+              _handleAttachmentTap(
+                Icons.location_on_rounded,
+                bypassSettingsCheck: true,
+              ),
+            );
           }
         });
       }
@@ -177,11 +180,13 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       _isCustomDate = true;
     } else {
       _quillController = quill.QuillController.basic();
-      var initialContent = widget.initialText ?? '';
+      final initialContent = widget.initialText ?? '';
       if (initialContent.isNotEmpty) {
         final delta = quill.Delta()
-          ..insert('$initialContent\n',
-              widget.initialText != null ? {'header': 2} : null)
+          ..insert(
+            '$initialContent\n',
+            widget.initialText != null ? {'header': 2} : null,
+          )
           ..insert('\n');
         _quillController.document = quill.Document.fromDelta(delta);
         _quillController.moveCursorToEnd();
@@ -234,13 +239,15 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     if (widget.sharedImagePaths != null) {
       for (final path in widget.sharedImagePaths!) {
         newPhotos.add(
-            CapturedPhoto(file: XFile(path), name: AppConstants.sharedImage));
+          CapturedPhoto(file: XFile(path), name: AppConstants.sharedImage),
+        );
       }
     }
     if (widget.sharedVideoPaths != null) {
       for (final path in widget.sharedVideoPaths!) {
         newPhotos.add(
-            CapturedPhoto(file: XFile(path), name: AppConstants.sharedVideo));
+          CapturedPhoto(file: XFile(path), name: AppConstants.sharedVideo),
+        );
       }
     }
 
@@ -267,23 +274,27 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         await audioPlayer.setSourceDeviceFile(path);
         final duration = await audioPlayer.getDuration();
         final fileName = p.basename(path);
-        newRecordings.add(RecordedAudio(
-          path: path,
-          name: fileName,
-          duration: duration ?? Duration.zero,
-          isShared: true,
-        ));
+        newRecordings.add(
+          RecordedAudio(
+            path: path,
+            name: fileName,
+            duration: duration ?? Duration.zero,
+            isShared: true,
+          ),
+        );
         await audioPlayer.release();
       } catch (e) {
         final fileName = p.basename(path);
-        newRecordings.add(RecordedAudio(
-          path: path,
-          name: fileName,
-          duration: Duration.zero,
-          isShared: true,
-        ));
+        newRecordings.add(
+          RecordedAudio(
+            path: path,
+            name: fileName,
+            duration: Duration.zero,
+            isShared: true,
+          ),
+        );
       } finally {
-        audioPlayer.dispose();
+        unawaited(audioPlayer.dispose());
       }
     }
     return newRecordings;
@@ -298,8 +309,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     _sheetController.dispose();
     _editorScrollController.dispose();
     _mainScrollController.dispose();
-    _playerStateSubscription?.cancel();
-    _audioPlayer.dispose();
+    unawaited(_playerStateSubscription?.cancel());
+    unawaited(_audioPlayer.dispose());
     _videoPlayerController?.dispose();
     super.dispose();
   }
@@ -386,7 +397,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
           r'(\+?\d{1,3}[-.\s]?)?(\(?\d{3}\)?[-.\s]?){1,2}\d{4,}',
           caseSensitive: false,
         );
-        final List<RegExpMatch> matches = [
+        final matches = [
           ...urlRegExp.allMatches(insertedText),
           ...emailRegExp.allMatches(insertedText),
           ...phoneRegExp.allMatches(insertedText),
@@ -395,7 +406,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
           return;
         }
         matches.sort((a, b) => a.start.compareTo(b.start));
-        int offset = 0;
+        var offset = 0;
         docChange.change.toList().where((op) => op.isInsert).forEach((op) {
           if (op.data is String) {
             final opText = op.data as String;
@@ -439,7 +450,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       initialDate: _selectedDate,
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
-      builder: (BuildContext context, Widget? child) {
+      builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
             datePickerTheme: DatePickerThemeData(
@@ -475,7 +486,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       final pickedTime = await showTimePicker(
         context: context,
         initialTime: TimeOfDay.fromDateTime(_selectedDate),
-        builder: (BuildContext context, Widget? child) {
+        builder: (context, child) {
           return Theme(
             data: Theme.of(context).copyWith(
               timePickerTheme: TimePickerThemeData(
@@ -572,8 +583,10 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     return minSize.clamp(0.1, _maxChildSize);
   }
 
-  Future<void> _handleAttachmentTap(IconData iconData,
-      {bool bypassSettingsCheck = false}) async {
+  Future<void> _handleAttachmentTap(
+    IconData iconData, {
+    bool bypassSettingsCheck = false,
+  }) async {
     final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
     if (_isDraggableSheetActive && _selectedToolbarIcon == iconData) {
       _closeSheet();
@@ -585,14 +598,14 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
 
     if (iconData == Icons.location_on_rounded) {
       if (!bypassSettingsCheck) {
-        bool isLocationEnabled = await FossLocation.isLocationServiceEnabled();
+        final isLocationEnabled = await FossLocation.isLocationServiceEnabled();
         if (!isLocationEnabled) {
           _pendingLocationResume = true;
           await FossLocation.openLocationSettings();
           return;
         }
       }
-      var status = await Permission.locationWhenInUse.request();
+      final status = await Permission.locationWhenInUse.request();
       if (!status.isGranted) {
         return;
       }
@@ -606,13 +619,13 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     }
 
     if (iconData == Icons.image_rounded) {
-      var status = await Permission.photos.request();
+      final status = await Permission.photos.request();
       if (!status.isGranted) {
         return;
       }
     }
     if (iconData == Icons.camera_alt_rounded) {
-      var status = await Permission.camera.request();
+      final status = await Permission.camera.request();
       if (!status.isGranted) {
         return;
       }
@@ -627,7 +640,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
 
   void _handleToolbarItemTap(IconData iconData) async {
     if (iconData == Icons.mic_rounded) {
-      var status = await Permission.microphone.request();
+      final status = await Permission.microphone.request();
       if (!status.isGranted) {
         return;
       }
@@ -687,7 +700,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
 
   Future<void> _launchLocationLink() async {
     if (_selectedLocation != null) {
-      final Uri uri = Uri.parse(_selectedLocation!.link);
+      final uri = Uri.parse(_selectedLocation!.link);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri);
       } else {
@@ -752,7 +765,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   }
 
   void _toggleHeaderStyle(quill.Style currentStyle) {
-    bool hasHeader = currentStyle.containsKey(quill.Attribute.h1.key) ||
+    final hasHeader = currentStyle.containsKey(quill.Attribute.h1.key) ||
         currentStyle.containsKey(quill.Attribute.h2.key) ||
         currentStyle.containsKey(quill.Attribute.h3.key);
     if (hasHeader) {
@@ -822,11 +835,13 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         if (afterKeyboardClose) {
           _sheetController.jumpTo(newInitialSize);
         } else {
-          unawaited(_sheetController.animateTo(
-            newInitialSize,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-          ));
+          unawaited(
+            _sheetController.animateTo(
+              newInitialSize,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            ),
+          );
         }
       }
     });
@@ -895,11 +910,10 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
             return MediaItem(asset: m, type: m.type, id: m.id);
           } else if (m is CapturedPhoto) {
             return MediaItem(
-                asset: m,
-                type: _isVideoFile(m.file.path)
-                    ? AssetType.video
-                    : AssetType.image,
-                id: m.file.path);
+              asset: m,
+              type: _isVideoFile(m.file.path) ? AssetType.video : AssetType.image,
+              id: m.file.path,
+            );
           }
           return null;
         })
@@ -908,15 +922,17 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
 
     if (mediaItems.isEmpty) return;
 
-    unawaited(showCupertinoModalBottomSheet(
-      context: context,
-      expand: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => MediaPreviewBottomSheet(
-        mediaItems: mediaItems,
-        initialIndex: initialIndex,
+    unawaited(
+      showCupertinoModalBottomSheet(
+        context: context,
+        expand: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => MediaPreviewBottomSheet(
+          mediaItems: mediaItems,
+          initialIndex: initialIndex,
+        ),
       ),
-    ));
+    );
   }
 
   bool _isVideoFile(String path) {
@@ -941,13 +957,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
           child: Container(
             width: 32.w,
             height: 32.w,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: Colors.transparent,
               shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.transparent,
-                width: 2.w,
-              ),
             ),
             child: Icon(
               _isBookmarked
@@ -966,85 +978,96 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
               final renderBox =
                   _dateMenuKey.currentContext!.findRenderObject() as RenderBox;
               final position = renderBox.localToGlobal(Offset.zero);
-              unawaited(showMenu(
-                context: context,
-                color: appThemeColors.grey5,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16.r),
-                ),
-                position: RelativeRect.fromLTRB(
-                  position.dx + (renderBox.size.width / 2) - 80.w,
-                  position.dy + renderBox.size.height + 10.h,
-                  MediaQuery.of(context).size.width -
-                      (position.dx + (renderBox.size.width / 2) - 80.w),
-                  position.dy + renderBox.size.height + 200.h,
-                ),
-                items: [
-                  PopupMenuItem(
-                    value: 'entry_date',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(AppConstants.todayDate,
+              unawaited(
+                showMenu(
+                  context: context,
+                  color: appThemeColors.grey5,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16.r),
+                  ),
+                  position: RelativeRect.fromLTRB(
+                    position.dx + (renderBox.size.width / 2) - 80.w,
+                    position.dy + renderBox.size.height + 10.h,
+                    MediaQuery.of(context).size.width -
+                        (position.dx + (renderBox.size.width / 2) - 80.w),
+                    position.dy + renderBox.size.height + 200.h,
+                  ),
+                  items: [
+                    PopupMenuItem(
+                      value: 'entry_date',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            AppConstants.todayDate,
                             style: TextStyle(
-                                fontSize: 16.sp,
-                                fontWeight: FontWeight.w400,
-                                fontFamily: AppConstants.font,
-                                color: appThemeColors.grey10)),
-                        Text(
-                          DateFormat('MMM d  •  h:mm a').format(DateTime.now()),
-                          style: TextStyle(
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w400,
+                              fontFamily: AppConstants.font,
+                              color: appThemeColors.grey10,
+                            ),
+                          ),
+                          Text(
+                            DateFormat('MMM d  •  h:mm a')
+                                .format(DateTime.now()),
+                            style: TextStyle(
                               fontSize: 14.sp,
                               fontWeight: FontWeight.w400,
                               fontFamily: AppConstants.font,
-                              color: appThemeColors.grey1),
-                        ),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    enabled: false,
-                    padding: EdgeInsets.zero,
-                    height: 4,
-                    child: Divider(
-                      color: appThemeColors.grey6,
-                      thickness: 1,
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'custom_date',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(AppConstants.customDate,
-                            style: TextStyle(
-                                fontSize: 16.sp,
-                                fontWeight: FontWeight.w400,
-                                fontFamily: AppConstants.font,
-                                color: appThemeColors.grey10)),
-                        if (_isCustomDate)
-                          Text(
-                            DateFormat('MMM d  •  h:mm a').format(_selectedDate),
-                            style: TextStyle(
-                              fontSize: 14.sp,
                               color: appThemeColors.grey1,
                             ),
                           ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ).then((value) {
-                if (value == 'entry_date') {
-                  setState(() {
-                    _selectedDate = DateTime.now();
-                    _isCustomDate = false;
-                  });
-                } else if (value == 'custom_date') {
-                  unawaited(_showDatePicker());
-                }
-              }));
+                    PopupMenuItem(
+                      enabled: false,
+                      padding: EdgeInsets.zero,
+                      height: 4,
+                      child: Divider(
+                        color: appThemeColors.grey6,
+                        thickness: 1,
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'custom_date',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            AppConstants.customDate,
+                            style: TextStyle(
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w400,
+                              fontFamily: AppConstants.font,
+                              color: appThemeColors.grey10,
+                            ),
+                          ),
+                          if (_isCustomDate)
+                            Text(
+                              DateFormat('MMM d  •  h:mm a')
+                                  .format(_selectedDate),
+                              style: TextStyle(
+                                fontSize: 14.sp,
+                                color: appThemeColors.grey1,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ).then((value) {
+                  if (value == 'entry_date') {
+                    setState(() {
+                      _selectedDate = DateTime.now();
+                      _isCustomDate = false;
+                    });
+                  } else if (value == 'custom_date') {
+                    unawaited(_showDatePicker());
+                  }
+                }),
+              );
             },
             child: Container(
               key: _dateMenuKey,
@@ -1146,19 +1169,22 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     if (allMedia.isEmpty) {
       return const SizedBox.shrink();
     }
-    final double spacing = 2.w;
+    final spacing = 2.w;
     final appThemeColors = AppTheme.colorsOf(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final overlayColor = (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
-        .withOpacity(0.6);
+    final overlayColor =
+        (isDark ? appThemeColors.grey7 : appThemeColors.grey10).withOpacity(0.6);
     final onOverlayColor =
         isDark ? appThemeColors.grey10 : appThemeColors.grey7;
 
-    Widget buildMediaContainer(dynamic media,
-        {Widget? overlay, required VoidCallback onTap}) {
+    Widget buildMediaContainer(
+      dynamic media, {
+      Widget? overlay,
+      required VoidCallback onTap,
+    }) {
       return GestureDetector(
         onTap: onTap,
-        child: Container(
+        child: DecoratedBox(
           decoration: BoxDecoration(
             border: Border.all(color: appThemeColors.grey3, width: 1.5),
             borderRadius: BorderRadius.circular(12.r),
@@ -1189,8 +1215,11 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                         color: overlayColor,
                         shape: BoxShape.circle,
                       ),
-                      child:
-                          Icon(Icons.close, color: onOverlayColor, size: 18.sp),
+                      child: Icon(
+                        Icons.close,
+                        color: onOverlayColor,
+                        size: 18.sp,
+                      ),
                     ),
                   ),
                 ),
@@ -1240,18 +1269,19 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
           child: ClipRRect(
             borderRadius: BorderRadius.circular(10.5.r),
             child: ui.BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 3.0, sigmaY: 3.0),
+              filter: ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3),
               child: Container(
                 color: overlayColor,
                 child: Center(
                   child: Text(
                     '+${allMedia.length - 3}',
                     style: TextStyle(
-                        color: onOverlayColor,
-                        fontSize: 32.sp,
-                        fontFamily: AppConstants.font,
-                        fontWeight: FontWeight.w500,
-                        decoration: TextDecoration.none),
+                      color: onOverlayColor,
+                      fontSize: 32.sp,
+                      fontFamily: AppConstants.font,
+                      fontWeight: FontWeight.w500,
+                      decoration: TextDecoration.none,
+                    ),
                   ),
                 ),
               ),
@@ -1264,7 +1294,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         child: Row(
           children: [
             AspectRatio(
-              aspectRatio: 1.0,
+              aspectRatio: 1,
               child: buildMediaContainer(
                 allMedia[0],
                 onTap: () => _openMediaPreview(allMedia, 0),
@@ -1367,7 +1397,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                       ),
                       Text(
                         _formatPreviewDuration(
-                            Duration(seconds: audio.duration)),
+                          Duration(seconds: audio.duration),
+                        ),
                         style: TextStyle(
                           color: appThemeColors.grey1,
                           fontSize: 12.sp,
@@ -1380,8 +1411,11 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                 ),
                 SizedBox(width: 8.w),
                 IconButton(
-                  icon: Icon(Icons.close,
-                      color: appThemeColors.grey1, size: 20.sp),
+                  icon: Icon(
+                    Icons.close,
+                    color: appThemeColors.grey1,
+                    size: 20.sp,
+                  ),
                   onPressed: () {
                     if (_currentlyPlayingPath == audio.id) {
                       unawaited(_audioPlayer.stop());
@@ -1448,7 +1482,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                       unawaited(_audioPlayer.resume());
                     } else {
                       unawaited(
-                          _audioPlayer.play(DeviceFileSource(recording.path)));
+                        _audioPlayer.play(DeviceFileSource(recording.path)),
+                      );
                       setState(() {
                         _currentlyPlayingPath = recording.path;
                       });
@@ -1487,8 +1522,11 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                 ),
                 SizedBox(width: 8.w),
                 IconButton(
-                  icon: Icon(Icons.close,
-                      color: appThemeColors.grey1, size: 20.sp),
+                  icon: Icon(
+                    Icons.close,
+                    color: appThemeColors.grey1,
+                    size: 20.sp,
+                  ),
                   onPressed: () {
                     if (_currentlyPlayingPath == recording.path) {
                       unawaited(_audioPlayer.stop());
@@ -1549,144 +1587,154 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          _selectedLocation != null
-              ? Padding(
-                  padding: EdgeInsets.only(right: 12.w),
-                  child: GestureDetector(
-                    key: _locationMenuKey,
-                    onTap: () {
-                      final renderBox = _locationMenuKey.currentContext!
-                          .findRenderObject() as RenderBox;
-                      final position = renderBox.localToGlobal(Offset.zero);
-                      unawaited(showMenu<String>(
-                        context: context,
-                        color: appThemeColors.grey5,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16.r),
-                        ),
-                        position: RelativeRect.fromLTRB(
-                          position.dx,
-                          position.dy + renderBox.size.height + 10.h,
-                          position.dx + renderBox.size.width,
-                          position.dy + renderBox.size.height + 200.h,
-                        ),
-                        items: [
-                          PopupMenuItem(
-                            value: 'open',
-                            child: Row(
-                              children: [
-                                Icon(Icons.open_in_new,
-                                    color: appThemeColors.grey10),
-                                SizedBox(width: 8.w),
-                                Text(AppConstants.openInMaps,
-                                    style: TextStyle(
-                                        color: appThemeColors.grey10)),
-                              ],
-                            ),
-                          ),
-                          PopupMenuDivider(
-                            height: 1,
-                            color: appThemeColors.grey6,
-                          ),
-                          PopupMenuItem(
-                            value: 'edit',
-                            child: Row(
-                              children: [
-                                Icon(Icons.edit, color: appThemeColors.grey10),
-                                SizedBox(width: 8.w),
-                                Text(AppConstants.changeLocation,
-                                    style: TextStyle(
-                                        color: appThemeColors.grey10)),
-                              ],
-                            ),
-                          ),
-                          PopupMenuDivider(
-                            height: 1,
-                            color: appThemeColors.grey6,
-                          ),
-                          PopupMenuItem(
-                            value: 'remove',
-                            child: Row(
-                              children: [
-                                Icon(Icons.delete_outline_outlined,
-                                    color: appThemeColors.error),
-                                SizedBox(width: 8.w),
-                                Text(AppConstants.remove,
-                                    style:
-                                        TextStyle(color: appThemeColors.error)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ).then((value) {
-                        if (value == 'open') {
-                          unawaited(_launchLocationLink());
-                        } else if (value == 'edit') {
-                          _handlelocationTap();
-                        } else if (value == 'remove') {
-                          setState(() {
-                            _selectedLocation = null;
-                          });
-                        }
-                      }));
-                    },
-                    child: Container(
-                      height: 38.w,
-                      padding: EdgeInsets.only(right: 12.w),
-                      child: ui.Row(
-                        children: [
-                          Icon(
-                            Icons.location_on_rounded,
-                            color: appThemeColors.grey3,
-                            size: 20.w,
-                          ),
-                          SizedBox(
-                            width: 6.w,
-                          ),
-                          Text(
-                            '${_selectedLocation!.coordinates.latitude.toStringAsFixed(4)}, ${_selectedLocation!.coordinates.longitude.toStringAsFixed(4)}',
-                            style: TextStyle(
-                              color: appThemeColors.grey1,
-                              fontSize: 14.sp,
-                              fontWeight: FontWeight.w600,
-                              decoration: TextDecoration.none,
-                              fontFamily: AppConstants.font,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                )
-              : Padding(
-                  padding: EdgeInsets.only(right: 12.w),
-                  child: CustomPaint(
-                    painter: DashedBorderPainter(
+          if (_selectedLocation != null)
+            Padding(
+              padding: EdgeInsets.only(right: 12.w),
+              child: GestureDetector(
+                key: _locationMenuKey,
+                onTap: () {
+                  final renderBox = _locationMenuKey.currentContext!
+                      .findRenderObject() as RenderBox;
+                  final position = renderBox.localToGlobal(Offset.zero);
+                  unawaited(
+                    showMenu<String>(
+                      context: context,
                       color: appThemeColors.grey5,
-                      strokeWidth: 2.w,
-                      fillColor: appThemeColors.grey6,
-                    ),
-                    child: SizedBox(
-                      width: 38.w,
-                      height: 38.w,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          GestureDetector(
-                            onTap: _handlelocationTap,
-                            child: Icon(
-                              Icons.add_location_alt_outlined,
-                              color: appThemeColors.grey4,
-                              size: 28.w,
-                            ),
-                          ),
-                        ],
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16.r),
                       ),
-                    ),
+                      position: RelativeRect.fromLTRB(
+                        position.dx,
+                        position.dy + renderBox.size.height + 10.h,
+                        position.dx + renderBox.size.width,
+                        position.dy + renderBox.size.height + 200.h,
+                      ),
+                      items: [
+                        PopupMenuItem(
+                          value: 'open',
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.open_in_new,
+                                color: appThemeColors.grey10,
+                              ),
+                              SizedBox(width: 8.w),
+                              Text(
+                                AppConstants.openInMaps,
+                                style: TextStyle(color: appThemeColors.grey10),
+                              ),
+                            ],
+                          ),
+                        ),
+                        PopupMenuDivider(
+                          height: 1,
+                          color: appThemeColors.grey6,
+                        ),
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit, color: appThemeColors.grey10),
+                              SizedBox(width: 8.w),
+                              Text(
+                                AppConstants.changeLocation,
+                                style: TextStyle(color: appThemeColors.grey10),
+                              ),
+                            ],
+                          ),
+                        ),
+                        PopupMenuDivider(
+                          height: 1,
+                          color: appThemeColors.grey6,
+                        ),
+                        PopupMenuItem(
+                          value: 'remove',
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.delete_outline_outlined,
+                                color: appThemeColors.error,
+                              ),
+                              SizedBox(width: 8.w),
+                              Text(
+                                AppConstants.remove,
+                                style: TextStyle(color: appThemeColors.error),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ).then((value) {
+                      if (value == 'open') {
+                        unawaited(_launchLocationLink());
+                      } else if (value == 'edit') {
+                        _handlelocationTap();
+                      } else if (value == 'remove') {
+                        setState(() {
+                          _selectedLocation = null;
+                        });
+                      }
+                    }),
+                  );
+                },
+                child: Container(
+                  height: 38.w,
+                  padding: EdgeInsets.only(right: 12.w),
+                  child: ui.Row(
+                    children: [
+                      Icon(
+                        Icons.location_on_rounded,
+                        color: appThemeColors.grey3,
+                        size: 20.w,
+                      ),
+                      SizedBox(
+                        width: 6.w,
+                      ),
+                      Text(
+                        '${_selectedLocation!.coordinates.latitude.toStringAsFixed(4)}, ${_selectedLocation!.coordinates.longitude.toStringAsFixed(4)}',
+                        style: TextStyle(
+                          color: appThemeColors.grey1,
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.none,
+                          fontFamily: AppConstants.font,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+              ),
+            )
+          else
+            Padding(
+              padding: EdgeInsets.only(right: 12.w),
+              child: CustomPaint(
+                painter: DashedBorderPainter(
+                  color: appThemeColors.grey5,
+                  strokeWidth: 2.w,
+                  fillColor: appThemeColors.grey6,
+                ),
+                child: SizedBox(
+                  width: 38.w,
+                  height: 38.w,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      GestureDetector(
+                        onTap: _handlelocationTap,
+                        child: Icon(
+                          Icons.add_location_alt_outlined,
+                          color: appThemeColors.grey4,
+                          size: 28.w,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           Padding(
             padding: EdgeInsets.only(right: 12.w, left: 12.w),
             child: GestureDetector(
@@ -1708,18 +1756,17 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                         ),
                       ),
                     )
-                  : Container(
-                      width: 38.w,
-                      height: 38.w,
-                      decoration: BoxDecoration(
-                        color: appThemeColors.grey6,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: SvgPicture.asset(
-                          _moods[_selectedMoodIndex!]['svg']!,
-                          width: 28.w,
-                          height: 28.h,
+                  : ColoredBox(
+                      color: appThemeColors.grey6,
+                      child: SizedBox(
+                        width: 38.w,
+                        height: 38.w,
+                        child: Center(
+                          child: SvgPicture.asset(
+                            _moods[_selectedMoodIndex!]['svg']!,
+                            width: 28.w,
+                            height: 28.h,
+                          ),
                         ),
                       ),
                     ),
@@ -1790,32 +1837,38 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                   final recordingName = AppConstants.openJotRecording
                       .replaceFirst(
                           '%s', (_previewRecordings.length + 1).toString());
-                  _previewRecordings.add(RecordedAudio(
-                    path: path,
-                    name: recordingName,
-                    duration: duration,
-                  ));
+                  _previewRecordings.add(
+                    RecordedAudio(
+                      path: path,
+                      name: recordingName,
+                      duration: duration,
+                    ),
+                  );
                 });
                 _closeSheet();
               },
               onAssetsSelected: (assets) {
                 setState(() {
                   final imagesAndVideos = assets
-                      .where((a) =>
-                          a.type == AssetType.image ||
-                          a.type == AssetType.video)
+                      .where(
+                        (a) =>
+                            a.type == AssetType.image ||
+                            a.type == AssetType.video,
+                      )
                       .toList();
                   final audios =
                       assets.where((a) => a.type == AssetType.audio).toList();
                   final existingImageIds =
                       _previewImages.map((e) => e.id).toSet();
                   imagesAndVideos.removeWhere(
-                      (asset) => existingImageIds.contains(asset.id));
+                    (asset) => existingImageIds.contains(asset.id),
+                  );
                   _previewImages.addAll(imagesAndVideos);
                   final existingAudioIds =
                       _previewAudios.map((e) => e.id).toSet();
                   audios.removeWhere(
-                      (asset) => existingAudioIds.contains(asset.id));
+                    (asset) => existingAudioIds.contains(asset.id),
+                  );
                   _previewAudios.addAll(audios);
                 });
                 _closeSheet();
@@ -1832,11 +1885,15 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
               onPhotoTaken: (photo) {
                 setState(() {
                   final photoName = AppConstants.openJotImage.replaceFirst(
-                      '%s', (_previewPhotos.length + 1).toString());
-                  _previewPhotos.add(CapturedPhoto(
-                    file: photo,
-                    name: photoName,
-                  ));
+                    '%s',
+                    (_previewPhotos.length + 1).toString(),
+                  );
+                  _previewPhotos.add(
+                    CapturedPhoto(
+                      file: photo,
+                      name: photoName,
+                    ),
+                  );
                 });
                 _closeSheet();
               },
@@ -1906,7 +1963,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
           opacity: animation,
           child: SizeTransition(
             sizeFactor: animation,
-            axis: Axis.horizontal,
             child: child,
           ),
         );
@@ -1952,11 +2008,13 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                 if (isKeyboardVisible && _focusNode.hasFocus) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted && _mainScrollController.hasClients) {
-                      unawaited(_mainScrollController.animateTo(
-                        _mainScrollController.position.maxScrollExtent,
-                        duration: const Duration(milliseconds: 200),
-                        curve: Curves.easeOut,
-                      ));
+                      unawaited(
+                        _mainScrollController.animateTo(
+                          _mainScrollController.position.maxScrollExtent,
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOut,
+                        ),
+                      );
                     }
                   });
                 }
@@ -1967,8 +2025,10 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted &&
                         _sheetState == _SheetTransitionState.opening) {
-                      _openSheet(_selectedToolbarIcon!,
-                          afterKeyboardClose: true);
+                      _openSheet(
+                        _selectedToolbarIcon!,
+                        afterKeyboardClose: true,
+                      );
                       setState(() {
                         _sheetState = _SheetTransitionState.open;
                       });
@@ -2003,14 +2063,16 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                                     controller: _mainScrollController,
                                     child: ConstrainedBox(
                                       constraints: BoxConstraints(
-                                          minHeight: constraints.maxHeight),
+                                        minHeight: constraints.maxHeight,
+                                      ),
                                       child: IntrinsicHeight(
                                         child: Column(
                                           children: <Widget>[
                                             SizedBox(height: 16.h),
                                             Padding(
                                               padding: EdgeInsets.symmetric(
-                                                  horizontal: 14.w),
+                                                horizontal: 14.w,
+                                              ),
                                               child: Column(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
@@ -2045,7 +2107,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                                             SizedBox(height: 16.h),
                                             Expanded(
                                               child: _buildTextField(
-                                                  appThemeColors),
+                                                appThemeColors,
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -2114,7 +2177,7 @@ class DashedBorderPainter extends CustomPainter {
     final path = ui.Path()..addRRect(rrect);
     final dashPath = ui.Path();
     for (final metric in path.computeMetrics()) {
-      double distance = 0;
+      var distance = 0.0;
       while (distance < metric.length) {
         dashPath.addPath(
           metric.extractPath(distance, distance + dashWidth),
