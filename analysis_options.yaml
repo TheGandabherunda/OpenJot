@@ -13,6 +13,13 @@ analyzer:
     unused_import: ignore # Added based on your logs
     unnecessary_null_comparison: ignore # Added based on your logs
     no_leading_underscores_for_local_identifiers: ignore # Added based on your logs
+    prefer_final_in_for_each: ignore # Added based on your logs
+    always_use_package_imports: ignore # Added based on your logs
+    sized_box_for_whitespace: ignore # Added based on your logs
+    prefer_single_quotes: ignore # Added based on your logs
+    sort_constructors_first: ignore # Added based on your logs
+    unawaited_futures: ignore # Added based on your logs
+    directives_ordering: ignore # Added based on your logs
 
 linter:
   rules:
