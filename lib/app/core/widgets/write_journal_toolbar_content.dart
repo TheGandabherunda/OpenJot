@@ -61,7 +61,7 @@ class _WriteJournalToolbarContentState
   @override
   void initState() {
     super.initState();
-    _requestPermission();
+    unawaited(_requestPermission());
   }
 
   @override
@@ -80,7 +80,7 @@ class _WriteJournalToolbarContentState
         _permissionStatus = status;
       });
       if (status.isGranted) {
-        _fetchMedia();
+        await _fetchMedia();
       }
     }
   }
@@ -242,8 +242,8 @@ class _WriteJournalToolbarContentState
       final Map<IconData, String> contentMap = {
         Icons.format_quote_rounded: AppConstants.contentForQuote,
       };
-      final contentText =
-          contentMap[widget.selectedToolbarIcon] ?? AppConstants.noContentSelected;
+      final contentText = contentMap[widget.selectedToolbarIcon] ??
+          AppConstants.noContentSelected;
       return ListView(
         controller: widget.scrollController,
         padding: EdgeInsets.zero,
@@ -252,9 +252,10 @@ class _WriteJournalToolbarContentState
             child: Text(
               contentText,
               style: TextStyle(
-                  color: colors.grey10,
-                  decoration: TextDecoration.none,
-                  fontFamily: AppConstants.font),
+                color: colors.grey10,
+                decoration: TextDecoration.none,
+                fontFamily: AppConstants.font,
+              ),
             ),
           ),
         ],
@@ -278,10 +279,11 @@ class _WriteJournalToolbarContentState
                       child: Text(
                         AppConstants.photos,
                         style: TextStyle(
-                            color: colors.grey10,
-                            decoration: TextDecoration.none,
-                            fontSize: 14.sp,
-                            fontFamily: AppConstants.font),
+                          color: colors.grey10,
+                          decoration: TextDecoration.none,
+                          fontSize: 14.sp,
+                          fontFamily: AppConstants.font,
+                        ),
                       ),
                     ),
                     1: Padding(
@@ -289,10 +291,11 @@ class _WriteJournalToolbarContentState
                       child: Text(
                         AppConstants.video,
                         style: TextStyle(
-                            color: colors.grey10,
-                            decoration: TextDecoration.none,
-                            fontSize: 14.sp,
-                            fontFamily: AppConstants.font),
+                          color: colors.grey10,
+                          decoration: TextDecoration.none,
+                          fontSize: 14.sp,
+                          fontFamily: AppConstants.font,
+                        ),
                       ),
                     ),
                     2: Padding(
@@ -300,10 +303,11 @@ class _WriteJournalToolbarContentState
                       child: Text(
                         AppConstants.audio,
                         style: TextStyle(
-                            color: colors.grey10,
-                            decoration: TextDecoration.none,
-                            fontSize: 14.sp,
-                            fontFamily: AppConstants.font),
+                          color: colors.grey10,
+                          decoration: TextDecoration.none,
+                          fontSize: 14.sp,
+                          fontFamily: AppConstants.font,
+                        ),
                       ),
                     ),
                   },
@@ -313,7 +317,7 @@ class _WriteJournalToolbarContentState
                         _selectedSegment = value;
                         _selectedAssets.clear();
                       });
-                      _requestPermission();
+                      unawaited(_requestPermission());
                     }
                   },
                   groupValue: _selectedSegment,
@@ -335,30 +339,35 @@ class _WriteJournalToolbarContentState
             duration: const Duration(milliseconds: 300),
             transitionBuilder: (child, animation) {
               return ScaleTransition(
-                scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+                scale: CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOutBack,
+                ),
                 child: FadeTransition(opacity: animation, child: child),
               );
             },
             child: _selectedAssets.isNotEmpty
                 ? Center(
-              key: const ValueKey('add_button'),
-              child: CustomButton(
-                onPressed: () {
-                  widget.onAssetsSelected?.call(_selectedAssets);
-                  setState(() {
-                    _selectedAssets.clear();
-                  });
-                },
-                borderRadius: 60,
-                text: '${AppConstants.add} ${_selectedAssets.length}',
-                icon: Icons.add,
-                iconSize: 24,
-                color: Theme.of(context).primaryColor,
-                textColor: colors.grey8,
-                textPadding:
-                EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
-              ),
-            )
+                    key: const ValueKey('add_button'),
+                    child: CustomButton(
+                      onPressed: () {
+                        widget.onAssetsSelected?.call(_selectedAssets);
+                        setState(() {
+                          _selectedAssets.clear();
+                        });
+                      },
+                      borderRadius: 60,
+                      text: '${AppConstants.add} ${_selectedAssets.length}',
+                      icon: Icons.add,
+                      iconSize: 24,
+                      color: Theme.of(context).primaryColor,
+                      textColor: colors.grey8,
+                      textPadding: EdgeInsets.symmetric(
+                        horizontal: 20.w,
+                        vertical: 16.h,
+                      ),
+                    ),
+                  )
                 : const SizedBox.shrink(key: ValueKey('empty_button')),
           ),
         ),
@@ -375,8 +384,8 @@ class _WriteJournalToolbarContentState
         padding: EdgeInsets.symmetric(horizontal: 4.w),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
-          crossAxisSpacing: 4.0,
-          mainAxisSpacing: 4.0,
+          crossAxisSpacing: 4,
+          mainAxisSpacing: 4,
         ),
         itemCount: 15,
         itemBuilder: (context, index) {
@@ -413,12 +422,13 @@ class _WriteJournalToolbarContentState
       if (_groupedAssets.isEmpty) {
         return Center(
           child: Text(
-            AppConstants.noMediaFound
-                .replaceFirst('%s', _getTabName(_selectedSegment).toLowerCase()),
+            AppConstants.noMediaFound.replaceFirst(
+                '%s', _getTabName(_selectedSegment).toLowerCase()),
             style: TextStyle(
-                color: colors.grey10,
-                decoration: TextDecoration.none,
-                fontFamily: AppConstants.font),
+              color: colors.grey10,
+              decoration: TextDecoration.none,
+              fontFamily: AppConstants.font,
+            ),
           ),
         );
       }
@@ -427,7 +437,7 @@ class _WriteJournalToolbarContentState
 
       final isDark = Theme.of(context).brightness == Brightness.dark;
       final overlayColor =
-      (isDark ? colors.grey7 : colors.grey10).withOpacity(0.5);
+          (isDark ? colors.grey7 : colors.grey10).withOpacity(0.5);
       final onOverlayColor = isDark ? colors.grey10 : colors.grey7;
 
       return NotificationListener<ScrollNotification>(
@@ -444,11 +454,12 @@ class _WriteJournalToolbarContentState
                   child: Text(
                     _formatDate(date),
                     style: TextStyle(
-                        color: colors.grey1,
-                        fontWeight: FontWeight.w500,
-                        decoration: TextDecoration.none,
-                        fontSize: 15.sp,
-                        fontFamily: AppConstants.font),
+                      color: colors.grey1,
+                      fontWeight: FontWeight.w500,
+                      decoration: TextDecoration.none,
+                      fontSize: 15.sp,
+                      fontFamily: AppConstants.font,
+                    ),
                   ),
                 ),
               ),
@@ -457,11 +468,11 @@ class _WriteJournalToolbarContentState
                 sliver: SliverGrid(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
-                    crossAxisSpacing: 4.0,
-                    mainAxisSpacing: 4.0,
+                    crossAxisSpacing: 4,
+                    mainAxisSpacing: 4,
                   ),
                   delegate: SliverChildBuilderDelegate(
-                        (context, index) {
+                    (context, index) {
                       final asset = _groupedAssets[date]![index];
                       final isSelected = _selectedAssets.contains(asset);
 
@@ -496,7 +507,7 @@ class _WriteJournalToolbarContentState
                                   duration: const Duration(milliseconds: 200),
                                   opacity: isSelected ? 1.0 : 0.0,
                                   curve: Curves.easeOut,
-                                  child: Container(
+                                  child: DecoratedBox(
                                     decoration: BoxDecoration(
                                       color: overlayColor,
                                       border: Border.all(
@@ -532,7 +543,7 @@ class _WriteJournalToolbarContentState
   }
 
   Widget _buildAudioItem(AssetEntity asset, AppThemeColors colors) {
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.grey4,
         borderRadius: BorderRadius.circular(8.r),
@@ -546,11 +557,12 @@ class _WriteJournalToolbarContentState
               child: Text(
                 asset.title ?? '',
                 style: TextStyle(
-                    color: colors.grey10,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.normal,
-                    decoration: TextDecoration.none,
-                    fontFamily: AppConstants.font),
+                  color: colors.grey10,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.normal,
+                  decoration: TextDecoration.none,
+                  fontFamily: AppConstants.font,
+                ),
                 maxLines: 2,
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
@@ -567,10 +579,11 @@ class _WriteJournalToolbarContentState
                 Text(
                   _formatDuration(asset.duration),
                   style: TextStyle(
-                      color: colors.grey10,
-                      fontSize: 12.sp,
-                      decoration: TextDecoration.none,
-                      fontFamily: AppConstants.font),
+                    color: colors.grey10,
+                    fontSize: 12.sp,
+                    decoration: TextDecoration.none,
+                    fontFamily: AppConstants.font,
+                  ),
                 ),
               ],
             ),
@@ -586,13 +599,14 @@ class _WriteJournalToolbarContentState
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            AppConstants.permissionRequired
-                .replaceFirst('%s', _getTabName(_selectedSegment).toLowerCase()),
+            AppConstants.permissionRequired.replaceFirst(
+                '%s', _getTabName(_selectedSegment).toLowerCase()),
             textAlign: TextAlign.center,
             style: TextStyle(
-                color: colors.grey10,
-                decoration: TextDecoration.none,
-                fontFamily: AppConstants.font),
+              color: colors.grey10,
+              decoration: TextDecoration.none,
+              fontFamily: AppConstants.font,
+            ),
           ),
           SizedBox(height: 8.h),
           ElevatedButton(
@@ -602,8 +616,9 @@ class _WriteJournalToolbarContentState
             child: const Text(
               AppConstants.openSettings,
               style: TextStyle(
-                  decoration: TextDecoration.none,
-                  fontFamily: AppConstants.font),
+                decoration: TextDecoration.none,
+                fontFamily: AppConstants.font,
+              ),
             ),
           ),
         ],
@@ -645,7 +660,7 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
   @override
   void initState() {
     super.initState();
-    _loadThumbnail();
+    unawaited(_loadThumbnail());
   }
 
   @override
@@ -656,7 +671,7 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
       setState(() {
         _thumbnailData = null;
       });
-      _loadThumbnail();
+      unawaited(_loadThumbnail());
     }
   }
 
@@ -678,13 +693,13 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
     // DEFINITIVE FIX: Build the Image widget with BoxFit.cover and ensure it expands.
     final imageWidget = _thumbnailData != null
         ? Image.memory(
-      _thumbnailData!,
-      fit: BoxFit.cover,
-      gaplessPlayback: true,
-      // These ensure the image widget itself fills the cell before BoxFit.cover is applied.
-      width: double.infinity,
-      height: double.infinity,
-    )
+            _thumbnailData!,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            // These ensure the image widget itself fills the cell before BoxFit.cover is applied.
+            width: double.infinity,
+            height: double.infinity,
+          )
         : null;
 
     return AnimatedSwitcher(
@@ -692,11 +707,11 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
       child: imageWidget == null
           ? Container(key: const ValueKey('loader'), color: widget.colors.grey3)
           : RepaintBoundary(
-        key: ValueKey(widget.asset.id),
-        child: widget.asset.type == AssetType.video
-            ? _buildVideoOverlay(context, widget.asset, imageWidget)
-            : imageWidget,
-      ),
+              key: ValueKey(widget.asset.id),
+              child: widget.asset.type == AssetType.video
+                  ? _buildVideoOverlay(context, widget.asset, imageWidget)
+                  : imageWidget,
+            ),
     );
   }
 
@@ -712,7 +727,7 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
     final isGif = asset.title?.toLowerCase().endsWith('.gif') ?? false;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final overlayColor =
-    (isDark ? widget.colors.grey7 : widget.colors.grey10).withOpacity(0.7);
+        (isDark ? widget.colors.grey7 : widget.colors.grey10).withOpacity(0.7);
     final onOverlayColor = isDark ? widget.colors.grey10 : widget.colors.grey7;
 
     return Stack(
@@ -723,18 +738,21 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
           Positioned(
             bottom: 4.h,
             right: 4.w,
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+            child: DecoratedBox(
               decoration: BoxDecoration(
                 color: overlayColor,
                 borderRadius: BorderRadius.circular(4.r),
               ),
-              child: Text(
-                AppConstants.gif,
-                style: TextStyle(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                child: Text(
+                  AppConstants.gif,
+                  style: TextStyle(
                     color: onOverlayColor,
                     fontSize: 12.sp,
-                    fontWeight: FontWeight.bold),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           )
@@ -751,11 +769,12 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
                 Text(
                   _formatDuration(asset.duration),
                   style: TextStyle(
-                      color: onOverlayColor,
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.bold,
-                      decoration: TextDecoration.none,
-                      fontFamily: AppConstants.font),
+                    color: onOverlayColor,
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.bold,
+                    decoration: TextDecoration.none,
+                    fontFamily: AppConstants.font,
+                  ),
                 ),
               ],
             ),
@@ -799,12 +818,12 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
     super.initState();
     _playerStateSubscription =
         _audioPlayer.onPlayerStateChanged.listen((state) {
-          if (mounted && state == PlayerState.completed) {
-            setState(() {
-              _isPlayingPreview = false;
-            });
-          }
+      if (mounted && state == PlayerState.completed) {
+        setState(() {
+          _isPlayingPreview = false;
         });
+      }
+    });
 
     _animationController = AnimationController(
       vsync: this,
@@ -870,7 +889,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
       _isStopped = false;
       _recordingDuration = Duration.zero;
     });
-    _animationController.repeat();
+    unawaited(_animationController.repeat());
     _startTimer();
   }
 
@@ -888,7 +907,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
     setState(() {
       _isPaused = false;
     });
-    _animationController.repeat();
+    unawaited(_animationController.repeat());
     _startTimer();
   }
 
@@ -915,12 +934,12 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
 
   void _togglePreview() {
     if (_isPlayingPreview) {
-      _audioPlayer.pause();
+      unawaited(_audioPlayer.pause());
       setState(() {
         _isPlayingPreview = false;
       });
     } else if (_recordingPath != null) {
-      _audioPlayer.play(DeviceFileSource(_recordingPath!));
+      unawaited(_audioPlayer.play(DeviceFileSource(_recordingPath!)));
       setState(() {
         _isPlayingPreview = true;
       });
@@ -936,7 +955,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
 
   void _discardRecording() {
     // Show a confirmation dialog before discarding
-    showCupertinoDialog<void>(
+    unawaited(showCupertinoDialog<void>(
       context: context,
       builder: (BuildContext dialogContext) => CupertinoAlertDialog(
         title: const Text(AppConstants.deleteRecordingTitle),
@@ -973,7 +992,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
           ),
         ],
       ),
-    );
+    ));
   }
 
   void _resetStateForNewRecording() {
@@ -1000,11 +1019,12 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
             AppConstants.listen,
             textAlign: TextAlign.center,
             style: TextStyle(
-                color: colors.success,
-                fontFamily: AppConstants.font,
-                fontWeight: FontWeight.w600,
-                decoration: TextDecoration.none,
-                fontSize: 16.sp),
+              color: colors.success,
+              fontFamily: AppConstants.font,
+              fontWeight: FontWeight.w600,
+              decoration: TextDecoration.none,
+              fontSize: 16.sp,
+            ),
           ),
         Text(
           _formatDuration(_recordingDuration),
@@ -1026,7 +1046,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
   }
 
   Widget _buildRecordingControls(AppThemeColors colors) {
-    final isActivelyRecording = _isRecording && !_isPaused;
+    final bool isActivelyRecording = _isRecording && !_isPaused;
 
     return Column(
       children: [
@@ -1044,13 +1064,15 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
                     builder: (context, child) {
                       return Transform.scale(
                         scale: 1 + _animationController.value * 1.2,
-                        child: Container(
-                          width: 80.w,
-                          height: 80.w,
+                        child: DecoratedBox(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: colors.error.withOpacity(
                                 0.4 - (_animationController.value * 0.4)),
+                          ),
+                          child: SizedBox(
+                            width: 80.w,
+                            height: 80.w,
                           ),
                         ),
                       );
@@ -1059,21 +1081,23 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
                 // The button itself
                 GestureDetector(
                   onTap: _toggleRecording,
-                  onLongPressStart: (_) => _handleRecordPressStart(),
-                  onLongPressEnd: (_) => _handleRecordPressEnd(),
-                  child: Container(
-                    width: 80.w,
-                    height: 80.w,
+                  onLongPressStart: (_) => unawaited(_handleRecordPressStart()),
+                  onLongPressEnd: (_) => unawaited(_handleRecordPressEnd()),
+                  child: DecoratedBox(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: isActivelyRecording
                           ? colors.error.withOpacity(0.7)
                           : colors.error,
                     ),
-                    child: Icon(
-                      isActivelyRecording ? Icons.pause : Icons.mic,
-                      color: colors.grey10,
-                      size: 36.sp,
+                    child: SizedBox(
+                      width: 80.w,
+                      height: 80.w,
+                      child: Icon(
+                        isActivelyRecording ? Icons.pause : Icons.mic,
+                        color: colors.grey10,
+                        size: 36.sp,
+                      ),
                     ),
                   ),
                 ),
@@ -1083,13 +1107,13 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
               flex: 3,
               child: _isRecording
                   ? Align(
-                alignment: Alignment.center,
-                child: IconButton(
-                  icon: Icon(Icons.stop_circle_rounded,
-                      color: colors.grey10, size: 40.sp),
-                  onPressed: _stopRecording,
-                ),
-              )
+                      alignment: Alignment.center,
+                      child: IconButton(
+                        icon: Icon(Icons.stop_circle_rounded,
+                            color: colors.grey10, size: 40.sp),
+                        onPressed: _stopRecording,
+                      ),
+                    )
                   : const SizedBox(),
             ),
           ],
@@ -1099,11 +1123,12 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
           AppConstants.tapAndHold,
           textAlign: TextAlign.center,
           style: TextStyle(
-              color: colors.grey1,
-              fontFamily: AppConstants.font,
-              fontWeight: FontWeight.w500,
-              decoration: TextDecoration.none,
-              fontSize: 14.sp),
+            color: colors.grey1,
+            fontFamily: AppConstants.font,
+            fontWeight: FontWeight.w500,
+            decoration: TextDecoration.none,
+            fontSize: 14.sp,
+          ),
         ),
       ],
     );
@@ -1115,22 +1140,24 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
         Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 80.w,
-              height: 80.w,
+            DecoratedBox(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: colors.grey3,
               ),
-              child: IconButton(
-                icon: Icon(
-                  _isPlayingPreview
-                      ? Icons.pause_rounded
-                      : Icons.play_arrow_rounded,
-                  color: colors.grey10,
-                  size: 36.sp,
+              child: SizedBox(
+                width: 80.w,
+                height: 80.w,
+                child: IconButton(
+                  icon: Icon(
+                    _isPlayingPreview
+                        ? Icons.pause_rounded
+                        : Icons.play_arrow_rounded,
+                    color: colors.grey10,
+                    size: 36.sp,
+                  ),
+                  onPressed: _togglePreview,
                 ),
-                onPressed: _togglePreview,
               ),
             ),
           ],
@@ -1139,20 +1166,22 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 44.w,
-              height: 44.w,
+            DecoratedBox(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: colors.error,
               ),
-              child: IconButton(
-                icon: Icon(
-                  Icons.delete_outline_rounded,
-                  color: colors.grey10,
-                  size: 24.sp,
+              child: SizedBox(
+                width: 44.w,
+                height: 44.w,
+                child: IconButton(
+                  icon: Icon(
+                    Icons.delete_outline_rounded,
+                    color: colors.grey10,
+                    size: 24.sp,
+                  ),
+                  onPressed: _discardRecording,
                 ),
-                onPressed: _discardRecording,
               ),
             ),
             SizedBox(width: 8.w),
@@ -1164,8 +1193,10 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
               iconSize: 24,
               color: Theme.of(context).primaryColor,
               textColor: colors.grey8,
-              textPadding:
-              EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+              textPadding: EdgeInsets.symmetric(
+                horizontal: 16.w,
+                vertical: 8.h,
+              ),
             ),
           ],
         )
@@ -1258,13 +1289,13 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
             controller: widget.scrollController,
             padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 32.h),
             children: [
-              SizedBox(height: 0.h), // Space for the clear button
+              const SizedBox(height: 0), // Space for the clear button
               Center(
                 child: AnimatedBuilder(
                   animation: _rotationController,
                   builder: (context, child) {
                     final bounceAnimation =
-                    Curves.easeOutBack.transform(_rotationController.value);
+                        Curves.easeOutBack.transform(_rotationController.value);
                     return Transform.rotate(
                       angle: bounceAnimation * 2 * 3.14159,
                       child: SvgPicture.asset(
@@ -1302,7 +1333,7 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
                   showValueTooltip: false,
                   activeColor: currentSliderAndTextColor,
                   unfocusedActiveColor:
-                  currentSliderAndTextColor.withOpacity(0.7),
+                      currentSliderAndTextColor.withOpacity(0.7),
                   inactiveColor: colors.grey3,
                   focusedTrackHeight: 20.h,
                   unfocusedTrackHeight: 16.h,

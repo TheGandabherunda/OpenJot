@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
+import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/services/app_lock_service.dart';
-
-import '../../core/constants.dart';
-import '../../core/theme.dart';
-import '../../core/widgets/custom_button.dart';
-import '../../utils/custom_toast.dart';
+import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/core/widgets/custom_button.dart';
+import 'package:open_jot/app/utils/custom_toast.dart';
 
 class SetPinBottomSheet extends StatefulWidget {
   const SetPinBottomSheet({super.key});
 
   @override
-  _SetPinBottomSheetState createState() => _SetPinBottomSheetState();
+  State<SetPinBottomSheet> createState() => _SetPinBottomSheetState();
 }
 
 class _SetPinBottomSheetState extends State<SetPinBottomSheet> {
@@ -180,14 +179,16 @@ class _SetPinBottomSheetState extends State<SetPinBottomSheet> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            SizedBox(width: 80.w, height: 80.h), // Placeholder for alignment
+            const SizedBox(width: 80, height: 80), // Placeholder for alignment
             _buildKey('0'),
             SizedBox(
               width: 80.w,
               height: 80.h,
               child: IconButton(
-                icon: Icon(Icons.backspace_outlined,
-                    color: AppTheme.colorsOf(context).grey10),
+                icon: Icon(
+                  Icons.backspace_outlined,
+                  color: AppTheme.colorsOf(context).grey10,
+                ),
                 onPressed: _onDeletePress,
               ),
             ),

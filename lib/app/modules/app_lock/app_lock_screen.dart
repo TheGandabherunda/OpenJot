@@ -1,17 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
+import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/services/app_lock_service.dart';
+import 'package:open_jot/app/core/theme.dart';
 import 'package:open_jot/app/routes/app_pages.dart';
-
-import '../../core/constants.dart';
-import '../../core/theme.dart';
 
 class AppLockScreen extends StatefulWidget {
   const AppLockScreen({super.key});
 
   @override
-  _AppLockScreenState createState() => _AppLockScreenState();
+  State<AppLockScreen> createState() => _AppLockScreenState();
 }
 
 class _AppLockScreenState extends State<AppLockScreen> {
@@ -22,14 +23,14 @@ class _AppLockScreenState extends State<AppLockScreen> {
   @override
   void initState() {
     super.initState();
-    _authenticateWithBiometrics();
+    unawaited(_authenticateWithBiometrics());
   }
 
-  void _authenticateWithBiometrics() async {
+  Future<void> _authenticateWithBiometrics() async {
     if (await _appLockService.isBiometricAvailable()) {
       final authenticated = await _appLockService.authenticate();
       if (authenticated) {
-        Get.offAllNamed(AppPages.HOME);
+        unawaited(Get.offAllNamed(AppPages.HOME));
       }
     }
   }
@@ -61,7 +62,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
   void _verifyPin() async {
     final isValid = await _appLockService.verifyPin(_enteredPin);
     if (isValid) {
-      Get.offAllNamed(AppPages.HOME);
+      unawaited(Get.offAllNamed(AppPages.HOME));
     } else {
       setState(() {
         _errorMessage = AppConstants.incorrectPin;
@@ -94,9 +95,10 @@ class _AppLockScreenState extends State<AppLockScreen> {
               Text(
                 AppConstants.enterYourPin,
                 style: TextStyle(
-                    fontFamily: AppConstants.font,
-                    color: appColors.grey10,
-                    fontSize: 18.sp),
+                  fontFamily: AppConstants.font,
+                  color: appColors.grey10,
+                  fontSize: 18.sp,
+                ),
               ),
               SizedBox(height: 70.h),
               Row(
@@ -110,16 +112,17 @@ class _AppLockScreenState extends State<AppLockScreen> {
                 child: Center(
                   child: _errorMessage.isNotEmpty
                       ? Text(
-                    _errorMessage,
-                    style: TextStyle(
-                        fontFamily: AppConstants.font,
-                        color: appColors.error,
-                        fontSize: 16.sp),
-                  )
+                          _errorMessage,
+                          style: TextStyle(
+                            fontFamily: AppConstants.font,
+                            color: appColors.error,
+                            fontSize: 16.sp,
+                          ),
+                        )
                       : null,
                 ),
               ),
-              const Spacer(flex: 1),
+              const Spacer(),
               _buildKeyboard(),
               SizedBox(height: 20.h),
               TextButton(
@@ -127,9 +130,10 @@ class _AppLockScreenState extends State<AppLockScreen> {
                 child: Text(
                   AppConstants.useBiometrics,
                   style: TextStyle(
-                      fontFamily: AppConstants.font,
-                      color: appColors.grey10,
-                      fontSize: 16.sp),
+                    fontFamily: AppConstants.font,
+                    color: appColors.grey10,
+                    fontSize: 16.sp,
+                  ),
                 ),
               ),
               SizedBox(height: 40.h),
@@ -195,8 +199,10 @@ class _AppLockScreenState extends State<AppLockScreen> {
               width: 80.w,
               height: 80.h,
               child: IconButton(
-                icon: Icon(Icons.backspace_outlined,
-                    color: AppTheme.colorsOf(context).grey10),
+                icon: Icon(
+                  Icons.backspace_outlined,
+                  color: AppTheme.colorsOf(context).grey10,
+                ),
                 onPressed: _onDeletePress,
               ),
             ),
