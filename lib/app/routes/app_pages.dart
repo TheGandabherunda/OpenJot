@@ -1,13 +1,12 @@
 import 'package:get/get.dart';
 import 'package:open_jot/app/modules/app_lock/app_lock_screen.dart';
+import 'package:open_jot/app/modules/home/home_binding.dart';
+import 'package:open_jot/app/modules/home/home_view.dart';
 import 'package:open_jot/app/modules/onboarding/onboarding_binding.dart';
 import 'package:open_jot/app/modules/onboarding/onboarding_view.dart';
 import 'package:open_jot/app/modules/settings/about_screen.dart';
 import 'package:open_jot/app/modules/settings/terms_and_conditions_screen.dart';
-
-import '../modules/home/home_binding.dart';
-import '../modules/home/home_view.dart';
-import 'app_routes.dart';
+import 'package:open_jot/app/routes/app_routes.dart';
 
 class AppPages {
   AppPages._(); // Private constructor to prevent instantiation

@@ -7,11 +7,11 @@ import 'package:open_jot/app/core/theme.dart';
 
 class CustomToast {
   static void showToast(
-      String message, {
-        Duration duration = const Duration(seconds: 2),
-        Color? backgroundColor,
-        Color? textColor,
-      }) {
+    String message, {
+    Duration duration = const Duration(seconds: 2),
+    Color? backgroundColor,
+    Color? textColor,
+  }) {
     // Get the most appropriate context for theme data.
     final context = Get.overlayContext ?? Get.context;
     if (context == null) return;
@@ -37,7 +37,8 @@ class CustomToast {
 
     // Use Get.key to find the NavigatorState and its OverlayState.
     // This is more reliable than Overlay.of(context) when the context is above the Overlay.
-    final overlayState = Get.key.currentState?.overlay ?? Overlay.maybeOf(context);
+    final overlayState =
+        Get.key.currentState?.overlay ?? Overlay.maybeOf(context);
 
     if (overlayState != null) {
       overlayState.insert(overlayEntry);
@@ -63,13 +64,6 @@ class CustomToast {
 }
 
 class _AnimatedToast extends StatefulWidget {
-  final String message;
-  final Color backgroundColor;
-  final Color textColor;
-  final Duration animationDuration;
-  final Duration displayDuration;
-  final OverlayEntry overlayEntry;
-
   const _AnimatedToast({
     required this.message,
     required this.backgroundColor,
@@ -79,12 +73,19 @@ class _AnimatedToast extends StatefulWidget {
     required this.overlayEntry,
   });
 
+  final String message;
+  final Color backgroundColor;
+  final Color textColor;
+  final Duration animationDuration;
+  final Duration displayDuration;
+  final OverlayEntry overlayEntry;
+
   @override
   _AnimatedToastState createState() => _AnimatedToastState();
 }
 
 class _AnimatedToastState extends State<_AnimatedToast> {
-  double _opacity = 0.0;
+  double _opacity = 0;
   Timer? _timer;
 
   @override
@@ -93,7 +94,7 @@ class _AnimatedToastState extends State<_AnimatedToast> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         setState(() {
-          _opacity = 1.0;
+          _opacity = 1;
         });
       }
     });
@@ -101,7 +102,7 @@ class _AnimatedToastState extends State<_AnimatedToast> {
     _timer = Timer(widget.displayDuration, () {
       if (mounted) {
         setState(() {
-          _opacity = 0.0;
+          _opacity = 0;
         });
         Future.delayed(widget.animationDuration, () {
           try {

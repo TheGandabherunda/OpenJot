@@ -77,7 +77,7 @@ class PdfGenerator {
     }
 
     // Process gallery assets (images and videos)
-    for (var asset in entry.galleryImages) {
+    for (final asset in entry.galleryImages) {
       final file = await asset.file;
       if (file != null) {
         if (asset.type == AssetType.video) {
@@ -94,7 +94,7 @@ class PdfGenerator {
     }
 
     // Process camera photos (which can also be videos)
-    for (var photo in entry.cameraPhotos) {
+    for (final photo in entry.cameraPhotos) {
       final file = photo.file;
       if (isVideoFile(file.path)) {
         final thumbnail = await VideoThumbnail.thumbnailData(
@@ -155,7 +155,10 @@ class PdfGenerator {
     // --- 5. Save and share ---
     final fileName =
         'Journal_Entry_${intl.DateFormat('yyyy-MM-dd_HH-mm').format(entry.createdAt)}.pdf';
-    await Printing.sharePdf(bytes: await pdf.save(), filename: fileName);
+    await Printing.sharePdf(
+      bytes: await pdf.save(),
+      filename: fileName,
+    );
   }
 
   // --- PDF Component Builders ---
@@ -193,12 +196,12 @@ class PdfGenerator {
       for (int i = 0; i < textLines.length; i++) {
         final lineText = textLines[i];
         if (lineText.isNotEmpty) {
-          pw.TextStyle style = const pw.TextStyle(
+          var style = const pw.TextStyle(
             fontSize: 16,
             color: PdfColors.black,
             height: 1.5,
           );
-          final List<pw.TextDecoration> decorations = [];
+          final decorations = <pw.TextDecoration>[];
 
           if (attributes != null) {
             final isBold = attributes['bold'] == true;
@@ -259,7 +262,7 @@ class PdfGenerator {
       lines.add(_PdfLine(List.from(currentSpans), lastOp['attributes']));
     }
 
-    final List<pw.Widget> contentWidgets = [];
+    final contentWidgets = <pw.Widget>[];
     int orderedListCounter = 1;
     String? lastListType;
 
@@ -273,7 +276,7 @@ class PdfGenerator {
           pw.RichText(text: pw.TextSpan(children: line.spans));
 
       final attributes = line.attributes;
-      final String? currentListType = attributes?['list'];
+      final currentListType = attributes?['list'] as String?;
 
       if (currentListType != lastListType) {
         orderedListCounter = 1;
