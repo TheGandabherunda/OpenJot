@@ -1,15 +1,6 @@
-import java.io.FileInputStream
 import java.util.Properties
-
-// --- Read keystore properties safely for F-Droid Compatibility ---
-val keystoreProperties = Properties()
-val keystorePropertiesFile = project.rootProject.file("key.properties")
-val hasKeystore = keystorePropertiesFile.exists()
-
-// Only attempt to load if it actually exists (F-Droid won't have it)
-if (hasKeystore) {
-    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
-}
+import java.io.FileInputStream
+import java.nio.charset.StandardCharsets
 
 plugins {
     id("com.android.application")
@@ -17,9 +8,25 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.reader(StandardCharsets.UTF_8).use { reader ->
+        localProperties.load(reader)
+    }
+}
+
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    FileInputStream(keystorePropertiesFile).use { inputStream ->
+        keystoreProperties.load(inputStream)
+    }
+}
+
 android {
     namespace = "org.thegandabherunda.openjot"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -32,67 +39,72 @@ android {
         jvmTarget = "17"
     }
 
+    sourceSets {
+        getByName("main").java.srcDirs("src/main/kotlin")
+    }
+
     lint {
         checkReleaseBuilds = false
+        abortOnError = false
     }
 
     defaultConfig {
         applicationId = "org.thegandabherunda.openjot"
         minSdk = 24
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
-    // Explicitly enforce optimized Split APKs natively
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("armeabi-v7a", "arm64-v8a", "x86_64")
-            isUniversalApk = false // Ensures it absolutely does NOT generate a bloated universal APK
-        }
-    }
+    flavorDimensions += "flavor"
 
-    // Only create the release signing config if keys are physically present
-    signingConfigs {
-        if (hasKeystore) {
-            create("release") {
-                storeFile = file(keystoreProperties.getProperty("storeFile"))
-                storePassword = keystoreProperties.getProperty("storePassword")
-                keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keystoreProperties.getProperty("keyPassword")
-            }
-        }
-    }
-
-    flavorDimensions += "type"
     productFlavors {
-        create("foss") {
-            dimension = "type"
-            applicationIdSuffix = ".foss"
-            versionNameSuffix = "-foss"
+        create("github") {
+            dimension = "flavor"
+            applicationIdSuffix = ""
         }
-        create("standard") {
-            dimension = "type"
+        create("fdroid") {
+            dimension = "flavor"
+            applicationIdSuffix = ".fdroid"
         }
+    }
+
+    signingConfigs {
+        create("release") {
+            // From decoded key
+            storeFile = file("key.jks")
+
+            // From key.properties
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+            storePassword = keystoreProperties.getProperty("storePassword")
+        }
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    dependenciesInfo {
+        // Disables dependency metadata when building APKs.
+        includeInApk = false
+        // Disables dependency metadata when building Android App Bundles.
+        includeInBundle = false
     }
 
     buildTypes {
         getByName("release") {
-            // F-Droid compliance: Dynamically bind or remove signing configs based on local key availability
-            if (hasKeystore) {
-                signingConfig = signingConfigs.getByName("release")
-            } else {
-                signingConfig = null // Gracefully default to an unsigned build
-            }
-            
+            signingConfig = signingConfigs.getByName("release")
+            isShrinkResources = false
             isMinifyEnabled = true
-            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        getByName("debug") {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = " DEBUG"
         }
     }
 }
