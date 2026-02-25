@@ -86,7 +86,9 @@ class PdfGenerator {
             maxWidth: 300,
             quality: 50,
           );
-          visualMedia.add(_VisualMedia(thumbnail!, true));
+          if (thumbnail != null) {
+            visualMedia.add(_VisualMedia(thumbnail, true));
+          }
         } else {
           visualMedia.add(_VisualMedia(await file.readAsBytes(), false));
         }
@@ -102,7 +104,9 @@ class PdfGenerator {
           maxWidth: 300,
           quality: 50,
         );
-        visualMedia.add(_VisualMedia(thumbnail!, true));
+        if (thumbnail != null) {
+          visualMedia.add(_VisualMedia(thumbnail, true));
+        }
       } else {
         visualMedia.add(_VisualMedia(await file.readAsBytes(), false));
       }
@@ -272,8 +276,8 @@ class PdfGenerator {
         continue;
       }
 
-      pw.Widget lineWidget =
-          pw.RichText(text: pw.TextSpan(children: line.spans));
+      final lineWidget = pw.RichText(text: pw.TextSpan(children: line.spans));
+      pw.Widget finalWidget = lineWidget;
 
       final attributes = line.attributes;
       final currentListType = attributes?['list'] as String?;
@@ -285,7 +289,7 @@ class PdfGenerator {
 
       if (attributes != null) {
         if (attributes['blockquote'] == true) {
-          lineWidget = pw.Container(
+          finalWidget = pw.Container(
             padding: const pw.EdgeInsets.only(left: 10, top: 4, bottom: 4),
             decoration: const pw.BoxDecoration(
               border: pw.Border(
@@ -297,7 +301,7 @@ class PdfGenerator {
         }
 
         if (attributes['list'] == 'bullet') {
-          lineWidget = pw.Row(
+          finalWidget = pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.SizedBox(
@@ -313,7 +317,7 @@ class PdfGenerator {
         }
 
         if (attributes['list'] == 'ordered') {
-          lineWidget = pw.Row(
+          finalWidget = pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.SizedBox(
@@ -328,7 +332,7 @@ class PdfGenerator {
           );
         }
       }
-      contentWidgets.add(lineWidget);
+      contentWidgets.add(finalWidget);
       if (attributes != null && attributes.containsKey('header')) {
         contentWidgets.add(pw.SizedBox(height: 8));
       }

@@ -56,7 +56,6 @@ class CustomToast {
         backgroundColor: finalBackgroundColor,
         margin: EdgeInsets.symmetric(horizontal: 24.w, vertical: 50.h),
         borderRadius: 25.r,
-        duration: duration,
         snackPosition: SnackPosition.BOTTOM,
       );
     }
