@@ -3,15 +3,14 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../../core/constants.dart';
-import '../../core/theme.dart';
-import '../../utils/foss_location.dart';
-import 'custom_button.dart';
+import 'package:open_jot/app/core/constants.dart';
+import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/utils/foss_location.dart';
+import 'package:open_jot/app/core/widgets/custom_button.dart';
 
 // Animation Helper: A custom Tween for animating between two LatLng points.
 class LatLngTween extends Tween<LatLng> {
-  LatLngTween({required LatLng begin, required LatLng end})
-      : super(begin: begin, end: end);
+  LatLngTween({required super.begin, required super.end});
 
   @override
   LatLng lerp(double t) {
@@ -23,16 +22,16 @@ class LatLngTween extends Tween<LatLng> {
 }
 
 class LocationMapView extends StatefulWidget {
-  final ScrollController scrollController;
-  final Function(LatLng location)? onLocationSelected;
-  final LatLng? initialLocation;
-
   const LocationMapView({
     super.key,
     required this.scrollController,
     this.onLocationSelected,
     this.initialLocation,
   });
+
+  final ScrollController scrollController;
+  final Function(LatLng location)? onLocationSelected;
+  final LatLng? initialLocation;
 
   @override
   State<LocationMapView> createState() => _LocationMapViewState();
@@ -71,7 +70,7 @@ class _LocationMapViewState extends State<LocationMapView>
             widget.initialLocation!.latitude - _latitudeOffset,
             widget.initialLocation!.longitude - _longitudeOffset,
           );
-          _animatedMapMove(mapCenter, 18.0);
+          _animatedMapMove(mapCenter, 18);
         }
       });
     } else {
@@ -87,9 +86,9 @@ class _LocationMapViewState extends State<LocationMapView>
 
   void _animatedMapMove(LatLng destLocation, double destZoom) {
     final latTween =
-    LatLngTween(begin: _mapController.camera.center, end: destLocation);
+        LatLngTween(begin: _mapController.camera.center, end: destLocation);
     final zoomTween =
-    Tween<double>(begin: _mapController.camera.zoom, end: destZoom);
+        Tween<double>(begin: _mapController.camera.zoom, end: destZoom);
 
     final animation = CurvedAnimation(
       parent: _animationController,
@@ -120,7 +119,7 @@ class _LocationMapViewState extends State<LocationMapView>
   Future<void> _checkPermissionAndFetch({bool moveMap = true}) async {
     final granted = await FossLocation.requestPermission();
     if (granted) {
-      _getCurrentLocation(moveMap: moveMap);
+      await _getCurrentLocation(moveMap: moveMap);
     } else {
       if (mounted) {
         setState(() {
@@ -157,7 +156,7 @@ class _LocationMapViewState extends State<LocationMapView>
             _isLoading = false;
           });
           if (moveMap) {
-            _animatedMapMove(mapCenter, 18.0);
+            _animatedMapMove(mapCenter, 18);
           }
         }
       } else {
@@ -203,7 +202,7 @@ class _LocationMapViewState extends State<LocationMapView>
       return false;
     }
     return (_selectedLocation!.latitude.toStringAsFixed(5) ==
-        _currentLocation!.latitude.toStringAsFixed(5) &&
+            _currentLocation!.latitude.toStringAsFixed(5) &&
         _selectedLocation!.longitude.toStringAsFixed(5) ==
             _currentLocation!.longitude.toStringAsFixed(5));
   }
@@ -215,7 +214,7 @@ class _LocationMapViewState extends State<LocationMapView>
     if (_permissionMessage != null) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(16),
           child: Text(
             _permissionMessage!,
             textAlign: TextAlign.center,
@@ -244,14 +243,14 @@ class _LocationMapViewState extends State<LocationMapView>
                     mapController: _mapController,
                     options: MapOptions(
                       initialCenter:
-                      _selectedLocation ?? const LatLng(20.5937, 78.9629),
-                      initialZoom: _selectedLocation != null ? 18.0 : 10.0,
+                          _selectedLocation ?? const LatLng(20.5937, 78.9629),
+                      initialZoom: _selectedLocation != null ? 18 : 10,
                       onTap: _handleTap,
                     ),
                     children: [
                       TileLayer(
                         urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                         userAgentPackageName: 'org.thegandabherunda.openjot',
                       ),
                       if (_selectedLocation != null)
@@ -263,12 +262,14 @@ class _LocationMapViewState extends State<LocationMapView>
                               point: _selectedLocation!,
                               child: TweenAnimationBuilder<double>(
                                 key: ValueKey(_selectedLocation),
-                                tween: Tween(begin: 0.3, end: 1.0),
+                                tween: Tween(begin: 0.3, end: 1),
                                 duration: const Duration(milliseconds: 500),
                                 curve: Curves.easeOutBack,
                                 builder: (context, scale, child) {
                                   return Transform.scale(
-                                      scale: scale, child: child);
+                                    scale: scale,
+                                    child: child,
+                                  );
                                 },
                                 child: Icon(
                                   Icons.location_pin,
@@ -294,42 +295,42 @@ class _LocationMapViewState extends State<LocationMapView>
           right: 8.w,
           child: FloatingActionButton(
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(50.0),
+              borderRadius: BorderRadius.circular(50),
             ),
             heroTag: 'current_location_btn',
             backgroundColor: colors.grey6,
             foregroundColor: colors.grey10,
             elevation: 0,
             onPressed:
-            _isLoading ? null : () => _getCurrentLocation(moveMap: true),
+                _isLoading ? null : () => _getCurrentLocation(moveMap: true),
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
               transitionBuilder: (child, animation) {
                 return FadeTransition(
                   opacity: animation,
                   child: ScaleTransition(
-                      scale:
-                      Tween<double>(begin: 0.8, end: 1.0).animate(animation),
-                      child: child),
+                    scale: Tween<double>(begin: 0.8, end: 1).animate(animation),
+                    child: child,
+                  ),
                 );
               },
               child: _isLoading
                   ? SizedBox(
-                key: const ValueKey('loader'),
-                width: 24.w,
-                height: 24.h,
-                child: CircularProgressIndicator(
-                  color: colors.grey10,
-                  strokeWidth: 2,
-                ),
-              )
+                      key: const ValueKey('loader'),
+                      width: 24.w,
+                      height: 24.h,
+                      child: CircularProgressIndicator(
+                        color: colors.grey10,
+                        strokeWidth: 2,
+                      ),
+                    )
                   : Icon(
-                key: ValueKey(_isSelectedLocationCurrentUserLocation()),
-                _isSelectedLocationCurrentUserLocation()
-                    ? Icons.my_location_rounded
-                    : Icons.location_searching_rounded,
-                size: 24.sp,
-              ),
+                      key: ValueKey(_isSelectedLocationCurrentUserLocation()),
+                      _isSelectedLocationCurrentUserLocation()
+                          ? Icons.my_location_rounded
+                          : Icons.location_searching_rounded,
+                      size: 24.sp,
+                    ),
             ),
           ),
         ),
@@ -341,7 +342,7 @@ class _LocationMapViewState extends State<LocationMapView>
           right: 0,
           child: AnimatedOpacity(
             duration: const Duration(milliseconds: 400),
-            opacity: _selectedLocation != null ? 1.0 : 0.0,
+            opacity: _selectedLocation != null ? 1 : 0,
             child: Center(
               child: CustomButton(
                 onPressed: _addLocation,
@@ -352,7 +353,7 @@ class _LocationMapViewState extends State<LocationMapView>
                 color: colors.grey8,
                 textColor: colors.grey10,
                 textPadding:
-                EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+                    EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
               ),
             ),
           ),
