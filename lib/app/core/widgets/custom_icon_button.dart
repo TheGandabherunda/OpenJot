@@ -46,7 +46,7 @@ class _CustomIconButtonState extends State<CustomIconButton> {
     // Determine the effective padding, using a fixed value for better control
     final effectiveIconPadding =
         widget.iconPadding ??
-        EdgeInsets.all(16.0); // Further reduced padding to 10.0
+            const EdgeInsets.all(16.0); // Added const here to improve performance
 
     return GestureDetector(
       onTapDown: (_) {

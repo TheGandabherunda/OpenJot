@@ -86,9 +86,9 @@ class _LocationMapViewState extends State<LocationMapView>
 
   void _animatedMapMove(LatLng destLocation, double destZoom) {
     final latTween =
-        LatLngTween(begin: _mapController.camera.center, end: destLocation);
+    LatLngTween(begin: _mapController.camera.center, end: destLocation);
     final zoomTween =
-        Tween<double>(begin: _mapController.camera.zoom, end: destZoom);
+    Tween<double>(begin: _mapController.camera.zoom, end: destZoom);
 
     final animation = CurvedAnimation(
       parent: _animationController,
@@ -201,10 +201,11 @@ class _LocationMapViewState extends State<LocationMapView>
     if (_selectedLocation == null || _currentLocation == null) {
       return false;
     }
-    return (_selectedLocation!.latitude.toStringAsFixed(5) ==
-            _currentLocation!.latitude.toStringAsFixed(5) &&
+    // Removed the unnecessary parentheses here
+    return _selectedLocation!.latitude.toStringAsFixed(5) ==
+        _currentLocation!.latitude.toStringAsFixed(5) &&
         _selectedLocation!.longitude.toStringAsFixed(5) ==
-            _currentLocation!.longitude.toStringAsFixed(5));
+            _currentLocation!.longitude.toStringAsFixed(5);
   }
 
   @override
@@ -243,14 +244,14 @@ class _LocationMapViewState extends State<LocationMapView>
                     mapController: _mapController,
                     options: MapOptions(
                       initialCenter:
-                          _selectedLocation ?? const LatLng(20.5937, 78.9629),
+                      _selectedLocation ?? const LatLng(20.5937, 78.9629),
                       initialZoom: _selectedLocation != null ? 18 : 10,
                       onTap: _handleTap,
                     ),
                     children: [
                       TileLayer(
                         urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                         userAgentPackageName: 'org.thegandabherunda.openjot',
                       ),
                       if (_selectedLocation != null)
@@ -302,7 +303,7 @@ class _LocationMapViewState extends State<LocationMapView>
             foregroundColor: colors.grey10,
             elevation: 0,
             onPressed:
-                _isLoading ? null : () => _getCurrentLocation(moveMap: true),
+            _isLoading ? null : () => _getCurrentLocation(moveMap: true),
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
               transitionBuilder: (child, animation) {
@@ -316,21 +317,21 @@ class _LocationMapViewState extends State<LocationMapView>
               },
               child: _isLoading
                   ? SizedBox(
-                      key: const ValueKey('loader'),
-                      width: 24.w,
-                      height: 24.h,
-                      child: CircularProgressIndicator(
-                        color: colors.grey10,
-                        strokeWidth: 2,
-                      ),
-                    )
+                key: const ValueKey('loader'),
+                width: 24.w,
+                height: 24.h,
+                child: CircularProgressIndicator(
+                  color: colors.grey10,
+                  strokeWidth: 2,
+                ),
+              )
                   : Icon(
-                      key: ValueKey(_isSelectedLocationCurrentUserLocation()),
-                      _isSelectedLocationCurrentUserLocation()
-                          ? Icons.my_location_rounded
-                          : Icons.location_searching_rounded,
-                      size: 24.sp,
-                    ),
+                key: ValueKey(_isSelectedLocationCurrentUserLocation()),
+                _isSelectedLocationCurrentUserLocation()
+                    ? Icons.my_location_rounded
+                    : Icons.location_searching_rounded,
+                size: 24.sp,
+              ),
             ),
           ),
         ),
@@ -353,7 +354,7 @@ class _LocationMapViewState extends State<LocationMapView>
                 color: colors.grey8,
                 textColor: colors.grey10,
                 textPadding:
-                    EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+                EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
               ),
             ),
           ),

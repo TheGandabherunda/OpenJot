@@ -565,7 +565,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                             _buildMediaCell(entriesForDay),
                           if (_selectedCalendarType == CalendarType.mood && hasJournalEntry)
                             _buildMoodCell(entriesForDay),
-                          
+
                           Container(
                             width: 32.w,
                             height: 32.w,
@@ -593,7 +593,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                                 shadows: _selectedCalendarType != CalendarType.standard && hasJournalEntry ? [
                                   const Shadow(
                                     color: Colors.black,
-                                    offset: Offset(0, 0),
+                                    offset: Offset.zero, // Fixed offset constructor
                                     blurRadius: 4,
                                   )
                                 ] : null,
@@ -784,7 +784,7 @@ class EntriesForDateBottomSheet extends StatelessWidget {
                         onTap: () => _onEntryTap(context, entry),
                       ),
                     );
-                  }).toList(),
+                  }), // Removed .toList() to fix unnecessary to_list warning
                 ],
               );
             },

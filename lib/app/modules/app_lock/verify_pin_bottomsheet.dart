@@ -10,7 +10,7 @@ class VerifyPinBottomSheet extends StatefulWidget {
   const VerifyPinBottomSheet({super.key});
 
   @override
-  _VerifyPinBottomSheetState createState() => _VerifyPinBottomSheetState();
+  State<VerifyPinBottomSheet> createState() => _VerifyPinBottomSheetState(); // Changed return type to avoid exposing private type
 }
 
 class _VerifyPinBottomSheetState extends State<VerifyPinBottomSheet> {

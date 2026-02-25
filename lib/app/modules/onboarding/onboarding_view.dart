@@ -155,12 +155,11 @@ class _OnboardingContent extends StatelessWidget {
 class _AnimatedElement extends StatefulWidget {
   final Widget child;
   final Duration delay;
-  final Duration duration;
+  // Removed unused 'duration' parameter
 
   const _AnimatedElement({
     required this.child,
     required this.delay,
-    this.duration = const Duration(milliseconds: 800),
   });
 
   @override
@@ -179,7 +178,7 @@ class _AnimatedElementState extends State<_AnimatedElement>
     super.initState();
 
     _controller = AnimationController(
-      duration: widget.duration,
+      duration: const Duration(milliseconds: 800), // Value hardcoded instead
       vsync: this,
     );
 
