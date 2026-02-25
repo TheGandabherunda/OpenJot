@@ -48,7 +48,7 @@ jobs:
           ./gradlew assembleGithubDebug
 
       # Upload universal generated apk to the artifacts.
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: OpenJot-debug.apk
           path: build/app/outputs/apk/github/debug/app-github-debug.apk

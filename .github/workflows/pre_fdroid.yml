@@ -45,10 +45,10 @@ jobs:
 
       # Get flutter dependencies.
       - run: flutter pub get
-      
+
       # Statically analyze the Dart code for any errors.
       - run: flutter analyze .
-      
+
       # Build universal apk natively using Gradle with robust wrapper checks.
       - name: Build universal apk natively using Gradle
         run: |
@@ -60,16 +60,8 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleFdroidRelease
 
-      # Release universal Fdroid pre-release apk.
-      - uses: svenstaro/upload-release-action@v2
+      # Upload universal Fdroid pre-release apk.
+      - uses: actions/upload-artifact@v4
         with:
-          repo_name: thegandabherunda/OpenJot
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: build/app/outputs/apk/fdroid/release/app-fdroid-release.apk
-          asset_name: OpenJot_fdroid.apk
-          tag: "fdroid-pre-release"
-          prerelease: true
-          overwrite: true
-          body: "**New OpenJot Fdroid Pre-Release!** \n
-          with pre-release / [BETA] builds you have access to the latest build of the app before it is released as stable-release version. Only use pre-release if you test the app, provide feedback, and help us improve its performance. Please note that pre-release versions of the app may be pretty unstable. You may experience crashes, bugs, or other issues while using the app. This is because pre-release version is still in development.
-          "
+          name: OpenJot_fdroid.apk
+          path: build/app/outputs/apk/fdroid/release/app-fdroid-release.apk

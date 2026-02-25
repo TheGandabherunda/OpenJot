@@ -76,13 +76,8 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleFdroidRelease
 
-      # Release universal Fdroid apk.
-      - uses: svenstaro/upload-release-action@v2
+      # Upload universal Fdroid apk as an artifact.
+      - uses: actions/upload-artifact@v4
         with:
-          repo_name: thegandabherunda/OpenJot
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: build/app/outputs/apk/fdroid/release/app-fdroid-release.apk
-          asset_name: OpenJot-fdroid.apk
-          tag: ${{ steps.extract_version.outputs.version }}
-          prerelease: false
-          overwrite: true
+          name: OpenJot-fdroid.apk
+          path: build/app/outputs/apk/fdroid/release/app-fdroid-release.apk
