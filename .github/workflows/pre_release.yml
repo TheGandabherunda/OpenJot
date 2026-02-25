@@ -56,9 +56,9 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleGithubRelease -Ptarget-platform=android-arm64
 
-      # Upload arm64 generated APK
+      # Upload arm64 generated APK using native path
       - name: Upload arm64 APK
         uses: actions/upload-artifact@v4
         with:
           name: OpenJot-arm64-v8a.apk
-          path: build/app/outputs/apk/github/release/app-arm64-v8a-github-release.apk
+          path: android/app/build/outputs/apk/github/release/*.apk

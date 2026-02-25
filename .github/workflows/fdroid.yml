@@ -76,8 +76,8 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleFdroidRelease
 
-      # Upload universal Fdroid apk as an artifact.
+      # Upload universal Fdroid apk using native path
       - uses: actions/upload-artifact@v4
         with:
           name: OpenJot-fdroid.apk
-          path: build/app/outputs/apk/fdroid/release/app-fdroid-release.apk
+          path: android/app/build/outputs/apk/fdroid/release/*.apk

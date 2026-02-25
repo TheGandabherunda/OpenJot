@@ -64,4 +64,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: OpenJot_fdroid.apk
-          path: build/app/outputs/apk/fdroid/release/app-fdroid-release.apk
+          path: android/app/build/outputs/apk/fdroid/release/*.apk

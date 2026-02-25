@@ -80,12 +80,16 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleGithubRelease -Ptarget-platform=android-arm64
 
-      # Upload arm64 generated APK
+      # Upload arm64 generated APK using native path
       - name: Upload arm64 APK
         uses: actions/upload-artifact@v4
         with:
           name: OpenJot-arm64-v8a.apk
-          path: build/app/outputs/apk/github/release/app-arm64-v8a-github-release.apk
+          path: android/app/build/outputs/apk/github/release/*.apk
+
+      # Clean the release directory to prevent the universal artifact from grabbing the arm64 one
+      - name: Clean release directory
+        run: rm -rf android/app/build/outputs/apk/github/release/*.apk
 
       # Build universal APK natively using Gradle
       - name: Build universal APK natively using Gradle
@@ -93,9 +97,9 @@ jobs:
           cd android
           ./gradlew assembleGithubRelease
 
-      # Upload universal generated APK
+      # Upload universal generated APK using native path
       - name: Upload universal APK
         uses: actions/upload-artifact@v4
         with:
           name: OpenJot.apk
-          path: build/app/outputs/apk/github/release/app-github-release.apk
+          path: android/app/build/outputs/apk/github/release/*.apk
