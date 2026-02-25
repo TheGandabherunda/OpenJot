@@ -47,7 +47,7 @@ jobs:
       # Statically analyze the Dart code for any errors.
       - run: flutter analyze .
       # Build universal apk.
-      - run: flutter build apk --release --flavor fdroid -t lib/main_fdroid.dart
+      - run: flutter build apk --release --flavor fdroid -t lib/main.dart
       # Release universal Fdroid pre-release apk.
       - uses: svenstaro/upload-release-action@v2
         with:
