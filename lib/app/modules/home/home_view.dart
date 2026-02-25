@@ -111,7 +111,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     );
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0.0, -1.2),
-      end: const Offset(0.0, 0.0),
+      end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _slideAnimationController,
       curve: Curves.easeOutCubic,
@@ -844,10 +844,10 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
 
 class TappablePopupMenuEntry extends PopupMenuEntry<Never> {
   const TappablePopupMenuEntry({
-    Key? key,
+    super.key,
     required this.onTap,
     required this.child,
-  }) : super(key: key);
+  });
 
   @override
   final double height = kMinInteractiveDimension;

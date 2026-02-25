@@ -55,21 +55,23 @@ class HiveService extends GetxService {
   // --- Settings Box Methods ---
   bool get isFirstLaunch =>
       settingsBox.get(AppConstants.isFirstLaunchKey, defaultValue: true);
-  Future<void> setFirstLaunch(bool value) async =>
-      await settingsBox.put(AppConstants.isFirstLaunchKey, value);
+  Future<void> setFirstLaunch(bool value) =>
+      settingsBox.put(AppConstants.isFirstLaunchKey, value);
+
   String get theme =>
       settingsBox.get(AppConstants.themeKey, defaultValue: 'System');
-  Future<void> setTheme(String theme) async =>
-      await settingsBox.put(AppConstants.themeKey, theme);
+  Future<void> setTheme(String theme) =>
+      settingsBox.put(AppConstants.themeKey, theme);
+
   bool get dailyReminder =>
       settingsBox.get(AppConstants.dailyReminderKey, defaultValue: false);
-  Future<void> setDailyReminder(bool value) async =>
-      await settingsBox.put(AppConstants.dailyReminderKey, value);
+  Future<void> setDailyReminder(bool value) =>
+      settingsBox.put(AppConstants.dailyReminderKey, value);
 
   bool get onThisDay =>
       settingsBox.get(AppConstants.onThisDayKey, defaultValue: false);
-  Future<void> setOnThisDay(bool value) async =>
-      await settingsBox.put(AppConstants.onThisDayKey, value);
+  Future<void> setOnThisDay(bool value) =>
+      settingsBox.put(AppConstants.onThisDayKey, value);
 
   TimeOfDay? get reminderTime {
     final timeString = settingsBox.get(AppConstants.reminderTimeKey);
@@ -78,19 +80,22 @@ class HiveService extends GetxService {
     return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
   }
 
-  Future<void> setReminderTime(TimeOfDay time) async => await settingsBox
+  Future<void> setReminderTime(TimeOfDay time) => settingsBox
       .put(AppConstants.reminderTimeKey, '${time.hour}:${time.minute}');
+
   bool get appLockEnabled =>
       settingsBox.get(AppConstants.appLockEnabledKey, defaultValue: false);
-  Future<void> setAppLock(bool value) async =>
-      await settingsBox.put(AppConstants.appLockEnabledKey, value);
+  Future<void> setAppLock(bool value) =>
+      settingsBox.put(AppConstants.appLockEnabledKey, value);
+
   String? get appLockPin => settingsBox.get(AppConstants.appLockPinKey);
-  Future<void> setAppLockPin(String pin) async =>
-      await settingsBox.put(AppConstants.appLockPinKey, pin);
+  Future<void> setAppLockPin(String pin) =>
+      settingsBox.put(AppConstants.appLockPinKey, pin);
 
   // --- Journals Box Methods ---
-  Future<void> addJournalEntry(JournalEntry entry) async =>
-      await journalsBox.put(entry.id, entry);
+  Future<void> addJournalEntry(JournalEntry entry) =>
+      journalsBox.put(entry.id, entry);
+
   Future<void> updateJournalEntry(JournalEntry entry) async {
     final isTextEmpty = entry.content.toPlainText().trim().isEmpty;
     final isMediaEmpty = entry.galleryImages.isEmpty &&
@@ -105,8 +110,9 @@ class HiveService extends GetxService {
     }
   }
 
-  Future<void> deleteJournalEntry(String id) async =>
-      await journalsBox.delete(id);
+  Future<void> deleteJournalEntry(String id) =>
+      journalsBox.delete(id);
+
   List<JournalEntry> getAllJournalEntries() => journalsBox.values.toList();
   ValueListenable<Box<JournalEntry>> getJournalEntriesNotifier() =>
       journalsBox.listenable();
@@ -181,12 +187,12 @@ class HiveService extends GetxService {
           try {
             final sourceFile = File(originalPath);
             if (!await sourceFile.exists()) return;
-            
+
             final bytes = await sourceFile.readAsBytes();
             final backupFileName = '${entry.id}-${p.basename(originalPath)}';
-            
+
             archive.addFile(ArchiveFile('media/$backupFileName', bytes.length, bytes));
-            
+
             entryManifest[type]!.add({
               AppConstants.idKey: id,
               AppConstants.backupFileNameKey: backupFileName
@@ -238,7 +244,7 @@ class HiveService extends GetxService {
 
       // 5. Save Zip file
       final backupFileName = '${AppConstants.backupFileNamePrefix}${DateTime.now().toIso8601String().replaceAll(':', '-')}${AppConstants.backupFileExtension}';
-      
+
       final String? selectedPath = await FilePicker.platform.saveFile(
         dialogTitle: AppConstants.selectBackupFolder,
         fileName: backupFileName,
@@ -298,7 +304,7 @@ class HiveService extends GetxService {
 
       // Close Hive before replacing files
       await Hive.close();
-      
+
       for (var boxName in [AppConstants.journalsBoxName, AppConstants.settingsBoxName]) {
         final tempBoxFile = File(p.join(tempDir.path, '$boxName${AppConstants.hiveExtension}'));
         if (await tempBoxFile.exists()) {
@@ -306,7 +312,7 @@ class HiveService extends GetxService {
           debugPrint("Restored Hive box file: $boxName");
         }
       }
-      
+
       // Re-initialize Hive and open boxes
       await init();
 
@@ -384,10 +390,10 @@ class HiveService extends GetxService {
       }
 
       await tempDir.delete(recursive: true);
-      
+
       // Force reload UI
       await Get.find<HomeController>().loadJournalEntries();
-      
+
       CustomToast.showToast(AppConstants.restoreSuccess);
       return true;
     } catch (e) {
