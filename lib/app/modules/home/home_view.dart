@@ -230,6 +230,21 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
+          value: 'bookmarks',
+          child: Row(
+            children: [
+              Icon(Icons.bookmark_outline_rounded, color: appThemeColors.grey10),
+              SizedBox(width: 8.w),
+              Text(AppConstants.bookmark,
+                  style: TextStyle(
+                      color: appThemeColors.grey10,
+                      fontFamily: AppConstants.font,
+                      letterSpacing: -0.2)),
+            ],
+          ),
+        ),
+        PopupMenuDivider(height: 1, color: appThemeColors.grey6),
+        PopupMenuItem(
           value: 'insights',
           child: Row(
             children: [
@@ -276,7 +291,9 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         ),
       ],
     ).then((value) {
-      if (value == 'insights') {
+      if (value == 'bookmarks') {
+        Get.to(() => const SearchView(initialBookmarked: true));
+      } else if (value == 'insights') {
         _handleInsights();
       } else if (value == 'reflections') {
         _handleReflections();

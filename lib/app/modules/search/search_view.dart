@@ -14,7 +14,8 @@ import 'package:open_jot/app/modules/read_journal/read_journal_bottom_sheet.dart
 import '../../core/models/journal_entry.dart';
 
 class SearchView extends StatefulWidget {
-  const SearchView({super.key});
+  final bool initialBookmarked;
+  const SearchView({super.key, this.initialBookmarked = false});
 
   @override
   State<SearchView> createState() => _SearchViewState();
@@ -36,6 +37,7 @@ class _SearchViewState extends State<SearchView> {
   @override
   void initState() {
     super.initState();
+    _isBookmarked = widget.initialBookmarked;
     _applyFilters();
     _searchController.addListener(_onSearchChanged);
 
@@ -283,4 +285,3 @@ class _SearchViewState extends State<SearchView> {
     );
   }
 }
-

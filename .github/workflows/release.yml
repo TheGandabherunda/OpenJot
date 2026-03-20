@@ -85,11 +85,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: OpenJot-github-splits
-          path: android/app/build/outputs/apk/github/release/*.apk
+          path: build/app/outputs/apk/github/release/*.apk
 
       # Clean the release directory to prevent the universal artifact from grabbing the splits
       - name: Clean release directory
-        run: rm -rf android/app/build/outputs/apk/github/release/*.apk
+        run: rm -rf build/app/outputs/apk/github/release/*.apk
 
       # Build universal APK natively using Gradle
       - name: Build universal APK natively using Gradle
@@ -102,4 +102,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: OpenJot-github-universal
-          path: android/app/build/outputs/apk/github/release/*.apk
+          path: build/app/outputs/apk/github/release/*.apk
