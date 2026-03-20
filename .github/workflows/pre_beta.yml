@@ -51,4 +51,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: OpenJot-debug.apk
-          path: android/app/build/outputs/apk/github/debug/*.apk
+          path: ${{ github.workspace }}/build/app/outputs/apk/github/debug/*.apk
