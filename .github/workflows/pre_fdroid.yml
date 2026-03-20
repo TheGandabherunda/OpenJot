@@ -65,11 +65,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: OpenJot-fdroid-splits
-          path: android/app/build/outputs/apk/fdroid/release/*.apk
+          path: ${{ github.workspace }}/build/app/outputs/apk/fdroid/release/*.apk
 
       # Clean release directory to prevent the universal artifact from grabbing splits
       - name: Clean release directory
-        run: rm -rf android/app/build/outputs/apk/fdroid/release/*.apk
+        run: rm -rf ${{ github.workspace }}/build/app/outputs/apk/fdroid/release/*.apk
 
       # Build universal APK natively using Gradle
       - name: Build universal apk natively using Gradle
@@ -82,4 +82,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: OpenJot-fdroid-universal
-          path: android/app/build/outputs/apk/fdroid/release/*.apk
+          path: ${{ github.workspace }}/build/app/outputs/apk/fdroid/release/*.apk
