@@ -1,45 +1,38 @@
+name: Android Release Build
+
 on:
-  workflow_dispatch:
-
-name: Test, Build and Release apk
-
-env:
-  PROPERTIES_PATH: './android/key.properties'
+  workflow_dispatch: # This makes the workflow runnable manually from the GitHub Actions UI
+    inputs:
+      branch:
+        description: 'Branch to build from'
+        required: true
+        default: 'main'
 
 jobs:
-  build:
-    name: Build APK
+  build_android_apk:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
 
-      # Extract version from commit message
-      - name: Extract version
-        id: extract_version
-        run: |
-          version=$(echo ${{ github.event.head_commit.message }} | grep -oP '(?<=Update: v)\d+\.\d+\.\d+' || echo "0.0.0")
-          echo "version=${version}" >> $GITHUB_OUTPUT
-
-      # Setup Java environment in order to build the Android app.
-      - name: Set up Java
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17.x'
+          java-version: '17'
 
-      # Setup the Flutter environment.
-      - run: |
-          pip install -U yq
-          echo "FLUTTER_VERSION=$(yq -r .environment.flutter pubspec.yaml | sed 's/\^//g')" >> $GITHUB_ENV
-      - uses: subosito/flutter-action@v2
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
-          flutter-version: "${{ env.FLUTTER_VERSION }}"
+          flutter-version: '3.32.4' # Or flutter-version-file: pubspec.yaml
 
-      # Get Flutter dependencies
-      - name: Get Flutter dependencies
+      - name: Display Flutter Version
+        run: flutter --version
+
+      - name: Install Dependencies
         run: flutter pub get
 
       # --- Signing setup ---
@@ -53,41 +46,24 @@ jobs:
           echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> android/key.properties
           echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/key.properties
 
-      # Statically analyze the Dart code for any errors
-      - name: Analyze Dart code
-        run: flutter analyze .
-
-      # Build Split APKs natively using Gradle
-      - name: Build Split APKs natively using Gradle
+      - name: Build Android APK (Release)
         run: |
-          cd android
-          if [ ! -f "gradlew" ]; then
-            gradle wrapper
-          fi
-          sed -i 's/\r$//' gradlew
-          chmod +x gradlew
-          ./gradlew assembleGithubRelease -Psplit-per-abi=true
+          flutter build apk --release
+          flutter build apk --release --split-per-abi
 
-      # Upload Split generated APKs
-      - name: Upload Split APKs
+      - name: Show APK Version Info
+        run: |
+          AaptPath=$(ls ${ANDROID_HOME}/build-tools/*/aapt | sort -V | tail -n 1)
+          echo "Using aapt from: $AaptPath"
+
+          for apk in build/app/outputs/flutter-apk/*.apk; do
+            echo ""
+            echo "APK: $apk"
+            $AaptPath dump badging "$apk" | grep versionCode
+          done
+
+      - name: Upload Android APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OpenJot-github-splits
-          path: ${{ github.workspace }}/build/app/outputs/apk/github/release/*.apk
-
-      # Clean the release directory to prevent the universal artifact from grabbing the splits
-      - name: Clean release directory
-        run: rm -rf ${{ github.workspace }}/build/app/outputs/apk/github/release/*.apk
-
-      # Build universal APK natively using Gradle
-      - name: Build universal APK natively using Gradle
-        run: |
-          cd android
-          ./gradlew assembleGithubRelease
-
-      # Upload universal generated APK using native path
-      - name: Upload universal APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: OpenJot-github-universal
-          path: ${{ github.workspace }}/build/app/outputs/apk/github/release/*.apk
+          name: app-release-apk
+          path: build/app/outputs/flutter-apk/
