@@ -1,0 +1,13 @@
+<p><b>OpenJot</b> is a minimal, open-source journaling app designed to help you capture your thoughts, moments, and ideas securely on your device.</p>
+
+<p><b>Key Features:</b></p>
+<ul>
+  <li><b>📝 Rich Text Editing:</b> Express yourself with a powerful editor supporting styles and formatting.</li>
+  <li><b>🖼️ Media Support:</b> Attach photos, videos, and voice recordings to your entries.</li>
+  <li><b>🔒 Privacy First:</b> Your data stays on your device. Secure your journal with biometric authentication.</li>
+  <li><b>📍 Location Tagging:</b> Remember where your memories happened with integrated maps.</li>
+  <li><b>📂 Export & Print:</b> Save your entries as PDF or print them directly from the app.</li>
+  <li><b>🎨 Beautiful UI:</b> A clean, distraction-free interface with a focus on typography and ease of use.</li>
+</ul>
+
+<p>OpenJot is completely offline and respects your privacy. No tracking, no cloud syncing, just you and your thoughts.</p>

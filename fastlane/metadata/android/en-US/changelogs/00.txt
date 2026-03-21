@@ -1,0 +1,6 @@
+• Initial release of OpenJot!
+• Secure, minimal, and open-source journaling.
+• Rich text editing with support for images, videos, and audio.
+• Location tagging and integrated maps.
+• Biometric lock for your privacy.
+• Export your entries to PDF.

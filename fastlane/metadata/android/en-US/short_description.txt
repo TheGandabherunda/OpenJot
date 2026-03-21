@@ -1,0 +1,1 @@
+A minimal and open-source journaling app to capture your thoughts and ideas.
