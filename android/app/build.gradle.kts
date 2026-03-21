@@ -8,7 +8,6 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
-
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -16,7 +15,7 @@ plugins {
 }
 
 android {
-    namespace = "org.projectsolutus.pomozen"
+    namespace = "org.thegandabherunda.openjot"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 
@@ -35,7 +34,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "org.projectsolutus.pomozen"
+        applicationId = "org.thegandabherunda.openjot"
         minSdk = 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
