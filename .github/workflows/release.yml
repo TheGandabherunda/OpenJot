@@ -1,7 +1,5 @@
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 name: Test, Build and Release apk
 
@@ -11,7 +9,6 @@ env:
 jobs:
   build:
     name: Build APK
-    if: "contains(github.event.head_commit.message, 'Update:')"
     runs-on: ubuntu-latest
 
     steps:
@@ -22,7 +19,7 @@ jobs:
       - name: Extract version
         id: extract_version
         run: |
-          version=$(echo ${{ github.event.head_commit.message }} | grep -oP '(?<=Update: v)\d+\.\d+\.\d+')
+          version=$(echo ${{ github.event.head_commit.message }} | grep -oP '(?<=Update: v)\d+\.\d+\.\d+' || echo "0.0.0")
           echo "version=${version}" >> $GITHUB_OUTPUT
 
       # Setup Java environment in order to build the Android app.

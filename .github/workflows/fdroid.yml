@@ -2,9 +2,6 @@ name: Test, Build and Release Fdroid apk
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 env:
   PROPERTIES_PATH: './android/key.properties'
@@ -13,7 +10,6 @@ jobs:
   build:
     name: Build APK
     runs-on: ubuntu-latest
-    if: "contains(github.event.head_commit.message, 'Update:')"
 
     steps:
       - uses: actions/checkout@v4
@@ -22,7 +18,7 @@ jobs:
       - name: Extract version
         id: extract_version
         run: |
-          version=$(echo ${{ github.event.head_commit.message }} | grep -oP '(?<=Update: v)\d+\.\d+\.\d+')
+          version=$(echo ${{ github.event.head_commit.message }} | grep -oP '(?<=Update: v)\d+\.\d+\.\d+' || echo "0.0.0")
           echo "version=${version}" >> $GITHUB_OUTPUT
 
       # Setup Java environment in order to build the Android app.
