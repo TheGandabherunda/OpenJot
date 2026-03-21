@@ -29,17 +29,6 @@ jobs:
           distribution: 'zulu'
           java-version: '17.x'
 
-      # Gradle cache for faster builds
-      - name: Cache Gradle dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
       # Setup the Flutter environment.
       - run: |
           pip install -U yq
@@ -49,18 +38,20 @@ jobs:
           channel: 'stable'
           flutter-version: "${{ env.FLUTTER_VERSION }}"
 
-      # Setup keystore properties
-      - run: |
-          echo keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }} > ${{env.PROPERTIES_PATH}}
-          echo storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} >> ${{env.PROPERTIES_PATH}}
-          echo keyAlias=${{ secrets.ANDROID_KEY_ALIAS }} >> ${{env.PROPERTIES_PATH}}
-
-      # Decode Keystore
-      - run: echo "${{ secrets.ANDROID_UPLOAD_KEYSTORE }}" | base64 --decode > android/app/key.jks
-
       # Get Flutter dependencies
       - name: Get Flutter dependencies
         run: flutter pub get
+
+      # --- Signing setup ---
+      - name: Decode Keystore File
+        run: echo "${{ secrets.ANDROID_UPLOAD_KEYSTORE }}" | base64 --decode > android/app/release-key.jks
+
+      - name: Create Keystore Properties File
+        run: |
+          echo "storeFile=release-key.jks" > android/key.properties
+          echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> android/key.properties
+          echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/key.properties
 
       # Statically analyze the Dart code for any errors
       - name: Analyze Dart code
