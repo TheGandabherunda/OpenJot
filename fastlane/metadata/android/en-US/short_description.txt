@@ -1,1 +1,1 @@
-A minimal and open-source journaling app to capture your thoughts and ideas.
+A minimal UI, open-source journaling app built for distraction-free writing and complete privacy.
