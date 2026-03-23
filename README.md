@@ -7,8 +7,8 @@
   <img src="https://img.shields.io/github/stars/TheGandabherunda/OpenJot?style=flat-square">
 </p>
 
-**OpenJot** is a minimal and open-source journaling app designed for privacy and simplicity.  
-All your thoughts, memories, and ideas are stored securely on your device, never in the cloud.
+**OpenJot** is an open-source journaling app built with a minimal UI, focused on privacy and simplicity.  
+Everything is stored securely on your device—never in the cloud.
 
 ---
 
