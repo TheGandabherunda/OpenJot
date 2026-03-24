@@ -1,10 +1,26 @@
 # <img src="assets/app_icon.svg" alt="OpenJot Logo" width="32" height="32" style="vertical-align: middle; margin-right: 8px;"> OpenJot
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Built%20with-Flutter-02569B?style=flat&logo=flutter&logoColor=white">&nbsp;&nbsp;
-  <img src="https://img.shields.io/github/license/TheGandabherunda/OpenJot?style=flat-square">&nbsp;&nbsp;
-  <img src="https://img.shields.io/github/issues/TheGandabherunda/OpenJot?style=flat-square">&nbsp;&nbsp;
+  <img src="https://img.shields.io/badge/Built%20with-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white">
+  <img src="https://img.shields.io/github/license/TheGandabherunda/OpenJot?style=flat-square">
+  <img src="https://img.shields.io/github/issues/TheGandabherunda/OpenJot?style=flat-square">
   <img src="https://img.shields.io/github/stars/TheGandabherunda/OpenJot?style=flat-square">
+</p>
+
+<p align="center">
+  <a href="https://shields.rbtlog.dev/org.thegandabherunda.openjot">
+    <img src="https://shields.rbtlog.dev/simple/org.thegandabherunda.openjot" alt="RB shield">
+  </a>
+  <img src="https://img.shields.io/endpoint?url=https://apt.izzysoft.de/fdroid/api/v1/shield/org.thegandabherunda.openjot&label=IzzyOnDroid&style=flat-square">
+  <a href="https://apt.izzysoft.de/packages/org.thegandabherunda.openjot">
+    <img src="https://img.shields.io/badge/dynamic/json?url=https://dlstats.izzyondroid.org/iod-stats-collector/stats/basic/yearly/rolling.json&query=$.['org.thegandabherunda.openjot']&label=IzzyOnDroid%20yearly%20downloads&style=flat-square" alt="IzzyOnDroid yearly downloads">
+  </a>
+</p>
+
+<p>
+  <a href="https://apt.izzysoft.de/packages/org.thegandabherunda.openjot">
+    <img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" alt="Get it on IzzyOnDroid F-Droid" width="200">
+  </a>
 </p>
 
 **OpenJot** is an open-source journaling app built with a minimal UI, focused on privacy and simplicity.  
