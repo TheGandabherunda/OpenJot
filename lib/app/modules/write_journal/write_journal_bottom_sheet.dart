@@ -335,8 +335,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       homeController.updateJournalEntry(updatedEntry);
 
       final isTextEmpty =
-          _quillController.document.toPlainText().trim().isEmpty;
-      final isMediaEmpty = _previewImages.isEmpty &&
+          _quillController.document.toPlainText().trim().isEmpty;      final isMediaEmpty = _previewImages.isEmpty &&
           _previewPhotos.isEmpty &&
           _previewAudios.isEmpty &&
           _previewRecordings.isEmpty;
@@ -344,8 +343,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       Navigator.of(context).pop(isTextEmpty && isMediaEmpty);
     } else {
       final isTextEmpty =
-          _quillController.document.toPlainText().trim().isEmpty;
-      final isMediaEmpty = _previewImages.isEmpty &&
+          _quillController.document.toPlainText().trim().isEmpty;      final isMediaEmpty = _previewImages.isEmpty &&
           _previewPhotos.isEmpty &&
           _previewAudios.isEmpty &&
           _previewRecordings.isEmpty;
@@ -1568,6 +1566,30 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                 TextStyle(
                   fontSize: 16.sp,
                   color: appThemeColors.grey2,
+                  height: 1.5,
+                ),
+                quill.HorizontalSpacing.zero,
+                quill.VerticalSpacing.zero,
+                quill.VerticalSpacing.zero,
+                null,
+              ),
+              paragraph: quill.DefaultTextBlockStyle(
+                TextStyle(
+                  fontSize: 16.sp,
+                  color: appThemeColors.grey10,
+                  height: 1.5,
+                ),
+                quill.HorizontalSpacing.zero,
+                quill.VerticalSpacing.zero,
+                quill.VerticalSpacing.zero,
+                null,
+              ),
+              h2: quill.DefaultTextBlockStyle(
+                TextStyle(
+                  fontSize: 26.sp,
+                  color: appThemeColors.grey10,
+                  fontWeight: FontWeight.bold,
+                  height: 1.5,
                 ),
                 quill.HorizontalSpacing.zero,
                 quill.VerticalSpacing.zero,
