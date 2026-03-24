@@ -23,6 +23,7 @@ class CustomSliderWithTooltip extends StatefulWidget {
   final EdgeInsets unfocusedTrackPadding;
   final EdgeInsets focusedTrackPadding;
   final double gapWidth; // New parameter for gap width
+  final Color? dividerColor; // Optional divider color
 
   const CustomSliderWithTooltip({
     super.key,
@@ -45,7 +46,8 @@ class CustomSliderWithTooltip extends StatefulWidget {
     this.labelTextStyle,
     this.unfocusedTrackPadding = const EdgeInsets.symmetric(horizontal: 16),
     this.focusedTrackPadding = EdgeInsets.zero,
-    this.gapWidth = 4.0, // Default gap width
+    this.gapWidth = 12.0, // Increased default gap width to accommodate thicker divider
+    this.dividerColor,
   }) : assert(initialValue >= min && initialValue <= max);
 
   @override
@@ -303,7 +305,7 @@ class _CustomSliderWithTooltipState extends State<CustomSliderWithTooltip>
                         return Align(
                           alignment: Alignment.center,
                           child: Container(
-                            height: currentHeight,
+                            height: maxSliderTrackHeight, // Changed from currentHeight to allow overflow
                             width: double.infinity,
                             child: child,
                           ),
@@ -338,9 +340,24 @@ class _CustomSliderWithTooltipState extends State<CustomSliderWithTooltip>
                                               )
                                             : const SizedBox.shrink(),
                                       ),
-                                      // Gap
+                                      // Gap with Divider
                                       if (progress > 0 && progress < 1)
-                                        SizedBox(width: widget.gapWidth),
+                                        SizedBox(
+                                          width: widget.gapWidth,
+                                          child: Center(
+                                            child: AnimatedContainer(
+                                              duration: widget.animationDuration,
+                                              curve: _animationCurve,
+                                              width: 8.0,
+                                              height: currentHeight * 2.2, // Further increased height
+                                              decoration: BoxDecoration(
+                                                color: widget.dividerColor ?? (theme.brightness == Brightness.dark ? Colors.white : Colors.black87),
+                                                borderRadius:
+                                                    BorderRadius.circular(4.0),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
                                       // Inactive part
                                       Expanded(
                                         flex: ((1 - progress) * 1000).round(),
