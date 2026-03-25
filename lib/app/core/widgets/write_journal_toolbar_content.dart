@@ -1291,6 +1291,22 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
             children: [
               const SizedBox(height: 0), // Space for the clear button
               Center(
+                child: SizedBox(
+                  height: 32.h,
+                  child: Text(
+                    selectedMood['label']!,
+                    style: TextStyle(
+                      color: currentSliderAndTextColor,
+                      fontSize: 20.sp,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: AppConstants.font,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: 24.h),
+              Center(
                 child: AnimatedBuilder(
                   animation: _rotationController,
                   builder: (context, child) {
@@ -1305,22 +1321,6 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
                       ),
                     );
                   },
-                ),
-              ),
-              SizedBox(height: 24.h),
-              Center(
-                child: SizedBox(
-                  height: 32.h,
-                  child: Text(
-                    selectedMood['label']!,
-                    style: TextStyle(
-                      color: currentSliderAndTextColor,
-                      fontSize: 20.sp,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: AppConstants.font,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
                 ),
               ),
               SizedBox(height: 16.h),
