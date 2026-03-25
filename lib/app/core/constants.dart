@@ -57,6 +57,22 @@ class AppConstants {
   static const String audioTrack = "Audio track";
   static const String emptyDuration = "--:--";
 
+  // Drafts & Auto-saves
+  static const String drafts = "Drafts";
+  static const String draft = "Draft";
+  static const String draftSaved = "Saved to Drafts";
+  static const String unsavedChanges = "Unsaved Changes";
+  static const String unsavedChangesMessage = "You have unsaved changes. Do you want to save them as a draft or discard them?";
+  static const String saveAsDraft = "Save as Draft";
+  static const String discardChanges = "Discard";
+  static const String autoDeleteDrafts = "Auto-delete Drafts";
+  static const String autoDeleteDraftsDescription = "Automatically remove old drafts.";
+  static const String days7 = "7 Days";
+  static const String never = "Never";
+  static const String custom = "Custom...";
+  static const String enterCustomDays = "Enter Custom Days";
+  static const String days = "Days";
+
   // Home View Menu
   static const String sortBy = "Sort by";
   static const String insights = "Insights";
@@ -235,6 +251,7 @@ class AppConstants {
   static const String themeKey = 'theme';
   static const String dailyReminderKey = 'dailyReminder';
   static const String onThisDayKey = 'onThisDay'; // NEW
+  static const String autoDeleteDraftsKey = 'autoDeleteDrafts'; // NEW
   static const String reminderTimeKey = 'reminderTime';
   static const String appLockEnabledKey = 'appLockEnabled';
   static const String appLockPinKey = 'appLockPin';

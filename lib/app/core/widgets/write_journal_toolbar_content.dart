@@ -93,10 +93,12 @@ class _WriteJournalToolbarContentState
     });
 
     // ROBUSTNESS: Add a small delay to ensure the shimmer effect is noticeable on fast devices.
-    await Future.delayed(const Duration(milliseconds: 300));
+    await Future.delayed(const Duration(milliseconds: 100));
 
     final type = _getRequestTypeForSegment(_selectedSegment);
-    final albums = await PhotoManager.getAssetPathList(type: type);
+    // OPTIMIZATION: Use `onlyAll: true` to instantly fetch the primary "Recent/All" album
+    final albums = await PhotoManager.getAssetPathList(type: type, onlyAll: true);
+
     if (albums.isEmpty) {
       if (mounted) {
         setState(() {
@@ -106,18 +108,9 @@ class _WriteJournalToolbarContentState
       return;
     }
 
-    final List<AssetEntity> assets = [];
-    final processedAssetIds = <String>{};
-    for (final album in albums) {
-      final assetList = await album.getAssetListRange(start: 0, end: 2000);
-      for (final asset in assetList) {
-        if (processedAssetIds.add(asset.id)) {
-          assets.add(asset);
-        }
-      }
-    }
-
-    assets.sort((a, b) => b.createDateTime.compareTo(a.createDateTime));
+    final recentAlbum = albums.first;
+    // OPTIMIZATION: Fetch a reasonable batch (e.g. 500). Already sorted newest-first by default.
+    final assets = await recentAlbum.getAssetListRange(start: 0, end: 500);
 
     final grouped = <DateTime, List<AssetEntity>>{};
     for (final asset in assets) {
@@ -348,26 +341,26 @@ class _WriteJournalToolbarContentState
             },
             child: _selectedAssets.isNotEmpty
                 ? Center(
-                    key: const ValueKey('add_button'),
-                    child: CustomButton(
-                      onPressed: () {
-                        widget.onAssetsSelected?.call(_selectedAssets);
-                        setState(() {
-                          _selectedAssets.clear();
-                        });
-                      },
-                      borderRadius: 60,
-                      text: '${AppConstants.add} ${_selectedAssets.length}',
-                      icon: Icons.add,
-                      iconSize: 24,
-                      color: Theme.of(context).primaryColor,
-                      textColor: colors.grey8,
-                      textPadding: EdgeInsets.symmetric(
-                        horizontal: 20.w,
-                        vertical: 16.h,
-                      ),
-                    ),
-                  )
+              key: const ValueKey('add_button'),
+              child: CustomButton(
+                onPressed: () {
+                  widget.onAssetsSelected?.call(_selectedAssets);
+                  setState(() {
+                    _selectedAssets.clear();
+                  });
+                },
+                borderRadius: 60,
+                text: '${AppConstants.add} ${_selectedAssets.length}',
+                icon: Icons.add,
+                iconSize: 24,
+                color: Theme.of(context).primaryColor,
+                textColor: colors.grey8,
+                textPadding: EdgeInsets.symmetric(
+                  horizontal: 20.w,
+                  vertical: 16.h,
+                ),
+              ),
+            )
                 : const SizedBox.shrink(key: ValueKey('empty_button')),
           ),
         ),
@@ -437,7 +430,7 @@ class _WriteJournalToolbarContentState
 
       final isDark = Theme.of(context).brightness == Brightness.dark;
       final overlayColor =
-          (isDark ? colors.grey7 : colors.grey10).withOpacity(0.5);
+      (isDark ? colors.grey7 : colors.grey10).withOpacity(0.5);
       final onOverlayColor = isDark ? colors.grey10 : colors.grey7;
 
       return NotificationListener<ScrollNotification>(
@@ -472,7 +465,7 @@ class _WriteJournalToolbarContentState
                     mainAxisSpacing: 4,
                   ),
                   delegate: SliverChildBuilderDelegate(
-                    (context, index) {
+                        (context, index) {
                       final asset = _groupedAssets[date]![index];
                       final isSelected = _selectedAssets.contains(asset);
 
@@ -677,9 +670,10 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
 
   Future<void> _loadThumbnail() async {
     if (!mounted) return;
+    // OPTIMIZATION: Reduced thumbnail size and quality for much faster grid rendering
     final data = await widget.asset.thumbnailDataWithSize(
-      const ThumbnailSize(250, 250),
-      quality: 90,
+      const ThumbnailSize(200, 200),
+      quality: 70,
     );
     if (mounted) {
       setState(() {
@@ -693,13 +687,13 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
     // DEFINITIVE FIX: Build the Image widget with BoxFit.cover and ensure it expands.
     final imageWidget = _thumbnailData != null
         ? Image.memory(
-            _thumbnailData!,
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
-            // These ensure the image widget itself fills the cell before BoxFit.cover is applied.
-            width: double.infinity,
-            height: double.infinity,
-          )
+      _thumbnailData!,
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      // These ensure the image widget itself fills the cell before BoxFit.cover is applied.
+      width: double.infinity,
+      height: double.infinity,
+    )
         : null;
 
     return AnimatedSwitcher(
@@ -707,11 +701,11 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
       child: imageWidget == null
           ? Container(key: const ValueKey('loader'), color: widget.colors.grey3)
           : RepaintBoundary(
-              key: ValueKey(widget.asset.id),
-              child: widget.asset.type == AssetType.video
-                  ? _buildVideoOverlay(context, widget.asset, imageWidget)
-                  : imageWidget,
-            ),
+        key: ValueKey(widget.asset.id),
+        child: widget.asset.type == AssetType.video
+            ? _buildVideoOverlay(context, widget.asset, imageWidget)
+            : imageWidget,
+      ),
     );
   }
 
@@ -727,7 +721,7 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
     final isGif = asset.title?.toLowerCase().endsWith('.gif') ?? false;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final overlayColor =
-        (isDark ? widget.colors.grey7 : widget.colors.grey10).withOpacity(0.7);
+    (isDark ? widget.colors.grey7 : widget.colors.grey10).withOpacity(0.7);
     final onOverlayColor = isDark ? widget.colors.grey10 : widget.colors.grey7;
 
     return Stack(
@@ -818,12 +812,12 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
     super.initState();
     _playerStateSubscription =
         _audioPlayer.onPlayerStateChanged.listen((state) {
-      if (mounted && state == PlayerState.completed) {
-        setState(() {
-          _isPlayingPreview = false;
+          if (mounted && state == PlayerState.completed) {
+            setState(() {
+              _isPlayingPreview = false;
+            });
+          }
         });
-      }
-    });
 
     _animationController = AnimationController(
       vsync: this,
@@ -1107,13 +1101,13 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
               flex: 3,
               child: _isRecording
                   ? Align(
-                      alignment: Alignment.center,
-                      child: IconButton(
-                        icon: Icon(Icons.stop_circle_rounded,
-                            color: colors.grey10, size: 40.sp),
-                        onPressed: _stopRecording,
-                      ),
-                    )
+                alignment: Alignment.center,
+                child: IconButton(
+                  icon: Icon(Icons.stop_circle_rounded,
+                      color: colors.grey10, size: 40.sp),
+                  onPressed: _stopRecording,
+                ),
+              )
                   : const SizedBox(),
             ),
           ],
@@ -1311,7 +1305,7 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
                   animation: _rotationController,
                   builder: (context, child) {
                     final bounceAnimation =
-                        Curves.easeOutBack.transform(_rotationController.value);
+                    Curves.easeOutBack.transform(_rotationController.value);
                     return Transform.rotate(
                       angle: bounceAnimation * 2 * 3.14159,
                       child: SvgPicture.asset(
@@ -1333,7 +1327,7 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
                   showValueTooltip: false,
                   activeColor: currentSliderAndTextColor,
                   unfocusedActiveColor:
-                      currentSliderAndTextColor.withOpacity(0.7),
+                  currentSliderAndTextColor.withOpacity(0.7),
                   inactiveColor: colors.grey3,
                   focusedTrackHeight: 20.h,
                   unfocusedTrackHeight: 16.h,

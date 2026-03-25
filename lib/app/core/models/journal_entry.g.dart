@@ -145,13 +145,14 @@ class JournalEntryAdapter extends TypeAdapter<JournalEntry> {
       cameraPhotos: (fields[8] as List).cast<CapturedPhoto>(),
       galleryAudios: (fields[9] as List).cast<AssetEntity>(),
       recordings: (fields[10] as List).cast<RecordedAudio>(),
+      isDraft: fields[11] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, JournalEntry obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -173,7 +174,9 @@ class JournalEntryAdapter extends TypeAdapter<JournalEntry> {
       ..writeByte(9)
       ..write(obj.galleryAudios)
       ..writeByte(10)
-      ..write(obj.recordings);
+      ..write(obj.recordings)
+      ..writeByte(11)
+      ..write(obj.isDraft);
   }
 
   @override

@@ -1,4 +1,3 @@
-
 import 'package:camera/camera.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:hive/hive.dart';
@@ -70,6 +69,8 @@ class JournalEntry extends HiveObject {
   final List<AssetEntity> galleryAudios;
   @HiveField(10)
   final List<RecordedAudio> recordings;
+  @HiveField(11) // NEW Draft Field added
+  final bool isDraft;
 
   JournalEntry({
     required this.id,
@@ -83,6 +84,7 @@ class JournalEntry extends HiveObject {
     this.cameraPhotos = const [],
     this.galleryAudios = const [],
     this.recordings = const [],
+    this.isDraft = false,
   });
 
   JournalEntry copyWith({
@@ -97,6 +99,7 @@ class JournalEntry extends HiveObject {
     List<CapturedPhoto>? cameraPhotos,
     List<AssetEntity>? galleryAudios,
     List<RecordedAudio>? recordings,
+    bool? isDraft,
   }) {
     return JournalEntry(
       id: id ?? this.id,
@@ -110,6 +113,7 @@ class JournalEntry extends HiveObject {
       cameraPhotos: cameraPhotos ?? this.cameraPhotos,
       galleryAudios: galleryAudios ?? this.galleryAudios,
       recordings: recordings ?? this.recordings,
+      isDraft: isDraft ?? this.isDraft,
     );
   }
 }

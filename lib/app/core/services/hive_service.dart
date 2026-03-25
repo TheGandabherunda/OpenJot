@@ -73,6 +73,12 @@ class HiveService extends GetxService {
   Future<void> setOnThisDay(bool value) =>
       settingsBox.put(AppConstants.onThisDayKey, value);
 
+  // NEW: Auto-delete drafts setting (-1 means never)
+  int get autoDeleteDraftsDays =>
+      settingsBox.get(AppConstants.autoDeleteDraftsKey, defaultValue: 7);
+  Future<void> setAutoDeleteDraftsDays(int days) =>
+      settingsBox.put(AppConstants.autoDeleteDraftsKey, days);
+
   TimeOfDay? get reminderTime {
     final timeString = settingsBox.get(AppConstants.reminderTimeKey);
     if (timeString == null) return null;

@@ -565,7 +565,7 @@ class _JournalTileState extends State<JournalTile> {
                       if (widget.entry.isReflection)
                         Container(
                           margin: EdgeInsets.only(
-                              right: widget.entry.moodIndex != null ? 8.w : 0),
+                              right: widget.entry.moodIndex != null || widget.entry.isDraft ? 8.w : 0),
                           padding: EdgeInsets.symmetric(
                               horizontal: 8.w, vertical: 2.h),
                           decoration: BoxDecoration(
@@ -575,6 +575,28 @@ class _JournalTileState extends State<JournalTile> {
                           ),
                           child: Text(
                             AppConstants.reflection,
+                            style: TextStyle(
+                              color: appThemeColors.grey10,
+                              fontSize: 12.sp,
+                              fontFamily: AppConstants.font,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                        ),
+                      if (widget.entry.isDraft)
+                        Container(
+                          margin: EdgeInsets.only(
+                              right: widget.entry.moodIndex != null ? 8.w : 0),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 8.w, vertical: 2.h),
+                          decoration: BoxDecoration(
+                            color: widget.reflectionBackground ??
+                                appThemeColors.grey5,
+                            borderRadius: BorderRadius.circular(24.r),
+                          ),
+                          child: Text(
+                            AppConstants.draft,
                             style: TextStyle(
                               color: appThemeColors.grey10,
                               fontSize: 12.sp,
@@ -594,7 +616,7 @@ class _JournalTileState extends State<JournalTile> {
                         Padding(
                           padding: EdgeInsets.only(
                               left: widget.entry.moodIndex != null ||
-                                  widget.entry.isReflection
+                                  widget.entry.isReflection || widget.entry.isDraft
                                   ? 8.w
                                   : 0),
                           child: Icon(
@@ -890,4 +912,3 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
     return Container(color: AppTheme.colorsOf(context).grey4);
   }
 }
-

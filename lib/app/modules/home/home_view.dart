@@ -7,6 +7,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
+import 'package:open_jot/app/modules/bookmarks/bookmarks_view.dart';
+import 'package:open_jot/app/modules/drafts/drafts_view.dart';
 import 'package:open_jot/app/modules/insights/insights_bottomsheet.dart';
 import 'package:open_jot/app/modules/read_journal/read_journal_bottom_sheet.dart';
 import 'package:open_jot/app/modules/search/search_view.dart';
@@ -82,8 +84,6 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
   void initState() {
     super.initState();
     _shareService.startListening();
-    // FIX: Defer handling the share action until after the first frame has been built.
-    // This prevents issues where the context is not ready for showing a modal.
     _shareService.onShareReceived = ({
       String? text,
       List<String>? photos,
@@ -245,6 +245,21 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
+          value: 'drafts',
+          child: Row(
+            children: [
+              Icon(Icons.edit_document, color: appThemeColors.grey10),
+              SizedBox(width: 8.w),
+              Text(AppConstants.drafts,
+                  style: TextStyle(
+                      color: appThemeColors.grey10,
+                      fontFamily: AppConstants.font,
+                      letterSpacing: -0.2)),
+            ],
+          ),
+        ),
+        PopupMenuDivider(height: 1, color: appThemeColors.grey6),
+        PopupMenuItem(
           value: 'insights',
           child: Row(
             children: [
@@ -292,7 +307,9 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       ],
     ).then((value) {
       if (value == 'bookmarks') {
-        Get.to(() => const SearchView(initialBookmarked: true));
+        Get.to(() => const BookmarksView());
+      } else if (value == 'drafts') {
+        Get.to(() => const DraftsView());
       } else if (value == 'insights') {
         _handleInsights();
       } else if (value == 'reflections') {

@@ -1,4 +1,6 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -158,6 +160,91 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     );
   }
 
+  void _showAutoDeleteOptions() {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (BuildContext context) => CupertinoActionSheet(
+        title: Text(AppConstants.autoDeleteDrafts, style: TextStyle(fontFamily: AppConstants.font)),
+        message: Text(AppConstants.autoDeleteDraftsDescription, style: TextStyle(fontFamily: AppConstants.font)),
+        actions: <CupertinoActionSheetAction>[
+          CupertinoActionSheetAction(
+            child: Text(AppConstants.days7, style: TextStyle(fontFamily: AppConstants.font)),
+            onPressed: () {
+              controller.setAutoDeleteDrafts(7);
+              Navigator.pop(context);
+            },
+          ),
+          CupertinoActionSheetAction(
+            child: Text(AppConstants.never, style: TextStyle(fontFamily: AppConstants.font)),
+            onPressed: () {
+              controller.setAutoDeleteDrafts(-1);
+              Navigator.pop(context);
+            },
+          ),
+          CupertinoActionSheetAction(
+            child: Text(AppConstants.custom, style: TextStyle(fontFamily: AppConstants.font)),
+            onPressed: () {
+              Navigator.pop(context);
+              _showCustomDaysDialog();
+            },
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          isDefaultAction: true,
+          onPressed: () {
+            Navigator.pop(context);
+          },
+          child: Text(AppConstants.cancel, style: TextStyle(fontFamily: AppConstants.font)),
+        ),
+      ),
+    );
+  }
+
+  void _showCustomDaysDialog() {
+    final appThemeColors = AppTheme.colorsOf(context);
+    final textController = TextEditingController();
+
+    showCupertinoDialog(
+        context: context,
+        builder: (context) {
+          return CupertinoAlertDialog(
+            title: const Text(AppConstants.enterCustomDays),
+            content: Padding(
+              padding: EdgeInsets.only(top: 8.h),
+              child: CupertinoTextField(
+                controller: textController,
+                keyboardType: TextInputType.number,
+                placeholder: "E.g. 14",
+                style: TextStyle(color: appThemeColors.grey10, fontFamily: AppConstants.font),
+                padding: EdgeInsets.all(12.w),
+                decoration: BoxDecoration(
+                  color: appThemeColors.grey6,
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+              ),
+            ),
+            actions: [
+              CupertinoDialogAction(
+                child: const Text(AppConstants.cancel),
+                onPressed: () => Navigator.pop(context),
+              ),
+              CupertinoDialogAction(
+                isDefaultAction: true,
+                child: const Text("Save"),
+                onPressed: () {
+                  final val = int.tryParse(textController.text.trim());
+                  if (val != null && val > 0) {
+                    controller.setAutoDeleteDrafts(val);
+                  }
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          );
+        }
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
@@ -295,7 +382,6 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                         }
                       } : null,
                     ),
-                    // --- NEW: "On This Day" Toggle ---
                     _buildListTile(
                       title: AppConstants.onThisDay,
                       subtitle: AppConstants.onThisDayDescription,
@@ -305,6 +391,27 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                         onChanged: controller.toggleOnThisDay,
                         activeColor: appThemeColors.primary,
                       ),
+                    ),
+                    // --- NEW: Auto Delete Drafts UI ---
+                    _buildListTile(
+                      title: AppConstants.autoDeleteDrafts,
+                      subtitle: AppConstants.autoDeleteDraftsDescription,
+                      icon: Icons.auto_delete_outlined,
+                      trailing: Obx(() {
+                        final days = controller.autoDeleteDraftsDays.value;
+                        String display = days == -1
+                            ? AppConstants.never
+                            : (days == 7 ? AppConstants.days7 : "$days ${AppConstants.days}");
+                        return Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(display, style: TextStyle(color: appThemeColors.grey2, fontSize: 14.sp, fontFamily: AppConstants.font)),
+                            SizedBox(width: 8.w),
+                            Icon(Icons.arrow_forward_ios, size: 16, color: appThemeColors.grey2),
+                          ],
+                        );
+                      }),
+                      onTap: _showAutoDeleteOptions,
                     ),
                     // --- END NEW ---
                     _buildListTile(

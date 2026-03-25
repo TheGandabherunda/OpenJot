@@ -6,6 +6,7 @@ import '../../core/models/journal_entry.dart';
 class HomeController extends GetxController {
   final _hiveService = Get.find<HiveService>();
   final journalEntries = <JournalEntry>[].obs;
+  final draftEntries = <JournalEntry>[].obs;
 
   final currentSortType = 'time'.obs;
   final Map<String, String> _sortTypeDisplayNames = {
@@ -36,37 +37,77 @@ class HomeController extends GetxController {
 
   Future<void> loadJournalEntries() async {
     final entriesFromDb = _hiveService.getAllJournalEntries();
+
+    // --- NEW: Auto-delete expired drafts logic ---
+    final autoDeleteDays = _hiveService.autoDeleteDraftsDays;
+    if (autoDeleteDays > 0) {
+      final now = DateTime.now();
+      final expiredDrafts = entriesFromDb.where((e) {
+        if (e.isDraft) {
+          final diff = now.difference(e.createdAt).inDays;
+          return diff >= autoDeleteDays;
+        }
+        return false;
+      }).toList();
+
+      for (var draft in expiredDrafts) {
+        _hiveService.deleteJournalEntry(draft.id);
+        entriesFromDb.removeWhere((e) => e.id == draft.id);
+      }
+    }
+    // ---------------------------------------------
+
     final loadedEntries = await _hiveService.loadAssetEntities(entriesFromDb);
-    journalEntries.assignAll(loadedEntries);
+
+    journalEntries.assignAll(loadedEntries.where((e) => !e.isDraft));
+    draftEntries.assignAll(loadedEntries.where((e) => e.isDraft));
+
     sortEntries(currentSortType.value);
+    draftEntries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
   void addJournalEntry(JournalEntry entry) {
     _hiveService.addJournalEntry(entry);
-    journalEntries.insert(0, entry);
-    sortEntries(currentSortType.value);
+    if (entry.isDraft) {
+      draftEntries.insert(0, entry);
+      draftEntries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    } else {
+      journalEntries.insert(0, entry);
+      sortEntries(currentSortType.value);
+    }
   }
 
   void updateJournalEntry(JournalEntry updatedEntry) {
     _hiveService.updateJournalEntry(updatedEntry);
-    final index = journalEntries.indexWhere((e) => e.id == updatedEntry.id);
-    if (index != -1) {
-      final isTextEmpty = updatedEntry.content.toPlainText().trim().isEmpty;
-      final isMediaEmpty = updatedEntry.galleryImages.isEmpty &&
-          updatedEntry.cameraPhotos.isEmpty &&
-          updatedEntry.galleryAudios.isEmpty &&
-          updatedEntry.recordings.isEmpty;
 
-      if (isTextEmpty && isMediaEmpty) {
-        journalEntries.removeAt(index);
+    final isTextEmpty = updatedEntry.content.toPlainText().trim().isEmpty;
+    final isMediaEmpty = updatedEntry.galleryImages.isEmpty &&
+        updatedEntry.cameraPhotos.isEmpty &&
+        updatedEntry.galleryAudios.isEmpty &&
+        updatedEntry.recordings.isEmpty;
+
+    if (isTextEmpty && isMediaEmpty && !updatedEntry.isDraft) {
+      journalEntries.removeWhere((e) => e.id == updatedEntry.id);
+      draftEntries.removeWhere((e) => e.id == updatedEntry.id);
+    } else {
+      // Remove from both to handle switching states easily
+      journalEntries.removeWhere((e) => e.id == updatedEntry.id);
+      draftEntries.removeWhere((e) => e.id == updatedEntry.id);
+
+      if (updatedEntry.isDraft) {
+        draftEntries.insert(0, updatedEntry);
+        draftEntries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       } else {
-        journalEntries[index] = updatedEntry;
+        journalEntries.insert(0, updatedEntry);
+        sortEntries(currentSortType.value);
       }
     }
   }
 
   void deleteJournalEntry(String entryId) {
     _hiveService.deleteJournalEntry(entryId);
+    journalEntries.removeWhere((e) => e.id == entryId);
+    draftEntries.removeWhere((e) => e.id == entryId);
   }
 
   void toggleBookmarkStatus(String entryId) {

@@ -23,6 +23,7 @@ class SettingsScreenController extends GetxController {
   var reminderTime = Rx<TimeOfDay?>(null);
   var theme = AppConstants.themeSystem.obs;
   var appLock = false.obs;
+  var autoDeleteDraftsDays = 7.obs; // NEW
 
   @override
   void onInit() {
@@ -33,6 +34,7 @@ class SettingsScreenController extends GetxController {
   void _loadSettings() {
     dailyReminder.value = _hiveService.dailyReminder;
     onThisDay.value = _hiveService.onThisDay; // NEW
+    autoDeleteDraftsDays.value = _hiveService.autoDeleteDraftsDays; // NEW
     reminderTime.value = _hiveService.reminderTime;
     theme.value = _hiveService.theme;
     appLock.value = _hiveService.appLockEnabled;
@@ -102,6 +104,28 @@ class SettingsScreenController extends GetxController {
         backgroundColor: appColors.grey10,
         textColor: appColors.grey8,
       );
+    }
+  }
+
+  // --- NEW: Logic for Auto Delete Drafts ---
+  void setAutoDeleteDrafts(int days) {
+    final appColors = AppTheme.colorsOf(Get.context!);
+    autoDeleteDraftsDays.value = days;
+    _hiveService.setAutoDeleteDraftsDays(days);
+
+    String message = days == -1
+        ? "Drafts will never be deleted"
+        : "Drafts will be deleted after $days days";
+
+    CustomToast.showToast(
+      message,
+      backgroundColor: appColors.grey10,
+      textColor: appColors.grey8,
+    );
+
+    // Reload entries so any already expired drafts are cleaned up immediately
+    if (Get.isRegistered<HomeController>()) {
+      Get.find<HomeController>().loadJournalEntries();
     }
   }
 

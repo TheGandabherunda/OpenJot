@@ -26,6 +26,7 @@ class _SearchViewState extends State<SearchView> {
   final HomeController _homeController = Get.find();
   List<JournalEntry> _filteredEntries = [];
   StreamSubscription? _journalSubscription;
+  StreamSubscription? _draftSubscription;
 
   bool _isBookmarked = false;
   bool _isTextOnly = false;
@@ -33,6 +34,7 @@ class _SearchViewState extends State<SearchView> {
   bool _withMood = false;
   bool _withLocation = false;
   bool _isReflection = false;
+  bool _isDraft = false;
 
   @override
   void initState() {
@@ -41,8 +43,13 @@ class _SearchViewState extends State<SearchView> {
     _applyFilters();
     _searchController.addListener(_onSearchChanged);
 
-    // Listen for changes in the journal entries list and refresh the search results.
     _journalSubscription = _homeController.journalEntries.listen((_) {
+      if (mounted) {
+        _applyFilters();
+      }
+    });
+
+    _draftSubscription = _homeController.draftEntries.listen((_) {
       if (mounted) {
         _applyFilters();
       }
@@ -53,8 +60,8 @@ class _SearchViewState extends State<SearchView> {
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
-    // Cancel the subscription to avoid memory leaks.
     _journalSubscription?.cancel();
+    _draftSubscription?.cancel();
     super.dispose();
   }
 
@@ -65,14 +72,18 @@ class _SearchViewState extends State<SearchView> {
   void _applyFilters() {
     final query = _searchController.text.toLowerCase();
     setState(() {
-      _filteredEntries = _homeController.journalEntries.where((entry) {
+      final allEntries = [
+        ..._homeController.journalEntries,
+        ..._homeController.draftEntries,
+      ];
+
+      _filteredEntries = allEntries.where((entry) {
         final content = entry.content.toPlainText().toLowerCase();
         bool matchesQuery = content.contains(query);
 
         if (_isBookmarked && !entry.isBookmarked) {
           return false;
         }
-        // An entry is "Text Only" if it has no images, photos, gallery audio, or recordings.
         if (_isTextOnly &&
             (entry.galleryImages.isNotEmpty ||
                 entry.cameraPhotos.isNotEmpty ||
@@ -80,7 +91,6 @@ class _SearchViewState extends State<SearchView> {
                 entry.recordings.isNotEmpty)) {
           return false;
         }
-        // An entry is "With Media" if it has at least one of any media type.
         if (_isMediaOnly &&
             (entry.galleryImages.isEmpty &&
                 entry.cameraPhotos.isEmpty &&
@@ -91,11 +101,13 @@ class _SearchViewState extends State<SearchView> {
         if (_withMood && entry.moodIndex == null) {
           return false;
         }
-        // Filter for entries that have a location
         if (_withLocation && entry.location == null) {
           return false;
         }
         if (_isReflection && !entry.isReflection) {
+          return false;
+        }
+        if (_isDraft && !entry.isDraft) {
           return false;
         }
 
@@ -118,9 +130,7 @@ class _SearchViewState extends State<SearchView> {
         letterSpacing: -0.2,
         color: isSelected ? appThemeColors.onPrimary : appThemeColors.grey1,
       ),
-      // Set the shape to StadiumBorder for a circular (pill) shape
       shape: const StadiumBorder(),
-      // Remove the border by setting the side to BorderSide.none
       side: BorderSide.none,
     );
   }
@@ -129,7 +139,6 @@ class _SearchViewState extends State<SearchView> {
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
 
-    // Determine icon brightness based on the overall theme brightness.
     final Brightness platformBrightness = Theme.of(context).brightness;
     final Brightness iconBrightness =
     platformBrightness == Brightness.dark ? Brightness.light : Brightness.dark;
@@ -137,8 +146,6 @@ class _SearchViewState extends State<SearchView> {
     return Scaffold(
       backgroundColor: appThemeColors.grey7,
       appBar: AppBar(
-        // This is the most reliable way to set the status bar style for a specific screen.
-        // It overrides any global styles and avoids conflicts with other widgets.
         systemOverlayStyle: SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
           statusBarIconBrightness: iconBrightness,
@@ -208,6 +215,13 @@ class _SearchViewState extends State<SearchView> {
                           (selected) {
                         setState(() {
                           _isReflection = selected;
+                          _applyFilters();
+                        });
+                      }),
+                  _buildFilterChip(AppConstants.drafts, _isDraft,
+                          (selected) {
+                        setState(() {
+                          _isDraft = selected;
                           _applyFilters();
                         });
                       }),
