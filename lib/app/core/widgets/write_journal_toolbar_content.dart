@@ -58,11 +58,12 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
   bool _isLoadingMore = false;
   final List<AssetEntity> _selectedAssets = [];
 
-  // Pagination Variables
+  // Folder & Pagination Variables
   int _currentPage = 0;
   final int _pageSize = 100;
   bool _hasMore = true;
-  AssetPathEntity? _currentAlbum;
+  List<AssetPathEntity> _albums = [];
+  AssetPathEntity? _selectedAlbum;
 
   final GlobalKey<AudioRecorderViewState> _audioRecorderKey = GlobalKey();
 
@@ -79,9 +80,6 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
     if (widget.scrollController != oldWidget.scrollController) {
       oldWidget.scrollController.removeListener(_onScroll);
       widget.scrollController.addListener(_onScroll);
-    }
-    if (widget.selectedToolbarIcon != oldWidget.selectedToolbarIcon) {
-      // Potentially reset state or fetch different content based on icon
     }
   }
 
@@ -145,8 +143,19 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
 
     final type = _getRequestTypeForSegment(_selectedSegment);
 
-    if (!loadMore) {
-      final albums = await PhotoManager.getAssetPathList(type: type, onlyAll: true);
+    // Fetch all folders if we don't have them loaded for this segment yet
+    if (!loadMore && _albums.isEmpty) {
+      final filterOption = FilterOptionGroup(
+        orders: [
+          const OrderOption(type: OrderOptionType.createDate, asc: false),
+        ],
+      );
+      final albums = await PhotoManager.getAssetPathList(
+        type: type,
+        hasAll: true,
+        filterOption: filterOption,
+      );
+
       if (albums.isEmpty) {
         if (mounted) {
           setState(() {
@@ -156,14 +165,27 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
         }
         return;
       }
-      _currentAlbum = albums.first;
+
+      // Ensure "All" is always the first chip, and others are sorted alphabetically
+      albums.sort((a, b) {
+        if (a.isAll) return -1;
+        if (b.isAll) return 1;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+
+      _albums = albums;
+
+      // Explicitly default to the "All" album
+      if (_selectedAlbum == null) {
+        _selectedAlbum = _albums.firstWhere((a) => a.isAll, orElse: () => _albums.first);
+      }
     }
 
-    if (_currentAlbum == null) return;
+    if (_selectedAlbum == null) return;
 
     final start = _currentPage * _pageSize;
     final end = start + _pageSize;
-    final assets = await _currentAlbum!.getAssetListRange(start: start, end: end);
+    final assets = await _selectedAlbum!.getAssetListRange(start: start, end: end);
 
     if (assets.isEmpty || assets.length < _pageSize) {
       _hasMore = false;
@@ -257,6 +279,64 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
     }
   }
 
+  Widget _buildAlbumChips(AppThemeColors colors) {
+    if (_albums.isEmpty) return const SizedBox.shrink();
+
+    return SizedBox(
+      height: 36.h,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: 16.w),
+        itemCount: _albums.length,
+        itemBuilder: (context, index) {
+          final album = _albums[index];
+          final isSelected = album == _selectedAlbum;
+
+          // Provide a friendly name for the album
+          String albumName = album.isAll ? 'All' : album.name;
+          if (albumName.isEmpty) albumName = 'Folder';
+
+          return Padding(
+            padding: EdgeInsets.only(right: 8.w),
+            child: GestureDetector(
+              onTap: () {
+                if (!isSelected) {
+                  setState(() {
+                    _selectedAlbum = album;
+                  });
+                  _fetchMedia(loadMore: false);
+                }
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                decoration: BoxDecoration(
+                  color: isSelected ? Theme.of(context).primaryColor : colors.grey4,
+                  borderRadius: BorderRadius.circular(20.r),
+                  border: Border.all(
+                    color: isSelected ? Theme.of(context).primaryColor : colors.grey3,
+                    width: 1,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  albumName,
+                  style: TextStyle(
+                    color: isSelected ? colors.grey8 : colors.grey10,
+                    fontSize: 13.sp,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    decoration: TextDecoration.none,
+                    fontFamily: AppConstants.font,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = AppTheme.colorsOf(context);
@@ -322,73 +402,132 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
       );
     }
 
+    // SLIVER REFACTOR: Combines the headers, media grids, loaders, and empty states
+    // entirely into a single CustomScrollView. This eliminates nested Column/Expanded setups
+    // and guarantees it can NEVER throw a RenderFlex overflow, regardless of height.
     return Stack(
       children: [
-        Column(
-          children: [
-            SizedBox(
-              width: double.infinity,
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.w),
-                child: CupertinoSlidingSegmentedControl<int>(
-                  backgroundColor: colors.grey3,
-                  thumbColor: colors.grey5,
-                  children: {
-                    0: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8.h),
-                      child: Text(
-                        AppConstants.photos,
-                        style: TextStyle(
-                          color: colors.grey10,
-                          decoration: TextDecoration.none,
-                          fontSize: 14.sp,
-                          fontFamily: AppConstants.font,
+        NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            return true;
+          },
+          child: CustomScrollView(
+            controller: widget.scrollController,
+            slivers: [
+              // 1. Fixed height headers (Segmented Control & Album Chips)
+              SliverToBoxAdapter(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16.w),
+                        child: CupertinoSlidingSegmentedControl<int>(
+                          backgroundColor: colors.grey3,
+                          thumbColor: colors.grey5,
+                          children: {
+                            0: Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8.h),
+                              child: Text(
+                                AppConstants.photos,
+                                style: TextStyle(
+                                  color: colors.grey10,
+                                  decoration: TextDecoration.none,
+                                  fontSize: 14.sp,
+                                  fontFamily: AppConstants.font,
+                                ),
+                              ),
+                            ),
+                            1: Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8.h),
+                              child: Text(
+                                AppConstants.video,
+                                style: TextStyle(
+                                  color: colors.grey10,
+                                  decoration: TextDecoration.none,
+                                  fontSize: 14.sp,
+                                  fontFamily: AppConstants.font,
+                                ),
+                              ),
+                            ),
+                            2: Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8.h),
+                              child: Text(
+                                AppConstants.audio,
+                                style: TextStyle(
+                                  color: colors.grey10,
+                                  decoration: TextDecoration.none,
+                                  fontSize: 14.sp,
+                                  fontFamily: AppConstants.font,
+                                ),
+                              ),
+                            ),
+                          },
+                          onValueChanged: (int? value) {
+                            if (value != null) {
+                              setState(() {
+                                _selectedSegment = value;
+                                _selectedAssets.clear();
+                                _albums.clear();
+                                _selectedAlbum = null;
+                              });
+                              unawaited(_requestPermission());
+                            }
+                          },
+                          groupValue: _selectedSegment,
                         ),
                       ),
                     ),
-                    1: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8.h),
-                      child: Text(
-                        AppConstants.video,
-                        style: TextStyle(
-                          color: colors.grey10,
-                          decoration: TextDecoration.none,
-                          fontSize: 14.sp,
-                          fontFamily: AppConstants.font,
-                        ),
-                      ),
-                    ),
-                    2: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8.h),
-                      child: Text(
-                        AppConstants.audio,
-                        style: TextStyle(
-                          color: colors.grey10,
-                          decoration: TextDecoration.none,
-                          fontSize: 14.sp,
-                          fontFamily: AppConstants.font,
-                        ),
-                      ),
-                    ),
-                  },
-                  onValueChanged: (int? value) {
-                    if (value != null) {
-                      setState(() {
-                        _selectedSegment = value;
-                        _selectedAssets.clear();
-                      });
-                      unawaited(_requestPermission());
-                    }
-                  },
-                  groupValue: _selectedSegment,
+                    SizedBox(height: 16.h),
+                    _buildAlbumChips(colors),
+                    if (_albums.isNotEmpty) SizedBox(height: 12.h),
+                  ],
                 ),
               ),
-            ),
-            SizedBox(height: 16.h),
-            Expanded(
-              child: _buildMediaGrid(colors),
-            ),
-          ],
+
+              // 2. Dynamic Content States
+              if (_isLoading)
+                _buildSkeletonSliver(colors)
+              else if (_permissionStatus == null)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: const Center(child: CircularProgressIndicator()),
+                )
+              else if (!_permissionStatus!.isGranted)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _buildPermissionDenied(colors),
+                  )
+                else if (_groupedAssets.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: Text(
+                          AppConstants.noMediaFound.replaceFirst(
+                              '%s', _getTabName(_selectedSegment).toLowerCase()),
+                          style: TextStyle(
+                            color: colors.grey10,
+                            decoration: TextDecoration.none,
+                            fontFamily: AppConstants.font,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    ..._buildMediaSlivers(colors),
+
+              // 3. Pagination Loader / Bottom Padding
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.only(top: 16.h, bottom: 80.h),
+                  child: _isLoadingMore
+                      ? const Center(child: CircularProgressIndicator())
+                      : const SizedBox.shrink(),
+                ),
+              ),
+            ],
+          ),
         ),
         Positioned(
           bottom: 20.h,
@@ -435,178 +574,140 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
     );
   }
 
-  Widget _buildSkeletonLoading(AppThemeColors colors) {
-    return Shimmer.fromColors(
-      baseColor: colors.grey3,
-      highlightColor: colors.grey4,
-      child: GridView.builder(
-        controller: widget.scrollController,
-        padding: EdgeInsets.symmetric(horizontal: 4.w),
+  Widget _buildSkeletonSliver(AppThemeColors colors) {
+    return SliverPadding(
+      padding: EdgeInsets.symmetric(horizontal: 4.w),
+      sliver: SliverGrid(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
           crossAxisSpacing: 4,
           mainAxisSpacing: 4,
         ),
-        itemCount: 15,
-        itemBuilder: (context, index) {
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(8.r),
-            child: Container(
-              color: colors.grey3,
-            ),
-          );
-        },
+        delegate: SliverChildBuilderDelegate(
+              (context, index) {
+            return Shimmer.fromColors(
+              baseColor: colors.grey3,
+              highlightColor: colors.grey4,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8.r),
+                child: Container(
+                  color: colors.grey3,
+                ),
+              ),
+            );
+          },
+          childCount: 15,
+        ),
       ),
     );
   }
 
-  Widget _buildMediaGrid(AppThemeColors colors) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 400),
-      transitionBuilder: (child, animation) {
-        return FadeTransition(opacity: animation, child: child);
-      },
-      child: _isLoading
-          ? _buildSkeletonLoading(colors)
-          : _buildMediaContent(colors),
-    );
-  }
+  List<Widget> _buildMediaSlivers(AppThemeColors colors) {
+    final sortedDates = _groupedAssets.keys.toList()
+      ..sort((a, b) => b.compareTo(a));
 
-  Widget _buildMediaContent(AppThemeColors colors) {
-    if (_permissionStatus == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final overlayColor =
+    (isDark ? colors.grey7 : colors.grey10).withOpacity(0.5);
+    final onOverlayColor = isDark ? colors.grey10 : colors.grey7;
 
-    if (_permissionStatus!.isGranted) {
-      if (_groupedAssets.isEmpty) {
-        return Center(
-          child: Text(
-            AppConstants.noMediaFound.replaceFirst(
-                '%s', _getTabName(_selectedSegment).toLowerCase()),
-            style: TextStyle(
-              color: colors.grey10,
-              decoration: TextDecoration.none,
-              fontFamily: AppConstants.font,
+    final slivers = <Widget>[];
+
+    for (final date in sortedDates) {
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(8.w, 16.h, 8.w, 8.h),
+            child: Text(
+              _formatDate(date),
+              style: TextStyle(
+                color: colors.grey1,
+                fontWeight: FontWeight.w500,
+                decoration: TextDecoration.none,
+                fontSize: 15.sp,
+                fontFamily: AppConstants.font,
+              ),
             ),
           ),
-        );
-      }
-      final sortedDates = _groupedAssets.keys.toList()
-        ..sort((a, b) => b.compareTo(a));
-
-      final isDark = Theme.of(context).brightness == Brightness.dark;
-      final overlayColor =
-      (isDark ? colors.grey7 : colors.grey10).withOpacity(0.5);
-      final onOverlayColor = isDark ? colors.grey10 : colors.grey7;
-
-      return NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          return true;
-        },
-        child: CustomScrollView(
-          controller: widget.scrollController,
-          slivers: [
-            for (final date in sortedDates) ...[
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(8.w, 32.h, 8.w, 8.h),
-                  child: Text(
-                    _formatDate(date),
-                    style: TextStyle(
-                      color: colors.grey1,
-                      fontWeight: FontWeight.w500,
-                      decoration: TextDecoration.none,
-                      fontSize: 15.sp,
-                      fontFamily: AppConstants.font,
-                    ),
-                  ),
-                ),
-              ),
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(4.w, 0, 4.w, 8.h), // Reduced bottom padding since we moved it
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 4,
-                    mainAxisSpacing: 4,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                      final asset = _groupedAssets[date]![index];
-                      final isSelected = _selectedAssets.contains(asset);
-
-                      Widget child;
-                      if (asset.type == AssetType.audio) {
-                        child = _buildAudioItem(asset, colors);
-                      } else {
-                        child = AssetThumbnailItem(asset: asset, colors: colors);
-                      }
-
-                      // ANIMATION: Wrap each grid item in an animation for a smooth entrance.
-                      return AnimatedGridItem(
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              if (isSelected) {
-                                _selectedAssets.remove(asset);
-                              } else {
-                                _selectedAssets.add(asset);
-                              }
-                            });
-                          },
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8.r),
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                child,
-                                // ANIMATION: Animate the selection overlay for a smoother feel.
-                                AnimatedOpacity(
-                                  duration: const Duration(milliseconds: 200),
-                                  opacity: isSelected ? 1.0 : 0.0,
-                                  curve: Curves.easeOut,
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      color: overlayColor,
-                                      border: Border.all(
-                                        color: Theme.of(context).primaryColor,
-                                        width: 1.5,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8.r),
-                                    ),
-                                    child: Icon(
-                                      Icons.check_circle,
-                                      color: onOverlayColor,
-                                      size: 24.sp,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                    childCount: _groupedAssets[date]!.length,
-                  ),
-                ),
-              ),
-            ],
-            // Pagination Loader or Bottom Padding
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.only(top: 16.h, bottom: 80.h),
-                child: _isLoadingMore
-                    ? const Center(child: CircularProgressIndicator())
-                    : const SizedBox.shrink(),
-              ),
-            ),
-          ],
         ),
       );
-    } else {
-      return _buildPermissionDenied(colors);
+
+      slivers.add(
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(4.w, 0, 4.w, 8.h),
+          sliver: SliverGrid(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 4,
+              mainAxisSpacing: 4,
+            ),
+            delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                final assetsForDate = _groupedAssets[date];
+                if (assetsForDate == null || index >= assetsForDate.length) {
+                  return const SizedBox.shrink();
+                }
+
+                final asset = assetsForDate[index];
+                final isSelected = _selectedAssets.contains(asset);
+
+                Widget child;
+                if (asset.type == AssetType.audio) {
+                  child = _buildAudioItem(asset, colors);
+                } else {
+                  child = AssetThumbnailItem(asset: asset, colors: colors);
+                }
+
+                return AnimatedGridItem(
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        if (isSelected) {
+                          _selectedAssets.remove(asset);
+                        } else {
+                          _selectedAssets.add(asset);
+                        }
+                      });
+                    },
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8.r),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          child,
+                          AnimatedOpacity(
+                            duration: const Duration(milliseconds: 200),
+                            opacity: isSelected ? 1.0 : 0.0,
+                            curve: Curves.easeOut,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: overlayColor,
+                                border: Border.all(
+                                  color: Theme.of(context).primaryColor,
+                                  width: 1.5,
+                                ),
+                                borderRadius: BorderRadius.circular(8.r),
+                              ),
+                              child: Icon(
+                                Icons.check_circle,
+                                color: onOverlayColor,
+                                size: 24.sp,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+              childCount: _groupedAssets[date]?.length ?? 0,
+            ),
+          ),
+        ),
+      );
     }
+    return slivers;
   }
 
   Widget _buildAudioItem(AssetEntity asset, AppThemeColors colors) {
@@ -661,35 +762,33 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
   }
 
   Widget _buildPermissionDenied(AppThemeColors colors) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            AppConstants.permissionRequired.replaceFirst(
-                '%s', _getTabName(_selectedSegment).toLowerCase()),
-            textAlign: TextAlign.center,
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          AppConstants.permissionRequired.replaceFirst(
+              '%s', _getTabName(_selectedSegment).toLowerCase()),
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: colors.grey10,
+            decoration: TextDecoration.none,
+            fontFamily: AppConstants.font,
+          ),
+        ),
+        SizedBox(height: 8.h),
+        ElevatedButton(
+          onPressed: () {
+            unawaited(openAppSettings());
+          },
+          child: const Text(
+            AppConstants.openSettings,
             style: TextStyle(
-              color: colors.grey10,
               decoration: TextDecoration.none,
               fontFamily: AppConstants.font,
             ),
           ),
-          SizedBox(height: 8.h),
-          ElevatedButton(
-            onPressed: () {
-              unawaited(openAppSettings());
-            },
-            child: const Text(
-              AppConstants.openSettings,
-              style: TextStyle(
-                decoration: TextDecoration.none,
-                fontFamily: AppConstants.font,
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
