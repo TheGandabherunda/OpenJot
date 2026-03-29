@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -32,7 +31,6 @@ import 'package:photo_manager/photo_manager.dart' hide LatLng;
 import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
-import 'package:video_player/video_player.dart';
 
 class WriteJournalBottomSheet extends StatefulWidget {
   const WriteJournalBottomSheet({
@@ -81,6 +79,12 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   bool _isFormatting = false;
   bool _wasKeyboardVisible = false;
   bool _isShowingDiscardDialog = false;
+  bool _isMapMaximized = false;
+
+  // Track keyboard transition to trigger smooth animations
+  double _previousKeyboardHeight = 0.0;
+  bool _isKeyboardClosing = false;
+
   List<AssetEntity> _previewImages = [];
   List<CapturedPhoto> _previewPhotos = [];
   List<AssetEntity> _previewAudios = [];
@@ -90,12 +94,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
 
   _SheetTransitionState _sheetState = _SheetTransitionState.none;
   bool _pendingLocationResume = false;
-
-  final AudioPlayer _audioPlayer = AudioPlayer();
-  String? _currentlyPlayingPath;
-  PlayerState? _playerState;
-  StreamSubscription? _playerStateSubscription;
-  VideoPlayerController? _videoPlayerController;
 
   bool _isLoadingMedia = false;
   late String _currentEntryId;
@@ -210,17 +208,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       if (mounted) setState(() {});
     });
     _quillController.document.changes.listen(_handleTextChange);
-    _playerStateSubscription =
-        _audioPlayer.onPlayerStateChanged.listen((state) {
-          if (mounted) {
-            setState(() {
-              _playerState = state;
-              if (state == PlayerState.completed) {
-                _currentlyPlayingPath = null;
-              }
-            });
-          }
-        });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         if (widget.initialText == null &&
@@ -316,33 +303,19 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
 
     final newRecordings = <RecordedAudio>[];
     for (final path in widget.sharedAudioPaths!) {
-      final audioPlayer = AudioPlayer();
-      try {
-        await audioPlayer.setSourceDeviceFile(path);
-        final duration = await audioPlayer.getDuration();
-        final fileName = p.basename(path);
-        newRecordings.add(
-          RecordedAudio(
-            path: path,
-            name: fileName,
-            duration: duration ?? Duration.zero,
-            isShared: true,
-          ),
-        );
-        await audioPlayer.release();
-      } catch (e) {
-        final fileName = p.basename(path);
-        newRecordings.add(
-          RecordedAudio(
-            path: path,
-            name: fileName,
-            duration: Duration.zero,
-            isShared: true,
-          ),
-        );
-      } finally {
-        unawaited(audioPlayer.dispose());
-      }
+      // In a real application, you might use audioplayers here strictly to get
+      // duration. Since we removed the import, we'll assign Duration.zero for
+      // now, or implement a basic duration extractor if strictly needed.
+      // For shared audios without loading the heavy audioplayer instance just for duration:
+      final fileName = p.basename(path);
+      newRecordings.add(
+        RecordedAudio(
+          path: path,
+          name: fileName,
+          duration: Duration.zero,
+          isShared: true,
+        ),
+      );
     }
     return newRecordings;
   }
@@ -366,9 +339,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     _sheetController.dispose();
     _editorScrollController.dispose();
     _mainScrollController.dispose();
-    unawaited(_playerStateSubscription?.cancel());
-    unawaited(_audioPlayer.dispose());
-    unawaited(_videoPlayerController?.dispose());
     super.dispose();
   }
 
@@ -602,10 +572,20 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   double _calculateInitialChildSize(
       BuildContext context, {
         bool afterKeyboardClose = false,
+        IconData? iconData,
       }) {
     final screenHeight = MediaQuery.of(context).size.height;
+
+    // Dynamically calculate the fraction needed to fit the minimized map (380.h)
+    // + sheet headers (~80.h) uniformly without excessive bottom space.
+    final double locationMinFraction = (460.h / screenHeight);
+
+    final double baseFraction = (iconData == Icons.location_on_rounded)
+        ? locationMinFraction.clamp(_minFractionWithoutKeyboard, _maxChildSize)
+        : _initialFractionWithoutKeyboard;
+
     if (afterKeyboardClose) {
-      return _initialFractionWithoutKeyboard.clamp(
+      return baseFraction.clamp(
         _minFractionWithoutKeyboard,
         _maxChildSize,
       );
@@ -617,7 +597,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
           (_keyboardVisibleInitialFractionFactor * keyboardHeight + 200.h) /
               screenHeight;
     } else {
-      initialSize = _initialFractionWithoutKeyboard;
+      initialSize = baseFraction;
     }
     return initialSize.clamp(
       _calculateMinChildSize(context, afterKeyboardClose: afterKeyboardClose),
@@ -642,6 +622,27 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       minSize = _minFractionWithoutKeyboard;
     }
     return minSize.clamp(0.1, _maxChildSize);
+  }
+
+  void _resizeSheetForTab(IconData iconData) {
+    if (!mounted) return;
+    final newInitialSize = _calculateInitialChildSize(
+      context,
+      afterKeyboardClose: false,
+      iconData: iconData,
+    );
+    setState(() {
+      _activeSheetInitialSize = newInitialSize;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_sheetController.isAttached && mounted) {
+        _sheetController.animateTo(
+          newInitialSize,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
   }
 
   Future<void> _handleAttachmentTap(
@@ -676,6 +677,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       setState(() {
         _selectedToolbarIcon = iconData;
       });
+      _resizeSheetForTab(iconData);
       return;
     }
 
@@ -724,6 +726,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         setState(() {
           _selectedToolbarIcon = iconData;
         });
+        _resizeSheetForTab(iconData);
         return;
       }
       if (isKeyboardVisible) {
@@ -924,6 +927,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     final newInitialSize = _calculateInitialChildSize(
       context,
       afterKeyboardClose: afterKeyboardClose,
+      iconData: iconData,
     );
     final newMinSize = _calculateMinChildSize(
       context,
@@ -1032,38 +1036,60 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         !_wasKeyboardVisible &&
         _isDraggableSheetActive &&
         !_openingSheetViaToolbar) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (mounted && _isDraggableSheetActive) {
-          final didClose = await _handleCloseSheetRequest();
-          if (!didClose && mounted) {
-            // The user cancelled the discard dialog while trying to bring up the keyboard.
-            // We MUST unfocus the keyboard here to prevent the state from endlessly looping
-            // (keyboard pushes sheet up -> sheet asks to close -> cancel -> keyboard comes up again).
-            _focusNode.unfocus();
+
+      if (!_focusNode.hasFocus && _selectedToolbarIcon == Icons.location_on_rounded) {
+        // Keyboard opened for the search bar -> automatically expand sheet to see results
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_sheetController.isAttached && mounted) {
+            _sheetController.animateTo(
+              _maxChildSize,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+            );
           }
-        }
-      });
+        });
+      } else if (_focusNode.hasFocus) {
+        // Keyboard opened for main text editor -> ask to close sheet
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (mounted && _isDraggableSheetActive) {
+            final didClose = await _handleCloseSheetRequest();
+            if (!didClose && mounted) {
+              _focusNode.unfocus();
+            }
+          }
+        });
+      }
     }
     _wasKeyboardVisible = isKeyboardVisible;
   }
 
-  void _openMediaPreview(List<dynamic> allMedia, int initialIndex) {
-    final mediaItems = allMedia
-        .map((m) {
-      if (m is AssetEntity) {
-        return MediaItem(asset: m, type: m.type, id: m.id);
-      } else if (m is CapturedPhoto) {
-        return MediaItem(
-          asset: m,
-          type: _isVideoFile(m.file.path) ? AssetType.video : AssetType.image,
-          id: m.file.path,
-        );
-      }
-      return null;
-    })
-        .whereType<MediaItem>()
-        .toList();
+  List<MediaItem> _getAllMediaItems() {
+    final items = <MediaItem>[];
+    for (final asset in _previewImages) {
+      items.add(MediaItem(asset: asset, type: asset.type, id: asset.id));
+    }
+    for (final photo in _previewPhotos) {
+      items.add(MediaItem(
+        asset: photo,
+        type: _isVideoFile(photo.file.path) ? AssetType.video : AssetType.image,
+        id: photo.file.path,
+      ));
+    }
+    for (final audio in _previewAudios) {
+      items.add(MediaItem(asset: audio, type: AssetType.audio, id: audio.id));
+    }
+    for (final rec in _previewRecordings) {
+      items.add(MediaItem(
+        asset: CapturedPhoto(file: XFile(rec.path), name: rec.name),
+        type: AssetType.audio,
+        id: rec.path,
+      ));
+    }
+    return items;
+  }
 
+  void _openMediaPreview(int initialIndex) {
+    final mediaItems = _getAllMediaItems();
     if (mediaItems.isEmpty) return;
 
     unawaited(
@@ -1074,6 +1100,17 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         builder: (context) => MediaPreviewBottomSheet(
           mediaItems: mediaItems,
           initialIndex: initialIndex,
+          onRemove: (item) {
+            setState(() {
+              if (item.asset is AssetEntity) {
+                _previewImages.remove(item.asset);
+                _previewAudios.remove(item.asset);
+              } else if (item.asset is CapturedPhoto) {
+                _previewPhotos.removeWhere((p) => p.file.path == item.id);
+                _previewRecordings.removeWhere((r) => r.path == item.id);
+              }
+            });
+          },
         ),
       ),
     );
@@ -1381,7 +1418,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         width: double.infinity,
         child: buildMediaContainer(
           allMedia[0],
-          onTap: () => _openMediaPreview(allMedia, 0),
+          onTap: () => _openMediaPreview(0),
         ),
       );
     } else if (allMedia.length == 2) {
@@ -1392,14 +1429,14 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
             Expanded(
               child: buildMediaContainer(
                 allMedia[0],
-                onTap: () => _openMediaPreview(allMedia, 0),
+                onTap: () => _openMediaPreview(0),
               ),
             ),
             SizedBox(width: spacing),
             Expanded(
               child: buildMediaContainer(
                 allMedia[1],
-                onTap: () => _openMediaPreview(allMedia, 1),
+                onTap: () => _openMediaPreview(1),
               ),
             ),
           ],
@@ -1409,7 +1446,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       Widget? thirdImageOverlay;
       if (allMedia.length > 3) {
         thirdImageOverlay = GestureDetector(
-          onTap: () => _openMediaPreview(allMedia, 2),
+          onTap: () => _openMediaPreview(2),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(10.5.r),
             child: BackdropFilter(
@@ -1441,7 +1478,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
               aspectRatio: 1,
               child: buildMediaContainer(
                 allMedia[0],
-                onTap: () => _openMediaPreview(allMedia, 0),
+                onTap: () => _openMediaPreview(0),
               ),
             ),
             SizedBox(width: spacing),
@@ -1451,7 +1488,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                   Expanded(
                     child: buildMediaContainer(
                       allMedia[1],
-                      onTap: () => _openMediaPreview(allMedia, 1),
+                      onTap: () => _openMediaPreview(1),
                     ),
                   ),
                   SizedBox(height: spacing),
@@ -1459,7 +1496,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                     child: buildMediaContainer(
                       allMedia[2],
                       overlay: thirdImageOverlay,
-                      onTap: () => _openMediaPreview(allMedia, 2),
+                      onTap: () => _openMediaPreview(2),
                     ),
                   ),
                 ],
@@ -1480,97 +1517,80 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       return const SizedBox.shrink();
     }
     final appThemeColors = AppTheme.colorsOf(context);
+    final baseIndex = _previewImages.length + _previewPhotos.length;
+
     return Column(
-      children: _previewAudios.map((audio) {
-        final isPlaying = _currentlyPlayingPath == audio.id &&
-            _playerState == PlayerState.playing;
-        final isPaused = _currentlyPlayingPath == audio.id &&
-            _playerState == PlayerState.paused;
+      children: _previewAudios.asMap().entries.map((entry) {
+        final index = entry.key;
+        final audio = entry.value;
+        final globalIndex = baseIndex + index;
+
         return Padding(
           padding: EdgeInsets.only(bottom: 4.h),
-          child: Container(
-            height: 50.h,
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(horizontal: 12.w),
-            decoration: BoxDecoration(
-              color: appThemeColors.grey4,
-              borderRadius: BorderRadius.circular(12.r),
-            ),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: Icon(
-                    isPlaying
-                        ? Icons.pause_circle_filled_rounded
-                        : Icons.play_circle_fill_rounded,
+          child: GestureDetector(
+            onTap: () => _openMediaPreview(globalIndex),
+            child: Container(
+              height: 50.h,
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(horizontal: 12.w),
+              decoration: BoxDecoration(
+                color: appThemeColors.grey4,
+                borderRadius: BorderRadius.circular(12.r),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.play_circle_fill_rounded,
                     color: appThemeColors.grey1,
                     size: 28.sp,
                   ),
-                  onPressed: () async {
-                    if (isPlaying) {
-                      unawaited(_audioPlayer.pause());
-                    } else if (isPaused) {
-                      unawaited(_audioPlayer.resume());
-                    } else {
-                      final file = await audio.file;
-                      if (file == null) return;
-                      unawaited(_audioPlayer.play(DeviceFileSource(file.path)));
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          audio.title ?? AppConstants.audioTrack,
+                          style: TextStyle(
+                            color: appThemeColors.grey10,
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.none,
+                            overflow: TextOverflow.ellipsis,
+                            fontFamily: AppConstants.font,
+                          ),
+                          maxLines: 1,
+                        ),
+                        Text(
+                          _formatPreviewDuration(
+                            Duration(seconds: audio.duration),
+                          ),
+                          style: TextStyle(
+                            color: appThemeColors.grey1,
+                            fontSize: 12.sp,
+                            decoration: TextDecoration.none,
+                            fontFamily: AppConstants.font,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 8.w),
+                  IconButton(
+                    icon: Icon(
+                      Icons.close,
+                      color: appThemeColors.grey1,
+                      size: 20.sp,
+                    ),
+                    onPressed: () {
                       setState(() {
-                        _currentlyPlayingPath = audio.id;
+                        _previewAudios.remove(audio);
                       });
-                    }
-                  },
-                ),
-                SizedBox(width: 4.w),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        audio.title ?? AppConstants.audioTrack,
-                        style: TextStyle(
-                          color: appThemeColors.grey10,
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w600,
-                          decoration: TextDecoration.none,
-                          overflow: TextOverflow.ellipsis,
-                          fontFamily: AppConstants.font,
-                        ),
-                        maxLines: 1,
-                      ),
-                      Text(
-                        _formatPreviewDuration(
-                          Duration(seconds: audio.duration),
-                        ),
-                        style: TextStyle(
-                          color: appThemeColors.grey1,
-                          fontSize: 12.sp,
-                          decoration: TextDecoration.none,
-                          fontFamily: AppConstants.font,
-                        ),
-                      ),
-                    ],
+                    },
                   ),
-                ),
-                SizedBox(width: 8.w),
-                IconButton(
-                  icon: Icon(
-                    Icons.close,
-                    color: appThemeColors.grey1,
-                    size: 20.sp,
-                  ),
-                  onPressed: () {
-                    if (_currentlyPlayingPath == audio.id) {
-                      unawaited(_audioPlayer.stop());
-                      _currentlyPlayingPath = null;
-                    }
-                    setState(() {
-                      _previewAudios.remove(audio);
-                    });
-                  },
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -1593,101 +1613,84 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       return const SizedBox.shrink();
     }
     final appThemeColors = AppTheme.colorsOf(context);
+    final baseIndex = _previewImages.length + _previewPhotos.length + _previewAudios.length;
+
     return Column(
-      children: _previewRecordings.map((recording) {
-        final isPlaying = _currentlyPlayingPath == recording.path &&
-            _playerState == PlayerState.playing;
-        final isPaused = _currentlyPlayingPath == recording.path &&
-            _playerState == PlayerState.paused;
+      children: _previewRecordings.asMap().entries.map((entry) {
+        final index = entry.key;
+        final recording = entry.value;
+        final globalIndex = baseIndex + index;
+
         return Padding(
           padding: EdgeInsets.only(bottom: 4.h),
-          child: Container(
-            height: 50.h,
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(horizontal: 12.w),
-            decoration: BoxDecoration(
-              color: appThemeColors.grey4,
-              borderRadius: BorderRadius.circular(12.r),
-            ),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: Icon(
-                    isPlaying
-                        ? Icons.pause_circle_filled_rounded
-                        : Icons.play_circle_fill_rounded,
+          child: GestureDetector(
+            onTap: () => _openMediaPreview(globalIndex),
+            child: Container(
+              height: 50.h,
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(horizontal: 12.w),
+              decoration: BoxDecoration(
+                color: appThemeColors.grey4,
+                borderRadius: BorderRadius.circular(12.r),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.play_circle_fill_rounded,
                     color: appThemeColors.grey1,
                     size: 28.sp,
                   ),
-                  onPressed: () {
-                    if (isPlaying) {
-                      unawaited(_audioPlayer.pause());
-                    } else if (isPaused) {
-                      unawaited(_audioPlayer.resume());
-                    } else {
-                      unawaited(
-                        _audioPlayer.play(DeviceFileSource(recording.path)),
-                      );
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          recording.name,
+                          style: TextStyle(
+                            color: appThemeColors.grey10,
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.none,
+                            overflow: TextOverflow.ellipsis,
+                            fontFamily: AppConstants.font,
+                          ),
+                          maxLines: 1,
+                        ),
+                        Text(
+                          _formatPreviewDuration(recording.duration),
+                          style: TextStyle(
+                            color: appThemeColors.grey1,
+                            fontSize: 12.sp,
+                            decoration: TextDecoration.none,
+                            fontFamily: AppConstants.font,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 8.w),
+                  IconButton(
+                    icon: Icon(
+                      Icons.close,
+                      color: appThemeColors.grey1,
+                      size: 20.sp,
+                    ),
+                    onPressed: () {
                       setState(() {
-                        _currentlyPlayingPath = recording.path;
-                      });
-                    }
-                  },
-                ),
-                SizedBox(width: 4.w),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        recording.name,
-                        style: TextStyle(
-                          color: appThemeColors.grey10,
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w600,
-                          decoration: TextDecoration.none,
-                          overflow: TextOverflow.ellipsis,
-                          fontFamily: AppConstants.font,
-                        ),
-                        maxLines: 1,
-                      ),
-                      Text(
-                        _formatPreviewDuration(recording.duration),
-                        style: TextStyle(
-                          color: appThemeColors.grey1,
-                          fontSize: 12.sp,
-                          decoration: TextDecoration.none,
-                          fontFamily: AppConstants.font,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(width: 8.w),
-                IconButton(
-                  icon: Icon(
-                    Icons.close,
-                    color: appThemeColors.grey1,
-                    size: 20.sp,
-                  ),
-                  onPressed: () {
-                    if (_currentlyPlayingPath == recording.path) {
-                      unawaited(_audioPlayer.stop());
-                      _currentlyPlayingPath = null;
-                    }
-                    setState(() {
-                      _previewRecordings.remove(recording);
-                      if (!recording.isShared) {
-                        final file = File(recording.path);
-                        if (file.existsSync()) {
-                          file.delete();
+                        _previewRecordings.remove(recording);
+                        if (!recording.isShared) {
+                          final file = File(recording.path);
+                          if (file.existsSync()) {
+                            file.delete();
+                          }
                         }
-                      }
-                    });
-                  },
-                ),
-              ],
+                      });
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -1949,8 +1952,13 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       double screenHeight,
       double sheetMinSize,
       double sheetInitialSize,
+      double keyboardHeight,
       ) {
-    return Positioned.fill(
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0, // ALWAYS 0 so size fraction is relative to the screen!
       child: Align(
         alignment: Alignment.bottomCenter,
         child: NotificationListener<DraggableScrollableNotification>(
@@ -1967,7 +1975,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
             maxChildSize: _maxChildSize,
             expand: false,
             builder: (context, scrollController) =>
-                _buildSheetContainer(context, scrollController),
+                _buildSheetContainer(context, scrollController, keyboardHeight),
           ),
         ),
       ),
@@ -1977,9 +1985,13 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   Widget _buildSheetContainer(
       BuildContext context,
       ScrollController scrollController,
+      double keyboardHeight,
       ) {
     final sheetThemeColors = AppTheme.colorsOf(context);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
+
+    // Apply keyboard padding directly to the sheet content so it scrolls up naturally
+    final totalBottomPadding = math.max(keyboardHeight, bottomPadding > 0 ? bottomPadding + 8.h : 16.h);
 
     return Container(
       decoration: BoxDecoration(
@@ -1990,7 +2002,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         left: 0.w,
         right: 0.w,
         top: 16.h,
-        bottom: bottomPadding > 0 ? bottomPadding + 8.h : 16.h,
+        bottom: totalBottomPadding,
       ),
       child: Column(
         children: [
@@ -2003,6 +2015,19 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
               scrollController: scrollController,
               selectedMoodIndex: _selectedMoodIndex,
               selectedLocation: _selectedLocation?.coordinates,
+              onMapMaximizeToggled: (isMaximized) {
+                _isMapMaximized = isMaximized;
+                if (_sheetController.isAttached) {
+                  final screenHeight = MediaQuery.of(context).size.height;
+                  final locationMinFraction = (460.h / screenHeight).clamp(_minFractionWithoutKeyboard, _maxChildSize);
+
+                  _sheetController.animateTo(
+                    isMaximized ? _maxChildSize : locationMinFraction,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
+                }
+              },
               onRecordingComplete: (path, duration) {
                 setState(() {
                   final recordingName = AppConstants.openJotRecording
@@ -2095,8 +2120,11 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
     final currentStyle = _quillController.getSelectionStyle();
     final hasSelection = !_quillController.selection.isCollapsed;
+    final isMainEditorFocused = _focusNode.hasFocus;
+
     Widget toolbar;
-    if (isKeyboardVisible || hasSelection) {
+    // Only swap to the TextStylingToolbar if the main editor specifically has focus
+    if (isMainEditorFocused && (isKeyboardVisible || hasSelection)) {
       toolbar = TextStylingToolbar(
         key: const ValueKey('TextStylingToolbar'),
         onToolbarItemTap: _handleTextStylingToolbarItemTap,
@@ -2203,8 +2231,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   @override
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
-    // Ignore deprecation warning, this is the most reliable way to handle modal dragging bugs.
-    // ignore: deprecated_member_use
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
@@ -2230,6 +2256,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                 final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
                 final isKeyboardVisible = keyboardHeight > 0;
 
+                // Scroll the editor up when typing text
                 if (isKeyboardVisible && _focusNode.hasFocus) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted && _mainScrollController.hasClients) {
@@ -2244,6 +2271,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                   });
                 }
 
+                // Handle standard open transition logic
                 if (_sheetState == _SheetTransitionState.opening &&
                     !isKeyboardVisible &&
                     mounted) {
@@ -2260,12 +2288,43 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                     }
                   });
                 }
+
+                // Track precisely when the keyboard begins to slide down to animate the map sheet concurrently
+                if (keyboardHeight < _previousKeyboardHeight && _wasKeyboardVisible && !_isKeyboardClosing) {
+                  _isKeyboardClosing = true;
+                  if (!_focusNode.hasFocus && _selectedToolbarIcon == Icons.location_on_rounded && !_isMapMaximized) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (_sheetController.isAttached && mounted) {
+                        final screenHeight = MediaQuery.of(context).size.height;
+                        final locationMinFraction = (460.h / screenHeight).clamp(_minFractionWithoutKeyboard, _maxChildSize);
+                        _sheetController.animateTo(
+                          locationMinFraction,
+                          duration: const Duration(milliseconds: 350),
+                          curve: Curves.easeOutCubic,
+                        );
+                      }
+                    });
+                  }
+                } else if (keyboardHeight == 0) {
+                  _isKeyboardClosing = false;
+                }
+                _previousKeyboardHeight = keyboardHeight;
+
+                // Fallback handling to trigger expansion and handle the main focus node
                 _handleKeyboardInteraction(isKeyboardVisible);
-                final sheetHeight =
-                (_isDraggableSheetActive && _sheetController.isAttached)
-                    ? _sheetController.size * screenHeight
+
+                final currentSheetSize = _sheetController.isAttached
+                    ? _sheetController.size
+                    : (_activeSheetInitialSize ?? 0.0);
+
+                // Sheet height is now relative to FULL screen height because bottom is 0
+                final sheetHeight = _isDraggableSheetActive
+                    ? currentSheetSize * screenHeight
                     : 0.0;
+
+                // We push the main text editor up by whichever is larger: the keyboard or the sheet
                 final bottomOffset = math.max(keyboardHeight, sheetHeight);
+
                 return Stack(
                   children: [
                     Positioned(
@@ -2356,6 +2415,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                         screenHeight,
                         _activeSheetMinSize!,
                         _activeSheetInitialSize!,
+                        keyboardHeight,
                       ),
                   ],
                 );

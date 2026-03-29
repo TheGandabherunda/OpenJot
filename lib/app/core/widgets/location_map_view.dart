@@ -1,3 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -27,11 +32,13 @@ class LocationMapView extends StatefulWidget {
     required this.scrollController,
     this.onLocationSelected,
     this.initialLocation,
+    this.onMaximizeToggled,
   });
 
   final ScrollController scrollController;
   final Function(LatLng location)? onLocationSelected;
   final LatLng? initialLocation;
+  final ValueChanged<bool>? onMaximizeToggled;
 
   @override
   State<LocationMapView> createState() => _LocationMapViewState();
@@ -45,11 +52,18 @@ class _LocationMapViewState extends State<LocationMapView>
   bool _isLoading = false;
   String? _permissionMessage;
 
-  late final AnimationController _animationController;
+  // Search variables
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
+  List<dynamic> _searchResults = [];
+  bool _isSearching = false;
 
-  // This offset shifts the map's center down, making the pin appear higher.
-  static const double _latitudeOffset = 0.0009;
-  static const double _longitudeOffset = 0.0;
+  // Sizing variables
+  bool _isMaximized = false;
+  final double _defaultMinimizedHeight = 380.0;
+  final double _defaultMaximizedHeightRatio = 0.65;
+
+  late final AnimationController _animationController;
 
   @override
   void initState() {
@@ -59,18 +73,12 @@ class _LocationMapViewState extends State<LocationMapView>
       duration: const Duration(milliseconds: 1200),
     );
 
-    // If a location is passed, show it. Otherwise, fetch the current location.
     if (widget.initialLocation != null) {
       _selectedLocation = widget.initialLocation;
       _checkPermissionAndFetch(moveMap: false);
-      // This ensures the map moves to the initial location after the widget is built.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          final mapCenter = LatLng(
-            widget.initialLocation!.latitude - _latitudeOffset,
-            widget.initialLocation!.longitude - _longitudeOffset,
-          );
-          _animatedMapMove(mapCenter, 18);
+          _moveToLocation(widget.initialLocation!, 18);
         }
       });
     } else {
@@ -81,7 +89,13 @@ class _LocationMapViewState extends State<LocationMapView>
   @override
   void dispose() {
     _animationController.dispose();
+    _searchController.dispose();
+    _debounce?.cancel();
     super.dispose();
+  }
+
+  void _moveToLocation(LatLng location, double zoom) {
+    _animatedMapMove(location, zoom);
   }
 
   void _animatedMapMove(LatLng destLocation, double destZoom) {
@@ -92,7 +106,6 @@ class _LocationMapViewState extends State<LocationMapView>
 
     final animation = CurvedAnimation(
       parent: _animationController,
-      // This custom cubic curve provides a fast start and a long, gentle deceleration for a natural feel.
       curve: const Cubic(0.23, 1, 0.32, 1),
     );
 
@@ -141,12 +154,6 @@ class _LocationMapViewState extends State<LocationMapView>
       if (result != null) {
         final latLng = LatLng(result['latitude']!, result['longitude']!);
 
-        // Apply offsets for visual centering.
-        final mapCenter = LatLng(
-          latLng.latitude - _latitudeOffset,
-          latLng.longitude - _longitudeOffset,
-        );
-
         if (mounted) {
           setState(() {
             _currentLocation = latLng;
@@ -156,7 +163,7 @@ class _LocationMapViewState extends State<LocationMapView>
             _isLoading = false;
           });
           if (moveMap) {
-            _animatedMapMove(mapCenter, 18);
+            _moveToLocation(latLng, 18);
           }
         }
       } else {
@@ -177,17 +184,78 @@ class _LocationMapViewState extends State<LocationMapView>
     }
   }
 
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      _searchPlaces(query);
+    });
+  }
+
+  Future<void> _searchPlaces(String query) async {
+    if (query.trim().isEmpty) {
+      setState(() {
+        _searchResults = [];
+        _isSearching = false;
+      });
+      return;
+    }
+
+    setState(() => _isSearching = true);
+    try {
+      final uri = Uri.parse(
+          'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(query)}&format=json&addressdetails=1&limit=5');
+      final request = await HttpClient().getUrl(uri);
+      request.headers.add('User-Agent', 'OpenJotApp');
+      final response = await request.close();
+
+      if (response.statusCode == 200) {
+        final stringData = await response.transform(utf8.decoder).join();
+        final List jsonResponse = json.decode(stringData);
+        if (mounted) {
+          setState(() {
+            _searchResults = jsonResponse;
+            _isSearching = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _isSearching = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isSearching = false);
+    }
+  }
+
+  void _selectSearchResult(dynamic result) {
+    final lat = double.tryParse(result['lat'].toString());
+    final lon = double.tryParse(result['lon'].toString());
+
+    if (lat != null && lon != null) {
+      final location = LatLng(lat, lon);
+      setState(() {
+        _selectedLocation = location;
+        _searchResults = [];
+        _searchController.text = result['name'] ?? result['display_name']?.split(',').first ?? '';
+      });
+      _moveToLocation(location, 16);
+      FocusScope.of(context).unfocus();
+    }
+  }
+
+  void _refreshMap() {
+    FocusScope.of(context).unfocus();
+    _searchController.clear();
+    setState(() => _searchResults = []);
+    _getCurrentLocation(moveMap: true);
+  }
+
   void _handleTap(TapPosition tapPosition, LatLng latLng) {
+    FocusScope.of(context).unfocus();
+    setState(() => _searchResults = []);
     if (mounted) {
       setState(() {
         _selectedLocation = latLng;
       });
-      // Apply offsets for visual centering.
-      final mapCenter = LatLng(
-        latLng.latitude - _latitudeOffset,
-        latLng.longitude - _longitudeOffset,
-      );
-      _animatedMapMove(mapCenter, _mapController.camera.zoom);
+      _moveToLocation(latLng, _mapController.camera.zoom);
     }
   }
 
@@ -197,11 +265,23 @@ class _LocationMapViewState extends State<LocationMapView>
     }
   }
 
+  void _toggleMaximize() {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _isMaximized = !_isMaximized;
+    });
+    widget.onMaximizeToggled?.call(_isMaximized);
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (_selectedLocation != null && mounted) {
+        _moveToLocation(_selectedLocation!, _mapController.camera.zoom);
+      }
+    });
+  }
+
   bool _isSelectedLocationCurrentUserLocation() {
     if (_selectedLocation == null || _currentLocation == null) {
       return false;
     }
-    // Removed the unnecessary parentheses here
     return _selectedLocation!.latitude.toStringAsFixed(5) ==
         _currentLocation!.latitude.toStringAsFixed(5) &&
         _selectedLocation!.longitude.toStringAsFixed(5) ==
@@ -211,6 +291,9 @@ class _LocationMapViewState extends State<LocationMapView>
   @override
   Widget build(BuildContext context) {
     final colors = AppTheme.colorsOf(context);
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    final mapHeight = _isMaximized ? (screenHeight * _defaultMaximizedHeightRatio) : _defaultMinimizedHeight.h;
 
     if (_permissionMessage != null) {
       return Center(
@@ -236,105 +319,256 @@ class _LocationMapViewState extends State<LocationMapView>
           controller: widget.scrollController,
           slivers: [
             SliverToBoxAdapter(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12.r),
-                child: SizedBox(
-                  height: 530.h,
-                  child: FlutterMap(
-                    mapController: _mapController,
-                    options: MapOptions(
-                      initialCenter:
-                      _selectedLocation ?? const LatLng(20.5937, 78.9629),
-                      initialZoom: _selectedLocation != null ? 18 : 10,
-                      onTap: _handleTap,
-                    ),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOutCubic,
+                height: mapHeight,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12.r),
+                  child: Stack(
                     children: [
-                      TileLayer(
-                        urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'org.thegandabherunda.openjot',
-                      ),
-                      if (_selectedLocation != null)
-                        MarkerLayer(
-                          markers: [
-                            Marker(
-                              width: 80.w,
-                              height: 80.w,
-                              point: _selectedLocation!,
-                              child: TweenAnimationBuilder<double>(
-                                key: ValueKey(_selectedLocation),
-                                tween: Tween(begin: 0.3, end: 1),
-                                duration: const Duration(milliseconds: 500),
-                                curve: Curves.easeOutBack,
-                                builder: (context, scale, child) {
-                                  return Transform.scale(
-                                    scale: scale,
-                                    child: child,
-                                  );
-                                },
-                                child: Icon(
-                                  Icons.location_pin,
-                                  color: colors.aOrange[1],
-                                  size: 40.sp,
+                      FlutterMap(
+                        mapController: _mapController,
+                        options: MapOptions(
+                          initialCenter:
+                          _selectedLocation ?? const LatLng(20.5937, 78.9629),
+                          initialZoom: _selectedLocation != null ? 18 : 10,
+                          onTap: _handleTap,
+                        ),
+                        children: [
+                          TileLayer(
+                            urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            userAgentPackageName: 'org.thegandabherunda.openjot',
+                          ),
+                          if (_selectedLocation != null)
+                            MarkerLayer(
+                              markers: [
+                                Marker(
+                                  width: 80.w,
+                                  height: 80.w,
+                                  point: _selectedLocation!,
+                                  child: TweenAnimationBuilder<double>(
+                                    key: ValueKey(_selectedLocation),
+                                    tween: Tween(begin: 0.3, end: 1),
+                                    duration: const Duration(milliseconds: 500),
+                                    curve: Curves.easeOutBack,
+                                    builder: (context, scale, child) {
+                                      return Transform.scale(
+                                        scale: scale,
+                                        child: child,
+                                      );
+                                    },
+                                    child: Icon(
+                                      Icons.location_pin,
+                                      color: colors.aOrange[1],
+                                      size: 40.sp,
+                                    ),
+                                  ),
                                 ),
+                              ],
+                            ),
+                        ],
+                      ),
+
+                      Positioned(
+                        top: 12.h,
+                        left: 12.w,
+                        right: 12.w,
+                        child: Column(
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                color: colors.grey6.withOpacity(0.95),
+                                borderRadius: BorderRadius.circular(999), // Fully rounded pill shape
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Colors.black12,
+                                    blurRadius: 8,
+                                    offset: Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: TextField(
+                                controller: _searchController,
+                                onChanged: _onSearchChanged,
+                                decoration: InputDecoration(
+                                  hintText: 'Search places, shops...',
+                                  hintStyle: TextStyle(
+                                    color: colors.grey2,
+                                    fontSize: 14.sp,
+                                  ),
+                                  prefixIcon: Padding(
+                                    padding: EdgeInsets.only(left: 12.w, right: 4.w),
+                                    child: Icon(Icons.search_rounded, color: colors.grey1),
+                                  ),
+                                  suffixIcon: Padding(
+                                    padding: EdgeInsets.only(right: 8.w),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (_isSearching)
+                                          Padding(
+                                            padding: EdgeInsets.symmetric(horizontal: 12.w),
+                                            child: SizedBox(
+                                              width: 18.w,
+                                              height: 18.w,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: colors.grey1,
+                                              ),
+                                            ),
+                                          )
+                                        else if (_searchController.text.isNotEmpty)
+                                          IconButton(
+                                            icon: Icon(Icons.close_rounded, color: colors.grey1, size: 20.sp),
+                                            onPressed: () {
+                                              _searchController.clear();
+                                              setState(() => _searchResults = []);
+                                              FocusScope.of(context).unfocus();
+                                            },
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(999),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(999),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(999),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                                ),
+                                style: TextStyle(
+                                  color: colors.grey10,
+                                  fontFamily: AppConstants.font,
+                                  fontSize: 14.sp,
+                                ),
+                              ),
+                            ),
+
+                            if (_searchResults.isNotEmpty)
+                              Container(
+                                margin: EdgeInsets.only(top: 8.h),
+                                decoration: BoxDecoration(
+                                  color: colors.grey6.withOpacity(0.95),
+                                  borderRadius: BorderRadius.circular(16.r),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Colors.black12,
+                                      blurRadius: 8,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                constraints: BoxConstraints(maxHeight: 220.h),
+                                child: ListView.separated(
+                                  padding: EdgeInsets.zero,
+                                  shrinkWrap: true,
+                                  itemCount: _searchResults.length,
+                                  separatorBuilder: (context, index) => Divider(
+                                    color: colors.grey4,
+                                    height: 1,
+                                  ),
+                                  itemBuilder: (context, index) {
+                                    final result = _searchResults[index];
+                                    return ListTile(
+                                      leading: Icon(
+                                        Icons.location_on_outlined,
+                                        color: colors.grey2,
+                                        size: 20.sp,
+                                      ),
+                                      title: Text(
+                                        result['display_name'] ?? '',
+                                        style: TextStyle(
+                                          color: colors.grey10,
+                                          fontSize: 13.sp,
+                                          fontFamily: AppConstants.font,
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      onTap: () => _selectSearchResult(result),
+                                    );
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+
+                      Positioned(
+                        top: 76.h,
+                        right: 12.w,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            FloatingActionButton.small(
+                              heroTag: 'maximize_map_btn',
+                              backgroundColor: colors.grey6.withOpacity(0.9),
+                              foregroundColor: colors.grey10,
+                              elevation: 2,
+                              onPressed: _toggleMaximize,
+                              child: Icon(
+                                _isMaximized ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
+                                size: 22.sp,
+                              ),
+                            ),
+                            SizedBox(height: 8.h),
+                            FloatingActionButton.small(
+                              heroTag: 'current_location_btn',
+                              backgroundColor: colors.grey6.withOpacity(0.9),
+                              foregroundColor: colors.grey10,
+                              elevation: 2,
+                              onPressed: _isLoading ? null : () => _getCurrentLocation(moveMap: true),
+                              child: _isLoading
+                                  ? SizedBox(
+                                width: 18.w,
+                                height: 18.w,
+                                child: CircularProgressIndicator(
+                                  color: colors.grey10,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                                  : Icon(
+                                _isSelectedLocationCurrentUserLocation()
+                                    ? Icons.my_location_rounded
+                                    : Icons.location_searching_rounded,
+                                size: 20.sp,
+                              ),
+                            ),
+                            SizedBox(height: 8.h),
+                            FloatingActionButton.small(
+                              heroTag: 'refresh_map_btn',
+                              backgroundColor: colors.grey6.withOpacity(0.9),
+                              foregroundColor: colors.grey10,
+                              elevation: 2,
+                              onPressed: _refreshMap,
+                              child: Icon(
+                                Icons.refresh_rounded,
+                                size: 22.sp,
                               ),
                             ),
                           ],
                         ),
+                      ),
                     ],
                   ),
                 ),
               ),
             ),
             const SliverToBoxAdapter(
-              child: SizedBox(height: 80), // Space for the button
+              child: SizedBox(height: 100),
             ),
           ],
         ),
-        Positioned(
-          top: 8.h,
-          right: 8.w,
-          child: FloatingActionButton(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(50),
-            ),
-            heroTag: 'current_location_btn',
-            backgroundColor: colors.grey6,
-            foregroundColor: colors.grey10,
-            elevation: 0,
-            onPressed:
-            _isLoading ? null : () => _getCurrentLocation(moveMap: true),
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              transitionBuilder: (child, animation) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: ScaleTransition(
-                    scale: Tween<double>(begin: 0.8, end: 1).animate(animation),
-                    child: child,
-                  ),
-                );
-              },
-              child: _isLoading
-                  ? SizedBox(
-                key: const ValueKey('loader'),
-                width: 24.w,
-                height: 24.h,
-                child: CircularProgressIndicator(
-                  color: colors.grey10,
-                  strokeWidth: 2,
-                ),
-              )
-                  : Icon(
-                key: ValueKey(_isSelectedLocationCurrentUserLocation()),
-                _isSelectedLocationCurrentUserLocation()
-                    ? Icons.my_location_rounded
-                    : Icons.location_searching_rounded,
-                size: 24.sp,
-              ),
-            ),
-          ),
-        ),
+
         AnimatedPositioned(
           duration: const Duration(milliseconds: 500),
           curve: Curves.easeInOutCubic,

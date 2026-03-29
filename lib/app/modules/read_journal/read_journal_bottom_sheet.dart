@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
-import 'package:audioplayers/audioplayers.dart';
+import 'package:camera/camera.dart';
 import 'package:flutter/cupertino.dart' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
@@ -35,11 +35,6 @@ class ReadJournalBottomSheet extends StatefulWidget {
 class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
   late JournalEntry _currentEntry;
   late quill.QuillController _quillController;
-  final AudioPlayer _audioPlayer = AudioPlayer();
-
-  String? _currentlyPlayingId;
-  PlayerState? _playerState;
-  StreamSubscription? _playerStateSubscription;
 
   static const List<Map<String, String>> _moods = [
     {'svg': 'assets/1.svg', 'label': AppConstants.veryUnpleasant},
@@ -54,17 +49,6 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
     super.initState();
     _currentEntry = widget.entry;
     _initializeController();
-    _playerStateSubscription =
-        _audioPlayer.onPlayerStateChanged.listen((state) {
-          if (mounted) {
-            setState(() {
-              _playerState = state;
-              if (state == PlayerState.completed) {
-                _currentlyPlayingId = null;
-              }
-            });
-          }
-        });
   }
 
   void _initializeController() {
@@ -79,8 +63,6 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
   @override
   void dispose() {
     _quillController.dispose();
-    _playerStateSubscription?.cancel();
-    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -156,24 +138,33 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
         lowercasedPath.endsWith('.mkv');
   }
 
-  void _openMediaPreview(List<dynamic> allMedia, int initialIndex) {
-    final mediaItems = allMedia
-        .map((m) {
-      if (m is AssetEntity) {
-        return MediaItem(asset: m, type: m.type, id: m.id);
-      } else if (m is CapturedPhoto) {
-        return MediaItem(
-            asset: m,
-            type: _isVideoFile(m.file.path)
-                ? AssetType.video
-                : AssetType.image,
-            id: m.file.path);
-      }
-      return null;
-    })
-        .whereType<MediaItem>()
-        .toList();
+  List<MediaItem> _getAllMediaItems() {
+    final items = <MediaItem>[];
+    for (final asset in _currentEntry.galleryImages) {
+      items.add(MediaItem(asset: asset, type: asset.type, id: asset.id));
+    }
+    for (final photo in _currentEntry.cameraPhotos) {
+      items.add(MediaItem(
+        asset: photo,
+        type: _isVideoFile(photo.file.path) ? AssetType.video : AssetType.image,
+        id: photo.file.path,
+      ));
+    }
+    for (final audio in _currentEntry.galleryAudios) {
+      items.add(MediaItem(asset: audio, type: AssetType.audio, id: audio.id));
+    }
+    for (final rec in _currentEntry.recordings) {
+      items.add(MediaItem(
+        asset: CapturedPhoto(file: XFile(rec.path), name: rec.name),
+        type: AssetType.audio,
+        id: rec.path,
+      ));
+    }
+    return items;
+  }
 
+  void _openMediaPreview(int initialIndex) {
+    final mediaItems = _getAllMediaItems();
     if (mediaItems.isEmpty) return;
 
     showCupertinoModalBottomSheet(
@@ -185,29 +176,6 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
         initialIndex: initialIndex,
       ),
     );
-  }
-
-  void _toggleGalleryAudio(AssetEntity audio) async {
-    final isPlaying =
-        _currentlyPlayingId == audio.id && _playerState == PlayerState.playing;
-    final isPaused =
-        _currentlyPlayingId == audio.id && _playerState == PlayerState.paused;
-
-    if (isPlaying) {
-      await _audioPlayer.pause();
-    } else if (isPaused) {
-      await _audioPlayer.resume();
-    } else {
-      final file = await audio.file;
-      if (file != null) {
-        await _audioPlayer.play(DeviceFileSource(file.path));
-        if (mounted) {
-          setState(() {
-            _currentlyPlayingId = audio.id;
-          });
-        }
-      }
-    }
   }
 
   @override
@@ -233,11 +201,15 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _buildImagePreview(),
-                  if (_currentEntry.galleryImages.isNotEmpty ||
-                      _currentEntry.cameraPhotos.isNotEmpty)
+                  if ((_currentEntry.galleryImages.isNotEmpty ||
+                      _currentEntry.cameraPhotos.isNotEmpty) &&
+                      _currentEntry.galleryAudios.isNotEmpty)
                     SizedBox(height: 2.h),
                   _buildAudioPreview(),
-                  if (_currentEntry.galleryAudios.isNotEmpty)
+                  if ((_currentEntry.galleryImages.isNotEmpty ||
+                      _currentEntry.cameraPhotos.isNotEmpty ||
+                      _currentEntry.galleryAudios.isNotEmpty) &&
+                      _currentEntry.recordings.isNotEmpty)
                     SizedBox(height: 2.h),
                   _buildRecordingsPreview(),
                 ],
@@ -335,7 +307,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
         width: double.infinity,
         child: buildMediaContainer(
           allMedia[0],
-          onTap: () => _openMediaPreview(allMedia, 0),
+          onTap: () => _openMediaPreview(0),
         ),
       );
     } else if (allMedia.length == 2) {
@@ -346,14 +318,14 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
             Expanded(
               child: buildMediaContainer(
                 allMedia[0],
-                onTap: () => _openMediaPreview(allMedia, 0),
+                onTap: () => _openMediaPreview(0),
               ),
             ),
             SizedBox(width: spacing),
             Expanded(
               child: buildMediaContainer(
                 allMedia[1],
-                onTap: () => _openMediaPreview(allMedia, 1),
+                onTap: () => _openMediaPreview(1),
               ),
             ),
           ],
@@ -363,7 +335,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
       Widget? thirdImageOverlay;
       if (allMedia.length > 3) {
         thirdImageOverlay = GestureDetector(
-          onTap: () => _openMediaPreview(allMedia, 2),
+          onTap: () => _openMediaPreview(2),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(10.5.r),
             child: ui.BackdropFilter(
@@ -394,7 +366,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
               aspectRatio: 1.0,
               child: buildMediaContainer(
                 allMedia[0],
-                onTap: () => _openMediaPreview(allMedia, 0),
+                onTap: () => _openMediaPreview(0),
               ),
             ),
             SizedBox(width: spacing),
@@ -404,7 +376,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
                   Expanded(
                     child: buildMediaContainer(
                       allMedia[1],
-                      onTap: () => _openMediaPreview(allMedia, 1),
+                      onTap: () => _openMediaPreview(1),
                     ),
                   ),
                   SizedBox(height: spacing),
@@ -412,7 +384,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
                     child: buildMediaContainer(
                       allMedia[2],
                       overlay: thirdImageOverlay,
-                      onTap: () => _openMediaPreview(allMedia, 2),
+                      onTap: () => _openMediaPreview(2),
                     ),
                   ),
                 ],
@@ -433,49 +405,50 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
       return const SizedBox.shrink();
     }
     final appThemeColors = AppTheme.colorsOf(context);
+    final baseIndex = _currentEntry.galleryImages.length + _currentEntry.cameraPhotos.length;
+
     return Column(
-      children: _currentEntry.galleryAudios.map((audio) {
-        final isPlaying = _currentlyPlayingId == audio.id &&
-            _playerState == PlayerState.playing;
+      children: _currentEntry.galleryAudios.asMap().entries.map((entry) {
+        final index = entry.key;
+        final audio = entry.value;
+        final globalIndex = baseIndex + index;
 
         return Padding(
           padding: EdgeInsets.only(bottom: 4.h),
-          child: Container(
-            height: 50.h,
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(horizontal: 12.w),
-            decoration: BoxDecoration(
-              color: appThemeColors.grey4,
-              borderRadius: BorderRadius.circular(12.r),
-            ),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: Icon(
-                    isPlaying
-                        ? Icons.pause_circle_filled_rounded
-                        : Icons.play_circle_fill_rounded,
+          child: GestureDetector(
+            onTap: () => _openMediaPreview(globalIndex),
+            child: Container(
+              height: 50.h,
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(horizontal: 12.w),
+              decoration: BoxDecoration(
+                color: appThemeColors.grey4,
+                borderRadius: BorderRadius.circular(12.r),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.play_circle_fill_rounded,
                     color: appThemeColors.grey1,
                     size: 28.sp,
                   ),
-                  onPressed: () => _toggleGalleryAudio(audio),
-                ),
-                SizedBox(width: 4.w),
-                Expanded(
-                  child: Text(
-                    audio.title ?? AppConstants.audioTrack,
-                    style: TextStyle(
-                      color: appThemeColors.grey10,
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w600,
-                      decoration: TextDecoration.none,
-                      overflow: TextOverflow.ellipsis,
-                      fontFamily: AppConstants.font,
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: Text(
+                      audio.title ?? AppConstants.audioTrack,
+                      style: TextStyle(
+                        color: appThemeColors.grey10,
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.none,
+                        overflow: TextOverflow.ellipsis,
+                        fontFamily: AppConstants.font,
+                      ),
+                      maxLines: 1,
                     ),
-                    maxLines: 1,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -495,76 +468,67 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
       return const SizedBox.shrink();
     }
     final appThemeColors = AppTheme.colorsOf(context);
+    final baseIndex = _currentEntry.galleryImages.length +
+        _currentEntry.cameraPhotos.length +
+        _currentEntry.galleryAudios.length;
+
     return Column(
-      children: _currentEntry.recordings.map((recording) {
-        final isPlaying = _currentlyPlayingId == recording.path &&
-            _playerState == PlayerState.playing;
-        final isPaused = _currentlyPlayingId == recording.path &&
-            _playerState == PlayerState.paused;
+      children: _currentEntry.recordings.asMap().entries.map((entry) {
+        final index = entry.key;
+        final recording = entry.value;
+        final globalIndex = baseIndex + index;
+
         return Padding(
           padding: EdgeInsets.only(bottom: 4.h),
-          child: Container(
-            height: 50.h,
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(horizontal: 12.w),
-            decoration: BoxDecoration(
-              color: appThemeColors.grey4,
-              borderRadius: BorderRadius.circular(12.r),
-            ),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: Icon(
-                    isPlaying
-                        ? Icons.pause_circle_filled_rounded
-                        : Icons.play_circle_fill_rounded,
+          child: GestureDetector(
+            onTap: () => _openMediaPreview(globalIndex),
+            child: Container(
+              height: 50.h,
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(horizontal: 12.w),
+              decoration: BoxDecoration(
+                color: appThemeColors.grey4,
+                borderRadius: BorderRadius.circular(12.r),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.play_circle_fill_rounded,
                     color: appThemeColors.grey1,
                     size: 28.sp,
                   ),
-                  onPressed: () {
-                    if (isPlaying) {
-                      _audioPlayer.pause();
-                    } else if (isPaused) {
-                      _audioPlayer.resume();
-                    } else {
-                      _audioPlayer.play(DeviceFileSource(recording.path));
-                      setState(() {
-                        _currentlyPlayingId = recording.path;
-                      });
-                    }
-                  },
-                ),
-                SizedBox(width: 4.w),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        recording.name,
-                        style: TextStyle(
-                          color: appThemeColors.grey10,
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w600,
-                          decoration: TextDecoration.none,
-                          overflow: TextOverflow.ellipsis,
-                          fontFamily: AppConstants.font,
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          recording.name,
+                          style: TextStyle(
+                            color: appThemeColors.grey10,
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.none,
+                            overflow: TextOverflow.ellipsis,
+                            fontFamily: AppConstants.font,
+                          ),
+                          maxLines: 1,
                         ),
-                        maxLines: 1,
-                      ),
-                      Text(
-                        _formatPreviewDuration(recording.duration),
-                        style: TextStyle(
-                          color: appThemeColors.grey1,
-                          fontSize: 12.sp,
-                          decoration: TextDecoration.none,
-                          fontFamily: AppConstants.font,
+                        Text(
+                          _formatPreviewDuration(recording.duration),
+                          style: TextStyle(
+                            color: appThemeColors.grey1,
+                            fontSize: 12.sp,
+                            decoration: TextDecoration.none,
+                            fontFamily: AppConstants.font,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );

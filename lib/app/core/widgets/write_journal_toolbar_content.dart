@@ -8,16 +8,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/theme.dart';
 import 'package:open_jot/app/core/widgets/camera_view.dart';
 import 'package:open_jot/app/core/widgets/custom_button.dart';
 import 'package:open_jot/app/core/widgets/custom_slider.dart';
 import 'package:open_jot/app/core/widgets/location_map_view.dart';
+import 'package:open_jot/app/modules/media_preview/media_preview_bottom_sheet.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart' hide LatLng;
 import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
+import 'package:progressive_blur/progressive_blur.dart';
 import 'package:record/record.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -33,6 +36,7 @@ class WriteJournalToolbarContent extends StatefulWidget {
     this.onMoodChanged,
     this.selectedMoodIndex,
     this.selectedLocation,
+    this.onMapMaximizeToggled,
   });
 
   final IconData? selectedToolbarIcon;
@@ -44,6 +48,7 @@ class WriteJournalToolbarContent extends StatefulWidget {
   final Function(int? moodIndex)? onMoodChanged;
   final int? selectedMoodIndex;
   final LatLng? selectedLocation;
+  final ValueChanged<bool>? onMapMaximizeToggled;
 
   @override
   State<WriteJournalToolbarContent> createState() =>
@@ -279,6 +284,123 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
     }
   }
 
+  void _openPreview() {
+    final mediaItems = _selectedAssets.map((asset) {
+      return MediaItem(
+        asset: asset,
+        type: asset.type,
+        id: asset.id,
+      );
+    }).toList();
+
+    showCupertinoModalBottomSheet(
+      context: context,
+      expand: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => MediaPreviewBottomSheet(
+        mediaItems: mediaItems,
+        initialIndex: 0,
+        onRemove: (item) {
+          setState(() {
+            _selectedAssets.removeWhere((asset) => asset.id == item.id);
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildSelectedMediaPreviewStack() {
+    if (_selectedAssets.isEmpty) return const SizedBox.shrink();
+
+    final colors = AppTheme.colorsOf(context);
+    final int count = _selectedAssets.length;
+    final lastAsset = _selectedAssets.last;
+
+    return GestureDetector(
+      onTap: _openPreview,
+      child: SizedBox(
+        width: 56.w,
+        height: 56.h,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (count > 2)
+              Positioned(
+                top: 2.h,
+                left: 2.w,
+                child: Transform.rotate(
+                  angle: -0.15,
+                  child: Container(
+                    width: 42.w,
+                    height: 42.w,
+                    decoration: BoxDecoration(
+                      color: colors.grey3,
+                      borderRadius: BorderRadius.circular(8.r),
+                      border: Border.all(color: colors.grey6, width: 2),
+                    ),
+                  ),
+                ),
+              ),
+            if (count > 1)
+              Positioned(
+                top: 4.h,
+                right: 2.w,
+                child: Transform.rotate(
+                  angle: 0.15,
+                  child: Container(
+                    width: 42.w,
+                    height: 42.w,
+                    decoration: BoxDecoration(
+                      color: colors.grey4,
+                      borderRadius: BorderRadius.circular(8.r),
+                      border: Border.all(color: colors.grey6, width: 2),
+                    ),
+                  ),
+                ),
+              ),
+            Positioned(
+              bottom: 2.h,
+              child: Container(
+                width: 46.w,
+                height: 46.w,
+                decoration: BoxDecoration(
+                  color: colors.grey5,
+                  borderRadius: BorderRadius.circular(8.r),
+                  border: Border.all(color: colors.grey7, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 6,
+                      offset: const Offset(0, 3),
+                    )
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(6.r),
+                  child: Image(
+                    image: AssetEntityImageProvider(
+                      lastAsset,
+                      isOriginal: false,
+                      thumbnailSize: const ThumbnailSize.square(150),
+                      thumbnailFormat: ThumbnailFormat.jpeg,
+                    ),
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Icon(
+                      lastAsset.type == AssetType.audio
+                          ? Icons.audiotrack
+                          : Icons.image,
+                      color: colors.grey1,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildAlbumChips(AppThemeColors colors) {
     if (_albums.isEmpty) return const SizedBox.shrink();
 
@@ -367,6 +489,7 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
         onLocationSelected: (location) {
           widget.onLocationSelected?.call(location);
         },
+        onMaximizeToggled: widget.onMapMaximizeToggled,
       );
     }
 
@@ -403,130 +526,139 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
     }
 
     // SLIVER REFACTOR: Combines the headers, media grids, loaders, and empty states
-    // entirely into a single CustomScrollView. This eliminates nested Column/Expanded setups
-    // and guarantees it can NEVER throw a RenderFlex overflow, regardless of height.
+    // entirely into a single CustomScrollView with a ProgressiveBlurWidget to match home screen.
     return Stack(
       children: [
-        NotificationListener<ScrollNotification>(
-          onNotification: (notification) {
-            return true;
-          },
-          child: CustomScrollView(
-            controller: widget.scrollController,
-            slivers: [
-              // 1. Fixed height headers (Segmented Control & Album Chips)
-              SliverToBoxAdapter(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: double.infinity,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16.w),
-                        child: CupertinoSlidingSegmentedControl<int>(
-                          backgroundColor: colors.grey3,
-                          thumbColor: colors.grey5,
-                          children: {
-                            0: Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8.h),
-                              child: Text(
-                                AppConstants.photos,
-                                style: TextStyle(
-                                  color: colors.grey10,
-                                  decoration: TextDecoration.none,
-                                  fontSize: 14.sp,
-                                  fontFamily: AppConstants.font,
+        ProgressiveBlurWidget(
+          sigma: 25.0,
+          linearGradientBlur: const LinearGradientBlur(
+            values: [0, 0, 0.23, 1],
+            stops: [0.0, 0.12, 0.88, 1.0],
+            start: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+          tintColor: colors.grey5.withOpacity(0.15),
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              return true;
+            },
+            child: CustomScrollView(
+              controller: widget.scrollController,
+              slivers: [
+                // 1. Fixed height headers (Segmented Control & Album Chips)
+                SliverToBoxAdapter(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16.w),
+                          child: CupertinoSlidingSegmentedControl<int>(
+                            backgroundColor: colors.grey3,
+                            thumbColor: colors.grey5,
+                            children: {
+                              0: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8.h),
+                                child: Text(
+                                  AppConstants.photos,
+                                  style: TextStyle(
+                                    color: colors.grey10,
+                                    decoration: TextDecoration.none,
+                                    fontSize: 14.sp,
+                                    fontFamily: AppConstants.font,
+                                  ),
                                 ),
                               ),
-                            ),
-                            1: Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8.h),
-                              child: Text(
-                                AppConstants.video,
-                                style: TextStyle(
-                                  color: colors.grey10,
-                                  decoration: TextDecoration.none,
-                                  fontSize: 14.sp,
-                                  fontFamily: AppConstants.font,
+                              1: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8.h),
+                                child: Text(
+                                  AppConstants.video,
+                                  style: TextStyle(
+                                    color: colors.grey10,
+                                    decoration: TextDecoration.none,
+                                    fontSize: 14.sp,
+                                    fontFamily: AppConstants.font,
+                                  ),
                                 ),
                               ),
-                            ),
-                            2: Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8.h),
-                              child: Text(
-                                AppConstants.audio,
-                                style: TextStyle(
-                                  color: colors.grey10,
-                                  decoration: TextDecoration.none,
-                                  fontSize: 14.sp,
-                                  fontFamily: AppConstants.font,
+                              2: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8.h),
+                                child: Text(
+                                  AppConstants.audio,
+                                  style: TextStyle(
+                                    color: colors.grey10,
+                                    decoration: TextDecoration.none,
+                                    fontSize: 14.sp,
+                                    fontFamily: AppConstants.font,
+                                  ),
                                 ),
                               ),
-                            ),
-                          },
-                          onValueChanged: (int? value) {
-                            if (value != null) {
-                              setState(() {
-                                _selectedSegment = value;
-                                _selectedAssets.clear();
-                                _albums.clear();
-                                _selectedAlbum = null;
-                              });
-                              unawaited(_requestPermission());
-                            }
-                          },
-                          groupValue: _selectedSegment,
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 16.h),
-                    _buildAlbumChips(colors),
-                    if (_albums.isNotEmpty) SizedBox(height: 12.h),
-                  ],
-                ),
-              ),
-
-              // 2. Dynamic Content States
-              if (_isLoading)
-                _buildSkeletonSliver(colors)
-              else if (_permissionStatus == null)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: const Center(child: CircularProgressIndicator()),
-                )
-              else if (!_permissionStatus!.isGranted)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _buildPermissionDenied(colors),
-                  )
-                else if (_groupedAssets.isEmpty)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(
-                        child: Text(
-                          AppConstants.noMediaFound.replaceFirst(
-                              '%s', _getTabName(_selectedSegment).toLowerCase()),
-                          style: TextStyle(
-                            color: colors.grey10,
-                            decoration: TextDecoration.none,
-                            fontFamily: AppConstants.font,
+                            },
+                            onValueChanged: (int? value) {
+                              if (value != null) {
+                                setState(() {
+                                  _selectedSegment = value;
+                                  _selectedAssets.clear();
+                                  _albums.clear();
+                                  _selectedAlbum = null;
+                                });
+                                unawaited(_requestPermission());
+                              }
+                            },
+                            groupValue: _selectedSegment,
                           ),
                         ),
                       ),
-                    )
-                  else
-                    ..._buildMediaSlivers(colors),
-
-              // 3. Pagination Loader / Bottom Padding
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.only(top: 16.h, bottom: 80.h),
-                  child: _isLoadingMore
-                      ? const Center(child: CircularProgressIndicator())
-                      : const SizedBox.shrink(),
+                      SizedBox(height: 16.h),
+                      _buildAlbumChips(colors),
+                      if (_albums.isNotEmpty) SizedBox(height: 12.h),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+
+                // 2. Dynamic Content States
+                if (_isLoading)
+                  _buildSkeletonSliver(colors)
+                else if (_permissionStatus == null)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: const Center(child: CircularProgressIndicator()),
+                  )
+                else if (!_permissionStatus!.isGranted)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _buildPermissionDenied(colors),
+                    )
+                  else if (_groupedAssets.isEmpty)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: Text(
+                            AppConstants.noMediaFound.replaceFirst(
+                                '%s', _getTabName(_selectedSegment).toLowerCase()),
+                            style: TextStyle(
+                              color: colors.grey10,
+                              decoration: TextDecoration.none,
+                              fontFamily: AppConstants.font,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      ..._buildMediaSlivers(colors),
+
+                // 3. Pagination Loader / Bottom Padding
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 16.h, bottom: 80.h),
+                    child: _isLoadingMore
+                        ? const Center(child: CircularProgressIndicator())
+                        : const SizedBox.shrink(),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         Positioned(
@@ -548,23 +680,78 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
             child: _selectedAssets.isNotEmpty
                 ? Center(
               key: const ValueKey('add_button'),
-              child: CustomButton(
-                onPressed: () {
-                  widget.onAssetsSelected?.call(_selectedAssets);
-                  setState(() {
-                    _selectedAssets.clear();
-                  });
-                },
-                borderRadius: 60,
-                text: '${AppConstants.add} ${_selectedAssets.length}',
-                icon: Icons.add,
-                iconSize: 24,
-                color: Theme.of(context).primaryColor,
-                textColor: colors.grey8,
-                textPadding: EdgeInsets.symmetric(
-                  horizontal: 20.w,
-                  vertical: 16.h,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildSelectedMediaPreviewStack(),
+                  SizedBox(width: 12.w),
+                  GestureDetector(
+                    onTap: () {
+                      widget.onAssetsSelected?.call(_selectedAssets);
+                      setState(() {
+                        _selectedAssets.clear();
+                      });
+                    },
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 24.w,
+                        vertical: 14.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).primaryColor,
+                        borderRadius: BorderRadius.circular(60.r),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Theme.of(context)
+                                .primaryColor
+                                .withOpacity(0.3),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            AppConstants.add,
+                            style: TextStyle(
+                              color: colors.grey8,
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: AppConstants.font,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                          SizedBox(width: 12.w),
+                          Container(
+                            constraints: BoxConstraints(
+                              minWidth: 26.w,
+                              minHeight: 26.w,
+                            ),
+                            padding: EdgeInsets.symmetric(horizontal: 6.w),
+                            decoration: BoxDecoration(
+                              color: colors.error, // Red notification badge
+                              borderRadius: BorderRadius.circular(13.w),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '${_selectedAssets.length}',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: AppConstants.font,
+                                height: 1.0,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             )
                 : const SizedBox.shrink(key: ValueKey('empty_button')),
