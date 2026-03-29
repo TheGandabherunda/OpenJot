@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:camera/camera.dart';
@@ -18,6 +17,7 @@ import 'package:open_jot/app/core/widgets/location_map_view.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart' hide LatLng;
+import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 import 'package:record/record.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -47,28 +47,68 @@ class WriteJournalToolbarContent extends StatefulWidget {
 
   @override
   State<WriteJournalToolbarContent> createState() =>
-      _WriteJournalToolbarContentState();
+      WriteJournalToolbarContentState();
 }
 
-class _WriteJournalToolbarContentState
-    extends State<WriteJournalToolbarContent> {
+class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> {
   int _selectedSegment = 0;
   PermissionStatus? _permissionStatus;
   Map<DateTime, List<AssetEntity>> _groupedAssets = {};
   bool _isLoading = false;
+  bool _isLoadingMore = false;
   final List<AssetEntity> _selectedAssets = [];
+
+  // Pagination Variables
+  int _currentPage = 0;
+  final int _pageSize = 100;
+  bool _hasMore = true;
+  AssetPathEntity? _currentAlbum;
+
+  final GlobalKey<AudioRecorderViewState> _audioRecorderKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
+    widget.scrollController.addListener(_onScroll);
     unawaited(_requestPermission());
   }
 
   @override
   void didUpdateWidget(covariant WriteJournalToolbarContent oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.scrollController != oldWidget.scrollController) {
+      oldWidget.scrollController.removeListener(_onScroll);
+      widget.scrollController.addListener(_onScroll);
+    }
     if (widget.selectedToolbarIcon != oldWidget.selectedToolbarIcon) {
       // Potentially reset state or fetch different content based on icon
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.scrollController.removeListener(_onScroll);
+    super.dispose();
+  }
+
+  bool get hasUnsavedContent {
+    if (_selectedAssets.isNotEmpty) return true;
+    if (_audioRecorderKey.currentState?.hasUnsavedRecording == true) return true;
+    return false;
+  }
+
+  void clearUnsavedContent() {
+    setState(() {
+      _selectedAssets.clear();
+    });
+    _audioRecorderKey.currentState?.discardRecording(showDialog: false);
+  }
+
+  void _onScroll() {
+    if (!widget.scrollController.hasClients) return;
+    final position = widget.scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 200) {
+      _fetchMedia(loadMore: true);
     }
   }
 
@@ -85,47 +125,73 @@ class _WriteJournalToolbarContentState
     }
   }
 
-  Future<void> _fetchMedia() async {
-    if (!mounted) return;
+  Future<void> _fetchMedia({bool loadMore = false}) async {
+    if (!mounted || _isLoading || _isLoadingMore) return;
+    if (loadMore && !_hasMore) return;
+
     setState(() {
-      _isLoading = true;
-      _groupedAssets = {};
+      if (loadMore) {
+        _isLoadingMore = true;
+      } else {
+        _isLoading = true;
+        _groupedAssets = {};
+        _currentPage = 0;
+        _hasMore = true;
+      }
     });
 
-    // ROBUSTNESS: Add a small delay to ensure the shimmer effect is noticeable on fast devices.
-    await Future.delayed(const Duration(milliseconds: 100));
+    // ROBUSTNESS: Add a small delay for smooth layout transitions
+    if (!loadMore) await Future.delayed(const Duration(milliseconds: 100));
 
     final type = _getRequestTypeForSegment(_selectedSegment);
-    // OPTIMIZATION: Use `onlyAll: true` to instantly fetch the primary "Recent/All" album
-    final albums = await PhotoManager.getAssetPathList(type: type, onlyAll: true);
 
-    if (albums.isEmpty) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+    if (!loadMore) {
+      final albums = await PhotoManager.getAssetPathList(type: type, onlyAll: true);
+      if (albums.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _isLoadingMore = false;
+          });
+        }
+        return;
       }
-      return;
+      _currentAlbum = albums.first;
     }
 
-    final recentAlbum = albums.first;
-    // OPTIMIZATION: Fetch a reasonable batch (e.g. 500). Already sorted newest-first by default.
-    final assets = await recentAlbum.getAssetListRange(start: 0, end: 500);
+    if (_currentAlbum == null) return;
 
-    final grouped = <DateTime, List<AssetEntity>>{};
-    for (final asset in assets) {
-      final date = DateTime(
-        asset.createDateTime.year,
-        asset.createDateTime.month,
-        asset.createDateTime.day,
-      );
-      grouped.putIfAbsent(date, () => []).add(asset);
+    final start = _currentPage * _pageSize;
+    final end = start + _pageSize;
+    final assets = await _currentAlbum!.getAssetListRange(start: start, end: end);
+
+    if (assets.isEmpty || assets.length < _pageSize) {
+      _hasMore = false;
+    }
+
+    if (assets.isNotEmpty) {
+      final grouped = Map<DateTime, List<AssetEntity>>.from(_groupedAssets);
+      for (final asset in assets) {
+        final date = DateTime(
+          asset.createDateTime.year,
+          asset.createDateTime.month,
+          asset.createDateTime.day,
+        );
+        grouped.putIfAbsent(date, () => []).add(asset);
+      }
+
+      if (mounted) {
+        setState(() {
+          _groupedAssets = grouped;
+          _currentPage++;
+        });
+      }
     }
 
     if (mounted) {
       setState(() {
-        _groupedAssets = grouped;
         _isLoading = false;
+        _isLoadingMore = false;
       });
     }
   }
@@ -197,6 +263,7 @@ class _WriteJournalToolbarContentState
 
     if (widget.selectedToolbarIcon == Icons.mic_rounded) {
       return AudioRecorderView(
+        key: _audioRecorderKey,
         scrollController: widget.scrollController,
         onRecordingComplete: (path, duration) {
           widget.onRecordingComplete?.call(path, duration);
@@ -393,7 +460,6 @@ class _WriteJournalToolbarContentState
     );
   }
 
-  // ROBUST CHANGE: Added AnimatedSwitcher for a smooth fade from shimmer to content.
   Widget _buildMediaGrid(AppThemeColors colors) {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 400),
@@ -457,7 +523,7 @@ class _WriteJournalToolbarContentState
                 ),
               ),
               SliverPadding(
-                padding: EdgeInsets.fromLTRB(4.w, 0, 4.w, 80.h),
+                padding: EdgeInsets.fromLTRB(4.w, 0, 4.w, 8.h), // Reduced bottom padding since we moved it
                 sliver: SliverGrid(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
@@ -473,8 +539,7 @@ class _WriteJournalToolbarContentState
                       if (asset.type == AssetType.audio) {
                         child = _buildAudioItem(asset, colors);
                       } else {
-                        child =
-                            AssetThumbnailItem(asset: asset, colors: colors);
+                        child = AssetThumbnailItem(asset: asset, colors: colors);
                       }
 
                       // ANIMATION: Wrap each grid item in an animation for a smooth entrance.
@@ -527,6 +592,15 @@ class _WriteJournalToolbarContentState
                 ),
               ),
             ],
+            // Pagination Loader or Bottom Padding
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.only(top: 16.h, bottom: 80.h),
+                child: _isLoadingMore
+                    ? const Center(child: CircularProgressIndicator())
+                    : const SizedBox.shrink(),
+              ),
+            ),
           ],
         ),
       );
@@ -633,7 +707,8 @@ class _WriteJournalToolbarContentState
   }
 }
 
-class AssetThumbnailItem extends StatefulWidget {
+// DEFINITIVE FIX FOR GLITCHY LOADING: Replaced Stateful setup with optimized native AssetEntityImageProvider.
+class AssetThumbnailItem extends StatelessWidget {
   const AssetThumbnailItem({
     super.key,
     required this.asset,
@@ -644,68 +719,27 @@ class AssetThumbnailItem extends StatefulWidget {
   final AppThemeColors colors;
 
   @override
-  State<AssetThumbnailItem> createState() => _AssetThumbnailItemState();
-}
-
-class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
-  Uint8List? _thumbnailData;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_loadThumbnail());
-  }
-
-  @override
-  void didUpdateWidget(covariant AssetThumbnailItem oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.asset.id != oldWidget.asset.id) {
-      // If the asset entity itself changes, reload the image data.
-      setState(() {
-        _thumbnailData = null;
-      });
-      unawaited(_loadThumbnail());
-    }
-  }
-
-  Future<void> _loadThumbnail() async {
-    if (!mounted) return;
-    // OPTIMIZATION: Reduced thumbnail size and quality for much faster grid rendering
-    final data = await widget.asset.thumbnailDataWithSize(
-      const ThumbnailSize(200, 200),
-      quality: 70,
-    );
-    if (mounted) {
-      setState(() {
-        _thumbnailData = data;
-      });
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    // DEFINITIVE FIX: Build the Image widget with BoxFit.cover and ensure it expands.
-    final imageWidget = _thumbnailData != null
-        ? Image.memory(
-      _thumbnailData!,
+    final imageWidget = Image(
+      image: AssetEntityImageProvider(
+        asset,
+        isOriginal: false,
+        thumbnailSize: const ThumbnailSize.square(250),
+        thumbnailFormat: ThumbnailFormat.jpeg,
+      ),
       fit: BoxFit.cover,
       gaplessPlayback: true,
-      // These ensure the image widget itself fills the cell before BoxFit.cover is applied.
       width: double.infinity,
       height: double.infinity,
-    )
-        : null;
+      errorBuilder: (context, error, stackTrace) =>
+          Container(color: colors.grey3, child: Icon(Icons.error, color: colors.grey1)),
+    );
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      child: imageWidget == null
-          ? Container(key: const ValueKey('loader'), color: widget.colors.grey3)
-          : RepaintBoundary(
-        key: ValueKey(widget.asset.id),
-        child: widget.asset.type == AssetType.video
-            ? _buildVideoOverlay(context, widget.asset, imageWidget)
-            : imageWidget,
-      ),
+    return RepaintBoundary(
+      key: ValueKey(asset.id),
+      child: asset.type == AssetType.video
+          ? _buildVideoOverlay(context, asset, imageWidget)
+          : imageWidget,
     );
   }
 
@@ -716,13 +750,12 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
     return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
-  Widget _buildVideoOverlay(
-      BuildContext context, AssetEntity asset, Widget thumbnail) {
+  Widget _buildVideoOverlay(BuildContext context, AssetEntity asset, Widget thumbnail) {
     final isGif = asset.title?.toLowerCase().endsWith('.gif') ?? false;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final overlayColor =
-    (isDark ? widget.colors.grey7 : widget.colors.grey10).withOpacity(0.7);
-    final onOverlayColor = isDark ? widget.colors.grey10 : widget.colors.grey7;
+    (isDark ? colors.grey7 : colors.grey10).withOpacity(0.7);
+    final onOverlayColor = isDark ? colors.grey10 : colors.grey7;
 
     return Stack(
       fit: StackFit.expand,
@@ -790,10 +823,10 @@ class AudioRecorderView extends StatefulWidget {
   final Function(String path, Duration duration) onRecordingComplete;
 
   @override
-  State<AudioRecorderView> createState() => _AudioRecorderViewState();
+  State<AudioRecorderView> createState() => AudioRecorderViewState();
 }
 
-class _AudioRecorderViewState extends State<AudioRecorderView>
+class AudioRecorderViewState extends State<AudioRecorderView>
     with TickerProviderStateMixin {
   final AudioRecorder _audioRecorder = AudioRecorder();
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -806,6 +839,8 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
   Timer? _timer;
   StreamSubscription? _playerStateSubscription;
   late final AnimationController _animationController;
+
+  bool get hasUnsavedRecording => _isRecording || _isPaused || (_isStopped && _recordingPath != null);
 
   @override
   void initState() {
@@ -947,46 +982,52 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
     }
   }
 
-  void _discardRecording() {
-    // Show a confirmation dialog before discarding
-    unawaited(showCupertinoDialog<void>(
-      context: context,
-      builder: (BuildContext dialogContext) => CupertinoAlertDialog(
-        title: const Text(AppConstants.deleteRecordingTitle),
-        content: const Text(AppConstants.deleteRecordingMessage),
-        actions: <CupertinoDialogAction>[
-          CupertinoDialogAction(
-            child: const Text(AppConstants.cancel),
-            onPressed: () {
-              Navigator.pop(dialogContext);
-            },
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            child: const Text(AppConstants.discard),
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              _timer?.cancel();
-              _animationController.reset();
-              if (_isRecording) {
-                unawaited(_audioRecorder.stop());
-              }
-              if (_isPlayingPreview) {
-                unawaited(_audioPlayer.stop());
-              }
-              // Delete the file if it exists
-              if (_recordingPath != null) {
-                final file = File(_recordingPath!);
-                if (file.existsSync()) {
-                  file.delete();
-                }
-              }
-              _resetStateForNewRecording();
-            },
-          ),
-        ],
-      ),
-    ));
+  void discardRecording({bool showDialog = true}) {
+    if (showDialog) {
+      unawaited(showCupertinoDialog<void>(
+        context: context,
+        builder: (BuildContext dialogContext) => CupertinoAlertDialog(
+          title: const Text(AppConstants.deleteRecordingTitle),
+          content: const Text(AppConstants.deleteRecordingMessage),
+          actions: <CupertinoDialogAction>[
+            CupertinoDialogAction(
+              child: const Text(AppConstants.cancel),
+              onPressed: () {
+                Navigator.pop(dialogContext);
+              },
+            ),
+            CupertinoDialogAction(
+              isDestructiveAction: true,
+              child: const Text(AppConstants.discard),
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                _performDiscard();
+              },
+            ),
+          ],
+        ),
+      ));
+    } else {
+      _performDiscard();
+    }
+  }
+
+  void _performDiscard() {
+    _timer?.cancel();
+    _animationController.reset();
+    if (_isRecording) {
+      unawaited(_audioRecorder.stop());
+    }
+    if (_isPlayingPreview) {
+      unawaited(_audioPlayer.stop());
+    }
+    if (_recordingPath != null) {
+      final file = File(_recordingPath!);
+      if (file.existsSync()) {
+        file.delete();
+      }
+    }
+    _resetStateForNewRecording();
   }
 
   void _resetStateForNewRecording() {
@@ -1174,7 +1215,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
                     color: colors.grey10,
                     size: 24.sp,
                   ),
-                  onPressed: _discardRecording,
+                  onPressed: () => discardRecording(showDialog: true),
                 ),
               ),
             ),

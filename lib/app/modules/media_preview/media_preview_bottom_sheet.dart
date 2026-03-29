@@ -529,4 +529,3 @@ class VideoPlayerItemState extends State<VideoPlayerItem> {
     );
   }
 }
-

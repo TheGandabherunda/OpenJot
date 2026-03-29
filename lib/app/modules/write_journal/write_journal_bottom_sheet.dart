@@ -68,6 +68,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   final _textFieldKey = GlobalKey();
   final _dateMenuKey = GlobalKey();
   final _locationMenuKey = GlobalKey();
+  final GlobalKey<WriteJournalToolbarContentState> _contentKey = GlobalKey();
 
   DateTime _selectedDate = DateTime.now();
   bool _isCustomDate = false;
@@ -79,6 +80,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   double? _activeSheetInitialSize;
   bool _isFormatting = false;
   bool _wasKeyboardVisible = false;
+  bool _isShowingDiscardDialog = false;
   List<AssetEntity> _previewImages = [];
   List<CapturedPhoto> _previewPhotos = [];
   List<AssetEntity> _previewAudios = [];
@@ -97,7 +99,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
 
   bool _isLoadingMedia = false;
   late String _currentEntryId;
-  bool _allowPop = false;
+  final bool _allowPop = false;
   bool _isSavedOrDiscarded = false;
 
   static const double _maxChildSize = 0.78;
@@ -349,9 +351,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
 
-    // SAFETY NET: Seamless Auto-Save for drag-dismissals or app destruction.
-    // By placing it here, we ensure that if the user drags down and bypasses typical navigation guards,
-    // they never lose what they typed. It's automatically pushed to Drafts and we let them know with a Toast.
     try {
       if (!_isSavedOrDiscarded && _hasUnsavedChanges) {
         _saveEntry(isDraft: true);
@@ -651,8 +650,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       }) async {
     final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
     if (_isDraggableSheetActive && _selectedToolbarIcon == iconData) {
-      _closeSheet();
-      if (isKeyboardVisible) {
+      final didClose = await _handleCloseSheetRequest();
+      if (didClose && isKeyboardVisible && mounted) {
         _focusNode.requestFocus();
       }
       return;
@@ -715,8 +714,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     } else {
       final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
       if (_isDraggableSheetActive && _selectedToolbarIcon == iconData) {
-        _closeSheet();
-        if (isKeyboardVisible) {
+        final didClose = await _handleCloseSheetRequest();
+        if (didClose && isKeyboardVisible && mounted) {
           _focusNode.requestFocus();
         }
         return;
@@ -851,6 +850,51 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     }
   }
 
+  Future<bool> _handleCloseSheetRequest() async {
+    if (_isShowingDiscardDialog) return false;
+
+    final contentState = _contentKey.currentState;
+    if (contentState != null && contentState.hasUnsavedContent) {
+      _isShowingDiscardDialog = true;
+      final shouldClose = await _showDiscardDialog();
+      _isShowingDiscardDialog = false;
+
+      if (shouldClose) {
+        contentState.clearUnsavedContent();
+        _closeSheet();
+        return true;
+      }
+      return false;
+    } else {
+      _closeSheet();
+      return true;
+    }
+  }
+
+  Future<bool> _showDiscardDialog() async {
+    final result = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('Discard Selections?'),
+        content: const Text(
+            'You have selected media or an active recording. Are you sure you want to discard them?'),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(context, false),
+            isDefaultAction: true,
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(context, true),
+            isDestructiveAction: true,
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+    return result == true;
+  }
+
   void _closeSheet() {
     if (!mounted) return;
     setState(() {
@@ -929,7 +973,39 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     }
     final minSizeForClosingCheck = _activeSheetMinSize!;
     if (notification.extent <= minSizeForClosingCheck + 0.01) {
-      _scheduleSheetClose(minSizeForClosingCheck);
+      final contentState = _contentKey.currentState;
+      if (contentState != null && contentState.hasUnsavedContent) {
+        if (!_isShowingDiscardDialog) {
+          _isShowingDiscardDialog = true;
+
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            if (_sheetController.isAttached && _activeSheetInitialSize != null) {
+              // Bounce back safely to initial size to break the drag-down loop
+              _sheetController.jumpTo(_activeSheetInitialSize!);
+            }
+
+            final shouldClose = await _showDiscardDialog();
+            _isShowingDiscardDialog = false;
+
+            if (shouldClose) {
+              contentState.clearUnsavedContent();
+              _closeSheet();
+            } else {
+              // User cancelled the drag-dismiss. Ensure keyboard is unfocused
+              // so it doesn't flap and trigger another close attempt.
+              _focusNode.unfocus();
+            }
+          });
+        } else {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_sheetController.isAttached && _activeSheetInitialSize != null) {
+              _sheetController.jumpTo(_activeSheetInitialSize!);
+            }
+          });
+        }
+      } else {
+        _scheduleSheetClose(minSizeForClosingCheck);
+      }
     }
     return true;
   }
@@ -956,9 +1032,15 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         !_wasKeyboardVisible &&
         _isDraggableSheetActive &&
         !_openingSheetViaToolbar) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (mounted && _isDraggableSheetActive) {
-          _closeSheet();
+          final didClose = await _handleCloseSheetRequest();
+          if (!didClose && mounted) {
+            // The user cancelled the discard dialog while trying to bring up the keyboard.
+            // We MUST unfocus the keyboard here to prevent the state from endlessly looping
+            // (keyboard pushes sheet up -> sheet asks to close -> cancel -> keyboard comes up again).
+            _focusNode.unfocus();
+          }
         }
       });
     }
@@ -1897,7 +1979,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       ScrollController scrollController,
       ) {
     final sheetThemeColors = AppTheme.colorsOf(context);
-    final sheetKeyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
     return Container(
       decoration: BoxDecoration(
         color: sheetThemeColors.grey5,
@@ -1907,13 +1990,15 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         left: 0.w,
         right: 0.w,
         top: 16.h,
-        bottom: (sheetKeyboardHeight > 0 ? sheetKeyboardHeight : 0) + 16.h,
+        bottom: bottomPadding > 0 ? bottomPadding + 8.h : 16.h,
       ),
       child: Column(
         children: [
           _buildSheetHandle(sheetThemeColors),
+          SizedBox(height: 16.h),
           Expanded(
             child: WriteJournalToolbarContent(
+              key: _contentKey,
               selectedToolbarIcon: _selectedToolbarIcon,
               scrollController: scrollController,
               selectedMoodIndex: _selectedMoodIndex,
@@ -1996,15 +2081,12 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   }
 
   Widget _buildSheetHandle(AppThemeColors colors) {
-    return Center(
-      child: Container(
-        height: 5,
-        width: 40,
-        margin: EdgeInsets.only(bottom: 10.h),
-        decoration: BoxDecoration(
-          color: colors.grey1,
-          borderRadius: BorderRadius.circular(10),
-        ),
+    return Container(
+      height: 5,
+      width: 40,
+      decoration: BoxDecoration(
+        color: colors.grey1,
+        borderRadius: BorderRadius.circular(10),
       ),
     );
   }
@@ -2038,6 +2120,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         selectedToolbarIcon: _selectedToolbarIcon,
         isDraggableSheetActive: _isDraggableSheetActive,
         onToolbarItemTap: _handleToolbarItemTap,
+        onCloseTap: _handleCloseSheetRequest,
       );
     }
     return AnimatedSwitcher(
@@ -2061,7 +2144,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     if (_allowPop) return true;
 
     if (_isDraggableSheetActive) {
-      _closeSheet();
+      unawaited(_handleCloseSheetRequest());
       return false;
     }
 
