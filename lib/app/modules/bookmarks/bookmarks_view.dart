@@ -53,7 +53,7 @@ class BookmarksView extends GetView<HomeController> {
         if (bookmarks.isEmpty) {
           return Center(
             child: Text(
-              "No bookmarks yet.",
+              AppConstants.noBookmarksYet,
               style: TextStyle(
                 fontFamily: AppConstants.font,
                 letterSpacing: -0.2,

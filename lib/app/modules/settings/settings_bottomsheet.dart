@@ -214,7 +214,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
               child: CupertinoTextField(
                 controller: textController,
                 keyboardType: TextInputType.number,
-                placeholder: "E.g. 14",
+                placeholder: AppConstants.customDaysExample,
                 style: TextStyle(color: appThemeColors.grey10, fontFamily: AppConstants.font),
                 padding: EdgeInsets.all(12.w),
                 decoration: BoxDecoration(
@@ -230,7 +230,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
               ),
               CupertinoDialogAction(
                 isDefaultAction: true,
-                child: const Text("Save"),
+                child: const Text(AppConstants.save),
                 onPressed: () {
                   final val = int.tryParse(textController.text.trim());
                   if (val != null && val > 0) {

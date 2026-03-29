@@ -266,21 +266,7 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
     } else if (date == yesterday) {
       return AppConstants.yesterday;
     } else {
-      const monthNames = [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December'
-      ];
-      return '${monthNames[date.month - 1]} ${date.day}, ${date.year}';
+      return '${AppConstants.months[date.month - 1]} ${date.day}, ${date.year}';
     }
   }
 
@@ -415,8 +401,8 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
           final isSelected = album == _selectedAlbum;
 
           // Provide a friendly name for the album
-          String albumName = album.isAll ? 'All' : album.name;
-          if (albumName.isEmpty) albumName = 'Folder';
+          String albumName = album.isAll ? AppConstants.all : album.name;
+          if (albumName.isEmpty) albumName = AppConstants.folder;
 
           return Padding(
             padding: EdgeInsets.only(right: 8.w),
@@ -1122,8 +1108,10 @@ class AudioRecorderViewState extends State<AudioRecorderView>
   bool _isPlayingPreview = false;
   String? _recordingPath;
   Duration _recordingDuration = Duration.zero;
+  Duration _playbackPosition = Duration.zero; // New variable to track playback time
   Timer? _timer;
   StreamSubscription? _playerStateSubscription;
+  StreamSubscription? _positionSubscription; // New subscription for audio player position
   late final AnimationController _animationController;
 
   bool get hasUnsavedRecording => _isRecording || _isPaused || (_isStopped && _recordingPath != null);
@@ -1136,9 +1124,18 @@ class AudioRecorderViewState extends State<AudioRecorderView>
           if (mounted && state == PlayerState.completed) {
             setState(() {
               _isPlayingPreview = false;
+              _playbackPosition = Duration.zero; // Reset to 0 when playback ends
             });
           }
         });
+
+    _positionSubscription = _audioPlayer.onPositionChanged.listen((position) {
+      if (mounted) {
+        setState(() {
+          _playbackPosition = position;
+        });
+      }
+    });
 
     _animationController = AnimationController(
       vsync: this,
@@ -1152,6 +1149,7 @@ class AudioRecorderViewState extends State<AudioRecorderView>
     _audioRecorder.dispose();
     _audioPlayer.dispose();
     _playerStateSubscription?.cancel();
+    _positionSubscription?.cancel();
     _animationController.dispose();
     super.dispose();
   }
@@ -1203,6 +1201,7 @@ class AudioRecorderViewState extends State<AudioRecorderView>
       _isPaused = false;
       _isStopped = false;
       _recordingDuration = Duration.zero;
+      _playbackPosition = Duration.zero;
     });
     unawaited(_animationController.repeat());
     _startTimer();
@@ -1235,6 +1234,7 @@ class AudioRecorderViewState extends State<AudioRecorderView>
       _isPaused = false;
       _isStopped = true;
       _recordingPath = path;
+      _playbackPosition = Duration.zero;
     });
   }
 
@@ -1325,6 +1325,7 @@ class AudioRecorderViewState extends State<AudioRecorderView>
       _isPlayingPreview = false;
       _recordingPath = null;
       _recordingDuration = Duration.zero;
+      _playbackPosition = Duration.zero;
     });
   }
 
@@ -1346,18 +1347,57 @@ class AudioRecorderViewState extends State<AudioRecorderView>
               decoration: TextDecoration.none,
               fontSize: 16.sp,
             ),
+          )
+        else if (_isRecording && !_isPaused)
+          Text(
+            AppConstants.recording,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: colors.error,
+              fontFamily: AppConstants.font,
+              fontWeight: FontWeight.w600,
+              decoration: TextDecoration.none,
+              fontSize: 16.sp,
+            ),
+          )
+        else if (_isPaused)
+            Text(
+              AppConstants.paused,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: colors.grey1,
+                fontFamily: AppConstants.font,
+                fontWeight: FontWeight.w600,
+                decoration: TextDecoration.none,
+                fontSize: 16.sp,
+              ),
+            ),
+
+        if (_isStopped)
+          Text(
+            '${_formatDuration(_playbackPosition)} / ${_formatDuration(_recordingDuration)}',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: AppConstants.font,
+              fontSize: 40.sp, // Slightly smaller to accommodate dual durations
+              color: colors.grey10,
+              fontWeight: FontWeight.w600,
+              decoration: TextDecoration.none,
+            ),
+          )
+        else
+          Text(
+            _formatDuration(_recordingDuration),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: AppConstants.font,
+              fontSize: 48.sp,
+              color: colors.grey10,
+              fontWeight: FontWeight.w600,
+              decoration: TextDecoration.none,
+            ),
           ),
-        Text(
-          _formatDuration(_recordingDuration),
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontFamily: AppConstants.font,
-            fontSize: 48.sp,
-            color: colors.grey10,
-            fontWeight: FontWeight.w600,
-            decoration: TextDecoration.none,
-          ),
-        ),
+
         if (!_isStopped) SizedBox(height: 32.h),
         if (!_isStopped) _buildRecordingControls(colors),
         if (_isStopped) SizedBox(height: 16.h),
@@ -1429,10 +1469,17 @@ class AudioRecorderViewState extends State<AudioRecorderView>
               child: _isRecording
                   ? Align(
                 alignment: Alignment.center,
-                child: IconButton(
-                  icon: Icon(Icons.stop_circle_rounded,
-                      color: colors.grey10, size: 40.sp),
+                child: TextButton(
                   onPressed: _stopRecording,
+                  child: Text(
+                    AppConstants.stop,
+                    style: TextStyle(
+                      color: colors.grey10,
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: AppConstants.font,
+                    ),
+                  ),
                 ),
               )
                   : const SizedBox(),
@@ -1441,7 +1488,11 @@ class AudioRecorderViewState extends State<AudioRecorderView>
         ),
         SizedBox(height: 16.h),
         Text(
-          AppConstants.tapAndHold,
+          _isPaused
+              ? AppConstants.tapOrHoldToResume
+              : (isActivelyRecording
+              ? AppConstants.tapOrReleaseToPause
+              : AppConstants.tapAndHold),
           textAlign: TextAlign.center,
           style: TextStyle(
             color: colors.grey1,

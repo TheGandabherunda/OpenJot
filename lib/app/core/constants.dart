@@ -5,6 +5,8 @@ class AppConstants {
 
   // Home Screen Strings
   static const String noEntriesMessage = "No journal entries yet. Start writing!";
+  static const String noBookmarksYet = "No bookmarks yet.";
+  static const String noDraftsYet = "No drafts yet.";
   static const String addEntryButton = "Add New Entry";
   static const String jotYourThoughts = "Jot Your Thoughts";
   static const String tapToCreateJournal =
@@ -34,6 +36,7 @@ class AppConstants {
   static const String no = "No";
   static const String cancel = "Cancel";
   static const String delete = "Delete";
+  static const String save = "Save";
   static const String entrySavedSuccess = "Journal entry saved successfully!";
   static const String entryUpdatedSuccess = "Journal entry updated successfully!";
   static const String entryDeletedSuccess = "Journal entry deleted.";
@@ -71,6 +74,7 @@ class AppConstants {
   static const String never = "Never";
   static const String custom = "Custom...";
   static const String enterCustomDays = "Enter Custom Days";
+  static const String customDaysExample = "E.g. 14";
   static const String days = "Days";
 
   // Home View Menu
@@ -152,6 +156,13 @@ class AppConstants {
   static const String listen = "Listen";
   static const String tapAndHold = "tap  &  hold";
   static const String clear = "Clear";
+  static const String all = "All";
+  static const String folder = "Folder";
+  static const String recording = "Recording...";
+  static const String paused = "Paused";
+  static const String stop = "Stop";
+  static const String tapOrHoldToResume = "Tap or hold to resume";
+  static const String tapOrReleaseToPause = "Tap or release to pause";
 
   // Media Preview Bottom Sheet
   static const String unsupportedImageType = "Unsupported Image Type";
@@ -223,6 +234,9 @@ class AppConstants {
   static const String openInMaps = "Open in Maps";
   static const String changeLocation = "Change Location";
   static const String remove = "Remove";
+  static const String discardSelectionsTitle = "Discard Selections?";
+  static const String discardSelectionsMessage =
+      "You have selected media or an active recording. Are you sure you want to discard them?";
 
   // Reflection Bottom Sheet
   static const String reflectionTitle = "REFLECTION";
@@ -232,6 +246,20 @@ class AppConstants {
   static const String searchHintText = "Search entries...";
   static const String aboutApp = "About Open Jot";
   static const String font = "OpenRunde";
+  static const List<String> months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December'
+  ];
 
   // PIN Management
   static const String incorrectPin = "Incorrect PIN";

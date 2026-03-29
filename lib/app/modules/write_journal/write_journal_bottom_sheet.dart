@@ -878,19 +878,18 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     final result = await showCupertinoDialog<bool>(
       context: context,
       builder: (context) => CupertinoAlertDialog(
-        title: const Text('Discard Selections?'),
-        content: const Text(
-            'You have selected media or an active recording. Are you sure you want to discard them?'),
+        title: const Text(AppConstants.discardSelectionsTitle),
+        content: const Text(AppConstants.discardSelectionsMessage),
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.pop(context, false),
             isDefaultAction: true,
-            child: const Text('Cancel'),
+            child: const Text(AppConstants.cancel),
           ),
           CupertinoDialogAction(
             onPressed: () => Navigator.pop(context, true),
             isDestructiveAction: true,
-            child: const Text('Discard'),
+            child: const Text(AppConstants.discard),
           ),
         ],
       ),

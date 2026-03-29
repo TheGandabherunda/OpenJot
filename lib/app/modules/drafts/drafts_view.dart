@@ -51,7 +51,7 @@ class DraftsView extends GetView<HomeController> {
         if (drafts.isEmpty) {
           return Center(
             child: Text(
-              "No drafts yet.",
+              AppConstants.noDraftsYet,
               style: TextStyle(
                 fontFamily: AppConstants.font,
                 letterSpacing: -0.2,
