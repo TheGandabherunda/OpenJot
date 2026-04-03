@@ -160,6 +160,7 @@ class AppConstants {
   static const String clear = "Clear";
   static const String all = "All";
   static const String folder = "Folder";
+  static const String browse = "Browse";
   static const String recording = "Recording...";
   static const String paused = "Paused";
   static const String stop = "Stop";

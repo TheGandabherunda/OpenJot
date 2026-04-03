@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:camera/camera.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -34,6 +35,7 @@ class WriteJournalToolbarContent extends StatefulWidget {
     this.onLocationSelected,
     this.onPhotoTaken,
     this.onMoodChanged,
+    this.onFilesPicked,
     this.selectedMoodIndex,
     this.selectedLocation,
     this.onMapMaximizeToggled,
@@ -46,6 +48,7 @@ class WriteJournalToolbarContent extends StatefulWidget {
   final Function(LatLng location)? onLocationSelected;
   final Function(XFile photo)? onPhotoTaken;
   final Function(int? moodIndex)? onMoodChanged;
+  final Function(List<String> paths, AssetType type)? onFilesPicked;
   final int? selectedMoodIndex;
   final LatLng? selectedLocation;
   final ValueChanged<bool>? onMapMaximizeToggled;
@@ -387,17 +390,97 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
     );
   }
 
-  Widget _buildAlbumChips(AppThemeColors colors) {
-    if (_albums.isEmpty) return const SizedBox.shrink();
+  Future<void> _pickFiles() async {
+    FileType type;
+    AssetType assetType;
+    switch (_selectedSegment) {
+      case 0:
+        type = FileType.media;
+        assetType = AssetType.image;
+        break;
+      case 1:
+        type = FileType.video;
+        assetType = AssetType.video;
+        break;
+      case 2:
+        type = FileType.audio;
+        assetType = AssetType.audio;
+        break;
+      default:
+        type = FileType.any;
+        assetType = AssetType.other;
+    }
 
+    final result = await FilePicker.platform.pickFiles(
+      type: type,
+      allowMultiple: true,
+    );
+
+    if (result != null && result.paths.isNotEmpty) {
+      final paths = result.paths.whereType<String>().toList();
+      widget.onFilesPicked?.call(paths, assetType);
+    }
+  }
+
+  Widget _buildAlbumChips(AppThemeColors colors) {
     return SizedBox(
       height: 36.h,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(horizontal: 16.w),
-        itemCount: _albums.length,
+        itemCount: _albums.length + 2,
         itemBuilder: (context, index) {
-          final album = _albums[index];
+          if (index == 0) {
+            return Padding(
+              padding: EdgeInsets.only(right: 8.w),
+              child: GestureDetector(
+                onTap: _pickFiles,
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 16.w),
+                  decoration: BoxDecoration(
+                    color: colors.grey4,
+                    borderRadius: BorderRadius.circular(20.r),
+                    border: Border.all(color: colors.grey3, width: 1),
+                  ),
+                  alignment: Alignment.center,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.folder_open_rounded,
+                        size: 18.sp,
+                        color: colors.grey10,
+                      ),
+                      SizedBox(width: 6.w),
+                      Text(
+                        AppConstants.browse,
+                        style: TextStyle(
+                          color: colors.grey10,
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w500,
+                          decoration: TextDecoration.none,
+                          fontFamily: AppConstants.font,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+
+          if (index == 1) {
+            return Padding(
+              padding: EdgeInsets.only(right: 8.w),
+              child: Icon(
+                Icons.more_vert_rounded,
+                size: 20.sp,
+                color: colors.grey2,
+              ),
+            );
+          }
+
+          final album = _albums[index - 2];
           final isSelected = album == _selectedAlbum;
 
           // Provide a friendly name for the album
@@ -559,7 +642,7 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
                               1: Padding(
                                 padding: EdgeInsets.symmetric(vertical: 8.h),
                                 child: Text(
-                                  AppConstants.video,
+                                  AppConstants.videos,
                                   style: TextStyle(
                                     color: colors.grey10,
                                     decoration: TextDecoration.none,
@@ -597,8 +680,10 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
                         ),
                       ),
                       SizedBox(height: 16.h),
-                      _buildAlbumChips(colors),
-                      if (_albums.isNotEmpty) SizedBox(height: 12.h),
+                      if (!_isLoading && _permissionStatus?.isGranted == true) ...[
+                        _buildAlbumChips(colors),
+                        SizedBox(height: 12.h),
+                      ],
                     ],
                   ),
                 ),
@@ -749,7 +834,7 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
 
   Widget _buildSkeletonSliver(AppThemeColors colors) {
     return SliverPadding(
-      padding: EdgeInsets.symmetric(horizontal: 4.w),
+      padding: EdgeInsets.fromLTRB(4.w, 12.h, 4.w, 0),
       sliver: SliverGrid(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
@@ -786,11 +871,12 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
 
     final slivers = <Widget>[];
 
-    for (final date in sortedDates) {
+    for (var i = 0; i < sortedDates.length; i++) {
+      final date = sortedDates[i];
       slivers.add(
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(8.w, 16.h, 8.w, 8.h),
+            padding: EdgeInsets.fromLTRB(8.w, i == 0 ? 0.h : 16.h, 8.w, 8.h),
             child: Text(
               _formatDate(date),
               style: TextStyle(
@@ -972,7 +1058,7 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
       case 1:
         return AppConstants.videos;
       case 2:
-        return AppConstants.audios;
+        return AppConstants.audio;
       default:
         return '';
     }

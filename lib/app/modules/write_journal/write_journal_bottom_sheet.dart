@@ -2100,6 +2100,34 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                 });
                 _closeSheet();
               },
+              onFilesPicked: (paths, type) {
+                setState(() {
+                  if (type == AssetType.audio) {
+                    for (final path in paths) {
+                      final name = p.basename(path);
+                      _previewRecordings.add(
+                        RecordedAudio(
+                          path: path,
+                          name: name,
+                          duration: Duration.zero,
+                          isShared: true,
+                        ),
+                      );
+                    }
+                  } else {
+                    for (final path in paths) {
+                      final name = p.basename(path);
+                      _previewPhotos.add(
+                        CapturedPhoto(
+                          file: XFile(path),
+                          name: name,
+                        ),
+                      );
+                    }
+                  }
+                });
+                _closeSheet();
+              },
               onMoodChanged: (index) {
                 setState(() {
                   _selectedMoodIndex = index;
