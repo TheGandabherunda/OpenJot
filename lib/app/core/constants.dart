@@ -47,9 +47,11 @@ class AppConstants {
 
   // Journal Tile
   static const String veryUnpleasant = "Very Unpleasant";
+  static const String slightlyUnpleasant = "Slightly Unpleasant";
   static const String unpleasant = "Unpleasant";
   static const String neutral = "Neutral";
   static const String pleasant = "Pleasant";
+  static const String slightlyPleasant = "Slightly Pleasant";
   static const String veryPleasant = "Very Pleasant";
   static const String reflection = "Reflection";
   static const String edit = "Edit";

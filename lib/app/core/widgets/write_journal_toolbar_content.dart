@@ -1594,21 +1594,25 @@ class _MoodSelectorView extends StatefulWidget {
 
 class _MoodSelectorViewState extends State<_MoodSelectorView>
     with TickerProviderStateMixin {
-  late double _currentSliderValue;
+  late int _currentMoodIndex;
+  late double _lastSliderValue;
   late final AnimationController _rotationController;
 
   static const List<Map<String, String>> _moods = [
     {'svg': 'assets/1.svg', 'label': AppConstants.veryUnpleasant},
-    {'svg': 'assets/2.svg', 'label': AppConstants.unpleasant},
-    {'svg': 'assets/3.svg', 'label': AppConstants.neutral},
-    {'svg': 'assets/4.svg', 'label': AppConstants.pleasant},
-    {'svg': 'assets/5.svg', 'label': AppConstants.veryPleasant},
+    {'svg': 'assets/2.svg', 'label': AppConstants.slightlyUnpleasant},
+    {'svg': 'assets/3.svg', 'label': AppConstants.unpleasant},
+    {'svg': 'assets/4.svg', 'label': AppConstants.neutral},
+    {'svg': 'assets/5.svg', 'label': AppConstants.pleasant},
+    {'svg': 'assets/6.svg', 'label': AppConstants.slightlyPleasant},
+    {'svg': 'assets/7.svg', 'label': AppConstants.veryPleasant},
   ];
 
   @override
   void initState() {
     super.initState();
-    _currentSliderValue = (widget.initialMoodIndex ?? 2).toDouble();
+    _currentMoodIndex = widget.initialMoodIndex ?? 3;
+    _lastSliderValue = _currentMoodIndex.toDouble();
 
     _rotationController = AnimationController(
       duration: const Duration(milliseconds: 800),
@@ -1630,95 +1634,159 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
   @override
   Widget build(BuildContext context) {
     final colors = AppTheme.colorsOf(context);
-    final moodIndex = _currentSliderValue.round().clamp(0, _moods.length - 1);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final moodIndex = _currentMoodIndex.clamp(0, _moods.length - 1);
     final selectedMood = _moods[moodIndex];
 
     final backgroundColors = [
-      colors.aRed[2],
-      colors.aOrange[2],
-      colors.aYellow[2],
-      colors.aGreen[2],
+      colors.aPurple[2],
+      colors.aPink[2],
+      colors.aBlue[2],
       colors.aTeal[2],
+      colors.aMint[2],
+      colors.aGreen[2],
+      colors.aYellow[2],
+    ];
+
+    final normalColors = [
+      colors.aPurple[1],
+      colors.aPink[1],
+      colors.aBlue[1],
+      colors.aTeal[1],
+      colors.aMint[1],
+      colors.aGreen[1],
+      colors.aYellow[1],
     ];
 
     final sliderAndTextColors = [
-      colors.aRed[0],
-      colors.aOrange[0],
-      colors.aYellow[0],
-      colors.aGreen[0],
+      colors.aPurple[0],
+      colors.aPink[0],
+      colors.aBlue[0],
       colors.aTeal[0],
+      colors.aMint[0],
+      colors.aGreen[0],
+      colors.aYellow[0],
     ];
 
-    final currentBackgroundColor = backgroundColors[moodIndex];
     final currentSliderAndTextColor = sliderAndTextColors[moodIndex];
+
+    // Create the gradient colors: Lighter tone in the center, darker base on the outside.
+    final themeBgColor = backgroundColors[moodIndex];
+    final normalColor = normalColors[moodIndex];
+
+    final currentOuterColor = isDark
+        ? Color.lerp(normalColor, themeBgColor, 0.5)! // Less dark, uses normal shade mixed with dark
+        : Color.lerp(themeBgColor, normalColor, 0.12)!; // Add a touch of the base color to make it visible in light mode
+
+    final brightColor = Color.lerp(currentSliderAndTextColor, Colors.white, 0.4)!;
+    final currentCenterColor = isDark
+        ? Color.lerp(currentOuterColor, brightColor, 0.7)! // Even lighter center glow in dark mode
+        : Colors.white;
+
+    final currentInactiveColor = isDark
+        ? currentSliderAndTextColor.withOpacity(0.12) // Keep the tint distinct from the active part
+        : currentSliderAndTextColor.withOpacity(0.15);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      color: currentBackgroundColor,
+      decoration: BoxDecoration(
+        gradient: RadialGradient(
+          colors: [
+            currentCenterColor,
+            currentOuterColor,
+          ],
+          radius: 1.0,
+        ),
+      ),
       child: Stack(
         children: [
-          ListView(
+          CustomScrollView(
             controller: widget.scrollController,
-            padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 32.h),
-            children: [
-              const SizedBox(height: 0), // Space for the clear button
-              Center(
-                child: SizedBox(
-                  height: 32.h,
-                  child: Text(
-                    selectedMood['label']!,
-                    style: TextStyle(
-                      color: currentSliderAndTextColor,
-                      fontSize: 20.sp,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: AppConstants.font,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(height: 24.h),
-              Center(
-                child: AnimatedBuilder(
-                  animation: _rotationController,
-                  builder: (context, child) {
-                    final bounceAnimation =
-                    Curves.easeOutBack.transform(_rotationController.value);
-                    return Transform.rotate(
-                      angle: bounceAnimation * 2 * 3.14159,
-                      child: SvgPicture.asset(
-                        selectedMood['svg']!,
-                        width: 80.w,
-                        height: 80.h,
+            slivers: [
+              // Swapped from SliverFillRemaining to SliverToBoxAdapter so the bottom sheet
+              // sizes perfectly to its content height rather than forcing a scroll!
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 32.h),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Center(
+                        child: SizedBox(
+                          height: 32.h,
+                          child: Text(
+                            selectedMood['label']!,
+                            style: TextStyle(
+                              color: currentSliderAndTextColor,
+                              fontSize: 20.sp,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: AppConstants.font,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                        ),
                       ),
-                    );
-                  },
-                ),
-              ),
-              SizedBox(height: 16.h),
-              SizedBox(
-                height: 40.h,
-                child: CustomSliderWithTooltip(
-                  min: 0,
-                  max: 4,
-                  initialValue: _currentSliderValue,
-                  showValueTooltip: false,
-                  activeColor: currentSliderAndTextColor,
-                  unfocusedActiveColor:
-                  currentSliderAndTextColor.withOpacity(0.7),
-                  inactiveColor: colors.grey3,
-                  focusedTrackHeight: 20.h,
-                  unfocusedTrackHeight: 16.h,
-                  onChanged: (value) {
-                    final newIndex = value.round();
-                    if (newIndex != _currentSliderValue.round()) {
-                      widget.onMoodChanged?.call(newIndex);
-                      _triggerRotationAnimation();
-                    }
-                    setState(() {
-                      _currentSliderValue = value;
-                    });
-                  },
+                      SizedBox(height: 24.h),
+                      Center(
+                        // Optimized Animation - The SVG is passed as a cached child,
+                        // stopping it from being re-rendered and causing jank during rotation!
+                        child: AnimatedBuilder(
+                          animation: _rotationController,
+                          child: SvgPicture.asset(
+                            selectedMood['svg']!,
+                            width: 160.w, // Increased to be larger inside the content sheet
+                            height: 160.h,
+                            key: ValueKey(selectedMood['svg']),
+                          ),
+                          builder: (context, child) {
+                            final bounceAnimation =
+                            Curves.easeOutBack.transform(_rotationController.value);
+                            // 45 degrees in radians is pi/4 = 0.785398
+                            return Transform.rotate(
+                              angle: (bounceAnimation * 2 * 3.14159) + (3.14159 / 4),
+                              child: child,
+                            );
+                          },
+                        ),
+                      ),
+                      SizedBox(height: 16.h),
+                      SizedBox(
+                        height: 40.h,
+                        child: CustomSliderWithTooltip(
+                          min: 0,
+                          max: 6,
+                          initialValue: _lastSliderValue,
+                          showValueTooltip: false,
+                          minLabel: AppConstants.veryUnpleasant,
+                          maxLabel: AppConstants.veryPleasant,
+                          labelTextStyle: TextStyle(
+                            color: currentSliderAndTextColor.withOpacity(isDark ? 0.7 : 0.9),
+                            fontSize: 11.sp,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: AppConstants.font,
+                          ),
+                          activeColor: currentSliderAndTextColor,
+                          unfocusedActiveColor:
+                          currentSliderAndTextColor.withOpacity(0.7),
+                          inactiveColor: currentInactiveColor,
+                          focusedTrackHeight: 20.h,
+                          unfocusedTrackHeight: 16.h,
+                          onChanged: (value) {
+                            _lastSliderValue = value; // Silent update prevents rebuilds on every pixel drag
+                            final newIndex = value.round();
+                            // ONLY trigger heavy state changes when the actual rounded mood index changes
+                            if (newIndex != _currentMoodIndex) {
+                              widget.onMoodChanged?.call(newIndex);
+                              _triggerRotationAnimation();
+                              setState(() {
+                                _currentMoodIndex = newIndex;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
