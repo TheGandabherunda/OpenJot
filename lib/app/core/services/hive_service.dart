@@ -28,7 +28,7 @@ class HiveService extends GetxService {
 
   bool _adaptersRegistered = false;
 
-  Future<HiveService> init() async {
+  Future<HiveService> init({bool runGC = true}) async {
     final appDocumentDir = await getApplicationDocumentsDirectory();
     Hive.init(appDocumentDir.path);
     _registerAdapters();
@@ -36,35 +36,63 @@ class HiveService extends GetxService {
     journalsBox = await Hive.openBox<JournalEntry>(AppConstants.journalsBoxName);
 
     // --- Data Migration: 5 Moods to 7 Moods ---
-    final bool hasMigratedMoods = settingsBox.get('hasMigratedMoodsTo7', defaultValue: false);
-    if (!hasMigratedMoods) {
-      debugPrint("Starting mood migration (5 to 7 system)...");
-      for (final entry in journalsBox.values) {
-        if (entry.moodIndex != null) {
-          int newIndex = entry.moodIndex!;
-          switch (entry.moodIndex) {
+    await _migrateMoodsIfNeeded();
+
+    // Run Garbage Collection quietly in the background to free up storage
+    if (runGC) {
+      unawaited(cleanUpOrphanedMedia());
+    }
+
+    return this;
+  }
+
+  Future<void> _migrateMoodsIfNeeded() async {
+    // We use a versioned key to ensure migration runs if we update the logic
+    const migrationKey = 'hasMigratedMoodsTo7_v2';
+    final bool hasMigrated = settingsBox.get(migrationKey, defaultValue: false);
+    
+    if (hasMigrated) {
+      debugPrint("Mood migration: Already migrated (v2).");
+      return;
+    }
+
+    debugPrint("Mood migration: Starting check of ${journalsBox.length} entries...");
+    int migrationCount = 0;
+    
+    // Use keys to avoid iterator issues during modification
+    final keys = journalsBox.keys.toList();
+    
+    for (final key in keys) {
+      final entry = journalsBox.get(key);
+      if (entry != null && entry.moodIndex != null) {
+        int oldIndex = entry.moodIndex!;
+        int? newIndex;
+
+        // Only migrate if the index is within the old 5-mood range (0-4)
+        // AND we haven't already migrated this specific entry (though the flag should prevent this)
+        if (oldIndex >= 0 && oldIndex <= 4) {
+          switch (oldIndex) {
             case 0: newIndex = 0; break; // Very Unpleasant (0) -> Very Unpleasant (0)
             case 1: newIndex = 2; break; // Unpleasant (1) -> Unpleasant (2)
             case 2: newIndex = 3; break; // Neutral (2) -> Neutral (3)
             case 3: newIndex = 4; break; // Pleasant (3) -> Pleasant (4)
             case 4: newIndex = 6; break; // Very Pleasant (4) -> Very Pleasant (6)
           }
+        }
 
-          if (newIndex != entry.moodIndex) {
-            final updatedEntry = entry.copyWith(moodIndex: newIndex);
-            await journalsBox.put(entry.id, updatedEntry);
-          }
+        if (newIndex != null && newIndex != oldIndex) {
+          final updatedEntry = entry.copyWith(moodIndex: newIndex);
+          await journalsBox.put(key, updatedEntry);
+          migrationCount++;
         }
       }
-      await settingsBox.put('hasMigratedMoodsTo7', true);
-      debugPrint("Mood migration completed successfully.");
     }
-    // -------------------------------------------
 
-    // Run Garbage Collection quietly in the background to free up storage
-    unawaited(cleanUpOrphanedMedia());
-
-    return this;
+    await settingsBox.put(migrationKey, true);
+    // Also set the old key for backward compatibility if any other part uses it
+    await settingsBox.put('hasMigratedMoodsTo7', true);
+    
+    debugPrint("Mood migration: Completed. Migrated $migrationCount entries.");
   }
 
   void _registerAdapters() {
@@ -406,8 +434,8 @@ class HiveService extends GetxService {
         }
       }
 
-      // Re-initialize Hive and open boxes
-      await init();
+      // Re-initialize Hive and open boxes (SKIP GC during restore to prevent race condition)
+      await init(runGC: false);
       onProgress?.call(0.4);
 
       final manifestFile = File(p.join(tempDir.path, 'media_manifest.json'));
@@ -415,6 +443,8 @@ class HiveService extends GetxService {
         if (Get.isRegistered<HomeController>()) {
           await Get.find<HomeController>().loadJournalEntries();
         }
+        // Run GC now that the DB is replaced (even if no media to link)
+        unawaited(cleanUpOrphanedMedia());
         return true;
       }
 
@@ -498,6 +528,9 @@ class HiveService extends GetxService {
         processedEntries++;
         onProgress?.call(0.4 + (0.6 * (processedEntries / totalEntries))); // Progress from 40% to 100%
       }
+
+      // Now that all entries are updated with new local media paths, safe to run GC
+      unawaited(cleanUpOrphanedMedia());
 
       // Force reload UI
       if (Get.isRegistered<HomeController>()) {
