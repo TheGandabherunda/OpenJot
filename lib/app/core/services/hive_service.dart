@@ -211,6 +211,11 @@ class HiveService extends GetxService {
   Future<void> setOnThisDay(bool value) =>
       settingsBox.put(AppConstants.onThisDayKey, value);
 
+  String? get lastOnThisDayNotificationDate =>
+      settingsBox.get(AppConstants.lastOnThisDayNotificationDateKey);
+  Future<void> setLastOnThisDayNotificationDate(String date) =>
+      settingsBox.put(AppConstants.lastOnThisDayNotificationDateKey, date);
+
   // --- NEW: Excluded Entries ---
   List<String> get excludedOnThisDayEntries {
     final list = settingsBox.get(AppConstants.excludedEntriesKey, defaultValue: <String>[]);

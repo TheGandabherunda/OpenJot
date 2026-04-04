@@ -290,6 +290,7 @@ class AppConstants {
   static const String themeKey = 'theme';
   static const String dailyReminderKey = 'dailyReminder';
   static const String onThisDayKey = 'onThisDay'; // NEW
+  static const String lastOnThisDayNotificationDateKey = 'lastOnThisDayNotificationDate'; // NEW
   static const String autoDeleteDraftsKey = 'autoDeleteDrafts'; // NEW
   static const String reminderTimeKey = 'reminderTime';
   static const String appLockEnabledKey = 'appLockEnabled';

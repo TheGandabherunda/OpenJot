@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/theme.dart';
@@ -270,26 +271,68 @@ class _SearchViewState extends State<SearchView> {
                 ),
               ),
             )
-                : ListView.separated(
-              padding:
-              EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-              itemCount: _filteredEntries.length,
-              separatorBuilder: (context, index) =>
-                  SizedBox(height: 16.h),
+                : ListView.builder(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+              itemCount: _filteredEntries.isEmpty ? 0 : _filteredEntries.length * 2 - 1,
               itemBuilder: (context, index) {
-                final entry = _filteredEntries[index];
-                return JournalTile(
-                  entry: entry,
-                  onTap: () {
-                    showCupertinoModalBottomSheet(
-                      context: context,
-                      expand: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (modalContext) {
-                        return ReadJournalBottomSheet(entry: entry);
+                if (index.isOdd) return SizedBox(height: 32.h);
+
+                final itemIndex = index ~/ 2;
+                final entry = _filteredEntries[itemIndex];
+                final prevEntry = itemIndex > 0 ? _filteredEntries[itemIndex - 1] : null;
+
+                bool showYearDivider = prevEntry == null || entry.createdAt.year != prevEntry.createdAt.year;
+                bool showMonthDivider = prevEntry == null || entry.createdAt.month != prevEntry.createdAt.month || entry.createdAt.year != prevEntry.createdAt.year;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (showYearDivider) ...[
+                      Padding(
+                        padding: EdgeInsets.only(bottom: 12.h, top: 8.h),
+                        child: Text(
+                          entry.createdAt.year.toString(),
+                          style: TextStyle(
+                            fontFamily: AppConstants.font,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 28.sp,
+                            color: appThemeColors.grey10,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (showMonthDivider) ...[
+                      Padding(
+                        padding: EdgeInsets.only(
+                            bottom: 16.h,
+                            top: showYearDivider ? 0 : 8.h),
+                        child: Text(
+                          DateFormat('MMMM').format(entry.createdAt),
+                          style: TextStyle(
+                            fontFamily: AppConstants.font,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 18.sp,
+                            color: appThemeColors.grey2,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ),
+                    ],
+                    JournalTile(
+                      entry: entry,
+                      onTap: () {
+                        showCupertinoModalBottomSheet(
+                          context: context,
+                          expand: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (modalContext) {
+                            return ReadJournalBottomSheet(entry: entry);
+                          },
+                        );
                       },
-                    );
-                  },
+                    ),
+                  ],
                 );
               },
             ),

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/theme.dart';
 import 'package:open_jot/app/core/widgets/journal_tile.dart';
@@ -423,69 +424,108 @@ class _ExcludeEntriesBottomSheetState extends State<ExcludeEntriesBottomSheet> {
                   ),
                 ),
               )
-                  : ListView.separated(
+                  : ListView.builder(
                 padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-                itemCount: _filteredEntries.length,
-                separatorBuilder: (context, index) => SizedBox(height: 16.h),
+                itemCount: _filteredEntries.isEmpty ? 0 : _filteredEntries.length * 2 - 1,
                 itemBuilder: (context, index) {
-                  final entry = _filteredEntries[index];
+                  if (index.isOdd) return SizedBox(height: 32.h);
+
+                  final itemIndex = index ~/ 2;
+                  final entry = _filteredEntries[itemIndex];
+                  final prevEntry = itemIndex > 0 ? _filteredEntries[itemIndex - 1] : null;
+
+                  bool showYearDivider = prevEntry == null || entry.createdAt.year != prevEntry.createdAt.year;
+                  bool showMonthDivider = prevEntry == null || entry.createdAt.month != prevEntry.createdAt.month || entry.createdAt.year != prevEntry.createdAt.year;
 
                   // --- SELECTION LOGIC ---
                   final isSelected = _selectedIds.contains(entry.id);
 
-                  return GestureDetector(
-                    behavior: HitTestBehavior.opaque, // Ensures the entire tile responds to tap
-                    onTap: () {
-                      setState(() {
-                        if (isSelected) {
-                          _selectedIds.remove(entry.id);
-                        } else {
-                          _selectedIds.add(entry.id);
-                        }
-
-                        // Immediately resort list if sorting by selections is active
-                        if (_currentSort != SortOption.none) {
-                          _applyFilters();
-                        }
-                      });
-                    },
-                    child: Stack(
-                      children: [
-                        // We disable the JournalTile tap since we are handling selection here
-                        IgnorePointer(
-                          ignoring: true,
-                          child: JournalTile(
-                            entry: entry,
-                            showMenuIcon: false, // Hides the horizontal more icon
-                          ),
-                        ),
-
-                        // --- REFINED SELECTION INDICATOR (No Tile Overlay) ---
-                        Positioned(
-                          top: 12.h,
-                          right: 12.w,
-                          child: Container(
-                            padding: EdgeInsets.all(6.w),
-                            decoration: BoxDecoration(
-                              color: appThemeColors.grey6.withOpacity(0.95),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              isSelected ? Icons.notifications_off_rounded : Icons.notifications_active_rounded,
-                              color: isSelected ? appThemeColors.error : appThemeColors.success,
-                              size: 22.sp,
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (showYearDivider) ...[
+                        Padding(
+                          padding: EdgeInsets.only(bottom: 12.h, top: 8.h),
+                          child: Text(
+                            entry.createdAt.year.toString(),
+                            style: TextStyle(
+                              fontFamily: AppConstants.font,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 28.sp,
+                              color: appThemeColors.grey10,
+                              letterSpacing: -0.5,
                             ),
                           ),
                         ),
                       ],
-                    ),
+                      if (showMonthDivider) ...[
+                        Padding(
+                          padding: EdgeInsets.only(
+                              bottom: 16.h,
+                              top: showYearDivider ? 0 : 8.h),
+                          child: Text(
+                            DateFormat('MMMM').format(entry.createdAt),
+                            style: TextStyle(
+                              fontFamily: AppConstants.font,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 18.sp,
+                              color: appThemeColors.grey2,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                        ),
+                      ],
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          setState(() {
+                            if (isSelected) {
+                              _selectedIds.remove(entry.id);
+                            } else {
+                              _selectedIds.add(entry.id);
+                            }
+
+                            if (_currentSort != SortOption.none) {
+                              _applyFilters();
+                            }
+                          });
+                        },
+                        child: Stack(
+                          children: [
+                            IgnorePointer(
+                              ignoring: true,
+                              child: JournalTile(
+                                entry: entry,
+                                showMenuIcon: false,
+                              ),
+                            ),
+                            Positioned(
+                              top: 12.h,
+                              right: 12.w,
+                              child: Container(
+                                padding: EdgeInsets.all(6.w),
+                                decoration: BoxDecoration(
+                                  color: appThemeColors.grey6.withOpacity(0.95),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  isSelected ? Icons.notifications_off_rounded : Icons.notifications_active_rounded,
+                                  color: isSelected ? appThemeColors.error : appThemeColors.success,
+                                  size: 22.sp,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   );
                 },
               ),

@@ -65,7 +65,7 @@ class SettingsScreenController extends GetxController {
     final appColors = AppTheme.colorsOf(Get.context!);
     dailyReminder.value = false;
     _hiveService.setDailyReminder(false);
-    _notificationService.cancelAllNotifications();
+    _notificationService.cancelDailyReminder();
     CustomToast.showToast(
       AppConstants.notificationCanceled,
       backgroundColor: appColors.grey10,
@@ -81,8 +81,8 @@ class SettingsScreenController extends GetxController {
       if (permissionsGranted) {
         onThisDay.value = true;
         _hiveService.setOnThisDay(true);
-        // Immediately check for memories to schedule a notification if applicable
-        _notificationService.checkForOnThisDayMemories();
+        // Use force: true so toggling the switch always triggers a fresh check
+        _notificationService.checkForOnThisDayMemories(force: true);
         CustomToast.showToast(
           AppConstants.onThisDayOn,
           backgroundColor: appColors.grey10,
@@ -99,7 +99,7 @@ class SettingsScreenController extends GetxController {
     } else {
       onThisDay.value = false;
       _hiveService.setOnThisDay(false);
-      _notificationService.cancelAllNotifications();
+      _notificationService.cancelOnThisDayNotification();
       CustomToast.showToast(
         AppConstants.onThisDayOff,
         backgroundColor: appColors.grey10,
@@ -116,7 +116,7 @@ class SettingsScreenController extends GetxController {
 
     // Reschedule so new exclusions take effect immediately
     if (onThisDay.value) {
-      _notificationService.checkForOnThisDayMemories();
+      _notificationService.checkForOnThisDayMemories(force: true);
     }
 
     CustomToast.showToast(
