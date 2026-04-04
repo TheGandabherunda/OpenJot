@@ -20,7 +20,7 @@ class RecordedAudioAdapter extends TypeAdapter<RecordedAudio> {
       path: fields[0] as String,
       name: fields[1] as String,
       duration: fields[2] as Duration,
-      isShared: fields[3] as bool,
+      isShared: fields[3] == null ? false : fields[3] as bool,
     );
   }
 
@@ -137,15 +137,19 @@ class JournalEntryAdapter extends TypeAdapter<JournalEntry> {
       id: fields[0] as String,
       content: fields[1] as Document,
       createdAt: fields[2] as DateTime,
-      isBookmarked: fields[3] as bool,
-      isReflection: fields[4] as bool,
+      isBookmarked: fields[3] == null ? false : fields[3] as bool,
+      isReflection: fields[4] == null ? false : fields[4] as bool,
       moodIndex: fields[5] as int?,
       location: fields[6] as SelectedLocation?,
-      galleryImages: (fields[7] as List).cast<AssetEntity>(),
-      cameraPhotos: (fields[8] as List).cast<CapturedPhoto>(),
-      galleryAudios: (fields[9] as List).cast<AssetEntity>(),
-      recordings: (fields[10] as List).cast<RecordedAudio>(),
-      isDraft: fields[11] as bool,
+      galleryImages:
+          fields[7] == null ? [] : (fields[7] as List).cast<AssetEntity>(),
+      cameraPhotos:
+          fields[8] == null ? [] : (fields[8] as List).cast<CapturedPhoto>(),
+      galleryAudios:
+          fields[9] == null ? [] : (fields[9] as List).cast<AssetEntity>(),
+      recordings:
+          fields[10] == null ? [] : (fields[10] as List).cast<RecordedAudio>(),
+      isDraft: fields[11] == null ? false : fields[11] as bool,
     );
   }
 
