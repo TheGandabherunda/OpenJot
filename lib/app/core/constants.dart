@@ -210,6 +210,8 @@ class AppConstants {
   static const String changeTheme = "Change theme";
   static const String theme = "Theme";
   static const String themeDescription = "Customize the app's appearance.";
+  static const String pitchBlack = "Pitch Black";
+  static const String pitchBlackDescription = "Enable pure black/white for journal screens.";
   static const String themeLight = "Light";
   static const String themeDark = "Dark";
   static const String themeSystem = "System";
@@ -288,6 +290,7 @@ class AppConstants {
   static const String journalsBoxName = 'journals';
   static const String isFirstLaunchKey = 'isFirstLaunch';
   static const String themeKey = 'theme';
+  static const String pitchBlackKey = 'pitchBlack';
   static const String dailyReminderKey = 'dailyReminder';
   static const String onThisDayKey = 'onThisDay'; // NEW
   static const String lastOnThisDayNotificationDateKey = 'lastOnThisDayNotificationDate'; // NEW

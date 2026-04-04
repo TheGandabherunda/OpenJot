@@ -22,6 +22,7 @@ import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/journal_tile.dart';
 import '../../utils/custom_toast.dart';
 import '../media_preview/media_preview_bottom_sheet.dart';
+import '../../core/services/hive_service.dart';
 
 class ReadJournalBottomSheet extends StatefulWidget {
   final JournalEntry entry;
@@ -182,11 +183,19 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final hiveService = Get.find<HiveService>();
+    final isPitchBlack = hiveService.pitchBlack;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final appThemeColors = AppTheme.colorsOf(context);
+
+    final backgroundColor = isPitchBlack
+        ? (isDark ? Colors.black : Colors.white)
+        : appThemeColors.grey6;
+
     return Scaffold(
-      backgroundColor: appThemeColors.grey6,
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        backgroundColor: appThemeColors.grey6,
+        backgroundColor: backgroundColor,
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,

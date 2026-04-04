@@ -14,6 +14,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/core/constants.dart';
+import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/models/journal_entry.dart';
 import 'package:open_jot/app/core/theme.dart';
 import 'package:open_jot/app/core/widgets/custom_button.dart';
@@ -1994,15 +1995,23 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       ScrollController scrollController,
       double keyboardHeight,
       ) {
+    final hiveService = Get.find<HiveService>();
+    final isPitchBlack = hiveService.pitchBlack;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final sheetThemeColors = AppTheme.colorsOf(context);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     // Apply keyboard padding directly to the sheet content so it scrolls up naturally
     final totalBottomPadding = math.max(keyboardHeight, bottomPadding > 0 ? bottomPadding + 8.h : 16.h);
 
+    final backgroundColor = isPitchBlack
+        ? (isDark ? Colors.black : Colors.white)
+        : sheetThemeColors.grey5;
+
     return Container(
       decoration: BoxDecoration(
-        color: sheetThemeColors.grey5,
+        color: backgroundColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
       ),
       padding: EdgeInsets.only(
@@ -2013,7 +2022,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       ),
       child: Column(
         children: [
-          _buildSheetHandle(sheetThemeColors),
+          _buildSheetHandle(sheetThemeColors, isPitchBlack),
           SizedBox(height: 16.h),
           Expanded(
             child: WriteJournalToolbarContent(
@@ -2133,6 +2142,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                   _selectedMoodIndex = index;
                 });
               },
+              isPitchBlack: isPitchBlack,
             ),
           ),
         ],
@@ -2140,12 +2150,15 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     );
   }
 
-  Widget _buildSheetHandle(AppThemeColors colors) {
+  Widget _buildSheetHandle(AppThemeColors colors, [bool isPitchBlack = false]) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       height: 5,
       width: 40,
       decoration: BoxDecoration(
-        color: colors.grey1,
+        color: isPitchBlack
+            ? (isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1))
+            : colors.grey1,
         borderRadius: BorderRadius.circular(10),
       ),
     );
@@ -2265,13 +2278,21 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
 
   @override
   Widget build(BuildContext context) {
+    final hiveService = Get.find<HiveService>();
+    final isPitchBlack = hiveService.pitchBlack;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final appThemeColors = AppTheme.colorsOf(context);
+
+    final backgroundColor = isPitchBlack
+        ? (isDark ? Colors.black : Colors.white)
+        : appThemeColors.grey6;
+
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        backgroundColor: appThemeColors.grey6,
+        backgroundColor: backgroundColor,
         appBar: AppBar(
-          backgroundColor: appThemeColors.grey6,
+          backgroundColor: backgroundColor,
           elevation: 0,
           automaticallyImplyLeading: false,
           title: _buildHeader(appThemeColors),

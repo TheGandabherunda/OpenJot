@@ -514,6 +514,19 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                     icon: Icons.style_rounded,
                     trailing: const Icon(Icons.arrow_forward_ios, size: 18),
                     onTap: _showThemeSelectionBottomSheet,
+                    showDivider: true,
+                  )),
+                  Obx(() => _buildListTile(
+                    title: AppConstants.pitchBlack,
+                    subtitle: AppConstants.pitchBlackDescription,
+                    icon: Icons.nightlight_round,
+                    trailing: Switch(
+                      value: controller.pitchBlack.value,
+                      onChanged: (bool value) {
+                        controller.togglePitchBlack(value);
+                      },
+                      activeColor: appThemeColors.primary,
+                    ),
                     showDivider: false,
                   )),
                 ],

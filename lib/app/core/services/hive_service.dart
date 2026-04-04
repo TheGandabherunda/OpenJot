@@ -201,6 +201,11 @@ class HiveService extends GetxService {
   Future<void> setTheme(String theme) =>
       settingsBox.put(AppConstants.themeKey, theme);
 
+  bool get pitchBlack =>
+      settingsBox.get(AppConstants.pitchBlackKey, defaultValue: false);
+  Future<void> setPitchBlack(bool value) =>
+      settingsBox.put(AppConstants.pitchBlackKey, value);
+
   bool get dailyReminder =>
       settingsBox.get(AppConstants.dailyReminderKey, defaultValue: false);
   Future<void> setDailyReminder(bool value) =>

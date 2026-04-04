@@ -23,6 +23,7 @@ class SettingsScreenController extends GetxController {
   var excludedOnThisDayEntries = <String>[].obs; // NEW
   var reminderTime = Rx<TimeOfDay?>(null);
   var theme = AppConstants.themeSystem.obs;
+  var pitchBlack = false.obs;
   var appLock = false.obs;
   var autoDeleteDraftsDays = 7.obs;
 
@@ -39,6 +40,7 @@ class SettingsScreenController extends GetxController {
     autoDeleteDraftsDays.value = _hiveService.autoDeleteDraftsDays;
     reminderTime.value = _hiveService.reminderTime;
     theme.value = _hiveService.theme;
+    pitchBlack.value = _hiveService.pitchBlack;
     appLock.value = _hiveService.appLockEnabled;
   }
 
@@ -192,6 +194,11 @@ class SettingsScreenController extends GetxController {
       backgroundColor: appColors.grey10,
       textColor: appColors.grey8,
     );
+  }
+
+  void togglePitchBlack(bool value) {
+    pitchBlack.value = value;
+    _hiveService.setPitchBlack(value);
   }
 
   void toggleAppLock(bool value) async {

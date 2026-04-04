@@ -39,6 +39,7 @@ class WriteJournalToolbarContent extends StatefulWidget {
     this.selectedMoodIndex,
     this.selectedLocation,
     this.onMapMaximizeToggled,
+    this.isPitchBlack = false,
   });
 
   final IconData? selectedToolbarIcon;
@@ -52,6 +53,7 @@ class WriteJournalToolbarContent extends StatefulWidget {
   final int? selectedMoodIndex;
   final LatLng? selectedLocation;
   final ValueChanged<bool>? onMapMaximizeToggled;
+  final bool isPitchBlack;
 
   @override
   State<WriteJournalToolbarContent> createState() =>
@@ -567,6 +569,7 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
         scrollController: widget.scrollController,
         onMoodChanged: widget.onMoodChanged,
         initialMoodIndex: widget.selectedMoodIndex,
+        isPitchBlack: widget.isPitchBlack,
       );
     }
 
@@ -594,6 +597,8 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
       );
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     // SLIVER REFACTOR: Combines the headers, media grids, loaders, and empty states
     // entirely into a single CustomScrollView with a ProgressiveBlurWidget to match home screen.
     return Stack(
@@ -606,7 +611,9 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
             start: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
-          tintColor: colors.grey5.withOpacity(0.15),
+          tintColor: widget.isPitchBlack
+              ? (isDark ? Colors.black : Colors.white).withOpacity(0.15)
+              : colors.grey5.withOpacity(0.15),
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
               return true;
@@ -1672,11 +1679,13 @@ class _MoodSelectorView extends StatefulWidget {
     required this.scrollController,
     this.onMoodChanged,
     this.initialMoodIndex,
+    this.isPitchBlack = false,
   });
 
   final ScrollController scrollController;
   final Function(int? moodIndex)? onMoodChanged;
   final int? initialMoodIndex;
+  final bool isPitchBlack;
 
   @override
   State<_MoodSelectorView> createState() => _MoodSelectorViewState();
@@ -1777,17 +1786,21 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
         ? currentSliderAndTextColor.withOpacity(0.12) // Keep the tint distinct from the active part
         : currentSliderAndTextColor.withOpacity(0.15);
 
+    final decoration = widget.isPitchBlack
+        ? BoxDecoration(color: isDark ? Colors.black : Colors.white)
+        : BoxDecoration(
+            gradient: RadialGradient(
+              colors: [
+                currentCenterColor,
+                currentOuterColor,
+              ],
+              radius: 1.0,
+            ),
+          );
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      decoration: BoxDecoration(
-        gradient: RadialGradient(
-          colors: [
-            currentCenterColor,
-            currentOuterColor,
-          ],
-          radius: 1.0,
-        ),
-      ),
+      decoration: decoration,
       child: Stack(
         children: [
           CustomScrollView(
