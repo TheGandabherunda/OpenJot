@@ -43,11 +43,11 @@ class HiveService extends GetxService {
         if (entry.moodIndex != null) {
           int newIndex = entry.moodIndex!;
           switch (entry.moodIndex) {
-            case 0: newIndex = 0; break; // Very Unpleasant -> Very Unpleasant
-            case 1: newIndex = 2; break; // Unpleasant -> Unpleasant (New Unpleasant is index 2)
-            case 2: newIndex = 3; break; // Neutral -> Neutral (New Neutral is index 3)
-            case 3: newIndex = 4; break; // Pleasant -> Pleasant (New Pleasant is index 4)
-            case 4: newIndex = 6; break; // Very Pleasant -> Very Pleasant (New Very Pleasant is index 6)
+            case 0: newIndex = 0; break; // Very Unpleasant (0) -> Very Unpleasant (0)
+            case 1: newIndex = 2; break; // Unpleasant (1) -> Unpleasant (2)
+            case 2: newIndex = 3; break; // Neutral (2) -> Neutral (3)
+            case 3: newIndex = 4; break; // Pleasant (3) -> Pleasant (4)
+            case 4: newIndex = 6; break; // Very Pleasant (4) -> Very Pleasant (6)
           }
 
           if (newIndex != entry.moodIndex) {
