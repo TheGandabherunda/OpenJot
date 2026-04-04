@@ -833,14 +833,14 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
     if (!mounted) return;
 
     Uint8List? data;
-    const thumbnailSize = ThumbnailSize(500, 500);
-    const quality = 95;
+    const thumbnailSize = ThumbnailSize(300, 300); // Reduced size for better performance
+    const quality = 75; // Reduced quality for faster loading
 
     if (widget.media is AssetEntity) {
       final asset = widget.media as AssetEntity;
       _isVideo = asset.type == AssetType.video;
-      data =
-      await asset.thumbnailDataWithSize(thumbnailSize, quality: quality);
+      // Using memory cache for thumbnails
+      data = await asset.thumbnailDataWithSize(thumbnailSize, quality: quality);
     } else if (widget.media is CapturedPhoto) {
       final photo = widget.media as CapturedPhoto;
       final path = photo.file.path;
@@ -852,21 +852,37 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
       if (await thumbFile.exists()) {
         data = await thumbFile.readAsBytes();
       } else {
-        if (_isVideo) {
-          data = await VideoThumbnail.thumbnailData(
-            video: path,
-            maxWidth: thumbnailSize.width,
-            quality: quality,
-          );
-        } else {
-          final originalFile = File(path);
-          final imageBytes = await originalFile.readAsBytes();
-          final image = img.decodeImage(imageBytes);
-          if (image != null) {
-            final thumbnail = img.copyResize(image, width: 500);
-            data = Uint8List.fromList(img.encodeJpg(thumbnail, quality: 85));
+        // Run heavy image processing in background thread
+        data = await compute((params) async {
+          final String path = params['path'];
+          final bool isVideo = params['isVideo'];
+          final ThumbnailSize size = params['size'];
+          final int quality = params['quality'];
+
+          if (isVideo) {
+            return await VideoThumbnail.thumbnailData(
+              video: path,
+              maxWidth: size.width,
+              quality: quality,
+            );
+          } else {
+            final originalFile = File(path);
+            if (!await originalFile.exists()) return null;
+            final imageBytes = await originalFile.readAsBytes();
+            final image = img.decodeImage(imageBytes);
+            if (image != null) {
+              final thumbnail = img.copyResize(image, width: size.width);
+              return Uint8List.fromList(img.encodeJpg(thumbnail, quality: 80));
+            }
           }
-        }
+          return null;
+        }, {
+          'path': path,
+          'isVideo': _isVideo,
+          'size': thumbnailSize,
+          'quality': quality,
+        });
+
         if (data != null) {
           await thumbFile.writeAsBytes(data);
         }
