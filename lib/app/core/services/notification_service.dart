@@ -183,7 +183,14 @@ class NotificationService {
 
     final now = DateTime.now();
     final allEntries = hiveService.getAllJournalEntries();
+
+    // NEW: Fetch the list of excluded entry IDs from our Hive Service
+    final excludedIds = hiveService.excludedOnThisDayEntries;
+
     final memories = allEntries.where((entry) {
+      // NEW: Skip this entry if the user has explicitly excluded it
+      if (excludedIds.contains(entry.id)) return false;
+
       return entry.createdAt.month == now.month &&
           entry.createdAt.day == now.day &&
           entry.createdAt.year < now.year;
@@ -199,7 +206,7 @@ class NotificationService {
     memories.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     final schedulingTime = memories.first.createdAt;
 
-    final scheduledDateTime = tz.TZDateTime(
+    var scheduledDateTime = tz.TZDateTime(
       tz.local,
       now.year,
       now.month,
@@ -211,9 +218,10 @@ class NotificationService {
     if (scheduledDateTime.isBefore(tz.TZDateTime.now(tz.local))) {
       if (kDebugMode) {
         print(
-            "[NotificationService] Memory time for today has already passed. Skipping notification.");
+            "[NotificationService] Memory time for today has already passed. Scheduling for 5 seconds from now.");
       }
-      return;
+      // Schedule it 5 seconds from now so it isn't missed (and for easier testing)
+      scheduledDateTime = tz.TZDateTime.now(tz.local).add(const Duration(seconds: 5));
     }
 
     if (kDebugMode) {

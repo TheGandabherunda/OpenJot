@@ -44,6 +44,8 @@ class AppConstants {
   static const String errorDeletingEntry = "Error deleting entry.";
   static const String errorLoadingEntries = "Error loading journal entries.";
   static const String noEntriesForDate = "No entries for this date.";
+  static const String noEntriesForMonth = "No entries found for this month.";
+  static const String selectMonthAndYear = "Select Month & Year";
 
   // Journal Tile
   static const String veryUnpleasant = "Very Unpleasant";
@@ -134,6 +136,12 @@ class AppConstants {
       "You have memories from this day in past years. Tap to revisit them.";
   static const String onThisDayGroupedNotification =
       "You have %d memories from this day"; // %d will be replaced with the count
+
+  // --- NEW: Exclude Entries Constants ---
+  static const String excludeEntries = "Exclude Entries";
+  static const String excludeEntriesDescription = "Select entries to hide from memories.";
+  static const String excludedEntriesKey = "excludedEntries";
+  static const String saveExclusions = "Save Exclusions";
 
   // Write Journal Toolbar Content
   static const String today = "Today";

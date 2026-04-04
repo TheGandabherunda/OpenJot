@@ -35,6 +35,10 @@ class HiveService extends GetxService {
     settingsBox = await Hive.openBox(AppConstants.settingsBoxName);
     journalsBox = await Hive.openBox<JournalEntry>(AppConstants.journalsBoxName);
 
+    // Run this first to ensure all media paths are correctly linked to the current device session
+    // This fixes absolute paths changing after app updates, backup restores, or iOS app restarts.
+    await _sanitizeMediaPathsIfNeeded(appDocumentDir);
+
     // --- Data Migration: 5 Moods to 7 Moods ---
     await _migrateMoodsIfNeeded();
 
@@ -46,22 +50,99 @@ class HiveService extends GetxService {
     return this;
   }
 
+  Future<void> _sanitizeMediaPathsIfNeeded(Directory appDocDir) async {
+    final persistentMediaDir = Directory(p.join(appDocDir.path, 'media'));
+    if (!await persistentMediaDir.exists()) {
+      await persistentMediaDir.create(recursive: true);
+    }
+
+    // Use keys to avoid concurrent modification exceptions during iteration
+    final keys = journalsBox.keys.toList();
+
+    for (final key in keys) {
+      final entry = journalsBox.get(key);
+      if (entry == null) continue;
+
+      bool entryModified = false;
+
+      final newPhotos = <CapturedPhoto>[];
+      for (final photo in entry.cameraPhotos) {
+        final filename = p.basename(photo.file.path);
+        final expectedPath = p.join(persistentMediaDir.path, filename);
+
+        if (photo.file.path != expectedPath) {
+          final oldFile = File(photo.file.path);
+          final possibleRootFile = File(p.join(appDocDir.path, filename));
+
+          if (await oldFile.exists() && oldFile.path != expectedPath) {
+            try {
+              await oldFile.copy(expectedPath);
+            } catch (_) {}
+          } else if (await possibleRootFile.exists() && possibleRootFile.path != expectedPath) {
+            try {
+              await possibleRootFile.copy(expectedPath);
+              await possibleRootFile.delete();
+            } catch (_) {}
+          }
+
+          newPhotos.add(CapturedPhoto(file: XFile(expectedPath), name: photo.name));
+          entryModified = true;
+        } else {
+          newPhotos.add(photo);
+        }
+      }
+
+      final newRecordings = <RecordedAudio>[];
+      for (final rec in entry.recordings) {
+        final filename = p.basename(rec.path);
+        final expectedPath = p.join(persistentMediaDir.path, filename);
+
+        if (rec.path != expectedPath) {
+          final oldFile = File(rec.path);
+          final possibleRootFile = File(p.join(appDocDir.path, filename));
+
+          if (await oldFile.exists() && oldFile.path != expectedPath) {
+            try {
+              await oldFile.copy(expectedPath);
+            } catch (_) {}
+          } else if (await possibleRootFile.exists() && possibleRootFile.path != expectedPath) {
+            try {
+              await possibleRootFile.copy(expectedPath);
+              await possibleRootFile.delete();
+            } catch (_) {}
+          }
+
+          newRecordings.add(RecordedAudio(path: expectedPath, duration: rec.duration, name: rec.name));
+          entryModified = true;
+        } else {
+          newRecordings.add(rec);
+        }
+      }
+
+      if (entryModified) {
+        await journalsBox.put(key, entry.copyWith(cameraPhotos: newPhotos, recordings: newRecordings));
+      }
+    }
+  }
+
   Future<void> _migrateMoodsIfNeeded() async {
-    // We use a versioned key to ensure migration runs if we update the logic
     const migrationKey = 'hasMigratedMoodsTo7_v2';
     final bool hasMigrated = settingsBox.get(migrationKey, defaultValue: false);
-    
-    if (hasMigrated) {
-      debugPrint("Mood migration: Already migrated (v2).");
+    // Check old key to avoid corrupting new data if user updated from an older 1.1.0 build
+    final bool hasMigratedOld = settingsBox.get('hasMigratedMoodsTo7', defaultValue: false);
+
+    if (hasMigrated || hasMigratedOld) {
+      debugPrint("Mood migration: Already migrated.");
+      if (!hasMigrated) await settingsBox.put(migrationKey, true);
       return;
     }
 
     debugPrint("Mood migration: Starting check of ${journalsBox.length} entries...");
     int migrationCount = 0;
-    
+
     // Use keys to avoid iterator issues during modification
     final keys = journalsBox.keys.toList();
-    
+
     for (final key in keys) {
       final entry = journalsBox.get(key);
       if (entry != null && entry.moodIndex != null) {
@@ -69,7 +150,6 @@ class HiveService extends GetxService {
         int? newIndex;
 
         // Only migrate if the index is within the old 5-mood range (0-4)
-        // AND we haven't already migrated this specific entry (though the flag should prevent this)
         if (oldIndex >= 0 && oldIndex <= 4) {
           switch (oldIndex) {
             case 0: newIndex = 0; break; // Very Unpleasant (0) -> Very Unpleasant (0)
@@ -89,9 +169,8 @@ class HiveService extends GetxService {
     }
 
     await settingsBox.put(migrationKey, true);
-    // Also set the old key for backward compatibility if any other part uses it
-    await settingsBox.put('hasMigratedMoodsTo7', true);
-    
+    await settingsBox.put('hasMigratedMoodsTo7', true); // Backward compatibility
+
     debugPrint("Mood migration: Completed. Migrated $migrationCount entries.");
   }
 
@@ -131,6 +210,15 @@ class HiveService extends GetxService {
       settingsBox.get(AppConstants.onThisDayKey, defaultValue: false);
   Future<void> setOnThisDay(bool value) =>
       settingsBox.put(AppConstants.onThisDayKey, value);
+
+  // --- NEW: Excluded Entries ---
+  List<String> get excludedOnThisDayEntries {
+    final list = settingsBox.get(AppConstants.excludedEntriesKey, defaultValue: <String>[]);
+    return (list as List).cast<String>();
+  }
+
+  Future<void> setExcludedOnThisDayEntries(List<String> ids) =>
+      settingsBox.put(AppConstants.excludedEntriesKey, ids);
 
   int get autoDeleteDraftsDays =>
       settingsBox.get(AppConstants.autoDeleteDraftsKey, defaultValue: 7);
@@ -189,18 +277,18 @@ class HiveService extends GetxService {
       final appDocDir = await getApplicationDocumentsDirectory();
       final mediaDir = Directory(p.join(appDocDir.path, 'media'));
 
-      // Collect all active media paths from current journal entries
-      Set<String> activeMediaPaths = {};
+      // Use basenames to avoid GC incorrectly deleting files when absolute path changes
+      Set<String> activeMediaBasenames = {};
       for (final entry in journalsBox.values) {
-        for (final photo in entry.cameraPhotos) activeMediaPaths.add(photo.file.path);
-        for (final rec in entry.recordings) activeMediaPaths.add(rec.path);
+        for (final photo in entry.cameraPhotos) activeMediaBasenames.add(p.basename(photo.file.path));
+        for (final rec in entry.recordings) activeMediaBasenames.add(p.basename(rec.path));
       }
 
       // Clean up extracted/restored files in appDocDir/media
       if (await mediaDir.exists()) {
         final files = mediaDir.listSync();
         for (final file in files) {
-          if (file is File && !activeMediaPaths.contains(file.path)) {
+          if (file is File && !activeMediaBasenames.contains(p.basename(file.path))) {
             await file.delete();
             debugPrint("GC: Deleted orphaned media ${file.path}");
           }
@@ -213,7 +301,7 @@ class HiveService extends GetxService {
         if (file is File) {
           final filename = p.basename(file.path);
           if ((filename.startsWith('OpenJot_recording_') || filename.startsWith('OpenJot_image_')) &&
-              !activeMediaPaths.contains(file.path)) {
+              !activeMediaBasenames.contains(filename)) {
             await file.delete();
             debugPrint("GC: Deleted orphaned root media ${file.path}");
           }
@@ -308,11 +396,20 @@ class HiveService extends GetxService {
               sourceFile = await asset.file;
             } else {
               sourceFile = File(originalPath);
+              if (!await sourceFile.exists()) {
+                // Last resort fallback in case paths drifted despite sanitization
+                final fallbackFile = File(p.join(appDocDir.path, 'media', p.basename(originalPath)));
+                if (await fallbackFile.exists()) sourceFile = fallbackFile;
+              }
             }
 
             if (sourceFile == null || !await sourceFile.exists()) return;
 
-            final backupMediaName = '${entry.id}-${p.basename(sourceFile.path)}';
+            // Prevent duplicating ID in file name on subsequent backups
+            final basename = p.basename(sourceFile.path);
+            final backupMediaName = basename.startsWith(entry.id)
+                ? basename
+                : '${entry.id}-$basename';
 
             // Stream file directly into Zip
             encoder.addFile(sourceFile, 'media/$backupMediaName');

@@ -1277,9 +1277,13 @@ class AudioRecorderViewState extends State<AudioRecorderView>
       // Handle permission denial
       return;
     }
+
     final dir = await getApplicationDocumentsDirectory();
-    final path =
-        '${dir.path}/OpenJot_recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
+    final mediaDir = Directory('${dir.path}/media');
+    if (!await mediaDir.exists()) {
+      await mediaDir.create(recursive: true);
+    }
+    final path = '${mediaDir.path}/OpenJot_recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
 
     await _audioRecorder.start(const RecordConfig(), path: path);
     setState(() {
@@ -1789,9 +1793,8 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
           CustomScrollView(
             controller: widget.scrollController,
             slivers: [
-              // Swapped from SliverFillRemaining to SliverToBoxAdapter so the bottom sheet
-              // sizes perfectly to its content height rather than forcing a scroll!
-              SliverToBoxAdapter(
+              SliverFillRemaining(
+                hasScrollBody: false,
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 32.h),
                   child: Column(
@@ -1827,9 +1830,9 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
                           builder: (context, child) {
                             final bounceAnimation =
                             Curves.easeOutBack.transform(_rotationController.value);
-                            // 45 degrees in radians is pi/4 = 0.785398
+                            // Removed the 45 degree (pi/4) default tilt
                             return Transform.rotate(
-                              angle: (bounceAnimation * 2 * 3.14159) + (3.14159 / 4),
+                              angle: (bounceAnimation * 2 * 3.14159),
                               child: child,
                             );
                           },

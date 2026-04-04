@@ -19,11 +19,12 @@ class SettingsScreenController extends GetxController {
   final _notificationService = Get.find<NotificationService>();
 
   var dailyReminder = false.obs;
-  var onThisDay = false.obs; // NEW
+  var onThisDay = false.obs;
+  var excludedOnThisDayEntries = <String>[].obs; // NEW
   var reminderTime = Rx<TimeOfDay?>(null);
   var theme = AppConstants.themeSystem.obs;
   var appLock = false.obs;
-  var autoDeleteDraftsDays = 7.obs; // NEW
+  var autoDeleteDraftsDays = 7.obs;
 
   @override
   void onInit() {
@@ -33,8 +34,9 @@ class SettingsScreenController extends GetxController {
 
   void _loadSettings() {
     dailyReminder.value = _hiveService.dailyReminder;
-    onThisDay.value = _hiveService.onThisDay; // NEW
-    autoDeleteDraftsDays.value = _hiveService.autoDeleteDraftsDays; // NEW
+    onThisDay.value = _hiveService.onThisDay;
+    excludedOnThisDayEntries.value = _hiveService.excludedOnThisDayEntries; // NEW
+    autoDeleteDraftsDays.value = _hiveService.autoDeleteDraftsDays;
     reminderTime.value = _hiveService.reminderTime;
     theme.value = _hiveService.theme;
     appLock.value = _hiveService.appLockEnabled;
@@ -71,7 +73,6 @@ class SettingsScreenController extends GetxController {
     );
   }
 
-  // --- NEW: Logic for "On This Day" toggle ---
   void toggleOnThisDay(bool value) async {
     final appColors = AppTheme.colorsOf(Get.context!);
     if (value) {
@@ -107,7 +108,24 @@ class SettingsScreenController extends GetxController {
     }
   }
 
-  // --- NEW: Logic for Auto Delete Drafts ---
+  // --- NEW: Logic to save Excluded Entries ---
+  void updateExcludedEntries(List<String> ids) {
+    final appColors = AppTheme.colorsOf(Get.context!);
+    excludedOnThisDayEntries.value = ids;
+    _hiveService.setExcludedOnThisDayEntries(ids);
+
+    // Reschedule so new exclusions take effect immediately
+    if (onThisDay.value) {
+      _notificationService.checkForOnThisDayMemories();
+    }
+
+    CustomToast.showToast(
+      AppConstants.saveExclusions,
+      backgroundColor: appColors.grey10,
+      textColor: appColors.grey8,
+    );
+  }
+
   void setAutoDeleteDrafts(int days) {
     final appColors = AppTheme.colorsOf(Get.context!);
     autoDeleteDraftsDays.value = days;

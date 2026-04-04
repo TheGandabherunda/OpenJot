@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/modules/settings/about_screen.dart';
 import 'package:open_jot/app/modules/settings/terms_and_conditions_screen.dart';
@@ -11,6 +12,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/theme.dart';
 import 'settings_controller.dart';
+import 'exclude_entries_bottomsheet.dart';
 
 class SettingsBottomSheet extends StatefulWidget {
   const SettingsBottomSheet({super.key});
@@ -164,25 +166,30 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     showCupertinoModalPopup(
       context: context,
       builder: (BuildContext context) => CupertinoActionSheet(
-        title: Text(AppConstants.autoDeleteDrafts, style: TextStyle(fontFamily: AppConstants.font)),
-        message: Text(AppConstants.autoDeleteDraftsDescription, style: TextStyle(fontFamily: AppConstants.font)),
+        title: Text(AppConstants.autoDeleteDrafts,
+            style: TextStyle(fontFamily: AppConstants.font)),
+        message: Text(AppConstants.autoDeleteDraftsDescription,
+            style: TextStyle(fontFamily: AppConstants.font)),
         actions: <CupertinoActionSheetAction>[
           CupertinoActionSheetAction(
-            child: Text(AppConstants.days7, style: TextStyle(fontFamily: AppConstants.font)),
+            child: Text(AppConstants.days7,
+                style: TextStyle(fontFamily: AppConstants.font)),
             onPressed: () {
               controller.setAutoDeleteDrafts(7);
               Navigator.pop(context);
             },
           ),
           CupertinoActionSheetAction(
-            child: Text(AppConstants.never, style: TextStyle(fontFamily: AppConstants.font)),
+            child: Text(AppConstants.never,
+                style: TextStyle(fontFamily: AppConstants.font)),
             onPressed: () {
               controller.setAutoDeleteDrafts(-1);
               Navigator.pop(context);
             },
           ),
           CupertinoActionSheetAction(
-            child: Text(AppConstants.custom, style: TextStyle(fontFamily: AppConstants.font)),
+            child: Text(AppConstants.custom,
+                style: TextStyle(fontFamily: AppConstants.font)),
             onPressed: () {
               Navigator.pop(context);
               _showCustomDaysDialog();
@@ -194,7 +201,8 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
           onPressed: () {
             Navigator.pop(context);
           },
-          child: Text(AppConstants.cancel, style: TextStyle(fontFamily: AppConstants.font)),
+          child: Text(AppConstants.cancel,
+              style: TextStyle(fontFamily: AppConstants.font)),
         ),
       ),
     );
@@ -215,7 +223,8 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 controller: textController,
                 keyboardType: TextInputType.number,
                 placeholder: AppConstants.customDaysExample,
-                style: TextStyle(color: appThemeColors.grey10, fontFamily: AppConstants.font),
+                style: TextStyle(
+                    color: appThemeColors.grey10, fontFamily: AppConstants.font),
                 padding: EdgeInsets.all(12.w),
                 decoration: BoxDecoration(
                   color: appThemeColors.grey6,
@@ -241,8 +250,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
               ),
             ],
           );
-        }
-    );
+        });
   }
 
   @override
@@ -271,8 +279,11 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
         child: ListTile(
           leading: Icon(icon, color: textColor),
           title: Text(title,
-              style:
-              TextStyle(color: textColor,fontWeight: FontWeight.w500,letterSpacing: -0.2, fontFamily: AppConstants.font)),
+              style: TextStyle(
+                  color: textColor,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.2,
+                  fontFamily: AppConstants.font)),
           trailing: trailing,
           onTap: onTap,
         ),
@@ -306,11 +317,11 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
         body: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
           children: [
+            // General Settings Section
             ClipRRect(
               borderRadius: BorderRadius.circular(12.0),
               child: Obx(() {
                 final reminderEnabled = controller.dailyReminder.value;
-                final onThisDayEnabled = controller.onThisDay.value; // NEW
                 final selectedTime = controller.reminderTime.value;
                 final appLockEnabled = controller.appLock.value;
 
@@ -356,12 +367,14 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                             value: reminderEnabled,
                             onChanged: (bool value) async {
                               if (value) {
-                                final hasPermission = await controller.checkAndRequestNotificationPermissions();
+                                final hasPermission = await controller
+                                    .checkAndRequestNotificationPermissions();
                                 if (hasPermission) {
                                   final picked = await _showTimePicker();
                                   if (picked != null) {
                                     // Wait for the dialog to fully close to avoid Overlay context errors
-                                    await Future.delayed(const Duration(milliseconds: 300));
+                                    await Future.delayed(
+                                        const Duration(milliseconds: 300));
                                     controller.turnOnDailyReminder(picked);
                                   }
                                 }
@@ -373,26 +386,19 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                           ),
                         ],
                       ),
-                      onTap: reminderEnabled ? () async {
+                      onTap: reminderEnabled
+                          ? () async {
                         final picked = await _showTimePicker();
-                        if (picked != null && picked != controller.reminderTime.value) {
+                        if (picked != null &&
+                            picked != controller.reminderTime.value) {
                           // Wait for the dialog to fully close to avoid Overlay context errors
-                          await Future.delayed(const Duration(milliseconds: 300));
+                          await Future.delayed(
+                              const Duration(milliseconds: 300));
                           controller.setReminderTime(picked);
                         }
-                      } : null,
+                      }
+                          : null,
                     ),
-                    _buildListTile(
-                      title: AppConstants.onThisDay,
-                      subtitle: AppConstants.onThisDayDescription,
-                      icon: Icons.history,
-                      trailing: Switch(
-                        value: onThisDayEnabled,
-                        onChanged: controller.toggleOnThisDay,
-                        activeColor: appThemeColors.primary,
-                      ),
-                    ),
-                    // --- NEW: Auto Delete Drafts UI ---
                     _buildListTile(
                       title: AppConstants.autoDeleteDrafts,
                       subtitle: AppConstants.autoDeleteDraftsDescription,
@@ -401,23 +407,30 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                         final days = controller.autoDeleteDraftsDays.value;
                         String display = days == -1
                             ? AppConstants.never
-                            : (days == 7 ? AppConstants.days7 : "$days ${AppConstants.days}");
+                            : (days == 7
+                            ? AppConstants.days7
+                            : "$days ${AppConstants.days}");
                         return Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(display, style: TextStyle(color: appThemeColors.grey2, fontSize: 14.sp, fontFamily: AppConstants.font)),
+                            Text(display,
+                                style: TextStyle(
+                                    color: appThemeColors.grey2,
+                                    fontSize: 14.sp,
+                                    fontFamily: AppConstants.font)),
                             SizedBox(width: 8.w),
-                            Icon(Icons.arrow_forward_ios, size: 16, color: appThemeColors.grey2),
+                            Icon(Icons.arrow_forward_ios,
+                                size: 16, color: appThemeColors.grey2),
                           ],
                         );
                       }),
                       onTap: _showAutoDeleteOptions,
                     ),
-                    // --- END NEW ---
                     _buildListTile(
                       title: AppConstants.appLock,
                       subtitle: AppConstants.appLockDescription,
                       icon: Icons.lock,
+                      showDivider: appLockEnabled, // Hide divider if changePin isn't shown
                       trailing: Switch(
                         value: appLockEnabled,
                         onChanged: (bool value) {
@@ -439,6 +452,57 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
               }),
             ),
             const SizedBox(height: 20),
+
+            // On This Day Section
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12.0),
+              child: Obx(() {
+                final onThisDayEnabled = controller.onThisDay.value;
+
+                return Column(
+                  children: [
+                    _buildListTile(
+                      title: AppConstants.onThisDay,
+                      subtitle: AppConstants.onThisDayDescription,
+                      icon: Icons.history,
+                      showDivider: onThisDayEnabled, // Hide divider if no items follow
+                      trailing: Switch(
+                        value: onThisDayEnabled,
+                        onChanged: controller.toggleOnThisDay,
+                        activeColor: appThemeColors.primary,
+                      ),
+                    ),
+                    if (onThisDayEnabled)
+                      _buildListTile(
+                        title: AppConstants.excludeEntries,
+                        subtitle: AppConstants.excludeEntriesDescription,
+                        icon: Icons.notifications_off_outlined,
+                        trailing: const Icon(Icons.arrow_forward_ios, size: 18),
+                        showDivider: false, // Last item in section
+                        onTap: () {
+                          showCupertinoModalBottomSheet(
+                            context: context,
+                            expand: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) => SafeArea(
+                              child: ExcludeEntriesBottomSheet(
+                                initialExcludedIds:
+                                controller.excludedOnThisDayEntries,
+                                onSave: (ids) {
+                                  controller.updateExcludedEntries(ids);
+                                },
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                  ],
+                );
+              }),
+            ),
+            const SizedBox(height: 20),
+
+            // Theme Section
             ClipRRect(
               borderRadius: BorderRadius.circular(12.0),
               child: Column(
@@ -456,6 +520,8 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
               ),
             ),
             const SizedBox(height: 20),
+
+            // Backup & Restore Section
             ClipRRect(
               borderRadius: BorderRadius.circular(12.0),
               child: Column(
@@ -479,6 +545,8 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
               ),
             ),
             const SizedBox(height: 20),
+
+            // About Section
             ClipRRect(
               borderRadius: BorderRadius.circular(12.0),
               child: Column(
@@ -509,7 +577,9 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 ],
               ),
             ),
-            SizedBox(height: 48.h,),
+            SizedBox(
+              height: 48.h,
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 30.0),
               child: Center(

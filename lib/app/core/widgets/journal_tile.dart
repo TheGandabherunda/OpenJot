@@ -33,6 +33,7 @@ class JournalTile extends StatefulWidget {
   final Color? footerTextColor;
   final Color? reflectionBackground;
   final Color? bookmarkColor;
+  final bool showMenuIcon; // NEW FLAG
 
   const JournalTile({
     super.key,
@@ -44,6 +45,7 @@ class JournalTile extends StatefulWidget {
     this.footerTextColor,
     this.dividerColor,
     this.popupDividerColor,
+    this.showMenuIcon = true, // Default to true so it doesn't break existing screens
   });
 
   @override
@@ -632,158 +634,159 @@ class _JournalTileState extends State<JournalTile> {
                   ),
                 ],
               ),
-              GestureDetector(
-                key: _menuKey,
-                onTap: () {
-                  final RenderBox renderBox =
-                  _menuKey.currentContext!.findRenderObject() as RenderBox;
-                  final position = renderBox.localToGlobal(Offset.zero);
-                  showMenu<String>(
-                    context: context,
-                    color: appThemeColors.grey5,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16.r),
-                    ),
-                    position: RelativeRect.fromLTRB(
-                      position.dx - renderBox.size.width * 2,
-                      position.dy + renderBox.size.height,
-                      position.dx,
-                      position.dy + renderBox.size.height * 2,
-                    ),
-                    items: [
-                      PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit, color: appThemeColors.grey10),
-                            SizedBox(width: 8.w),
-                            Text(AppConstants.edit,
+              if (widget.showMenuIcon)
+                GestureDetector(
+                  key: _menuKey,
+                  onTap: () {
+                    final RenderBox renderBox =
+                    _menuKey.currentContext!.findRenderObject() as RenderBox;
+                    final position = renderBox.localToGlobal(Offset.zero);
+                    showMenu<String>(
+                      context: context,
+                      color: appThemeColors.grey5,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16.r),
+                      ),
+                      position: RelativeRect.fromLTRB(
+                        position.dx - renderBox.size.width * 2,
+                        position.dy + renderBox.size.height,
+                        position.dx,
+                        position.dy + renderBox.size.height * 2,
+                      ),
+                      items: [
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit, color: appThemeColors.grey10),
+                              SizedBox(width: 8.w),
+                              Text(AppConstants.edit,
+                                  style: TextStyle(
+                                      color: appThemeColors.grey10,
+                                      fontFamily: AppConstants.font,
+                                      letterSpacing: -0.2)),
+                            ],
+                          ),
+                        ),
+                        PopupMenuDivider(
+                            height: 1,
+                            color: widget.popupDividerColor ??
+                                appThemeColors.grey6),
+                        PopupMenuItem(
+                          value: 'bookmark',
+                          child: Row(
+                            children: [
+                              Icon(
+                                widget.entry.isBookmarked
+                                    ? Icons.bookmark_remove_rounded
+                                    : Icons.bookmark_add_outlined,
+                                color: appThemeColors.grey10,
+                              ),
+                              SizedBox(width: 8.w),
+                              Text(
+                                widget.entry.isBookmarked
+                                    ? AppConstants.removeBookmark
+                                    : AppConstants.bookmark,
                                 style: TextStyle(
                                     color: appThemeColors.grey10,
                                     fontFamily: AppConstants.font,
-                                    letterSpacing: -0.2)),
-                          ],
+                                    letterSpacing: -0.2),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      PopupMenuDivider(
-                          height: 1,
-                          color: widget.popupDividerColor ??
-                              appThemeColors.grey6),
-                      PopupMenuItem(
-                        value: 'bookmark',
-                        child: Row(
-                          children: [
-                            Icon(
-                              widget.entry.isBookmarked
-                                  ? Icons.bookmark_remove_rounded
-                                  : Icons.bookmark_add_outlined,
-                              color: appThemeColors.grey10,
-                            ),
-                            SizedBox(width: 8.w),
-                            Text(
-                              widget.entry.isBookmarked
-                                  ? AppConstants.removeBookmark
-                                  : AppConstants.bookmark,
-                              style: TextStyle(
-                                  color: appThemeColors.grey10,
-                                  fontFamily: AppConstants.font,
-                                  letterSpacing: -0.2),
-                            ),
-                          ],
-                        ),
-                      ),
-                      PopupMenuDivider(
-                          height: 1,
-                          color: widget.popupDividerColor ??
-                              appThemeColors.grey6),
-                      PopupMenuItem(
-                        value: 'share',
-                        child: Row(
-                          children: [
-                            Icon(Icons.share_outlined,
-                                color: appThemeColors.grey10),
-                            SizedBox(width: 8.w),
-                            Text(AppConstants.share,
-                                style: TextStyle(
+                        PopupMenuDivider(
+                            height: 1,
+                            color: widget.popupDividerColor ??
+                                appThemeColors.grey6),
+                        PopupMenuItem(
+                          value: 'share',
+                          child: Row(
+                            children: [
+                              Icon(Icons.share_outlined,
+                                  color: appThemeColors.grey10),
+                              SizedBox(width: 8.w),
+                              Text(AppConstants.share,
+                                  style: TextStyle(
 
-                                    color: appThemeColors.grey10,
-                                    fontFamily: AppConstants.font,
-                                    letterSpacing: -0.2)),
-                          ],
+                                      color: appThemeColors.grey10,
+                                      fontFamily: AppConstants.font,
+                                      letterSpacing: -0.2)),
+                            ],
+                          ),
                         ),
-                      ),
-                      PopupMenuDivider(
-                          height: 1,
-                          color: widget.popupDividerColor ??
-                              appThemeColors.grey6),
-                      PopupMenuItem(
-                        value: 'pdf',
-                        child: Row(
-                          children: [
-                            Icon(Icons.save_outlined,
-                                color: appThemeColors.grey10),
-                            SizedBox(width: 8.w),
-                            Text(AppConstants.saveAsPdf,
-                                style: TextStyle(
-                                    color: appThemeColors.grey10,
-                                    fontFamily: AppConstants.font,
-                                    letterSpacing: -0.2)),
-                          ],
+                        PopupMenuDivider(
+                            height: 1,
+                            color: widget.popupDividerColor ??
+                                appThemeColors.grey6),
+                        PopupMenuItem(
+                          value: 'pdf',
+                          child: Row(
+                            children: [
+                              Icon(Icons.save_outlined,
+                                  color: appThemeColors.grey10),
+                              SizedBox(width: 8.w),
+                              Text(AppConstants.saveAsPdf,
+                                  style: TextStyle(
+                                      color: appThemeColors.grey10,
+                                      fontFamily: AppConstants.font,
+                                      letterSpacing: -0.2)),
+                            ],
+                          ),
                         ),
-                      ),
-                      PopupMenuDivider(
-                          height: 1,
-                          color: widget.popupDividerColor ??
-                              appThemeColors.grey6),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete_outline_outlined,
-                                color: appThemeColors.error),
-                            SizedBox(width: 8.w),
-                            Text(AppConstants.delete,
-                                style: TextStyle(
-                                    color: appThemeColors.error,
-                                    fontFamily: AppConstants.font,
-                                    letterSpacing: -0.2)),
-                          ],
+                        PopupMenuDivider(
+                            height: 1,
+                            color: widget.popupDividerColor ??
+                                appThemeColors.grey6),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete_outline_outlined,
+                                  color: appThemeColors.error),
+                              SizedBox(width: 8.w),
+                              Text(AppConstants.delete,
+                                  style: TextStyle(
+                                      color: appThemeColors.error,
+                                      fontFamily: AppConstants.font,
+                                      letterSpacing: -0.2)),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ).then((value) async {
-                    if (value == 'edit') {
-                      _onEditPressed();
-                    } else if (value == 'bookmark') {
-                      Get.find<HomeController>()
-                          .toggleBookmarkStatus(widget.entry.id);
-                    } else if (value == 'share') {
-                      _onSharePressed();
-                    } else if (value == 'pdf') {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Generating PDF...'),
-                            duration: Duration(seconds: 2)),
-                      );
-                      try {
-                        await PdfGenerator.generateAndSharePdf(widget.entry);
-                      } catch (e) {
+                      ],
+                    ).then((value) async {
+                      if (value == 'edit') {
+                        _onEditPressed();
+                      } else if (value == 'bookmark') {
+                        Get.find<HomeController>()
+                            .toggleBookmarkStatus(widget.entry.id);
+                      } else if (value == 'share') {
+                        _onSharePressed();
+                      } else if (value == 'pdf') {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Failed to generate PDF: $e')),
+                          const SnackBar(
+                              content: Text('Generating PDF...'),
+                              duration: Duration(seconds: 2)),
                         );
+                        try {
+                          await PdfGenerator.generateAndSharePdf(widget.entry);
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed to generate PDF: $e')),
+                          );
+                        }
+                      } else if (value == 'delete') {
+                        _onDeletePressed();
                       }
-                    } else if (value == 'delete') {
-                      _onDeletePressed();
-                    }
-                  });
-                },
-                child: Icon(
-                  Icons.more_horiz_rounded,
-                  color: appThemeColors.grey1,
-                  size: 28.w,
+                    });
+                  },
+                  child: Icon(
+                    Icons.more_horiz_rounded,
+                    color: appThemeColors.grey1,
+                    size: 28.w,
+                  ),
                 ),
-              ),
             ],
           ),
         ));
