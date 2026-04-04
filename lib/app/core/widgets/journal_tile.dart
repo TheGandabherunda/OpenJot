@@ -855,10 +855,10 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
       } else {
         // Run heavy image processing in background thread
         data = await compute((params) async {
-          final String path = params['path'];
-          final bool isVideo = params['isVideo'];
-          final ThumbnailSize size = params['size'];
-          final int quality = params['quality'];
+          final String path = params['path'] as String;
+          final bool isVideo = params['isVideo'] as bool;
+          final ThumbnailSize size = params['size'] as ThumbnailSize;
+          final int quality = params['quality'] as int;
 
           if (isVideo) {
             return await VideoThumbnail.thumbnailData(
