@@ -306,10 +306,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
 
     final newRecordings = <RecordedAudio>[];
     for (final path in widget.sharedAudioPaths!) {
-      // In a real application, you might use audioplayers here strictly to get
-      // duration. Since we removed the import, we'll assign Duration.zero for
-      // now, or implement a basic duration extractor if strictly needed.
-      // For shared audios without loading the heavy audioplayer instance just for duration:
       final fileName = p.basename(path);
       newRecordings.add(
         RecordedAudio(
@@ -1130,7 +1126,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         lowercasedPath.endsWith('.mov') ||
         lowercasedPath.endsWith('.avi') ||
         lowercasedPath.endsWith('.wmv') ||
-        lowercasedPath.endsWith('.mkv');
+        lowercasedPath.endsWith('.mkv') ||
+        lowercasedPath.endsWith('.m4v') ||
+        lowercasedPath.endsWith('.webm');
   }
 
   Widget _buildHeader(AppThemeColors appThemeColors) {

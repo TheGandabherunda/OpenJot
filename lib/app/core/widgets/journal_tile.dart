@@ -856,20 +856,25 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
       if (await thumbFile.exists()) {
         data = await thumbFile.readAsBytes();
       } else {
-        // Run heavy image processing in background thread
-        data = await compute((params) async {
-          final String path = params['path'] as String;
-          final bool isVideo = params['isVideo'] as bool;
-          final ThumbnailSize size = params['size'] as ThumbnailSize;
-          final int quality = params['quality'] as int;
-
-          if (isVideo) {
-            return await VideoThumbnail.thumbnailData(
+        if (_isVideo) {
+          // Process video thumbnail on main thread because platform channels
+          // (like VideoThumbnail) fail inside isolated background threads.
+          try {
+            data = await VideoThumbnail.thumbnailData(
               video: path,
-              maxWidth: size.width,
+              maxWidth: thumbnailSize.width,
               quality: quality,
             );
-          } else {
+          } catch (e) {
+            debugPrint("Failed to generate video thumbnail: $e");
+          }
+        } else {
+          // Run heavy image processing in background thread
+          data = await compute((params) async {
+            final String path = params['path'] as String;
+            final ThumbnailSize size = params['size'] as ThumbnailSize;
+            final int quality = params['quality'] as int;
+
             final originalFile = File(path);
             if (!await originalFile.exists()) return null;
             final imageBytes = await originalFile.readAsBytes();
@@ -878,17 +883,18 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
               final thumbnail = img.copyResize(image, width: size.width);
               return Uint8List.fromList(img.encodeJpg(thumbnail, quality: 80));
             }
-          }
-          return null;
-        }, {
-          'path': path,
-          'isVideo': _isVideo,
-          'size': thumbnailSize,
-          'quality': quality,
-        });
+            return null;
+          }, {
+            'path': path,
+            'size': thumbnailSize,
+            'quality': quality,
+          });
+        }
 
         if (data != null) {
-          await thumbFile.writeAsBytes(data);
+          try {
+            await thumbFile.writeAsBytes(data);
+          } catch (_) {}
         }
       }
     }
@@ -906,7 +912,9 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
         lowercasedPath.endsWith('.mov') ||
         lowercasedPath.endsWith('.avi') ||
         lowercasedPath.endsWith('.wmv') ||
-        lowercasedPath.endsWith('.mkv');
+        lowercasedPath.endsWith('.mkv') ||
+        lowercasedPath.endsWith('.m4v') ||
+        lowercasedPath.endsWith('.webm');
   }
 
   @override
