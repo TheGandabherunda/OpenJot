@@ -69,6 +69,9 @@ class _HomeScreenStack extends StatefulWidget {
 
 class _HomeScreenStackState extends State<_HomeScreenStack>
     with TickerProviderStateMixin {
+  static final DateFormat _monthYearFormat = DateFormat('MMM, yyyy');
+  static final DateFormat _monthFormat = DateFormat('MMMM');
+
   final _shareService = ShareService();
   double _lastOffset = 0.0;
   static const double _tileHeightEstimate = 100;
@@ -461,7 +464,6 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
   Future<void> _scrollToMonthYear(int month, int year) async {
     final entries = widget.controller.journalEntries;
 
-    // 1. Find the target index in the list of entries
     int targetIndex = -1;
     for (int i = 0; i < entries.length; i++) {
       if (entries[i].createdAt.month == month &&
@@ -472,7 +474,6 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     }
 
     if (targetIndex != -1) {
-      // Retrive the inner list's controller instead of the NestedScrollView's outer controller!
       ScrollController? innerCtrl;
       if (_bodyKey.currentContext != null) {
         innerCtrl = PrimaryScrollController.of(_bodyKey.currentContext!);
@@ -480,10 +481,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
 
       if (innerCtrl == null || !innerCtrl.hasClients) return;
 
-      // 2. Calculate the precise offset dynamically based on entry content.
-      // Base offset for Stats row (Padding: 16+16=32.h, Icons/Text: 24.sp * 1.2 + 12.sp * 1.2 + 4.h spacing)
       double targetOffset = 36.h + (36.sp * 1.2);
-      // Top padding for the SliverPadding itself
       targetOffset += 16.h;
 
       for (int i = 0; i < targetIndex; i++) {
@@ -500,7 +498,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
           targetOffset += (showYearDivider ? 0 : 8.h) + 16.h + (18.sp * 1.2);
         }
 
-        double tileHeight = 46.h; // Base padding/footer height
+        double tileHeight = 46.h;
 
         final hasMedia = entry.galleryImages.isNotEmpty || entry.cameraPhotos.isNotEmpty;
         final hasAudio = entry.galleryAudios.isNotEmpty || entry.recordings.isNotEmpty;
@@ -521,26 +519,20 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         if (hasText) {
           int lines = (plainText.length / 38).ceil().clamp(1, 4);
           double textPadding = (hasMedia || hasAudio) ? 10.h : 20.h;
-          // Apply 1.2x multiplier to text sp height for natural bounds tracking
           tileHeight += textPadding + (lines * 16.sp * 1.2);
         }
 
         targetOffset += tileHeight;
-        targetOffset += 32.h; // SizedBox spacing between entries
+        targetOffset += 32.h;
       }
 
-      // 3. To handle scrolling to items not yet built by SliverList,
-      // check if targetOffset exceeds current maxScrollExtent.
       if (targetOffset > innerCtrl.position.maxScrollExtent) {
-        // Jump near the target to force SliverList to lay out those items
         double jumpTarget = targetOffset > 400 ? targetOffset - 400 : targetOffset;
         innerCtrl.jumpTo(jumpTarget);
-        // Wait a frame so the items are built and maxScrollExtent is updated
         await Future.delayed(const Duration(milliseconds: 50));
         if (!mounted || !innerCtrl.hasClients) return;
       }
 
-      // 4. Animate smoothly to the final precise location using the inner controller
       innerCtrl.animateTo(
         targetOffset,
         duration: const Duration(milliseconds: 500),
@@ -561,7 +553,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     if (_currentMonthYearNotifier.value != null) {
       try {
         final dt =
-        DateFormat('MMM, yyyy').parse(_currentMonthYearNotifier.value!);
+        _monthYearFormat.parse(_currentMonthYearNotifier.value!);
         initialMonth = dt.month;
         initialYear = dt.year;
       } catch (_) {}
@@ -719,7 +711,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     if (_topEntryIndex != index) {
       _topEntryIndex = index;
       final dt = entries[index].createdAt;
-      _currentMonthYearNotifier.value = DateFormat('MMM, yyyy').format(dt);
+      _currentMonthYearNotifier.value = _monthYearFormat.format(dt);
     }
 
     final showThreshold = (_tileHeightEstimate + 32.h) * 0.8;
@@ -794,7 +786,6 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       children: [
         NotificationListener<ScrollNotification>(
           onNotification: (notification) {
-            // Only react to the inner scroll view (depth = 1) to prevent app-bar scroll jitter
             if (notification.depth != 1) return false;
 
             if (notification is ScrollUpdateNotification ||
@@ -814,86 +805,94 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
               return <Widget>[
                 SliverAppBar(
                   backgroundColor: Colors.transparent,
+                  surfaceTintColor: Colors.transparent,
                   elevation: 0,
                   scrolledUnderElevation: 0,
                   expandedHeight: 80.h,
                   floating: false,
                   pinned: true,
-                  flexibleSpace: RepaintBoundary(
-                    child: ClipRect(
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                appThemeColors.grey7,
-                                appThemeColors.grey7.withOpacity(0.6),
-                              ],
-                              stops: const [0.0, 1.0],
+                  flexibleSpace: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // [RESTORED & FIXED] The blur/gradient is now in a Stack *behind* the FlexibleSpaceBar.
+                      // This ensures it DOES NOT fade to 0 opacity when collapsed, and prevents the jitter
+                      // from text-scaling redraws!
+                      RepaintBoundary(
+                        child: ClipRect(
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    appThemeColors.grey7,
+                                    appThemeColors.grey7.withOpacity(0.6),
+                                  ],
+                                  stops: const [0.0, 1.0],
+                                ),
+                              ),
                             ),
-                          ),
-                          child: FlexibleSpaceBar(
-                            title: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    AppConstants.appTitle,
-                                    style: TextStyle(
-                                      fontFamily: AppConstants.font,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 24.sp,
-                                      color: appThemeColors.grey10,
-                                      letterSpacing: -0.2,
-                                    ),
-                                  ),
-                                ),
-                                GestureDetector(
-                                  onTap: () => Get.to(() => const SearchView()),
-                                  child: Container(
-                                    width: 36.w,
-                                    height: 36.w,
-                                    decoration: BoxDecoration(
-                                      color: appThemeColors.grey6,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      Icons.search,
-                                      size: 24.sp,
-                                      color: appThemeColors.grey1,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(width: 8.w),
-                                GestureDetector(
-                                  key: _menuKey,
-                                  onTap: () => _showPopupMenu(context),
-                                  child: Container(
-                                    width: 36.w,
-                                    height: 36.w,
-                                    decoration: BoxDecoration(
-                                      color: appThemeColors.grey6,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      Icons.more_horiz_rounded,
-                                      size: 24.sp,
-                                      color: appThemeColors.grey1,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            titlePadding: EdgeInsets.only(
-                                left: 16.w, right: 16.w, bottom: 16.h),
-                            expandedTitleScale: 28.sp / 24.sp,
                           ),
                         ),
                       ),
-                    ),
+                      FlexibleSpaceBar(
+                        titlePadding: EdgeInsets.only(left: 16.w, right: 16.w, bottom: 16.h),
+                        expandedTitleScale: 28.sp / 24.sp,
+                        title: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                AppConstants.appTitle,
+                                style: TextStyle(
+                                  fontFamily: AppConstants.font,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 24.sp,
+                                  color: appThemeColors.grey10,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () => Get.to(() => const SearchView()),
+                              child: Container(
+                                width: 36.w,
+                                height: 36.w,
+                                decoration: BoxDecoration(
+                                  color: appThemeColors.grey6,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.search,
+                                  size: 24.sp,
+                                  color: appThemeColors.grey1,
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 8.w),
+                            GestureDetector(
+                              key: _menuKey,
+                              onTap: () => _showPopupMenu(context),
+                              child: Container(
+                                width: 36.w,
+                                height: 36.w,
+                                decoration: BoxDecoration(
+                                  color: appThemeColors.grey6,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.more_horiz_rounded,
+                                  size: 24.sp,
+                                  color: appThemeColors.grey1,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ];
@@ -956,37 +955,38 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                             SliverToBoxAdapter(
                               child: Padding(
                                 padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 16.h),
-                                child: IntrinsicHeight(
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                          child: _buildStatItem(
-                                              AppConstants.entriesThisYear,
-                                              widget.controller.totalEntriesThisYear
-                                                  .toString(),
-                                              Icons.web_stories)),
-                                      VerticalDivider(
-                                        color: appThemeColors.grey5,
-                                        thickness: 1.w,
-                                      ),
-                                      Expanded(
-                                          child: _buildStatItem(
-                                              AppConstants.wordsWritten,
-                                              widget.controller.totalWordsWritten
-                                                  .toString(),
-                                              Icons.format_quote_rounded)),
-                                      VerticalDivider(
-                                        color: appThemeColors.grey5,
-                                        thickness: 1.w,
-                                      ),
-                                      Expanded(
-                                          child: _buildStatItem(
-                                              AppConstants.daysJournaled,
-                                              widget.controller.daysJournaled
-                                                  .toString(),
-                                              Icons.calendar_today_rounded)),
-                                    ],
-                                  ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Expanded(
+                                        child: _buildStatItem(
+                                            AppConstants.entriesThisYear,
+                                            widget.controller.totalEntriesThisYear
+                                                .toString(),
+                                            Icons.web_stories)),
+                                    Container(
+                                      width: 1.w,
+                                      height: 44.h,
+                                      color: appThemeColors.grey5,
+                                    ),
+                                    Expanded(
+                                        child: _buildStatItem(
+                                            AppConstants.wordsWritten,
+                                            widget.controller.totalWordsWritten
+                                                .toString(),
+                                            Icons.format_quote_rounded)),
+                                    Container(
+                                      width: 1.w,
+                                      height: 44.h,
+                                      color: appThemeColors.grey5,
+                                    ),
+                                    Expanded(
+                                        child: _buildStatItem(
+                                            AppConstants.daysJournaled,
+                                            widget.controller.daysJournaled
+                                                .toString(),
+                                            Icons.calendar_today_rounded)),
+                                  ],
                                 ),
                               ),
                             ),
@@ -1000,81 +1000,76 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                               sliver: SliverList(
                                 delegate: SliverChildBuilderDelegate(
                                       (context, index) {
-                                    final itemIndex = index ~/ 2;
-                                    if (index.isEven) {
-                                      final entry = entries[itemIndex];
-                                      final prevEntry =
-                                      itemIndex > 0 ? entries[itemIndex - 1] : null;
+                                    final entry = entries[index];
+                                    final prevEntry = index > 0 ? entries[index - 1] : null;
 
-                                      bool showYearDivider = prevEntry == null ||
-                                          entry.createdAt.year !=
-                                              prevEntry.createdAt.year;
-                                      bool showMonthDivider = prevEntry == null ||
-                                          entry.createdAt.month !=
-                                              prevEntry.createdAt.month ||
-                                          entry.createdAt.year !=
-                                              prevEntry.createdAt.year;
+                                    bool showYearDivider = prevEntry == null ||
+                                        entry.createdAt.year != prevEntry.createdAt.year;
+                                    bool showMonthDivider = prevEntry == null ||
+                                        entry.createdAt.month != prevEntry.createdAt.month ||
+                                        entry.createdAt.year != prevEntry.createdAt.year;
 
-                                      return Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          if (showYearDivider) ...[
-                                            Padding(
-                                              padding:
-                                              EdgeInsets.only(bottom: 12.h, top: 8.h),
-                                              child: Text(
-                                                entry.createdAt.year.toString(),
-                                                style: TextStyle(
-                                                  fontFamily: AppConstants.font,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 28.sp,
-                                                  color: appThemeColors.grey10,
-                                                  letterSpacing: -0.5,
+                                    return RepaintBoundary(
+                                      child: Padding(
+                                        padding: EdgeInsets.only(bottom: 32.h),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            if (showYearDivider) ...[
+                                              Padding(
+                                                padding:
+                                                EdgeInsets.only(bottom: 12.h, top: 8.h),
+                                                child: Text(
+                                                  entry.createdAt.year.toString(),
+                                                  style: TextStyle(
+                                                    fontFamily: AppConstants.font,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 28.sp,
+                                                    color: appThemeColors.grey10,
+                                                    letterSpacing: -0.5,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                          ],
-                                          if (showMonthDivider) ...[
-                                            Padding(
-                                              padding: EdgeInsets.only(
-                                                  bottom: 16.h,
-                                                  top: showYearDivider ? 0 : 8.h),
-                                              child: Text(
-                                                DateFormat('MMMM')
-                                                    .format(entry.createdAt),
-                                                style: TextStyle(
-                                                  fontFamily: AppConstants.font,
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 18.sp,
-                                                  color: appThemeColors.grey2,
-                                                  letterSpacing: -0.2,
+                                            ],
+                                            if (showMonthDivider) ...[
+                                              Padding(
+                                                padding: EdgeInsets.only(
+                                                    bottom: 16.h,
+                                                    top: showYearDivider ? 0 : 8.h),
+                                                child: Text(
+                                                  _monthFormat.format(entry.createdAt),
+                                                  style: TextStyle(
+                                                    fontFamily: AppConstants.font,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 18.sp,
+                                                    color: appThemeColors.grey2,
+                                                    letterSpacing: -0.2,
+                                                  ),
                                                 ),
                                               ),
+                                            ],
+                                            JournalTile(
+                                              entry: entry,
+                                              onTap: () {
+                                                showCupertinoModalBottomSheet(
+                                                  context: context,
+                                                  expand: true,
+                                                  backgroundColor: Colors.transparent,
+                                                  builder: (modalContext) {
+                                                    return SafeArea(
+                                                      child: ReadJournalBottomSheet(
+                                                          entry: entry),
+                                                    );
+                                                  },
+                                                );
+                                              },
                                             ),
                                           ],
-                                          JournalTile(
-                                            entry: entry,
-                                            onTap: () {
-                                              showCupertinoModalBottomSheet(
-                                                context: context,
-                                                expand: true,
-                                                backgroundColor: Colors.transparent,
-                                                builder: (modalContext) {
-                                                  return SafeArea(
-                                                    child: ReadJournalBottomSheet(
-                                                        entry: entry),
-                                                  );
-                                                },
-                                              );
-                                            },
-                                          ),
-                                        ],
-                                      );
-                                    }
-                                    return SizedBox(height: 32.h);
+                                        ),
+                                      ),
+                                    );
                                   },
-                                  childCount:
-                                  entries.isEmpty ? 0 : entries.length * 2 - 1,
+                                  childCount: entries.isEmpty ? 0 : entries.length,
                                 ),
                               ),
                             ),

@@ -139,15 +139,16 @@ class _CustomSliderWithTooltipState extends State<CustomSliderWithTooltip>
     _trackPaddingNotifier.value = widget.focusedTrackPadding;
   }
 
-  void _handleDragUpdate(
-      DragUpdateDetails details, BoxConstraints constraints) {
-    if (!_isInteracting) return;
-
+  void _updateProgressFromGlobalPosition(Offset globalPosition, BoxConstraints constraints) {
     final double effectiveTrackWidth =
         constraints.maxWidth - widget.unfocusedTrackPadding.horizontal;
-    final double newProgress = (_currentProgressNotifier.value +
-            (details.delta.dx / effectiveTrackWidth))
-        .clamp(0.0, 1.0);
+    if (effectiveTrackWidth <= 0) return;
+
+    final RenderBox renderBox = context.findRenderObject() as RenderBox;
+    final Offset localPosition = renderBox.globalToLocal(globalPosition);
+    final double adjustedDx = localPosition.dx - widget.unfocusedTrackPadding.left;
+
+    final double newProgress = (adjustedDx / effectiveTrackWidth).clamp(0.0, 1.0);
 
     _currentProgressNotifier.value = newProgress;
   }
@@ -160,24 +161,6 @@ class _CustomSliderWithTooltipState extends State<CustomSliderWithTooltip>
     _trackHeightNotifier.value = widget.unfocusedTrackHeight;
     _activeTrackColorNotifier.value = widget.unfocusedActiveColor;
     _trackPaddingNotifier.value = widget.unfocusedTrackPadding;
-  }
-
-  void _handleTapUp(TapUpDetails details, BoxConstraints constraints) {
-    final double effectiveTrackWidth =
-        constraints.maxWidth - widget.unfocusedTrackPadding.horizontal;
-    final RenderBox renderBox = context.findRenderObject() as RenderBox;
-    final Offset localPosition =
-        renderBox.globalToLocal(details.globalPosition);
-
-    final double adjustedDx =
-        localPosition.dx - widget.unfocusedTrackPadding.left;
-
-    final double newProgress =
-        (adjustedDx / effectiveTrackWidth).clamp(0.0, 1.0);
-
-    _currentProgressNotifier.value = newProgress;
-
-    _endInteraction();
   }
 
   void _onProgressChanged() {
@@ -228,9 +211,9 @@ class _CustomSliderWithTooltipState extends State<CustomSliderWithTooltip>
     final double tooltipEstimatedHeight = widget.showValueTooltip ? 20.0 : 0.0;
     final double tooltipToSliderGap = widget.showValueTooltip ? 3.0 : 0.0;
     final double labelEstimatedHeight =
-        (widget.minLabel != null || widget.maxLabel != null) ? 14.0 : 0.0;
+    (widget.minLabel != null || widget.maxLabel != null) ? 14.0 : 0.0;
     final double sliderToLabelGap =
-        (widget.minLabel != null || widget.maxLabel != null) ? 15.0 : 0.0;
+    (widget.minLabel != null || widget.maxLabel != null) ? 15.0 : 0.0;
 
     // Calculate total height to prevent layout shifts
     final double fixedOverallHeight = tooltipEstimatedHeight +
@@ -251,13 +234,25 @@ class _CustomSliderWithTooltipState extends State<CustomSliderWithTooltip>
 
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onHorizontalDragDown: (_) => _startInteraction(),
-          onHorizontalDragStart: (_) => _startInteraction(),
+          onHorizontalDragDown: (details) {
+            _startInteraction();
+            _updateProgressFromGlobalPosition(details.globalPosition, constraints);
+          },
+          onHorizontalDragStart: (details) {
+            _startInteraction();
+            _updateProgressFromGlobalPosition(details.globalPosition, constraints);
+          },
+          onHorizontalDragUpdate: (details) {
+            _updateProgressFromGlobalPosition(details.globalPosition, constraints);
+          },
           onHorizontalDragEnd: (_) => _endInteraction(),
           onHorizontalDragCancel: _endInteraction,
-          onHorizontalDragUpdate: (details) =>
-              _handleDragUpdate(details, constraints),
-          onTapUp: (details) => _handleTapUp(details, constraints),
+          onTapDown: (details) {
+            _startInteraction();
+            _updateProgressFromGlobalPosition(details.globalPosition, constraints);
+          },
+          onTapUp: (_) => _endInteraction(),
+          onTapCancel: _endInteraction,
           child: Container(
             height: fixedOverallHeight,
             alignment: Alignment.center,
@@ -327,17 +322,17 @@ class _CustomSliderWithTooltipState extends State<CustomSliderWithTooltip>
                                         flex: (progress * 1000).round(),
                                         child: progress > 0
                                             ? AnimatedContainer(
-                                                duration:
-                                                    widget.animationDuration,
-                                                curve: _animationCurve,
-                                                height: currentHeight,
-                                                decoration: BoxDecoration(
-                                                  color: currentActiveColor,
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          currentHeight / 2),
-                                                ),
-                                              )
+                                          duration:
+                                          widget.animationDuration,
+                                          curve: _animationCurve,
+                                          height: currentHeight,
+                                          decoration: BoxDecoration(
+                                            color: currentActiveColor,
+                                            borderRadius:
+                                            BorderRadius.circular(
+                                                currentHeight / 2),
+                                          ),
+                                        )
                                             : const SizedBox.shrink(),
                                       ),
                                       // Gap with Divider
@@ -353,7 +348,7 @@ class _CustomSliderWithTooltipState extends State<CustomSliderWithTooltip>
                                               decoration: BoxDecoration(
                                                 color: widget.dividerColor ?? (theme.brightness == Brightness.dark ? Colors.white : Colors.black87),
                                                 borderRadius:
-                                                    BorderRadius.circular(4.0),
+                                                BorderRadius.circular(4.0),
                                               ),
                                             ),
                                           ),
@@ -363,17 +358,17 @@ class _CustomSliderWithTooltipState extends State<CustomSliderWithTooltip>
                                         flex: ((1 - progress) * 1000).round(),
                                         child: progress < 1
                                             ? AnimatedContainer(
-                                                duration:
-                                                    widget.animationDuration,
-                                                curve: _animationCurve,
-                                                height: currentHeight,
-                                                decoration: BoxDecoration(
-                                                  color: widget.inactiveColor,
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          currentHeight / 2),
-                                                ),
-                                              )
+                                          duration:
+                                          widget.animationDuration,
+                                          curve: _animationCurve,
+                                          height: currentHeight,
+                                          decoration: BoxDecoration(
+                                            color: widget.inactiveColor,
+                                            borderRadius:
+                                            BorderRadius.circular(
+                                                currentHeight / 2),
+                                          ),
+                                        )
                                             : const SizedBox.shrink(),
                                       ),
                                     ],
@@ -402,8 +397,8 @@ class _CustomSliderWithTooltipState extends State<CustomSliderWithTooltip>
                       child: Transform.translate(
                         offset: Offset(
                           -((_currentSliderValue.round().toString().length *
-                                      7.0) +
-                                  16) /
+                              7.0) +
+                              16) /
                               2,
                           0,
                         ),

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:image/image.dart' as img;
+import 'package:image/image.dart' as img; // Left safely for compilation compatibility
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
@@ -19,6 +19,7 @@ import 'package:open_jot/app/utils/pdf_generator.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 
 import '../constants.dart';
 import '../models/journal_entry.dart';
@@ -33,7 +34,7 @@ class JournalTile extends StatefulWidget {
   final Color? footerTextColor;
   final Color? reflectionBackground;
   final Color? bookmarkColor;
-  final bool showMenuIcon; // NEW FLAG
+  final bool showMenuIcon;
 
   const JournalTile({
     super.key,
@@ -45,7 +46,7 @@ class JournalTile extends StatefulWidget {
     this.footerTextColor,
     this.dividerColor,
     this.popupDividerColor,
-    this.showMenuIcon = true, // Default to true so it doesn't break existing screens
+    this.showMenuIcon = true,
   });
 
   @override
@@ -141,11 +142,8 @@ class _JournalTileState extends State<JournalTile> {
         final originalFile = File(recording.path);
         if (await originalFile.exists()) {
           final fileName = p.basename(recording.path);
-          // Create a new path in the temporary directory
           final newPath = p.join(tempDir.path, fileName);
-          // Copy the file to the new path
           final newFile = await originalFile.copy(newPath);
-          // Add the path of the copied file to the list
           allFilePaths.add(newFile.path);
         }
       } catch (e) {
@@ -543,256 +541,261 @@ class _JournalTileState extends State<JournalTile> {
   Widget _buildFooter(AppThemeColors appThemeColors, BuildContext context) {
     return Padding(
         padding: EdgeInsets.fromLTRB(10.w, 4.h, 10.w, 8.h),
-        child: IntrinsicHeight(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    DateFormat('MMM d  •  h:mm a')
-                        .format(widget.entry.createdAt),
-                    style: TextStyle(
-                      fontFamily: AppConstants.font,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14.sp,
-                      color: widget.footerTextColor ?? appThemeColors.grey3,
-                      letterSpacing: -0.2,
+        // [FIXED] Removed highly expensive `IntrinsicHeight` which causes heavy speculative layout thrashing per tile.
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Row(
+              children: [
+                Text(
+                  DateFormat('MMM d  •  h:mm a')
+                      .format(widget.entry.createdAt),
+                  style: TextStyle(
+                    fontFamily: AppConstants.font,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14.sp,
+                    color: widget.footerTextColor ?? appThemeColors.grey3,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                // [FIXED] Replaced `VerticalDivider` (which requires IntrinsicHeight) with a fixed Container.
+                Container(
+                  width: 1.w,
+                  height: 16.h,
+                  color: widget.dividerColor ?? appThemeColors.grey5,
+                  margin: EdgeInsets.symmetric(horizontal: 8.w),
+                ),
+                Row(
+                  children: [
+                    if (widget.entry.isReflection)
+                      Container(
+                        margin: EdgeInsets.only(
+                            right: widget.entry.moodIndex != null || widget.entry.isDraft ? 8.w : 0),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 8.w, vertical: 2.h),
+                        decoration: BoxDecoration(
+                          color: widget.reflectionBackground ??
+                              appThemeColors.grey5,
+                          borderRadius: BorderRadius.circular(24.r),
+                        ),
+                        child: Text(
+                          AppConstants.reflection,
+                          style: TextStyle(
+                            color: appThemeColors.grey10,
+                            fontSize: 12.sp,
+                            fontFamily: AppConstants.font,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ),
+                    if (widget.entry.isDraft)
+                      Container(
+                        margin: EdgeInsets.only(
+                            right: widget.entry.moodIndex != null ? 8.w : 0),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 8.w, vertical: 2.h),
+                        decoration: BoxDecoration(
+                          color: widget.reflectionBackground ??
+                              appThemeColors.grey5,
+                          borderRadius: BorderRadius.circular(24.r),
+                        ),
+                        child: Text(
+                          AppConstants.draft,
+                          style: TextStyle(
+                            color: appThemeColors.grey10,
+                            fontSize: 12.sp,
+                            fontFamily: AppConstants.font,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ),
+                    if (widget.entry.moodIndex != null)
+                      SvgPicture.asset(
+                        _moods[widget.entry.moodIndex!]['svg']!,
+                        width: 22.w,
+                        height: 22.h,
+                      ),
+                    if (widget.entry.isBookmarked)
+                      Padding(
+                        padding: EdgeInsets.only(
+                            left: widget.entry.moodIndex != null ||
+                                widget.entry.isReflection || widget.entry.isDraft
+                                ? 8.w
+                                : 0),
+                        child: Icon(
+                          Icons.bookmark_rounded,
+                          color: appThemeColors.grey2,
+                          size: 22.w,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+            if (widget.showMenuIcon)
+              GestureDetector(
+                key: _menuKey,
+                onTap: () {
+                  final RenderBox renderBox =
+                  _menuKey.currentContext!.findRenderObject() as RenderBox;
+                  final position = renderBox.localToGlobal(Offset.zero);
+                  showMenu<String>(
+                    context: context,
+                    color: appThemeColors.grey5,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16.r),
                     ),
-                  ),
-                  VerticalDivider(
-                    color: widget.dividerColor ?? appThemeColors.grey5,
-                    thickness: 1.w,
-                    width: 16.w,
-                  ),
-                  Row(
-                    children: [
-                      if (widget.entry.isReflection)
-                        Container(
-                          margin: EdgeInsets.only(
-                              right: widget.entry.moodIndex != null || widget.entry.isDraft ? 8.w : 0),
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 8.w, vertical: 2.h),
-                          decoration: BoxDecoration(
-                            color: widget.reflectionBackground ??
-                                appThemeColors.grey5,
-                            borderRadius: BorderRadius.circular(24.r),
-                          ),
-                          child: Text(
-                            AppConstants.reflection,
-                            style: TextStyle(
-                              color: appThemeColors.grey10,
-                              fontSize: 12.sp,
-                              fontFamily: AppConstants.font,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                        ),
-                      if (widget.entry.isDraft)
-                        Container(
-                          margin: EdgeInsets.only(
-                              right: widget.entry.moodIndex != null ? 8.w : 0),
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 8.w, vertical: 2.h),
-                          decoration: BoxDecoration(
-                            color: widget.reflectionBackground ??
-                                appThemeColors.grey5,
-                            borderRadius: BorderRadius.circular(24.r),
-                          ),
-                          child: Text(
-                            AppConstants.draft,
-                            style: TextStyle(
-                              color: appThemeColors.grey10,
-                              fontSize: 12.sp,
-                              fontFamily: AppConstants.font,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                        ),
-                      if (widget.entry.moodIndex != null)
-                        SvgPicture.asset(
-                          _moods[widget.entry.moodIndex!]['svg']!,
-                          width: 22.w,
-                          height: 22.h,
-                        ),
-                      if (widget.entry.isBookmarked)
-                        Padding(
-                          padding: EdgeInsets.only(
-                              left: widget.entry.moodIndex != null ||
-                                  widget.entry.isReflection || widget.entry.isDraft
-                                  ? 8.w
-                                  : 0),
-                          child: Icon(
-                            Icons.bookmark_rounded,
-                            color: appThemeColors.grey2,
-                            size: 22.w,
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-              if (widget.showMenuIcon)
-                GestureDetector(
-                  key: _menuKey,
-                  onTap: () {
-                    final RenderBox renderBox =
-                    _menuKey.currentContext!.findRenderObject() as RenderBox;
-                    final position = renderBox.localToGlobal(Offset.zero);
-                    showMenu<String>(
-                      context: context,
-                      color: appThemeColors.grey5,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16.r),
-                      ),
-                      position: RelativeRect.fromLTRB(
-                        position.dx - renderBox.size.width * 2,
-                        position.dy + renderBox.size.height,
-                        position.dx,
-                        position.dy + renderBox.size.height * 2,
-                      ),
-                      items: [
-                        PopupMenuItem(
-                          value: 'edit',
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit, color: appThemeColors.grey10),
-                              SizedBox(width: 8.w),
-                              Text(AppConstants.edit,
-                                  style: TextStyle(
-                                      color: appThemeColors.grey10,
-                                      fontFamily: AppConstants.font,
-                                      letterSpacing: -0.2)),
-                            ],
-                          ),
-                        ),
-                        PopupMenuDivider(
-                            height: 1,
-                            color: widget.popupDividerColor ??
-                                appThemeColors.grey6),
-                        PopupMenuItem(
-                          value: 'bookmark',
-                          child: Row(
-                            children: [
-                              Icon(
-                                widget.entry.isBookmarked
-                                    ? Icons.bookmark_remove_rounded
-                                    : Icons.bookmark_add_outlined,
-                                color: appThemeColors.grey10,
-                              ),
-                              SizedBox(width: 8.w),
-                              Text(
-                                widget.entry.isBookmarked
-                                    ? AppConstants.removeBookmark
-                                    : AppConstants.bookmark,
+                    position: RelativeRect.fromLTRB(
+                      position.dx - renderBox.size.width * 2,
+                      position.dy + renderBox.size.height,
+                      position.dx,
+                      position.dy + renderBox.size.height * 2,
+                    ),
+                    items: [
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, color: appThemeColors.grey10),
+                            SizedBox(width: 8.w),
+                            Text(AppConstants.edit,
                                 style: TextStyle(
                                     color: appThemeColors.grey10,
                                     fontFamily: AppConstants.font,
-                                    letterSpacing: -0.2),
-                              ),
-                            ],
-                          ),
+                                    letterSpacing: -0.2)),
+                          ],
                         ),
-                        PopupMenuDivider(
-                            height: 1,
-                            color: widget.popupDividerColor ??
-                                appThemeColors.grey6),
-                        PopupMenuItem(
-                          value: 'share',
-                          child: Row(
-                            children: [
-                              Icon(Icons.share_outlined,
-                                  color: appThemeColors.grey10),
-                              SizedBox(width: 8.w),
-                              Text(AppConstants.share,
-                                  style: TextStyle(
+                      ),
+                      PopupMenuDivider(
+                          height: 1,
+                          color: widget.popupDividerColor ??
+                              appThemeColors.grey6),
+                      PopupMenuItem(
+                        value: 'bookmark',
+                        child: Row(
+                          children: [
+                            Icon(
+                              widget.entry.isBookmarked
+                                  ? Icons.bookmark_remove_rounded
+                                  : Icons.bookmark_add_outlined,
+                              color: appThemeColors.grey10,
+                            ),
+                            SizedBox(width: 8.w),
+                            Text(
+                              widget.entry.isBookmarked
+                                  ? AppConstants.removeBookmark
+                                  : AppConstants.bookmark,
+                              style: TextStyle(
+                                  color: appThemeColors.grey10,
+                                  fontFamily: AppConstants.font,
+                                  letterSpacing: -0.2),
+                            ),
+                          ],
+                        ),
+                      ),
+                      PopupMenuDivider(
+                          height: 1,
+                          color: widget.popupDividerColor ??
+                              appThemeColors.grey6),
+                      PopupMenuItem(
+                        value: 'share',
+                        child: Row(
+                          children: [
+                            Icon(Icons.share_outlined,
+                                color: appThemeColors.grey10),
+                            SizedBox(width: 8.w),
+                            Text(AppConstants.share,
+                                style: TextStyle(
 
-                                      color: appThemeColors.grey10,
-                                      fontFamily: AppConstants.font,
-                                      letterSpacing: -0.2)),
-                            ],
-                          ),
+                                    color: appThemeColors.grey10,
+                                    fontFamily: AppConstants.font,
+                                    letterSpacing: -0.2)),
+                          ],
                         ),
-                        PopupMenuDivider(
-                            height: 1,
-                            color: widget.popupDividerColor ??
-                                appThemeColors.grey6),
-                        PopupMenuItem(
-                          value: 'pdf',
-                          child: Row(
-                            children: [
-                              Icon(Icons.save_outlined,
-                                  color: appThemeColors.grey10),
-                              SizedBox(width: 8.w),
-                              Text(AppConstants.saveAsPdf,
-                                  style: TextStyle(
-                                      color: appThemeColors.grey10,
-                                      fontFamily: AppConstants.font,
-                                      letterSpacing: -0.2)),
-                            ],
-                          ),
+                      ),
+                      PopupMenuDivider(
+                          height: 1,
+                          color: widget.popupDividerColor ??
+                              appThemeColors.grey6),
+                      PopupMenuItem(
+                        value: 'pdf',
+                        child: Row(
+                          children: [
+                            Icon(Icons.save_outlined,
+                                color: appThemeColors.grey10),
+                            SizedBox(width: 8.w),
+                            Text(AppConstants.saveAsPdf,
+                                style: TextStyle(
+                                    color: appThemeColors.grey10,
+                                    fontFamily: AppConstants.font,
+                                    letterSpacing: -0.2)),
+                          ],
                         ),
-                        PopupMenuDivider(
-                            height: 1,
-                            color: widget.popupDividerColor ??
-                                appThemeColors.grey6),
-                        PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete_outline_outlined,
-                                  color: appThemeColors.error),
-                              SizedBox(width: 8.w),
-                              Text(AppConstants.delete,
-                                  style: TextStyle(
-                                      color: appThemeColors.error,
-                                      fontFamily: AppConstants.font,
-                                      letterSpacing: -0.2)),
-                            ],
-                          ),
+                      ),
+                      PopupMenuDivider(
+                          height: 1,
+                          color: widget.popupDividerColor ??
+                              appThemeColors.grey6),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline_outlined,
+                                color: appThemeColors.error),
+                            SizedBox(width: 8.w),
+                            Text(AppConstants.delete,
+                                style: TextStyle(
+                                    color: appThemeColors.error,
+                                    fontFamily: AppConstants.font,
+                                    letterSpacing: -0.2)),
+                          ],
                         ),
-                      ],
-                    ).then((value) async {
-                      if (value == 'edit') {
-                        _onEditPressed();
-                      } else if (value == 'bookmark') {
-                        Get.find<HomeController>()
-                            .toggleBookmarkStatus(widget.entry.id);
-                      } else if (value == 'share') {
-                        _onSharePressed();
-                      } else if (value == 'pdf') {
+                      ),
+                    ],
+                  ).then((value) async {
+                    if (value == 'edit') {
+                      _onEditPressed();
+                    } else if (value == 'bookmark') {
+                      Get.find<HomeController>()
+                          .toggleBookmarkStatus(widget.entry.id);
+                    } else if (value == 'share') {
+                      _onSharePressed();
+                    } else if (value == 'pdf') {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Generating PDF...'),
+                            duration: Duration(seconds: 2)),
+                      );
+                      try {
+                        await PdfGenerator.generateAndSharePdf(widget.entry);
+                      } catch (e) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Generating PDF...'),
-                              duration: Duration(seconds: 2)),
+                          SnackBar(content: Text('Failed to generate PDF: $e')),
                         );
-                        try {
-                          await PdfGenerator.generateAndSharePdf(widget.entry);
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Failed to generate PDF: $e')),
-                          );
-                        }
-                      } else if (value == 'delete') {
-                        _onDeletePressed();
                       }
-                    });
-                  },
-                  child: Icon(
-                    Icons.more_horiz_rounded,
-                    color: appThemeColors.grey1,
-                    size: 28.w,
-                  ),
+                    } else if (value == 'delete') {
+                      _onDeletePressed();
+                    }
+                  });
+                },
+                child: Icon(
+                  Icons.more_horiz_rounded,
+                  color: appThemeColors.grey1,
+                  size: 28.w,
                 ),
-            ],
-          ),
+              ),
+          ],
         ));
   }
 }
 
+// [FIXED] Vastly Optimized Media Thumbnail:
+// 1. Completely bypassed async platform calls and `setState` blockages for Gallery Assets using native `AssetEntityImageProvider`.
+// 2. Used highly performant native rendering (`cacheWidth: 300`) to avoid jitter during CustomScrollView rendering.
 class MediaThumbnail extends StatefulWidget {
   final dynamic media; // Can be AssetEntity or CapturedPhoto
 
@@ -803,13 +806,15 @@ class MediaThumbnail extends StatefulWidget {
 }
 
 class _MediaThumbnailState extends State<MediaThumbnail> {
-  Uint8List? _thumbnailData;
+  Uint8List? _videoThumbnailData;
   bool _isVideo = false;
+  String? _imagePath;
+  bool _isAssetEntity = false;
 
   @override
   void initState() {
     super.initState();
-    _loadThumbnail();
+    _initMedia();
   }
 
   @override
@@ -822,8 +827,9 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
     widget.media is AssetEntity ? widget.media.id : widget.media.file.path;
 
     if (oldId != newId) {
-      _thumbnailData = null; // Invalidate old data
-      _loadThumbnail();
+      _videoThumbnailData = null; // Invalidate old data
+      _imagePath = null;
+      _initMedia();
     }
   }
 
@@ -833,76 +839,62 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
     return p.join(tempDir.path, '$fileName.thumb.jpg');
   }
 
-  Future<void> _loadThumbnail() async {
-    if (!mounted) return;
+  void _initMedia() {
+    _isAssetEntity = widget.media is AssetEntity;
 
-    Uint8List? data;
-    const thumbnailSize = ThumbnailSize(300, 300); // Reduced size for better performance
-    const quality = 75; // Reduced quality for faster loading
-
-    if (widget.media is AssetEntity) {
+    if (_isAssetEntity) {
       final asset = widget.media as AssetEntity;
       _isVideo = asset.type == AssetType.video;
-      // Using memory cache for thumbnails
-      data = await asset.thumbnailDataWithSize(thumbnailSize, quality: quality);
+      // AssetEntityImageProvider handles native memory-efficient thumbnail loading automatically! Zero setState needed!
     } else if (widget.media is CapturedPhoto) {
       final photo = widget.media as CapturedPhoto;
       final path = photo.file.path;
       _isVideo = _isVideoFile(path);
 
-      final thumbPath = await _getThumbnailPath(path);
-      final thumbFile = File(thumbPath);
-
-      if (await thumbFile.exists()) {
-        data = await thumbFile.readAsBytes();
+      if (_isVideo) {
+        _loadVideoThumbnail(path);
       } else {
-        if (_isVideo) {
-          // Process video thumbnail on main thread because platform channels
-          // (like VideoThumbnail) fail inside isolated background threads.
-          try {
-            data = await VideoThumbnail.thumbnailData(
-              video: path,
-              maxWidth: thumbnailSize.width,
-              quality: quality,
-            );
-          } catch (e) {
-            debugPrint("Failed to generate video thumbnail: $e");
-          }
-        } else {
-          // Run heavy image processing in background thread
-          data = await compute((params) async {
-            final String path = params['path'] as String;
-            final ThumbnailSize size = params['size'] as ThumbnailSize;
-            final int quality = params['quality'] as int;
-
-            final originalFile = File(path);
-            if (!await originalFile.exists()) return null;
-            final imageBytes = await originalFile.readAsBytes();
-            final image = img.decodeImage(imageBytes);
-            if (image != null) {
-              final thumbnail = img.copyResize(image, width: size.width);
-              return Uint8List.fromList(img.encodeJpg(thumbnail, quality: 80));
-            }
-            return null;
-          }, {
-            'path': path,
-            'size': thumbnailSize,
-            'quality': quality,
-          });
-        }
-
-        if (data != null) {
-          try {
-            await thumbFile.writeAsBytes(data);
-          } catch (_) {}
-        }
+        // Skips async block entirely for local images captured from within the app
+        _imagePath = path;
       }
     }
+  }
 
-    if (mounted) {
-      setState(() {
-        _thumbnailData = data;
-      });
+  Future<void> _loadVideoThumbnail(String path) async {
+    if (!mounted) return;
+
+    const thumbnailSize = ThumbnailSize(300, 300);
+    const quality = 75;
+    Uint8List? data;
+
+    final thumbPath = await _getThumbnailPath(path);
+    final thumbFile = File(thumbPath);
+
+    if (await thumbFile.exists()) {
+      data = await thumbFile.readAsBytes();
+      if (mounted) {
+        setState(() {
+          _videoThumbnailData = data;
+        });
+      }
+    } else {
+      try {
+        data = await VideoThumbnail.thumbnailData(
+          video: path,
+          maxWidth: thumbnailSize.width,
+          quality: quality,
+        );
+        if (data != null) {
+          await thumbFile.writeAsBytes(data);
+          if (mounted) {
+            setState(() {
+              _videoThumbnailData = data;
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint("Failed to generate video thumbnail: $e");
+      }
     }
   }
 
@@ -919,15 +911,44 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
 
   @override
   Widget build(BuildContext context) {
-    if (_thumbnailData != null) {
+    Widget? imageContent;
+
+    if (_isAssetEntity) {
+      imageContent = Image(
+        image: AssetEntityImageProvider(
+          widget.media as AssetEntity,
+          isOriginal: false,
+          thumbnailSize: const ThumbnailSize.square(300),
+          thumbnailFormat: ThumbnailFormat.jpeg,
+        ),
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        errorBuilder: (context, error, stackTrace) => Container(color: AppTheme.colorsOf(context).grey4),
+      );
+    } else {
+      if (_isVideo) {
+        if (_videoThumbnailData != null) {
+          imageContent = Image.memory(
+            _videoThumbnailData!,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+          );
+        }
+      } else if (_imagePath != null) {
+        imageContent = Image.file(
+          File(_imagePath!),
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          cacheWidth: 300, // Forces low-footprint render, preventing layout stutter on main thread
+        );
+      }
+    }
+
+    if (imageContent != null) {
       return Stack(
         fit: StackFit.expand,
         children: [
-          Image.memory(
-            _thumbnailData!,
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
-          ),
+          imageContent,
           if (_isVideo)
             Center(
               child: Icon(
@@ -939,6 +960,7 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
         ],
       );
     }
+
     return Container(color: AppTheme.colorsOf(context).grey4);
   }
 }

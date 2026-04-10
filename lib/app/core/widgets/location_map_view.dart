@@ -94,15 +94,18 @@ class _LocationMapViewState extends State<LocationMapView>
     super.dispose();
   }
 
-  void _moveToLocation(LatLng location, double zoom) {
-    _animatedMapMove(location, zoom);
+  void _moveToLocation(LatLng location, double zoom, {double? rotation}) {
+    _animatedMapMove(location, zoom, destRotation: rotation);
   }
 
-  void _animatedMapMove(LatLng destLocation, double destZoom) {
+  void _animatedMapMove(LatLng destLocation, double destZoom, {double? destRotation}) {
     final latTween =
     LatLngTween(begin: _mapController.camera.center, end: destLocation);
     final zoomTween =
     Tween<double>(begin: _mapController.camera.zoom, end: destZoom);
+    final rotationTween = Tween<double>(
+        begin: _mapController.camera.rotation,
+        end: destRotation ?? _mapController.camera.rotation);
 
     final animation = CurvedAnimation(
       parent: _animationController,
@@ -111,9 +114,10 @@ class _LocationMapViewState extends State<LocationMapView>
 
     void listener() {
       if (mounted) {
-        _mapController.move(
+        _mapController.moveAndRotate(
           latTween.evaluate(animation),
           zoomTween.evaluate(animation),
+          rotationTween.evaluate(animation),
         );
       }
     }
@@ -333,7 +337,18 @@ class _LocationMapViewState extends State<LocationMapView>
                           initialCenter:
                           _selectedLocation ?? const LatLng(20.5937, 78.9629),
                           initialZoom: _selectedLocation != null ? 18 : 10,
+                          minZoom: 2.5,
+                          maxZoom: 18,
                           onTap: _handleTap,
+                          onPositionChanged: (camera, hasGesture) {
+                            if (mounted) setState(() {});
+                          },
+                          cameraConstraint: CameraConstraint.contain(
+                            bounds: LatLngBounds(
+                              const LatLng(-90, -180),
+                              const LatLng(90, 180),
+                            ),
+                          ),
                         ),
                         children: [
                           TileLayer(
@@ -545,14 +560,33 @@ class _LocationMapViewState extends State<LocationMapView>
                             ),
                             SizedBox(height: 8.h),
                             FloatingActionButton.small(
-                              heroTag: 'refresh_map_btn',
+                              heroTag: 'north_map_btn',
                               backgroundColor: colors.grey6.withOpacity(0.9),
                               foregroundColor: colors.grey10,
                               elevation: 2,
-                              onPressed: _refreshMap,
-                              child: Icon(
-                                Icons.refresh_rounded,
-                                size: 22.sp,
+                              onPressed: () {
+                                try {
+                                  _animatedMapMove(
+                                    _mapController.camera.center,
+                                    _mapController.camera.zoom,
+                                    destRotation: 0,
+                                  );
+                                } catch (_) {
+                                  // Map not ready yet
+                                }
+                              },
+                              child: Transform.rotate(
+                                angle: () {
+                                  try {
+                                    return -(_mapController.camera.rotation * math.pi / 180);
+                                  } catch (_) {
+                                    return 0.0;
+                                  }
+                                }(),
+                                child: Icon(
+                                  Icons.explore_rounded,
+                                  size: 22.sp,
+                                ),
                               ),
                             ),
                           ],

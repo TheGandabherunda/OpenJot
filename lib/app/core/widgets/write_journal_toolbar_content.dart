@@ -1789,14 +1789,14 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
     final decoration = widget.isPitchBlack
         ? BoxDecoration(color: isDark ? Colors.black : Colors.white)
         : BoxDecoration(
-            gradient: RadialGradient(
-              colors: [
-                currentCenterColor,
-                currentOuterColor,
-              ],
-              radius: 1.0,
-            ),
-          );
+      gradient: RadialGradient(
+        colors: [
+          currentCenterColor,
+          currentOuterColor,
+        ],
+        radius: 1.0,
+      ),
+    );
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -1830,20 +1830,24 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
                       ),
                       SizedBox(height: 24.h),
                       Center(
-                        // Optimized Animation - The SVG is passed as a cached child,
+                        // Optimized Animation - The SVG is passed as a cached child inside an IndexedStack,
                         // stopping it from being re-rendered and causing jank during rotation!
                         child: AnimatedBuilder(
                           animation: _rotationController,
-                          child: SvgPicture.asset(
-                            selectedMood['svg']!,
-                            width: 160.w, // Increased to be larger inside the content sheet
-                            height: 160.h,
-                            key: ValueKey(selectedMood['svg']),
+                          child: RepaintBoundary(
+                            child: IndexedStack(
+                              index: moodIndex,
+                              alignment: Alignment.center,
+                              children: _moods.map((mood) => SvgPicture.asset(
+                                mood['svg']!,
+                                width: 160.w,
+                                height: 160.h,
+                              )).toList(),
+                            ),
                           ),
                           builder: (context, child) {
                             final bounceAnimation =
                             Curves.easeOutBack.transform(_rotationController.value);
-                            // Removed the 45 degree (pi/4) default tilt
                             return Transform.rotate(
                               angle: (bounceAnimation * 2 * 3.14159),
                               child: child,
@@ -1851,9 +1855,9 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
                           },
                         ),
                       ),
-                      SizedBox(height: 16.h),
+                      SizedBox(height: 8.h), // Reduced from 16.h to balance the newly expanded slider touch target container below
                       SizedBox(
-                        height: 40.h,
+                        height: 72.h, // EXPANDED HEIGHT: Solves clipping on the top half so entire slider track handles touches perfectly
                         child: CustomSliderWithTooltip(
                           min: 0,
                           max: 6,
