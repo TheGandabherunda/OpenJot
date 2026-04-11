@@ -1,4 +1,4 @@
-<p><b>OpenJot</b>is an open-source journaling app built with a minimal UI, focused on privacy and simplicity. Everything is stored securely on your device—never in the cloud</p>
+<p><b>OpenJot</b> is an open-source journaling app built with a minimal UI, focused on privacy and simplicity. Everything is stored securely on your device—never in the cloud</p>
 
 <p><b>Key Features:</b></p>
 <ul>
