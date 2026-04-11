@@ -68,6 +68,7 @@ No servers. No analytics. No compromise.
 - **GetX** – State management and routing
 - **Hive** – Lightweight and secure local NoSQL database
 - **flutter_quill** – Rich text editor
+- **flutter_map** – Mapping and location visualization (using **OpenStreetMap**)
 
 ---
 
@@ -99,5 +100,6 @@ This project is licensed under the [Apache License 2.0](https://www.apache.org/l
 
 ## Credits
 
-Built with **Flutter, GetX, Hive, flutter_quill**, and the open-source community.  
-Made with care to protect your privacy.  
+Built with **Flutter, GetX, Hive, flutter_quill, flutter_map**, and the open-source community.  
+Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors.  
+Made with care to protect your privacy.
