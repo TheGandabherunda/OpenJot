@@ -19,10 +19,13 @@ class SettingsScreenController extends GetxController {
   final _notificationService = Get.find<NotificationService>();
 
   var dailyReminder = false.obs;
-  var onThisDay = false.obs; // NEW
+  var onThisDay = false.obs;
+  var excludedOnThisDayEntries = <String>[].obs; // NEW
   var reminderTime = Rx<TimeOfDay?>(null);
   var theme = AppConstants.themeSystem.obs;
+  var pitchBlack = false.obs;
   var appLock = false.obs;
+  var autoDeleteDraftsDays = 7.obs;
 
   @override
   void onInit() {
@@ -32,9 +35,12 @@ class SettingsScreenController extends GetxController {
 
   void _loadSettings() {
     dailyReminder.value = _hiveService.dailyReminder;
-    onThisDay.value = _hiveService.onThisDay; // NEW
+    onThisDay.value = _hiveService.onThisDay;
+    excludedOnThisDayEntries.value = _hiveService.excludedOnThisDayEntries; // NEW
+    autoDeleteDraftsDays.value = _hiveService.autoDeleteDraftsDays;
     reminderTime.value = _hiveService.reminderTime;
     theme.value = _hiveService.theme;
+    pitchBlack.value = _hiveService.pitchBlack;
     appLock.value = _hiveService.appLockEnabled;
   }
 
@@ -61,7 +67,7 @@ class SettingsScreenController extends GetxController {
     final appColors = AppTheme.colorsOf(Get.context!);
     dailyReminder.value = false;
     _hiveService.setDailyReminder(false);
-    _notificationService.cancelAllNotifications();
+    _notificationService.cancelDailyReminder();
     CustomToast.showToast(
       AppConstants.notificationCanceled,
       backgroundColor: appColors.grey10,
@@ -69,7 +75,6 @@ class SettingsScreenController extends GetxController {
     );
   }
 
-  // --- NEW: Logic for "On This Day" toggle ---
   void toggleOnThisDay(bool value) async {
     final appColors = AppTheme.colorsOf(Get.context!);
     if (value) {
@@ -78,8 +83,8 @@ class SettingsScreenController extends GetxController {
       if (permissionsGranted) {
         onThisDay.value = true;
         _hiveService.setOnThisDay(true);
-        // Immediately check for memories to schedule a notification if applicable
-        _notificationService.checkForOnThisDayMemories();
+        // Use force: true so toggling the switch always triggers a fresh check
+        _notificationService.checkForOnThisDayMemories(force: true);
         CustomToast.showToast(
           AppConstants.onThisDayOn,
           backgroundColor: appColors.grey10,
@@ -96,12 +101,51 @@ class SettingsScreenController extends GetxController {
     } else {
       onThisDay.value = false;
       _hiveService.setOnThisDay(false);
-      _notificationService.cancelAllNotifications();
+      _notificationService.cancelOnThisDayNotification();
       CustomToast.showToast(
         AppConstants.onThisDayOff,
         backgroundColor: appColors.grey10,
         textColor: appColors.grey8,
       );
+    }
+  }
+
+  // --- NEW: Logic to save Excluded Entries ---
+  void updateExcludedEntries(List<String> ids) {
+    final appColors = AppTheme.colorsOf(Get.context!);
+    excludedOnThisDayEntries.value = ids;
+    _hiveService.setExcludedOnThisDayEntries(ids);
+
+    // Reschedule so new exclusions take effect immediately
+    if (onThisDay.value) {
+      _notificationService.checkForOnThisDayMemories(force: true);
+    }
+
+    CustomToast.showToast(
+      AppConstants.saveExclusions,
+      backgroundColor: appColors.grey10,
+      textColor: appColors.grey8,
+    );
+  }
+
+  void setAutoDeleteDrafts(int days) {
+    final appColors = AppTheme.colorsOf(Get.context!);
+    autoDeleteDraftsDays.value = days;
+    _hiveService.setAutoDeleteDraftsDays(days);
+
+    String message = days == -1
+        ? "Drafts will never be deleted"
+        : "Drafts will be deleted after $days days";
+
+    CustomToast.showToast(
+      message,
+      backgroundColor: appColors.grey10,
+      textColor: appColors.grey8,
+    );
+
+    // Reload entries so any already expired drafts are cleaned up immediately
+    if (Get.isRegistered<HomeController>()) {
+      Get.find<HomeController>().loadJournalEntries();
     }
   }
 
@@ -150,6 +194,11 @@ class SettingsScreenController extends GetxController {
       backgroundColor: appColors.grey10,
       textColor: appColors.grey8,
     );
+  }
+
+  void togglePitchBlack(bool value) {
+    pitchBlack.value = value;
+    _hiveService.setPitchBlack(value);
   }
 
   void toggleAppLock(bool value) async {

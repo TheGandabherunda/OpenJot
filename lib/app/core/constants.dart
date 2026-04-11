@@ -5,6 +5,8 @@ class AppConstants {
 
   // Home Screen Strings
   static const String noEntriesMessage = "No journal entries yet. Start writing!";
+  static const String noBookmarksYet = "No bookmarks yet.";
+  static const String noDraftsYet = "No drafts yet.";
   static const String addEntryButton = "Add New Entry";
   static const String jotYourThoughts = "Jot Your Thoughts";
   static const String tapToCreateJournal =
@@ -34,6 +36,7 @@ class AppConstants {
   static const String no = "No";
   static const String cancel = "Cancel";
   static const String delete = "Delete";
+  static const String save = "Save";
   static const String entrySavedSuccess = "Journal entry saved successfully!";
   static const String entryUpdatedSuccess = "Journal entry updated successfully!";
   static const String entryDeletedSuccess = "Journal entry deleted.";
@@ -41,12 +44,16 @@ class AppConstants {
   static const String errorDeletingEntry = "Error deleting entry.";
   static const String errorLoadingEntries = "Error loading journal entries.";
   static const String noEntriesForDate = "No entries for this date.";
+  static const String noEntriesForMonth = "No entries found for this month.";
+  static const String selectMonthAndYear = "Select Month & Year";
 
   // Journal Tile
   static const String veryUnpleasant = "Very Unpleasant";
+  static const String slightlyUnpleasant = "Slightly Unpleasant";
   static const String unpleasant = "Unpleasant";
   static const String neutral = "Neutral";
   static const String pleasant = "Pleasant";
+  static const String slightlyPleasant = "Slightly Pleasant";
   static const String veryPleasant = "Very Pleasant";
   static const String reflection = "Reflection";
   static const String edit = "Edit";
@@ -56,6 +63,23 @@ class AppConstants {
   static const String saveAsPdf = "Save as PDF";
   static const String audioTrack = "Audio track";
   static const String emptyDuration = "--:--";
+
+  // Drafts & Auto-saves
+  static const String drafts = "Drafts";
+  static const String draft = "Draft";
+  static const String draftSaved = "Saved to Drafts";
+  static const String unsavedChanges = "Unsaved Changes";
+  static const String unsavedChangesMessage = "You have unsaved changes. Do you want to save them as a draft or discard them?";
+  static const String saveAsDraft = "Save as Draft";
+  static const String discardChanges = "Discard";
+  static const String autoDeleteDrafts = "Auto-delete Drafts";
+  static const String autoDeleteDraftsDescription = "Automatically remove old drafts.";
+  static const String days7 = "7 Days";
+  static const String never = "Never";
+  static const String custom = "Custom...";
+  static const String enterCustomDays = "Enter Custom Days";
+  static const String customDaysExample = "E.g. 14";
+  static const String days = "Days";
 
   // Home View Menu
   static const String sortBy = "Sort by";
@@ -113,6 +137,12 @@ class AppConstants {
   static const String onThisDayGroupedNotification =
       "You have %d memories from this day"; // %d will be replaced with the count
 
+  // --- NEW: Exclude Entries Constants ---
+  static const String excludeEntries = "Exclude Entries";
+  static const String excludeEntriesDescription = "Select entries to hide from memories.";
+  static const String excludedEntriesKey = "excludedEntries";
+  static const String saveExclusions = "Save Exclusions";
+
   // Write Journal Toolbar Content
   static const String today = "Today";
   static const String yesterday = "Yesterday";
@@ -136,6 +166,14 @@ class AppConstants {
   static const String listen = "Listen";
   static const String tapAndHold = "tap  &  hold";
   static const String clear = "Clear";
+  static const String all = "All";
+  static const String folder = "Folder";
+  static const String browse = "Browse";
+  static const String recording = "Recording...";
+  static const String paused = "Paused";
+  static const String stop = "Stop";
+  static const String tapOrHoldToResume = "Tap or hold to resume";
+  static const String tapOrReleaseToPause = "Tap or release to pause";
 
   // Media Preview Bottom Sheet
   static const String unsupportedImageType = "Unsupported Image Type";
@@ -172,6 +210,8 @@ class AppConstants {
   static const String changeTheme = "Change theme";
   static const String theme = "Theme";
   static const String themeDescription = "Customize the app's appearance.";
+  static const String pitchBlack = "Pitch Black";
+  static const String pitchBlackDescription = "Enable pure black/white for journal screens.";
   static const String themeLight = "Light";
   static const String themeDark = "Dark";
   static const String themeSystem = "System";
@@ -207,6 +247,9 @@ class AppConstants {
   static const String openInMaps = "Open in Maps";
   static const String changeLocation = "Change Location";
   static const String remove = "Remove";
+  static const String discardSelectionsTitle = "Discard Selections?";
+  static const String discardSelectionsMessage =
+      "You have selected media or an active recording. Are you sure you want to discard them?";
 
   // Reflection Bottom Sheet
   static const String reflectionTitle = "REFLECTION";
@@ -216,6 +259,20 @@ class AppConstants {
   static const String searchHintText = "Search entries...";
   static const String aboutApp = "About Open Jot";
   static const String font = "OpenRunde";
+  static const List<String> months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December'
+  ];
 
   // PIN Management
   static const String incorrectPin = "Incorrect PIN";
@@ -233,8 +290,11 @@ class AppConstants {
   static const String journalsBoxName = 'journals';
   static const String isFirstLaunchKey = 'isFirstLaunch';
   static const String themeKey = 'theme';
+  static const String pitchBlackKey = 'pitchBlack';
   static const String dailyReminderKey = 'dailyReminder';
   static const String onThisDayKey = 'onThisDay'; // NEW
+  static const String lastOnThisDayNotificationDateKey = 'lastOnThisDayNotificationDate'; // NEW
+  static const String autoDeleteDraftsKey = 'autoDeleteDrafts'; // NEW
   static const String reminderTimeKey = 'reminderTime';
   static const String appLockEnabledKey = 'appLockEnabled';
   static const String appLockPinKey = 'appLockPin';

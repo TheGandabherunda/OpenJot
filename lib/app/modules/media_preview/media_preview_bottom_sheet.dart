@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get_thumbnail_video/video_thumbnail.dart';
@@ -28,11 +29,13 @@ class MediaItem {
 class MediaPreviewBottomSheet extends StatefulWidget {
   final List<MediaItem> mediaItems;
   final int initialIndex;
+  final Function(MediaItem)? onRemove;
 
   const MediaPreviewBottomSheet({
     super.key,
     required this.mediaItems,
     this.initialIndex = 0,
+    this.onRemove,
   });
 
   @override
@@ -42,6 +45,7 @@ class MediaPreviewBottomSheet extends StatefulWidget {
 class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
   late PageController _pageController;
   int _currentIndex = 0;
+  late List<MediaItem> _editableMediaItems;
 
   // A cache to store generated background colors to prevent re-computation.
   final Map<int, List<Color>> _colorCache = {};
@@ -55,6 +59,7 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
   @override
   void initState() {
     super.initState();
+    _editableMediaItems = List.from(widget.mediaItems);
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: _currentIndex);
   }
@@ -79,7 +84,7 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
       _updateBackgroundColor(_currentIndex - 1);
       _precacheImage(_currentIndex - 1);
     }
-    if (_currentIndex < widget.mediaItems.length - 1) {
+    if (_currentIndex < _editableMediaItems.length - 1) {
       _updateBackgroundColor(_currentIndex + 1);
       _precacheImage(_currentIndex + 1);
     }
@@ -93,9 +98,9 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
 
   /// Pre-caches a specific image to improve scrolling performance.
   void _precacheImage(int index) {
-    if (index < 0 || index >= widget.mediaItems.length) return;
+    if (index < 0 || index >= _editableMediaItems.length) return;
 
-    final item = widget.mediaItems[index];
+    final item = _editableMediaItems[index];
     if (item.type == AssetType.image) {
       ImageProvider? imageProvider;
       try {
@@ -117,7 +122,7 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
   /// Extracts colors from a media item to create a gradient.
   Future<void> _updateBackgroundColor(int index) async {
     if (index < 0 ||
-        index >= widget.mediaItems.length ||
+        index >= _editableMediaItems.length ||
         _processingIndexes.contains(index)) {
       return;
     }
@@ -136,7 +141,22 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
     try {
       _processingIndexes.add(index);
 
-      final item = widget.mediaItems[index];
+      final item = _editableMediaItems[index];
+
+      // Handle audio files differently to avoid thumbnail generation errors
+      if (item.type == AssetType.audio) {
+        final audioColors = [Colors.deepPurple.shade900, Colors.black87];
+        _colorCache[index] = audioColors;
+        if (mounted && index == _currentIndex) {
+          setState(() {
+            _vibrantColor = audioColors[0];
+            _dominantColor = audioColors[1];
+          });
+        }
+        _processingIndexes.remove(index);
+        return;
+      }
+
       Uint8List? imageData;
       ImageProvider? imageProvider;
 
@@ -247,7 +267,7 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
                   children: [
                     PageView.builder(
                       controller: _pageController,
-                      itemCount: widget.mediaItems.length,
+                      itemCount: _editableMediaItems.length,
                       onPageChanged: (index) {
                         setState(() {
                           _currentIndex = index;
@@ -258,13 +278,13 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
                           _updateBackgroundColor(index - 1);
                           _precacheImage(index - 1);
                         }
-                        if (index < widget.mediaItems.length - 1) {
+                        if (index < _editableMediaItems.length - 1) {
                           _updateBackgroundColor(index + 1);
                           _precacheImage(index + 1);
                         }
                       },
                       itemBuilder: (context, index) {
-                        final item = widget.mediaItems[index];
+                        final item = _editableMediaItems[index];
                         return Padding(
                           padding: EdgeInsets.all(8.w),
                           child: Center(
@@ -289,7 +309,36 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
                         ),
                       ),
                     ),
-                    if (widget.mediaItems.length > 1)
+                    if (widget.onRemove != null)
+                      Positioned(
+                        top: 10.h,
+                        right: 10.w,
+                        child: IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded,
+                              color: Colors.red, size: 28),
+                          onPressed: () {
+                            final currentItem = _editableMediaItems[_currentIndex];
+                            widget.onRemove!(currentItem);
+                            setState(() {
+                              _editableMediaItems.removeAt(_currentIndex);
+                              if (_editableMediaItems.isEmpty) {
+                                Navigator.of(context).pop();
+                              } else {
+                                if (_currentIndex >= _editableMediaItems.length) {
+                                  _currentIndex = _editableMediaItems.length - 1;
+                                }
+                                _colorCache.clear(); // Clear so colors readjust if shifted
+                                _updateBackgroundColor(_currentIndex);
+                              }
+                            });
+                          },
+                          style: ButtonStyle(
+                            backgroundColor: WidgetStateProperty.all(
+                                Colors.black.withOpacity(0.3)),
+                          ),
+                        ),
+                      ),
+                    if (_editableMediaItems.length > 1)
                       Positioned(
                         bottom: 20.h,
                         left: 0,
@@ -305,6 +354,11 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
   Widget _buildMediaContent(MediaItem item, int index) {
     if (item.type == AssetType.video) {
       return VideoPlayerItem(
+        item: item,
+        isActive: index == _currentIndex,
+      );
+    } else if (item.type == AssetType.audio) {
+      return AudioPlayerItem(
         item: item,
         isActive: index == _currentIndex,
       );
@@ -368,7 +422,7 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
   Widget _buildPageIndicator() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(widget.mediaItems.length, (index) {
+      children: List.generate(_editableMediaItems.length, (index) {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           margin: EdgeInsets.symmetric(horizontal: 4.w),
@@ -386,6 +440,7 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
   }
 }
 
+// Widget to handle Video assets
 class VideoPlayerItem extends StatefulWidget {
   final MediaItem item;
   final bool isActive;
@@ -530,3 +585,244 @@ class VideoPlayerItemState extends State<VideoPlayerItem> {
   }
 }
 
+// Widget to handle Audio assets with robust timing & visibility fixes
+class AudioPlayerItem extends StatefulWidget {
+  final MediaItem item;
+  final bool isActive;
+
+  const AudioPlayerItem({
+    super.key,
+    required this.item,
+    this.isActive = false,
+  });
+
+  @override
+  AudioPlayerItemState createState() => AudioPlayerItemState();
+}
+
+class AudioPlayerItemState extends State<AudioPlayerItem> {
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  bool _isPlaying = false;
+  bool _isLoading = true;
+  bool _hasError = false;
+  Duration _duration = Duration.zero;
+  Duration _position = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    // Use AssetEntity duration as a guaranteed initial fallback to prevent '00:00'
+    if (widget.item.asset is AssetEntity) {
+      final int durationInSeconds = (widget.item.asset as AssetEntity).duration;
+      if (durationInSeconds > 0) {
+        _duration = Duration(seconds: durationInSeconds);
+      }
+    }
+    _initPlayer();
+  }
+
+  @override
+  void didUpdateWidget(AudioPlayerItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.isActive && _isPlaying) {
+      _audioPlayer.pause();
+    }
+  }
+
+  Future<void> _initPlayer() async {
+    if (!mounted) return;
+
+    File? file;
+    try {
+      if (widget.item.asset is AssetEntity) {
+        file = await (widget.item.asset as AssetEntity).file;
+      } else if (widget.item.asset is CapturedPhoto) {
+        file = File((widget.item.asset as CapturedPhoto).file.path);
+      }
+
+      if (file == null || !file.existsSync()) {
+        if (mounted) setState(() { _isLoading = false; _hasError = true; });
+        return;
+      }
+
+      // Important: DeviceFileSource provides the best compatibility for local files
+      await _audioPlayer.setSource(DeviceFileSource(file.path));
+
+      _audioPlayer.onDurationChanged.listen((d) {
+        if (mounted && d > Duration.zero) setState(() => _duration = d);
+      });
+
+      _audioPlayer.onPositionChanged.listen((p) {
+        if (mounted) setState(() => _position = p);
+      });
+
+      _audioPlayer.onPlayerStateChanged.listen((state) {
+        if (mounted) {
+          setState(() => _isPlaying = state == PlayerState.playing);
+          if (state == PlayerState.completed) {
+            setState(() {
+              _isPlaying = false;
+              _position = Duration.zero;
+            });
+            _audioPlayer.seek(Duration.zero);
+          }
+        }
+      });
+
+      // Fetch immediately just in case the event stream missed the initial broadcast
+      final explicitDuration = await _audioPlayer.getDuration();
+      if (explicitDuration != null && explicitDuration > Duration.zero && mounted) {
+        setState(() => _duration = explicitDuration);
+      }
+
+      if (mounted) setState(() => _isLoading = false);
+    } catch (e) {
+      debugPrint("Audio Player Error: $e");
+      if (mounted) setState(() { _isLoading = false; _hasError = true; });
+    }
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes.toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  void _togglePlayPause() {
+    if (_isPlaying) {
+      _audioPlayer.pause();
+    } else {
+      _audioPlayer.resume();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Colors.white));
+    }
+
+    if (_hasError) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, color: Colors.white, size: 48),
+            SizedBox(height: 8),
+            Text(
+              "Could not load audio file.",
+              style: TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+      );
+    }
+
+    String title = 'Audio Recording';
+    if (widget.item.asset is AssetEntity) {
+      title = (widget.item.asset as AssetEntity).title ?? title;
+    } else if (widget.item.asset is CapturedPhoto) {
+      title = (widget.item.asset as CapturedPhoto).name;
+    }
+
+    double maxDuration = _duration.inMilliseconds.toDouble();
+    if (maxDuration <= 0) maxDuration = 1.0; // Prevent assertion error in slider
+    double currentPos = _position.inMilliseconds.toDouble().clamp(0.0, maxDuration);
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 24.w),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(16.r),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 120.w,
+            height: 120.w,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.music_note_rounded,
+              color: Colors.white,
+              size: 64.sp,
+            ),
+          ),
+          SizedBox(height: 32.h),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          SizedBox(height: 32.h),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: Colors.white,
+              inactiveTrackColor: Colors.white.withOpacity(0.3),
+              thumbColor: Colors.white,
+              trackHeight: 4.h,
+              thumbShape: RoundSliderThumbShape(enabledThumbRadius: 6.r),
+              overlayShape: RoundSliderOverlayShape(overlayRadius: 14.r),
+            ),
+            child: Slider(
+              min: 0.0,
+              max: maxDuration,
+              value: currentPos,
+              onChanged: (value) {
+                _audioPlayer.seek(Duration(milliseconds: value.toInt()));
+              },
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _formatDuration(_position),
+                  style: TextStyle(color: Colors.white70, fontSize: 12.sp),
+                ),
+                Text(
+                  _formatDuration(_duration),
+                  style: TextStyle(color: Colors.white70, fontSize: 12.sp),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 24.h),
+          GestureDetector(
+            onTap: _togglePlayPause,
+            child: Container(
+              width: 64.w,
+              height: 64.w,
+              decoration: const BoxDecoration(
+                color: Colors.white, // Hardcoded to white to pop on the purple gradient
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                color: Colors.black, // Dark icon for contrast
+                size: 32.sp,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

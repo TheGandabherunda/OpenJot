@@ -1,4 +1,3 @@
-
 import 'package:camera/camera.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:hive/hive.dart';
@@ -15,7 +14,7 @@ class RecordedAudio {
   final String name;
   @HiveField(2)
   final Duration duration;
-  @HiveField(3)
+  @HiveField(3, defaultValue: false)
   final bool isShared;
 
   RecordedAudio({
@@ -54,22 +53,24 @@ class JournalEntry extends HiveObject {
   final Document content;
   @HiveField(2)
   final DateTime createdAt;
-  @HiveField(3)
+  @HiveField(3, defaultValue: false)
   bool isBookmarked;
-  @HiveField(4)
+  @HiveField(4, defaultValue: false)
   final bool isReflection;
   @HiveField(5)
   int? moodIndex;
   @HiveField(6)
   SelectedLocation? location;
-  @HiveField(7)
+  @HiveField(7, defaultValue: [])
   final List<AssetEntity> galleryImages;
-  @HiveField(8)
+  @HiveField(8, defaultValue: [])
   final List<CapturedPhoto> cameraPhotos;
-  @HiveField(9)
+  @HiveField(9, defaultValue: [])
   final List<AssetEntity> galleryAudios;
-  @HiveField(10)
+  @HiveField(10, defaultValue: [])
   final List<RecordedAudio> recordings;
+  @HiveField(11, defaultValue: false) // NEW Draft Field added
+  final bool isDraft;
 
   JournalEntry({
     required this.id,
@@ -83,6 +84,7 @@ class JournalEntry extends HiveObject {
     this.cameraPhotos = const [],
     this.galleryAudios = const [],
     this.recordings = const [],
+    this.isDraft = false,
   });
 
   JournalEntry copyWith({
@@ -97,6 +99,7 @@ class JournalEntry extends HiveObject {
     List<CapturedPhoto>? cameraPhotos,
     List<AssetEntity>? galleryAudios,
     List<RecordedAudio>? recordings,
+    bool? isDraft,
   }) {
     return JournalEntry(
       id: id ?? this.id,
@@ -110,6 +113,7 @@ class JournalEntry extends HiveObject {
       cameraPhotos: cameraPhotos ?? this.cameraPhotos,
       galleryAudios: galleryAudios ?? this.galleryAudios,
       recordings: recordings ?? this.recordings,
+      isDraft: isDraft ?? this.isDraft,
     );
   }
 }

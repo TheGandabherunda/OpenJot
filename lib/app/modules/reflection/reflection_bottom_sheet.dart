@@ -22,7 +22,10 @@ class _ReflectionBottomSheetState extends State<ReflectionBottomSheet> {
   @override
   void initState() {
     super.initState();
-    _currentPrompt = AppConstants.reflectionPrompts.first;
+    // Randomize the prompt immediately upon opening
+    final random = Random();
+    final index = random.nextInt(AppConstants.reflectionPrompts.length);
+    _currentPrompt = AppConstants.reflectionPrompts[index];
   }
 
   void _shufflePrompt() {

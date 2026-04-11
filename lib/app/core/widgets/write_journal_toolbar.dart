@@ -9,12 +9,14 @@ class WriteJournalToolbar extends StatelessWidget {
     required this.selectedToolbarIcon,
     required this.isDraggableSheetActive,
     required this.onToolbarItemTap,
+    this.onCloseTap,
   });
 
   final List<IconData> toolbarIcons;
   final IconData? selectedToolbarIcon;
   final bool isDraggableSheetActive;
   final Function(IconData) onToolbarItemTap;
+  final VoidCallback? onCloseTap;
 
   @override
   Widget build(BuildContext context) {
@@ -48,19 +50,40 @@ class WriteJournalToolbar extends StatelessWidget {
                 ),
             ],
           ),
-          _buildToolbarIcon(separatedIcon, appThemeColors, 0, 1, separatedIcon),
+          Row(
+            children: [
+              _buildToolbarIcon(separatedIcon, appThemeColors, 0, 1, separatedIcon),
+              if (isDraggableSheetActive) ...[
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: onCloseTap,
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: appThemeColors.grey5,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.close,
+                      color: appThemeColors.grey10,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ],
       ),
     );
   }
 
   Widget _buildToolbarIcon(
-    IconData icon,
-    AppThemeColors appThemeColors,
-    int index,
-    int groupLength,
-    IconData separatedIcon,
-  ) {
+      IconData icon,
+      AppThemeColors appThemeColors,
+      int index,
+      int groupLength,
+      IconData separatedIcon,
+      ) {
     final isSelected = selectedToolbarIcon == icon && isDraggableSheetActive;
 
     BorderRadius? borderRadius;

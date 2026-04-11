@@ -57,29 +57,6 @@ class _AboutScreenState extends State<AboutScreen> {
     }
   }
 
-  Future<void> _sendEmail(String email, String subject) async {
-    final appColors = AppTheme.colorsOf(context);
-    final String encodedSubject = Uri.encodeComponent(subject);
-    final Uri uri = Uri(
-      scheme: 'mailto',
-      path: email,
-      query: 'subject=$encodedSubject',
-    );
-    try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        throw 'Could not launch email client.';
-      }
-    } catch (e) {
-      CustomToast.showToast(
-        "Could not open email app. Is one installed?",
-        backgroundColor: appColors.grey7,
-        textColor: appColors.grey10,
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).colorScheme;
@@ -280,10 +257,10 @@ class _AboutScreenState extends State<AboutScreen> {
                       color: appColors.primary,
                     ),
                   ),
-                  trailing: Icon(Icons.mail_outline,
+                  trailing: Icon(Icons.open_in_new,
                       size: 20, color: appColors.primary),
-                  onTap: () =>
-                      _sendEmail('arunuserx@gmail.com', 'Feedback about OpenJot'),
+                  onTap: () => _launchURL(
+                      'https://github.com/TheGandabherunda/OpenJot/discussions/15'),
                 ),
               ],
             ),

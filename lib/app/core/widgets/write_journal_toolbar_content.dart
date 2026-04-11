@@ -1,23 +1,27 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:camera/camera.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/theme.dart';
 import 'package:open_jot/app/core/widgets/camera_view.dart';
 import 'package:open_jot/app/core/widgets/custom_button.dart';
 import 'package:open_jot/app/core/widgets/custom_slider.dart';
 import 'package:open_jot/app/core/widgets/location_map_view.dart';
+import 'package:open_jot/app/modules/media_preview/media_preview_bottom_sheet.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart' hide LatLng;
+import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
+import 'package:progressive_blur/progressive_blur.dart';
 import 'package:record/record.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -31,8 +35,11 @@ class WriteJournalToolbarContent extends StatefulWidget {
     this.onLocationSelected,
     this.onPhotoTaken,
     this.onMoodChanged,
+    this.onFilesPicked,
     this.selectedMoodIndex,
     this.selectedLocation,
+    this.onMapMaximizeToggled,
+    this.isPitchBlack = false,
   });
 
   final IconData? selectedToolbarIcon;
@@ -42,33 +49,74 @@ class WriteJournalToolbarContent extends StatefulWidget {
   final Function(LatLng location)? onLocationSelected;
   final Function(XFile photo)? onPhotoTaken;
   final Function(int? moodIndex)? onMoodChanged;
+  final Function(List<String> paths, AssetType type)? onFilesPicked;
   final int? selectedMoodIndex;
   final LatLng? selectedLocation;
+  final ValueChanged<bool>? onMapMaximizeToggled;
+  final bool isPitchBlack;
 
   @override
   State<WriteJournalToolbarContent> createState() =>
-      _WriteJournalToolbarContentState();
+      WriteJournalToolbarContentState();
 }
 
-class _WriteJournalToolbarContentState
-    extends State<WriteJournalToolbarContent> {
+class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> {
   int _selectedSegment = 0;
   PermissionStatus? _permissionStatus;
   Map<DateTime, List<AssetEntity>> _groupedAssets = {};
   bool _isLoading = false;
+  bool _isLoadingMore = false;
   final List<AssetEntity> _selectedAssets = [];
+
+  // Folder & Pagination Variables
+  int _currentPage = 0;
+  final int _pageSize = 100;
+  bool _hasMore = true;
+  List<AssetPathEntity> _albums = [];
+  AssetPathEntity? _selectedAlbum;
+
+  final GlobalKey<AudioRecorderViewState> _audioRecorderKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
+    widget.scrollController.addListener(_onScroll);
     unawaited(_requestPermission());
   }
 
   @override
   void didUpdateWidget(covariant WriteJournalToolbarContent oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.selectedToolbarIcon != oldWidget.selectedToolbarIcon) {
-      // Potentially reset state or fetch different content based on icon
+    if (widget.scrollController != oldWidget.scrollController) {
+      oldWidget.scrollController.removeListener(_onScroll);
+      widget.scrollController.addListener(_onScroll);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.scrollController.removeListener(_onScroll);
+    super.dispose();
+  }
+
+  bool get hasUnsavedContent {
+    if (_selectedAssets.isNotEmpty) return true;
+    if (_audioRecorderKey.currentState?.hasUnsavedRecording == true) return true;
+    return false;
+  }
+
+  void clearUnsavedContent() {
+    setState(() {
+      _selectedAssets.clear();
+    });
+    _audioRecorderKey.currentState?.discardRecording(showDialog: false);
+  }
+
+  void _onScroll() {
+    if (!widget.scrollController.hasClients) return;
+    final position = widget.scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 200) {
+      _fetchMedia(loadMore: true);
     }
   }
 
@@ -85,54 +133,97 @@ class _WriteJournalToolbarContentState
     }
   }
 
-  Future<void> _fetchMedia() async {
-    if (!mounted) return;
+  Future<void> _fetchMedia({bool loadMore = false}) async {
+    if (!mounted || _isLoading || _isLoadingMore) return;
+    if (loadMore && !_hasMore) return;
+
     setState(() {
-      _isLoading = true;
-      _groupedAssets = {};
+      if (loadMore) {
+        _isLoadingMore = true;
+      } else {
+        _isLoading = true;
+        _groupedAssets = {};
+        _currentPage = 0;
+        _hasMore = true;
+      }
     });
 
-    // ROBUSTNESS: Add a small delay to ensure the shimmer effect is noticeable on fast devices.
-    await Future.delayed(const Duration(milliseconds: 300));
+    // ROBUSTNESS: Add a small delay for smooth layout transitions
+    if (!loadMore) await Future.delayed(const Duration(milliseconds: 100));
 
     final type = _getRequestTypeForSegment(_selectedSegment);
-    final albums = await PhotoManager.getAssetPathList(type: type);
-    if (albums.isEmpty) {
+
+    // Fetch all folders if we don't have them loaded for this segment yet
+    if (!loadMore && _albums.isEmpty) {
+      final filterOption = FilterOptionGroup(
+        orders: [
+          const OrderOption(type: OrderOptionType.createDate, asc: false),
+        ],
+      );
+      final albums = await PhotoManager.getAssetPathList(
+        type: type,
+        hasAll: true,
+        filterOption: filterOption,
+      );
+
+      if (albums.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _isLoadingMore = false;
+          });
+        }
+        return;
+      }
+
+      // Ensure "All" is always the first chip, and others are sorted alphabetically
+      albums.sort((a, b) {
+        if (a.isAll) return -1;
+        if (b.isAll) return 1;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+
+      _albums = albums;
+
+      // Explicitly default to the "All" album
+      if (_selectedAlbum == null) {
+        _selectedAlbum = _albums.firstWhere((a) => a.isAll, orElse: () => _albums.first);
+      }
+    }
+
+    if (_selectedAlbum == null) return;
+
+    final start = _currentPage * _pageSize;
+    final end = start + _pageSize;
+    final assets = await _selectedAlbum!.getAssetListRange(start: start, end: end);
+
+    if (assets.isEmpty || assets.length < _pageSize) {
+      _hasMore = false;
+    }
+
+    if (assets.isNotEmpty) {
+      final grouped = Map<DateTime, List<AssetEntity>>.from(_groupedAssets);
+      for (final asset in assets) {
+        final date = DateTime(
+          asset.createDateTime.year,
+          asset.createDateTime.month,
+          asset.createDateTime.day,
+        );
+        grouped.putIfAbsent(date, () => []).add(asset);
+      }
+
       if (mounted) {
         setState(() {
-          _isLoading = false;
+          _groupedAssets = grouped;
+          _currentPage++;
         });
       }
-      return;
-    }
-
-    final List<AssetEntity> assets = [];
-    final processedAssetIds = <String>{};
-    for (final album in albums) {
-      final assetList = await album.getAssetListRange(start: 0, end: 2000);
-      for (final asset in assetList) {
-        if (processedAssetIds.add(asset.id)) {
-          assets.add(asset);
-        }
-      }
-    }
-
-    assets.sort((a, b) => b.createDateTime.compareTo(a.createDateTime));
-
-    final grouped = <DateTime, List<AssetEntity>>{};
-    for (final asset in assets) {
-      final date = DateTime(
-        asset.createDateTime.year,
-        asset.createDateTime.month,
-        asset.createDateTime.day,
-      );
-      grouped.putIfAbsent(date, () => []).add(asset);
     }
 
     if (mounted) {
       setState(() {
-        _groupedAssets = grouped;
         _isLoading = false;
+        _isLoadingMore = false;
       });
     }
   }
@@ -180,22 +271,263 @@ class _WriteJournalToolbarContentState
     } else if (date == yesterday) {
       return AppConstants.yesterday;
     } else {
-      const monthNames = [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December'
-      ];
-      return '${monthNames[date.month - 1]} ${date.day}, ${date.year}';
+      return '${AppConstants.months[date.month - 1]} ${date.day}, ${date.year}';
     }
+  }
+
+  void _openPreview() {
+    final mediaItems = _selectedAssets.map((asset) {
+      return MediaItem(
+        asset: asset,
+        type: asset.type,
+        id: asset.id,
+      );
+    }).toList();
+
+    showCupertinoModalBottomSheet(
+      context: context,
+      expand: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => MediaPreviewBottomSheet(
+        mediaItems: mediaItems,
+        initialIndex: 0,
+        onRemove: (item) {
+          setState(() {
+            _selectedAssets.removeWhere((asset) => asset.id == item.id);
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildSelectedMediaPreviewStack() {
+    if (_selectedAssets.isEmpty) return const SizedBox.shrink();
+
+    final colors = AppTheme.colorsOf(context);
+    final int count = _selectedAssets.length;
+    final lastAsset = _selectedAssets.last;
+
+    return GestureDetector(
+      onTap: _openPreview,
+      child: SizedBox(
+        width: 56.w,
+        height: 56.h,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (count > 2)
+              Positioned(
+                top: 2.h,
+                left: 2.w,
+                child: Transform.rotate(
+                  angle: -0.15,
+                  child: Container(
+                    width: 42.w,
+                    height: 42.w,
+                    decoration: BoxDecoration(
+                      color: colors.grey3,
+                      borderRadius: BorderRadius.circular(8.r),
+                      border: Border.all(color: colors.grey6, width: 2),
+                    ),
+                  ),
+                ),
+              ),
+            if (count > 1)
+              Positioned(
+                top: 4.h,
+                right: 2.w,
+                child: Transform.rotate(
+                  angle: 0.15,
+                  child: Container(
+                    width: 42.w,
+                    height: 42.w,
+                    decoration: BoxDecoration(
+                      color: colors.grey4,
+                      borderRadius: BorderRadius.circular(8.r),
+                      border: Border.all(color: colors.grey6, width: 2),
+                    ),
+                  ),
+                ),
+              ),
+            Positioned(
+              bottom: 2.h,
+              child: Container(
+                width: 46.w,
+                height: 46.w,
+                decoration: BoxDecoration(
+                  color: colors.grey5,
+                  borderRadius: BorderRadius.circular(8.r),
+                  border: Border.all(color: colors.grey7, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 6,
+                      offset: const Offset(0, 3),
+                    )
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(6.r),
+                  child: Image(
+                    image: AssetEntityImageProvider(
+                      lastAsset,
+                      isOriginal: false,
+                      thumbnailSize: const ThumbnailSize.square(150),
+                      thumbnailFormat: ThumbnailFormat.jpeg,
+                    ),
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Icon(
+                      lastAsset.type == AssetType.audio
+                          ? Icons.audiotrack
+                          : Icons.image,
+                      color: colors.grey1,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickFiles() async {
+    FileType type;
+    AssetType assetType;
+    switch (_selectedSegment) {
+      case 0:
+        type = FileType.media;
+        assetType = AssetType.image;
+        break;
+      case 1:
+        type = FileType.video;
+        assetType = AssetType.video;
+        break;
+      case 2:
+        type = FileType.audio;
+        assetType = AssetType.audio;
+        break;
+      default:
+        type = FileType.any;
+        assetType = AssetType.other;
+    }
+
+    final result = await FilePicker.platform.pickFiles(
+      type: type,
+      allowMultiple: true,
+    );
+
+    if (result != null && result.paths.isNotEmpty) {
+      final paths = result.paths.whereType<String>().toList();
+      widget.onFilesPicked?.call(paths, assetType);
+    }
+  }
+
+  Widget _buildAlbumChips(AppThemeColors colors) {
+    return SizedBox(
+      height: 36.h,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: 16.w),
+        itemCount: _albums.length + 2,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return Padding(
+              padding: EdgeInsets.only(right: 8.w),
+              child: GestureDetector(
+                onTap: _pickFiles,
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 16.w),
+                  decoration: BoxDecoration(
+                    color: colors.grey4,
+                    borderRadius: BorderRadius.circular(20.r),
+                    border: Border.all(color: colors.grey3, width: 1),
+                  ),
+                  alignment: Alignment.center,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.folder_open_rounded,
+                        size: 18.sp,
+                        color: colors.grey10,
+                      ),
+                      SizedBox(width: 6.w),
+                      Text(
+                        AppConstants.browse,
+                        style: TextStyle(
+                          color: colors.grey10,
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w500,
+                          decoration: TextDecoration.none,
+                          fontFamily: AppConstants.font,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+
+          if (index == 1) {
+            return Padding(
+              padding: EdgeInsets.only(right: 8.w),
+              child: Icon(
+                Icons.more_vert_rounded,
+                size: 20.sp,
+                color: colors.grey2,
+              ),
+            );
+          }
+
+          final album = _albums[index - 2];
+          final isSelected = album == _selectedAlbum;
+
+          // Provide a friendly name for the album
+          String albumName = album.isAll ? AppConstants.all : album.name;
+          if (albumName.isEmpty) albumName = AppConstants.folder;
+
+          return Padding(
+            padding: EdgeInsets.only(right: 8.w),
+            child: GestureDetector(
+              onTap: () {
+                if (!isSelected) {
+                  setState(() {
+                    _selectedAlbum = album;
+                  });
+                  _fetchMedia(loadMore: false);
+                }
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                decoration: BoxDecoration(
+                  color: isSelected ? Theme.of(context).primaryColor : colors.grey4,
+                  borderRadius: BorderRadius.circular(20.r),
+                  border: Border.all(
+                    color: isSelected ? Theme.of(context).primaryColor : colors.grey3,
+                    width: 1,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  albumName,
+                  style: TextStyle(
+                    color: isSelected ? colors.grey8 : colors.grey10,
+                    fontSize: 13.sp,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    decoration: TextDecoration.none,
+                    fontFamily: AppConstants.font,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -204,6 +536,7 @@ class _WriteJournalToolbarContentState
 
     if (widget.selectedToolbarIcon == Icons.mic_rounded) {
       return AudioRecorderView(
+        key: _audioRecorderKey,
         scrollController: widget.scrollController,
         onRecordingComplete: (path, duration) {
           widget.onRecordingComplete?.call(path, duration);
@@ -227,6 +560,7 @@ class _WriteJournalToolbarContentState
         onLocationSelected: (location) {
           widget.onLocationSelected?.call(location);
         },
+        onMaximizeToggled: widget.onMapMaximizeToggled,
       );
     }
 
@@ -235,6 +569,7 @@ class _WriteJournalToolbarContentState
         scrollController: widget.scrollController,
         onMoodChanged: widget.onMoodChanged,
         initialMoodIndex: widget.selectedMoodIndex,
+        isPitchBlack: widget.isPitchBlack,
       );
     }
 
@@ -262,73 +597,147 @@ class _WriteJournalToolbarContentState
       );
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // SLIVER REFACTOR: Combines the headers, media grids, loaders, and empty states
+    // entirely into a single CustomScrollView with a ProgressiveBlurWidget to match home screen.
     return Stack(
       children: [
-        Column(
-          children: [
-            SizedBox(
-              width: double.infinity,
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.w),
-                child: CupertinoSlidingSegmentedControl<int>(
-                  backgroundColor: colors.grey3,
-                  thumbColor: colors.grey5,
-                  children: {
-                    0: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8.h),
-                      child: Text(
-                        AppConstants.photos,
-                        style: TextStyle(
-                          color: colors.grey10,
-                          decoration: TextDecoration.none,
-                          fontSize: 14.sp,
-                          fontFamily: AppConstants.font,
+        ProgressiveBlurWidget(
+          sigma: 25.0,
+          linearGradientBlur: const LinearGradientBlur(
+            values: [0, 0, 0.23, 1],
+            stops: [0.0, 0.12, 0.88, 1.0],
+            start: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+          tintColor: widget.isPitchBlack
+              ? (isDark ? Colors.black : Colors.white).withOpacity(0.15)
+              : colors.grey5.withOpacity(0.15),
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              return true;
+            },
+            child: CustomScrollView(
+              controller: widget.scrollController,
+              slivers: [
+                // 1. Fixed height headers (Segmented Control & Album Chips)
+                SliverToBoxAdapter(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16.w),
+                          child: CupertinoSlidingSegmentedControl<int>(
+                            backgroundColor: colors.grey3,
+                            thumbColor: colors.grey5,
+                            children: {
+                              0: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8.h),
+                                child: Text(
+                                  AppConstants.photos,
+                                  style: TextStyle(
+                                    color: colors.grey10,
+                                    decoration: TextDecoration.none,
+                                    fontSize: 14.sp,
+                                    fontFamily: AppConstants.font,
+                                  ),
+                                ),
+                              ),
+                              1: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8.h),
+                                child: Text(
+                                  AppConstants.videos,
+                                  style: TextStyle(
+                                    color: colors.grey10,
+                                    decoration: TextDecoration.none,
+                                    fontSize: 14.sp,
+                                    fontFamily: AppConstants.font,
+                                  ),
+                                ),
+                              ),
+                              2: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8.h),
+                                child: Text(
+                                  AppConstants.audio,
+                                  style: TextStyle(
+                                    color: colors.grey10,
+                                    decoration: TextDecoration.none,
+                                    fontSize: 14.sp,
+                                    fontFamily: AppConstants.font,
+                                  ),
+                                ),
+                              ),
+                            },
+                            onValueChanged: (int? value) {
+                              if (value != null) {
+                                setState(() {
+                                  _selectedSegment = value;
+                                  _selectedAssets.clear();
+                                  _albums.clear();
+                                  _selectedAlbum = null;
+                                });
+                                unawaited(_requestPermission());
+                              }
+                            },
+                            groupValue: _selectedSegment,
+                          ),
                         ),
                       ),
-                    ),
-                    1: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8.h),
-                      child: Text(
-                        AppConstants.video,
-                        style: TextStyle(
-                          color: colors.grey10,
-                          decoration: TextDecoration.none,
-                          fontSize: 14.sp,
-                          fontFamily: AppConstants.font,
-                        ),
-                      ),
-                    ),
-                    2: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8.h),
-                      child: Text(
-                        AppConstants.audio,
-                        style: TextStyle(
-                          color: colors.grey10,
-                          decoration: TextDecoration.none,
-                          fontSize: 14.sp,
-                          fontFamily: AppConstants.font,
-                        ),
-                      ),
-                    ),
-                  },
-                  onValueChanged: (int? value) {
-                    if (value != null) {
-                      setState(() {
-                        _selectedSegment = value;
-                        _selectedAssets.clear();
-                      });
-                      unawaited(_requestPermission());
-                    }
-                  },
-                  groupValue: _selectedSegment,
+                      SizedBox(height: 16.h),
+                      if (!_isLoading && _permissionStatus?.isGranted == true) ...[
+                        _buildAlbumChips(colors),
+                        SizedBox(height: 12.h),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
+
+                // 2. Dynamic Content States
+                if (_isLoading)
+                  _buildSkeletonSliver(colors)
+                else if (_permissionStatus == null)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: const Center(child: CircularProgressIndicator()),
+                  )
+                else if (!_permissionStatus!.isGranted)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _buildPermissionDenied(colors),
+                    )
+                  else if (_groupedAssets.isEmpty)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: Text(
+                            AppConstants.noMediaFound.replaceFirst(
+                                '%s', _getTabName(_selectedSegment).toLowerCase()),
+                            style: TextStyle(
+                              color: colors.grey10,
+                              decoration: TextDecoration.none,
+                              fontFamily: AppConstants.font,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      ..._buildMediaSlivers(colors),
+
+                // 3. Pagination Loader / Bottom Padding
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 16.h, bottom: 80.h),
+                    child: _isLoadingMore
+                        ? const Center(child: CircularProgressIndicator())
+                        : const SizedBox.shrink(),
+                  ),
+                ),
+              ],
             ),
-            SizedBox(height: 16.h),
-            Expanded(
-              child: _buildMediaGrid(colors),
-            ),
-          ],
+          ),
         ),
         Positioned(
           bottom: 20.h,
@@ -348,26 +757,81 @@ class _WriteJournalToolbarContentState
             },
             child: _selectedAssets.isNotEmpty
                 ? Center(
-                    key: const ValueKey('add_button'),
-                    child: CustomButton(
-                      onPressed: () {
-                        widget.onAssetsSelected?.call(_selectedAssets);
-                        setState(() {
-                          _selectedAssets.clear();
-                        });
-                      },
-                      borderRadius: 60,
-                      text: '${AppConstants.add} ${_selectedAssets.length}',
-                      icon: Icons.add,
-                      iconSize: 24,
-                      color: Theme.of(context).primaryColor,
-                      textColor: colors.grey8,
-                      textPadding: EdgeInsets.symmetric(
-                        horizontal: 20.w,
-                        vertical: 16.h,
+              key: const ValueKey('add_button'),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildSelectedMediaPreviewStack(),
+                  SizedBox(width: 12.w),
+                  GestureDetector(
+                    onTap: () {
+                      widget.onAssetsSelected?.call(_selectedAssets);
+                      setState(() {
+                        _selectedAssets.clear();
+                      });
+                    },
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 24.w,
+                        vertical: 14.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).primaryColor,
+                        borderRadius: BorderRadius.circular(60.r),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Theme.of(context)
+                                .primaryColor
+                                .withOpacity(0.3),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            AppConstants.add,
+                            style: TextStyle(
+                              color: colors.grey8,
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: AppConstants.font,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                          SizedBox(width: 12.w),
+                          Container(
+                            constraints: BoxConstraints(
+                              minWidth: 26.w,
+                              minHeight: 26.w,
+                            ),
+                            padding: EdgeInsets.symmetric(horizontal: 6.w),
+                            decoration: BoxDecoration(
+                              color: colors.error, // Red notification badge
+                              borderRadius: BorderRadius.circular(13.w),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '${_selectedAssets.length}',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: AppConstants.font,
+                                height: 1.0,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  )
+                  ),
+                ],
+              ),
+            )
                 : const SizedBox.shrink(key: ValueKey('empty_button')),
           ),
         ),
@@ -375,171 +839,141 @@ class _WriteJournalToolbarContentState
     );
   }
 
-  Widget _buildSkeletonLoading(AppThemeColors colors) {
-    return Shimmer.fromColors(
-      baseColor: colors.grey3,
-      highlightColor: colors.grey4,
-      child: GridView.builder(
-        controller: widget.scrollController,
-        padding: EdgeInsets.symmetric(horizontal: 4.w),
+  Widget _buildSkeletonSliver(AppThemeColors colors) {
+    return SliverPadding(
+      padding: EdgeInsets.fromLTRB(4.w, 12.h, 4.w, 0),
+      sliver: SliverGrid(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
           crossAxisSpacing: 4,
           mainAxisSpacing: 4,
         ),
-        itemCount: 15,
-        itemBuilder: (context, index) {
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(8.r),
-            child: Container(
-              color: colors.grey3,
-            ),
-          );
-        },
+        delegate: SliverChildBuilderDelegate(
+              (context, index) {
+            return Shimmer.fromColors(
+              baseColor: colors.grey3,
+              highlightColor: colors.grey4,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8.r),
+                child: Container(
+                  color: colors.grey3,
+                ),
+              ),
+            );
+          },
+          childCount: 15,
+        ),
       ),
     );
   }
 
-  // ROBUST CHANGE: Added AnimatedSwitcher for a smooth fade from shimmer to content.
-  Widget _buildMediaGrid(AppThemeColors colors) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 400),
-      transitionBuilder: (child, animation) {
-        return FadeTransition(opacity: animation, child: child);
-      },
-      child: _isLoading
-          ? _buildSkeletonLoading(colors)
-          : _buildMediaContent(colors),
-    );
-  }
+  List<Widget> _buildMediaSlivers(AppThemeColors colors) {
+    final sortedDates = _groupedAssets.keys.toList()
+      ..sort((a, b) => b.compareTo(a));
 
-  Widget _buildMediaContent(AppThemeColors colors) {
-    if (_permissionStatus == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final overlayColor =
+    (isDark ? colors.grey7 : colors.grey10).withOpacity(0.5);
+    final onOverlayColor = isDark ? colors.grey10 : colors.grey7;
 
-    if (_permissionStatus!.isGranted) {
-      if (_groupedAssets.isEmpty) {
-        return Center(
-          child: Text(
-            AppConstants.noMediaFound.replaceFirst(
-                '%s', _getTabName(_selectedSegment).toLowerCase()),
-            style: TextStyle(
-              color: colors.grey10,
-              decoration: TextDecoration.none,
-              fontFamily: AppConstants.font,
+    final slivers = <Widget>[];
+
+    for (var i = 0; i < sortedDates.length; i++) {
+      final date = sortedDates[i];
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(8.w, i == 0 ? 0.h : 16.h, 8.w, 8.h),
+            child: Text(
+              _formatDate(date),
+              style: TextStyle(
+                color: colors.grey1,
+                fontWeight: FontWeight.w500,
+                decoration: TextDecoration.none,
+                fontSize: 15.sp,
+                fontFamily: AppConstants.font,
+              ),
             ),
           ),
-        );
-      }
-      final sortedDates = _groupedAssets.keys.toList()
-        ..sort((a, b) => b.compareTo(a));
-
-      final isDark = Theme.of(context).brightness == Brightness.dark;
-      final overlayColor =
-          (isDark ? colors.grey7 : colors.grey10).withOpacity(0.5);
-      final onOverlayColor = isDark ? colors.grey10 : colors.grey7;
-
-      return NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          return true;
-        },
-        child: CustomScrollView(
-          controller: widget.scrollController,
-          slivers: [
-            for (final date in sortedDates) ...[
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(8.w, 32.h, 8.w, 8.h),
-                  child: Text(
-                    _formatDate(date),
-                    style: TextStyle(
-                      color: colors.grey1,
-                      fontWeight: FontWeight.w500,
-                      decoration: TextDecoration.none,
-                      fontSize: 15.sp,
-                      fontFamily: AppConstants.font,
-                    ),
-                  ),
-                ),
-              ),
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(4.w, 0, 4.w, 80.h),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 4,
-                    mainAxisSpacing: 4,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final asset = _groupedAssets[date]![index];
-                      final isSelected = _selectedAssets.contains(asset);
-
-                      Widget child;
-                      if (asset.type == AssetType.audio) {
-                        child = _buildAudioItem(asset, colors);
-                      } else {
-                        child =
-                            AssetThumbnailItem(asset: asset, colors: colors);
-                      }
-
-                      // ANIMATION: Wrap each grid item in an animation for a smooth entrance.
-                      return AnimatedGridItem(
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              if (isSelected) {
-                                _selectedAssets.remove(asset);
-                              } else {
-                                _selectedAssets.add(asset);
-                              }
-                            });
-                          },
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8.r),
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                child,
-                                // ANIMATION: Animate the selection overlay for a smoother feel.
-                                AnimatedOpacity(
-                                  duration: const Duration(milliseconds: 200),
-                                  opacity: isSelected ? 1.0 : 0.0,
-                                  curve: Curves.easeOut,
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      color: overlayColor,
-                                      border: Border.all(
-                                        color: Theme.of(context).primaryColor,
-                                        width: 1.5,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8.r),
-                                    ),
-                                    child: Icon(
-                                      Icons.check_circle,
-                                      color: onOverlayColor,
-                                      size: 24.sp,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                    childCount: _groupedAssets[date]!.length,
-                  ),
-                ),
-              ),
-            ],
-          ],
         ),
       );
-    } else {
-      return _buildPermissionDenied(colors);
+
+      slivers.add(
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(4.w, 0, 4.w, 8.h),
+          sliver: SliverGrid(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 4,
+              mainAxisSpacing: 4,
+            ),
+            delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                final assetsForDate = _groupedAssets[date];
+                if (assetsForDate == null || index >= assetsForDate.length) {
+                  return const SizedBox.shrink();
+                }
+
+                final asset = assetsForDate[index];
+                final isSelected = _selectedAssets.contains(asset);
+
+                Widget child;
+                if (asset.type == AssetType.audio) {
+                  child = _buildAudioItem(asset, colors);
+                } else {
+                  child = AssetThumbnailItem(asset: asset, colors: colors);
+                }
+
+                return AnimatedGridItem(
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        if (isSelected) {
+                          _selectedAssets.remove(asset);
+                        } else {
+                          _selectedAssets.add(asset);
+                        }
+                      });
+                    },
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8.r),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          child,
+                          AnimatedOpacity(
+                            duration: const Duration(milliseconds: 200),
+                            opacity: isSelected ? 1.0 : 0.0,
+                            curve: Curves.easeOut,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: overlayColor,
+                                border: Border.all(
+                                  color: Theme.of(context).primaryColor,
+                                  width: 1.5,
+                                ),
+                                borderRadius: BorderRadius.circular(8.r),
+                              ),
+                              child: Icon(
+                                Icons.check_circle,
+                                color: onOverlayColor,
+                                size: 24.sp,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+              childCount: _groupedAssets[date]?.length ?? 0,
+            ),
+          ),
+        ),
+      );
     }
+    return slivers;
   }
 
   Widget _buildAudioItem(AssetEntity asset, AppThemeColors colors) {
@@ -594,35 +1028,33 @@ class _WriteJournalToolbarContentState
   }
 
   Widget _buildPermissionDenied(AppThemeColors colors) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            AppConstants.permissionRequired.replaceFirst(
-                '%s', _getTabName(_selectedSegment).toLowerCase()),
-            textAlign: TextAlign.center,
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          AppConstants.permissionRequired.replaceFirst(
+              '%s', _getTabName(_selectedSegment).toLowerCase()),
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: colors.grey10,
+            decoration: TextDecoration.none,
+            fontFamily: AppConstants.font,
+          ),
+        ),
+        SizedBox(height: 8.h),
+        ElevatedButton(
+          onPressed: () {
+            unawaited(openAppSettings());
+          },
+          child: const Text(
+            AppConstants.openSettings,
             style: TextStyle(
-              color: colors.grey10,
               decoration: TextDecoration.none,
               fontFamily: AppConstants.font,
             ),
           ),
-          SizedBox(height: 8.h),
-          ElevatedButton(
-            onPressed: () {
-              unawaited(openAppSettings());
-            },
-            child: const Text(
-              AppConstants.openSettings,
-              style: TextStyle(
-                decoration: TextDecoration.none,
-                fontFamily: AppConstants.font,
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -633,14 +1065,15 @@ class _WriteJournalToolbarContentState
       case 1:
         return AppConstants.videos;
       case 2:
-        return AppConstants.audios;
+        return AppConstants.audio;
       default:
         return '';
     }
   }
 }
 
-class AssetThumbnailItem extends StatefulWidget {
+// DEFINITIVE FIX FOR GLITCHY LOADING: Replaced Stateful setup with optimized native AssetEntityImageProvider.
+class AssetThumbnailItem extends StatelessWidget {
   const AssetThumbnailItem({
     super.key,
     required this.asset,
@@ -651,67 +1084,27 @@ class AssetThumbnailItem extends StatefulWidget {
   final AppThemeColors colors;
 
   @override
-  State<AssetThumbnailItem> createState() => _AssetThumbnailItemState();
-}
-
-class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
-  Uint8List? _thumbnailData;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_loadThumbnail());
-  }
-
-  @override
-  void didUpdateWidget(covariant AssetThumbnailItem oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.asset.id != oldWidget.asset.id) {
-      // If the asset entity itself changes, reload the image data.
-      setState(() {
-        _thumbnailData = null;
-      });
-      unawaited(_loadThumbnail());
-    }
-  }
-
-  Future<void> _loadThumbnail() async {
-    if (!mounted) return;
-    final data = await widget.asset.thumbnailDataWithSize(
-      const ThumbnailSize(250, 250),
-      quality: 90,
-    );
-    if (mounted) {
-      setState(() {
-        _thumbnailData = data;
-      });
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    // DEFINITIVE FIX: Build the Image widget with BoxFit.cover and ensure it expands.
-    final imageWidget = _thumbnailData != null
-        ? Image.memory(
-            _thumbnailData!,
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
-            // These ensure the image widget itself fills the cell before BoxFit.cover is applied.
-            width: double.infinity,
-            height: double.infinity,
-          )
-        : null;
+    final imageWidget = Image(
+      image: AssetEntityImageProvider(
+        asset,
+        isOriginal: false,
+        thumbnailSize: const ThumbnailSize.square(250),
+        thumbnailFormat: ThumbnailFormat.jpeg,
+      ),
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (context, error, stackTrace) =>
+          Container(color: colors.grey3, child: Icon(Icons.error, color: colors.grey1)),
+    );
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      child: imageWidget == null
-          ? Container(key: const ValueKey('loader'), color: widget.colors.grey3)
-          : RepaintBoundary(
-              key: ValueKey(widget.asset.id),
-              child: widget.asset.type == AssetType.video
-                  ? _buildVideoOverlay(context, widget.asset, imageWidget)
-                  : imageWidget,
-            ),
+    return RepaintBoundary(
+      key: ValueKey(asset.id),
+      child: asset.type == AssetType.video
+          ? _buildVideoOverlay(context, asset, imageWidget)
+          : imageWidget,
     );
   }
 
@@ -722,13 +1115,12 @@ class _AssetThumbnailItemState extends State<AssetThumbnailItem> {
     return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
-  Widget _buildVideoOverlay(
-      BuildContext context, AssetEntity asset, Widget thumbnail) {
+  Widget _buildVideoOverlay(BuildContext context, AssetEntity asset, Widget thumbnail) {
     final isGif = asset.title?.toLowerCase().endsWith('.gif') ?? false;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final overlayColor =
-        (isDark ? widget.colors.grey7 : widget.colors.grey10).withOpacity(0.7);
-    final onOverlayColor = isDark ? widget.colors.grey10 : widget.colors.grey7;
+    (isDark ? colors.grey7 : colors.grey10).withOpacity(0.7);
+    final onOverlayColor = isDark ? colors.grey10 : colors.grey7;
 
     return Stack(
       fit: StackFit.expand,
@@ -796,10 +1188,10 @@ class AudioRecorderView extends StatefulWidget {
   final Function(String path, Duration duration) onRecordingComplete;
 
   @override
-  State<AudioRecorderView> createState() => _AudioRecorderViewState();
+  State<AudioRecorderView> createState() => AudioRecorderViewState();
 }
 
-class _AudioRecorderViewState extends State<AudioRecorderView>
+class AudioRecorderViewState extends State<AudioRecorderView>
     with TickerProviderStateMixin {
   final AudioRecorder _audioRecorder = AudioRecorder();
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -809,18 +1201,31 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
   bool _isPlayingPreview = false;
   String? _recordingPath;
   Duration _recordingDuration = Duration.zero;
+  Duration _playbackPosition = Duration.zero; // New variable to track playback time
   Timer? _timer;
   StreamSubscription? _playerStateSubscription;
+  StreamSubscription? _positionSubscription; // New subscription for audio player position
   late final AnimationController _animationController;
+
+  bool get hasUnsavedRecording => _isRecording || _isPaused || (_isStopped && _recordingPath != null);
 
   @override
   void initState() {
     super.initState();
     _playerStateSubscription =
         _audioPlayer.onPlayerStateChanged.listen((state) {
-      if (mounted && state == PlayerState.completed) {
+          if (mounted && state == PlayerState.completed) {
+            setState(() {
+              _isPlayingPreview = false;
+              _playbackPosition = Duration.zero; // Reset to 0 when playback ends
+            });
+          }
+        });
+
+    _positionSubscription = _audioPlayer.onPositionChanged.listen((position) {
+      if (mounted) {
         setState(() {
-          _isPlayingPreview = false;
+          _playbackPosition = position;
         });
       }
     });
@@ -837,6 +1242,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
     _audioRecorder.dispose();
     _audioPlayer.dispose();
     _playerStateSubscription?.cancel();
+    _positionSubscription?.cancel();
     _animationController.dispose();
     super.dispose();
   }
@@ -878,9 +1284,13 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
       // Handle permission denial
       return;
     }
+
     final dir = await getApplicationDocumentsDirectory();
-    final path =
-        '${dir.path}/OpenJot_recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
+    final mediaDir = Directory('${dir.path}/media');
+    if (!await mediaDir.exists()) {
+      await mediaDir.create(recursive: true);
+    }
+    final path = '${mediaDir.path}/OpenJot_recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
 
     await _audioRecorder.start(const RecordConfig(), path: path);
     setState(() {
@@ -888,6 +1298,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
       _isPaused = false;
       _isStopped = false;
       _recordingDuration = Duration.zero;
+      _playbackPosition = Duration.zero;
     });
     unawaited(_animationController.repeat());
     _startTimer();
@@ -920,6 +1331,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
       _isPaused = false;
       _isStopped = true;
       _recordingPath = path;
+      _playbackPosition = Duration.zero;
     });
   }
 
@@ -953,46 +1365,52 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
     }
   }
 
-  void _discardRecording() {
-    // Show a confirmation dialog before discarding
-    unawaited(showCupertinoDialog<void>(
-      context: context,
-      builder: (BuildContext dialogContext) => CupertinoAlertDialog(
-        title: const Text(AppConstants.deleteRecordingTitle),
-        content: const Text(AppConstants.deleteRecordingMessage),
-        actions: <CupertinoDialogAction>[
-          CupertinoDialogAction(
-            child: const Text(AppConstants.cancel),
-            onPressed: () {
-              Navigator.pop(dialogContext);
-            },
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            child: const Text(AppConstants.discard),
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              _timer?.cancel();
-              _animationController.reset();
-              if (_isRecording) {
-                unawaited(_audioRecorder.stop());
-              }
-              if (_isPlayingPreview) {
-                unawaited(_audioPlayer.stop());
-              }
-              // Delete the file if it exists
-              if (_recordingPath != null) {
-                final file = File(_recordingPath!);
-                if (file.existsSync()) {
-                  file.delete();
-                }
-              }
-              _resetStateForNewRecording();
-            },
-          ),
-        ],
-      ),
-    ));
+  void discardRecording({bool showDialog = true}) {
+    if (showDialog) {
+      unawaited(showCupertinoDialog<void>(
+        context: context,
+        builder: (BuildContext dialogContext) => CupertinoAlertDialog(
+          title: const Text(AppConstants.deleteRecordingTitle),
+          content: const Text(AppConstants.deleteRecordingMessage),
+          actions: <CupertinoDialogAction>[
+            CupertinoDialogAction(
+              child: const Text(AppConstants.cancel),
+              onPressed: () {
+                Navigator.pop(dialogContext);
+              },
+            ),
+            CupertinoDialogAction(
+              isDestructiveAction: true,
+              child: const Text(AppConstants.discard),
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                _performDiscard();
+              },
+            ),
+          ],
+        ),
+      ));
+    } else {
+      _performDiscard();
+    }
+  }
+
+  void _performDiscard() {
+    _timer?.cancel();
+    _animationController.reset();
+    if (_isRecording) {
+      unawaited(_audioRecorder.stop());
+    }
+    if (_isPlayingPreview) {
+      unawaited(_audioPlayer.stop());
+    }
+    if (_recordingPath != null) {
+      final file = File(_recordingPath!);
+      if (file.existsSync()) {
+        file.delete();
+      }
+    }
+    _resetStateForNewRecording();
   }
 
   void _resetStateForNewRecording() {
@@ -1004,6 +1422,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
       _isPlayingPreview = false;
       _recordingPath = null;
       _recordingDuration = Duration.zero;
+      _playbackPosition = Duration.zero;
     });
   }
 
@@ -1025,18 +1444,57 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
               decoration: TextDecoration.none,
               fontSize: 16.sp,
             ),
+          )
+        else if (_isRecording && !_isPaused)
+          Text(
+            AppConstants.recording,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: colors.error,
+              fontFamily: AppConstants.font,
+              fontWeight: FontWeight.w600,
+              decoration: TextDecoration.none,
+              fontSize: 16.sp,
+            ),
+          )
+        else if (_isPaused)
+            Text(
+              AppConstants.paused,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: colors.grey1,
+                fontFamily: AppConstants.font,
+                fontWeight: FontWeight.w600,
+                decoration: TextDecoration.none,
+                fontSize: 16.sp,
+              ),
+            ),
+
+        if (_isStopped)
+          Text(
+            '${_formatDuration(_playbackPosition)} / ${_formatDuration(_recordingDuration)}',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: AppConstants.font,
+              fontSize: 40.sp, // Slightly smaller to accommodate dual durations
+              color: colors.grey10,
+              fontWeight: FontWeight.w600,
+              decoration: TextDecoration.none,
+            ),
+          )
+        else
+          Text(
+            _formatDuration(_recordingDuration),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: AppConstants.font,
+              fontSize: 48.sp,
+              color: colors.grey10,
+              fontWeight: FontWeight.w600,
+              decoration: TextDecoration.none,
+            ),
           ),
-        Text(
-          _formatDuration(_recordingDuration),
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontFamily: AppConstants.font,
-            fontSize: 48.sp,
-            color: colors.grey10,
-            fontWeight: FontWeight.w600,
-            decoration: TextDecoration.none,
-          ),
-        ),
+
         if (!_isStopped) SizedBox(height: 32.h),
         if (!_isStopped) _buildRecordingControls(colors),
         if (_isStopped) SizedBox(height: 16.h),
@@ -1107,20 +1565,31 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
               flex: 3,
               child: _isRecording
                   ? Align(
-                      alignment: Alignment.center,
-                      child: IconButton(
-                        icon: Icon(Icons.stop_circle_rounded,
-                            color: colors.grey10, size: 40.sp),
-                        onPressed: _stopRecording,
-                      ),
-                    )
+                alignment: Alignment.center,
+                child: TextButton(
+                  onPressed: _stopRecording,
+                  child: Text(
+                    AppConstants.stop,
+                    style: TextStyle(
+                      color: colors.grey10,
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: AppConstants.font,
+                    ),
+                  ),
+                ),
+              )
                   : const SizedBox(),
             ),
           ],
         ),
         SizedBox(height: 16.h),
         Text(
-          AppConstants.tapAndHold,
+          _isPaused
+              ? AppConstants.tapOrHoldToResume
+              : (isActivelyRecording
+              ? AppConstants.tapOrReleaseToPause
+              : AppConstants.tapAndHold),
           textAlign: TextAlign.center,
           style: TextStyle(
             color: colors.grey1,
@@ -1180,7 +1649,7 @@ class _AudioRecorderViewState extends State<AudioRecorderView>
                     color: colors.grey10,
                     size: 24.sp,
                   ),
-                  onPressed: _discardRecording,
+                  onPressed: () => discardRecording(showDialog: true),
                 ),
               ),
             ),
@@ -1210,11 +1679,13 @@ class _MoodSelectorView extends StatefulWidget {
     required this.scrollController,
     this.onMoodChanged,
     this.initialMoodIndex,
+    this.isPitchBlack = false,
   });
 
   final ScrollController scrollController;
   final Function(int? moodIndex)? onMoodChanged;
   final int? initialMoodIndex;
+  final bool isPitchBlack;
 
   @override
   State<_MoodSelectorView> createState() => _MoodSelectorViewState();
@@ -1222,21 +1693,25 @@ class _MoodSelectorView extends StatefulWidget {
 
 class _MoodSelectorViewState extends State<_MoodSelectorView>
     with TickerProviderStateMixin {
-  late double _currentSliderValue;
+  late int _currentMoodIndex;
+  late double _lastSliderValue;
   late final AnimationController _rotationController;
 
   static const List<Map<String, String>> _moods = [
     {'svg': 'assets/1.svg', 'label': AppConstants.veryUnpleasant},
-    {'svg': 'assets/2.svg', 'label': AppConstants.unpleasant},
-    {'svg': 'assets/3.svg', 'label': AppConstants.neutral},
-    {'svg': 'assets/4.svg', 'label': AppConstants.pleasant},
-    {'svg': 'assets/5.svg', 'label': AppConstants.veryPleasant},
+    {'svg': 'assets/2.svg', 'label': AppConstants.slightlyUnpleasant},
+    {'svg': 'assets/3.svg', 'label': AppConstants.unpleasant},
+    {'svg': 'assets/4.svg', 'label': AppConstants.neutral},
+    {'svg': 'assets/5.svg', 'label': AppConstants.pleasant},
+    {'svg': 'assets/6.svg', 'label': AppConstants.slightlyPleasant},
+    {'svg': 'assets/7.svg', 'label': AppConstants.veryPleasant},
   ];
 
   @override
   void initState() {
     super.initState();
-    _currentSliderValue = (widget.initialMoodIndex ?? 2).toDouble();
+    _currentMoodIndex = widget.initialMoodIndex ?? 3;
+    _lastSliderValue = _currentMoodIndex.toDouble();
 
     _rotationController = AnimationController(
       duration: const Duration(milliseconds: 800),
@@ -1258,95 +1733,166 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
   @override
   Widget build(BuildContext context) {
     final colors = AppTheme.colorsOf(context);
-    final moodIndex = _currentSliderValue.round().clamp(0, _moods.length - 1);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final moodIndex = _currentMoodIndex.clamp(0, _moods.length - 1);
     final selectedMood = _moods[moodIndex];
 
     final backgroundColors = [
-      colors.aRed[2],
-      colors.aOrange[2],
-      colors.aYellow[2],
-      colors.aGreen[2],
+      colors.aPurple[2],
+      colors.aPink[2],
+      colors.aBlue[2],
       colors.aTeal[2],
+      colors.aMint[2],
+      colors.aGreen[2],
+      colors.aYellow[2],
+    ];
+
+    final normalColors = [
+      colors.aPurple[1],
+      colors.aPink[1],
+      colors.aBlue[1],
+      colors.aTeal[1],
+      colors.aMint[1],
+      colors.aGreen[1],
+      colors.aYellow[1],
     ];
 
     final sliderAndTextColors = [
-      colors.aRed[0],
-      colors.aOrange[0],
-      colors.aYellow[0],
-      colors.aGreen[0],
+      colors.aPurple[0],
+      colors.aPink[0],
+      colors.aBlue[0],
       colors.aTeal[0],
+      colors.aMint[0],
+      colors.aGreen[0],
+      colors.aYellow[0],
     ];
 
-    final currentBackgroundColor = backgroundColors[moodIndex];
     final currentSliderAndTextColor = sliderAndTextColors[moodIndex];
+
+    // Create the gradient colors: Lighter tone in the center, darker base on the outside.
+    final themeBgColor = backgroundColors[moodIndex];
+    final normalColor = normalColors[moodIndex];
+
+    final currentOuterColor = isDark
+        ? Color.lerp(normalColor, themeBgColor, 0.5)! // Less dark, uses normal shade mixed with dark
+        : Color.lerp(themeBgColor, normalColor, 0.12)!; // Add a touch of the base color to make it visible in light mode
+
+    final brightColor = Color.lerp(currentSliderAndTextColor, Colors.white, 0.4)!;
+    final currentCenterColor = isDark
+        ? Color.lerp(currentOuterColor, brightColor, 0.7)! // Even lighter center glow in dark mode
+        : Colors.white;
+
+    final currentInactiveColor = isDark
+        ? currentSliderAndTextColor.withOpacity(0.12) // Keep the tint distinct from the active part
+        : currentSliderAndTextColor.withOpacity(0.15);
+
+    final decoration = widget.isPitchBlack
+        ? BoxDecoration(color: isDark ? Colors.black : Colors.white)
+        : BoxDecoration(
+      gradient: RadialGradient(
+        colors: [
+          currentCenterColor,
+          currentOuterColor,
+        ],
+        radius: 1.0,
+      ),
+    );
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      color: currentBackgroundColor,
+      decoration: decoration,
       child: Stack(
         children: [
-          ListView(
+          CustomScrollView(
             controller: widget.scrollController,
-            padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 32.h),
-            children: [
-              const SizedBox(height: 0), // Space for the clear button
-              Center(
-                child: AnimatedBuilder(
-                  animation: _rotationController,
-                  builder: (context, child) {
-                    final bounceAnimation =
-                        Curves.easeOutBack.transform(_rotationController.value);
-                    return Transform.rotate(
-                      angle: bounceAnimation * 2 * 3.14159,
-                      child: SvgPicture.asset(
-                        selectedMood['svg']!,
-                        width: 80.w,
-                        height: 80.h,
+            slivers: [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 32.h),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Center(
+                        child: SizedBox(
+                          height: 32.h,
+                          child: Text(
+                            selectedMood['label']!,
+                            style: TextStyle(
+                              color: currentSliderAndTextColor,
+                              fontSize: 20.sp,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: AppConstants.font,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                        ),
                       ),
-                    );
-                  },
-                ),
-              ),
-              SizedBox(height: 24.h),
-              Center(
-                child: SizedBox(
-                  height: 32.h,
-                  child: Text(
-                    selectedMood['label']!,
-                    style: TextStyle(
-                      color: currentSliderAndTextColor,
-                      fontSize: 20.sp,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: AppConstants.font,
-                      decoration: TextDecoration.none,
-                    ),
+                      SizedBox(height: 24.h),
+                      Center(
+                        // Optimized Animation - The SVG is passed as a cached child inside an IndexedStack,
+                        // stopping it from being re-rendered and causing jank during rotation!
+                        child: AnimatedBuilder(
+                          animation: _rotationController,
+                          child: RepaintBoundary(
+                            child: IndexedStack(
+                              index: moodIndex,
+                              alignment: Alignment.center,
+                              children: _moods.map((mood) => SvgPicture.asset(
+                                mood['svg']!,
+                                width: 160.w,
+                                height: 160.h,
+                              )).toList(),
+                            ),
+                          ),
+                          builder: (context, child) {
+                            final bounceAnimation =
+                            Curves.easeOutBack.transform(_rotationController.value);
+                            return Transform.rotate(
+                              angle: (bounceAnimation * 2 * 3.14159),
+                              child: child,
+                            );
+                          },
+                        ),
+                      ),
+                      SizedBox(height: 8.h), // Reduced from 16.h to balance the newly expanded slider touch target container below
+                      SizedBox(
+                        height: 72.h, // EXPANDED HEIGHT: Solves clipping on the top half so entire slider track handles touches perfectly
+                        child: CustomSliderWithTooltip(
+                          min: 0,
+                          max: 6,
+                          initialValue: _lastSliderValue,
+                          showValueTooltip: false,
+                          minLabel: AppConstants.veryUnpleasant,
+                          maxLabel: AppConstants.veryPleasant,
+                          labelTextStyle: TextStyle(
+                            color: currentSliderAndTextColor.withOpacity(isDark ? 0.7 : 0.9),
+                            fontSize: 11.sp,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: AppConstants.font,
+                          ),
+                          activeColor: currentSliderAndTextColor,
+                          unfocusedActiveColor:
+                          currentSliderAndTextColor.withOpacity(0.7),
+                          inactiveColor: currentInactiveColor,
+                          focusedTrackHeight: 20.h,
+                          unfocusedTrackHeight: 16.h,
+                          onChanged: (value) {
+                            _lastSliderValue = value; // Silent update prevents rebuilds on every pixel drag
+                            final newIndex = value.round();
+                            // ONLY trigger heavy state changes when the actual rounded mood index changes
+                            if (newIndex != _currentMoodIndex) {
+                              widget.onMoodChanged?.call(newIndex);
+                              _triggerRotationAnimation();
+                              setState(() {
+                                _currentMoodIndex = newIndex;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-              SizedBox(height: 16.h),
-              SizedBox(
-                height: 40.h,
-                child: CustomSliderWithTooltip(
-                  min: 0,
-                  max: 4,
-                  initialValue: _currentSliderValue,
-                  showValueTooltip: false,
-                  activeColor: currentSliderAndTextColor,
-                  unfocusedActiveColor:
-                      currentSliderAndTextColor.withOpacity(0.7),
-                  inactiveColor: colors.grey3,
-                  focusedTrackHeight: 20.h,
-                  unfocusedTrackHeight: 16.h,
-                  onChanged: (value) {
-                    final newIndex = value.round();
-                    if (newIndex != _currentSliderValue.round()) {
-                      widget.onMoodChanged?.call(newIndex);
-                      _triggerRotationAnimation();
-                    }
-                    setState(() {
-                      _currentSliderValue = value;
-                    });
-                  },
                 ),
               ),
             ],

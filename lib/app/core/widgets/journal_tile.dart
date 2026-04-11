@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:image/image.dart' as img;
+import 'package:image/image.dart' as img; // Left safely for compilation compatibility
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -18,6 +19,7 @@ import 'package:open_jot/app/utils/pdf_generator.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 
 import '../constants.dart';
 import '../models/journal_entry.dart';
@@ -32,6 +34,7 @@ class JournalTile extends StatefulWidget {
   final Color? footerTextColor;
   final Color? reflectionBackground;
   final Color? bookmarkColor;
+  final bool showMenuIcon;
 
   const JournalTile({
     super.key,
@@ -43,6 +46,7 @@ class JournalTile extends StatefulWidget {
     this.footerTextColor,
     this.dividerColor,
     this.popupDividerColor,
+    this.showMenuIcon = true,
   });
 
   @override
@@ -59,10 +63,12 @@ class _JournalTileState extends State<JournalTile> {
 
   static const List<Map<String, String>> _moods = [
     {'svg': 'assets/1.svg', 'label': AppConstants.veryUnpleasant},
-    {'svg': 'assets/2.svg', 'label': AppConstants.unpleasant},
-    {'svg': 'assets/3.svg', 'label': AppConstants.neutral},
-    {'svg': 'assets/4.svg', 'label': AppConstants.pleasant},
-    {'svg': 'assets/5.svg', 'label': AppConstants.veryPleasant},
+    {'svg': 'assets/2.svg', 'label': AppConstants.slightlyUnpleasant},
+    {'svg': 'assets/3.svg', 'label': AppConstants.unpleasant},
+    {'svg': 'assets/4.svg', 'label': AppConstants.neutral},
+    {'svg': 'assets/5.svg', 'label': AppConstants.pleasant},
+    {'svg': 'assets/6.svg', 'label': AppConstants.slightlyPleasant},
+    {'svg': 'assets/7.svg', 'label': AppConstants.veryPleasant},
   ];
 
   @override
@@ -136,11 +142,8 @@ class _JournalTileState extends State<JournalTile> {
         final originalFile = File(recording.path);
         if (await originalFile.exists()) {
           final fileName = p.basename(recording.path);
-          // Create a new path in the temporary directory
           final newPath = p.join(tempDir.path, fileName);
-          // Copy the file to the new path
           final newFile = await originalFile.copy(newPath);
-          // Add the path of the copied file to the list
           allFilePaths.add(newFile.path);
         }
       } catch (e) {
@@ -538,75 +541,101 @@ class _JournalTileState extends State<JournalTile> {
   Widget _buildFooter(AppThemeColors appThemeColors, BuildContext context) {
     return Padding(
         padding: EdgeInsets.fromLTRB(10.w, 4.h, 10.w, 8.h),
-        child: IntrinsicHeight(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    DateFormat('MMM d  •  h:mm a')
-                        .format(widget.entry.createdAt),
-                    style: TextStyle(
-                      fontFamily: AppConstants.font,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14.sp,
-                      color: widget.footerTextColor ?? appThemeColors.grey3,
-                      letterSpacing: -0.2,
-                    ),
+        // [FIXED] Removed highly expensive `IntrinsicHeight` which causes heavy speculative layout thrashing per tile.
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Row(
+              children: [
+                Text(
+                  DateFormat('MMM d  •  h:mm a')
+                      .format(widget.entry.createdAt),
+                  style: TextStyle(
+                    fontFamily: AppConstants.font,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14.sp,
+                    color: widget.footerTextColor ?? appThemeColors.grey3,
+                    letterSpacing: -0.2,
                   ),
-                  VerticalDivider(
-                    color: widget.dividerColor ?? appThemeColors.grey5,
-                    thickness: 1.w,
-                    width: 16.w,
-                  ),
-                  Row(
-                    children: [
-                      if (widget.entry.isReflection)
-                        Container(
-                          margin: EdgeInsets.only(
-                              right: widget.entry.moodIndex != null ? 8.w : 0),
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 8.w, vertical: 2.h),
-                          decoration: BoxDecoration(
-                            color: widget.reflectionBackground ??
-                                appThemeColors.grey5,
-                            borderRadius: BorderRadius.circular(24.r),
-                          ),
-                          child: Text(
-                            AppConstants.reflection,
-                            style: TextStyle(
-                              color: appThemeColors.grey10,
-                              fontSize: 12.sp,
-                              fontFamily: AppConstants.font,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
+                ),
+                // [FIXED] Replaced `VerticalDivider` (which requires IntrinsicHeight) with a fixed Container.
+                Container(
+                  width: 1.w,
+                  height: 16.h,
+                  color: widget.dividerColor ?? appThemeColors.grey5,
+                  margin: EdgeInsets.symmetric(horizontal: 8.w),
+                ),
+                Row(
+                  children: [
+                    if (widget.entry.isReflection)
+                      Container(
+                        margin: EdgeInsets.only(
+                            right: widget.entry.moodIndex != null || widget.entry.isDraft ? 8.w : 0),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 8.w, vertical: 2.h),
+                        decoration: BoxDecoration(
+                          color: widget.reflectionBackground ??
+                              appThemeColors.grey5,
+                          borderRadius: BorderRadius.circular(24.r),
                         ),
-                      if (widget.entry.moodIndex != null)
-                        SvgPicture.asset(
-                          _moods[widget.entry.moodIndex!]['svg']!,
-                          width: 22.w,
-                          height: 22.h,
-                        ),
-                      if (widget.entry.isBookmarked)
-                        Padding(
-                          padding: EdgeInsets.only(
-                              left: widget.entry.moodIndex != null ||
-                                  widget.entry.isReflection
-                                  ? 8.w
-                                  : 0),
-                          child: Icon(
-                            Icons.bookmark_rounded,
-                            color: appThemeColors.grey2,
-                            size: 22.w,
+                        child: Text(
+                          AppConstants.reflection,
+                          style: TextStyle(
+                            color: appThemeColors.grey10,
+                            fontSize: 12.sp,
+                            fontFamily: AppConstants.font,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: -0.2,
                           ),
                         ),
-                    ],
-                  ),
-                ],
-              ),
+                      ),
+                    if (widget.entry.isDraft)
+                      Container(
+                        margin: EdgeInsets.only(
+                            right: widget.entry.moodIndex != null ? 8.w : 0),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 8.w, vertical: 2.h),
+                        decoration: BoxDecoration(
+                          color: widget.reflectionBackground ??
+                              appThemeColors.grey5,
+                          borderRadius: BorderRadius.circular(24.r),
+                        ),
+                        child: Text(
+                          AppConstants.draft,
+                          style: TextStyle(
+                            color: appThemeColors.grey10,
+                            fontSize: 12.sp,
+                            fontFamily: AppConstants.font,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ),
+                    if (widget.entry.moodIndex != null)
+                      SvgPicture.asset(
+                        _moods[widget.entry.moodIndex!]['svg']!,
+                        width: 22.w,
+                        height: 22.h,
+                      ),
+                    if (widget.entry.isBookmarked)
+                      Padding(
+                        padding: EdgeInsets.only(
+                            left: widget.entry.moodIndex != null ||
+                                widget.entry.isReflection || widget.entry.isDraft
+                                ? 8.w
+                                : 0),
+                        child: Icon(
+                          Icons.bookmark_rounded,
+                          color: appThemeColors.grey2,
+                          size: 22.w,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+            if (widget.showMenuIcon)
               GestureDetector(
                 key: _menuKey,
                 onTap: () {
@@ -759,12 +788,14 @@ class _JournalTileState extends State<JournalTile> {
                   size: 28.w,
                 ),
               ),
-            ],
-          ),
+          ],
         ));
   }
 }
 
+// [FIXED] Vastly Optimized Media Thumbnail:
+// 1. Completely bypassed async platform calls and `setState` blockages for Gallery Assets using native `AssetEntityImageProvider`.
+// 2. Used highly performant native rendering (`cacheWidth: 300`) to avoid jitter during CustomScrollView rendering.
 class MediaThumbnail extends StatefulWidget {
   final dynamic media; // Can be AssetEntity or CapturedPhoto
 
@@ -775,13 +806,15 @@ class MediaThumbnail extends StatefulWidget {
 }
 
 class _MediaThumbnailState extends State<MediaThumbnail> {
-  Uint8List? _thumbnailData;
+  Uint8List? _videoThumbnailData;
   bool _isVideo = false;
+  String? _imagePath;
+  bool _isAssetEntity = false;
 
   @override
   void initState() {
     super.initState();
-    _loadThumbnail();
+    _initMedia();
   }
 
   @override
@@ -794,8 +827,9 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
     widget.media is AssetEntity ? widget.media.id : widget.media.file.path;
 
     if (oldId != newId) {
-      _thumbnailData = null; // Invalidate old data
-      _loadThumbnail();
+      _videoThumbnailData = null; // Invalidate old data
+      _imagePath = null;
+      _initMedia();
     }
   }
 
@@ -805,54 +839,62 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
     return p.join(tempDir.path, '$fileName.thumb.jpg');
   }
 
-  Future<void> _loadThumbnail() async {
-    if (!mounted) return;
+  void _initMedia() {
+    _isAssetEntity = widget.media is AssetEntity;
 
-    Uint8List? data;
-    const thumbnailSize = ThumbnailSize(500, 500);
-    const quality = 95;
-
-    if (widget.media is AssetEntity) {
+    if (_isAssetEntity) {
       final asset = widget.media as AssetEntity;
       _isVideo = asset.type == AssetType.video;
-      data =
-      await asset.thumbnailDataWithSize(thumbnailSize, quality: quality);
+      // AssetEntityImageProvider handles native memory-efficient thumbnail loading automatically! Zero setState needed!
     } else if (widget.media is CapturedPhoto) {
       final photo = widget.media as CapturedPhoto;
       final path = photo.file.path;
       _isVideo = _isVideoFile(path);
 
-      final thumbPath = await _getThumbnailPath(path);
-      final thumbFile = File(thumbPath);
-
-      if (await thumbFile.exists()) {
-        data = await thumbFile.readAsBytes();
+      if (_isVideo) {
+        _loadVideoThumbnail(path);
       } else {
-        if (_isVideo) {
-          data = await VideoThumbnail.thumbnailData(
-            video: path,
-            maxWidth: thumbnailSize.width,
-            quality: quality,
-          );
-        } else {
-          final originalFile = File(path);
-          final imageBytes = await originalFile.readAsBytes();
-          final image = img.decodeImage(imageBytes);
-          if (image != null) {
-            final thumbnail = img.copyResize(image, width: 500);
-            data = Uint8List.fromList(img.encodeJpg(thumbnail, quality: 85));
-          }
-        }
-        if (data != null) {
-          await thumbFile.writeAsBytes(data);
-        }
+        // Skips async block entirely for local images captured from within the app
+        _imagePath = path;
       }
     }
+  }
 
-    if (mounted) {
-      setState(() {
-        _thumbnailData = data;
-      });
+  Future<void> _loadVideoThumbnail(String path) async {
+    if (!mounted) return;
+
+    const thumbnailSize = ThumbnailSize(300, 300);
+    const quality = 75;
+    Uint8List? data;
+
+    final thumbPath = await _getThumbnailPath(path);
+    final thumbFile = File(thumbPath);
+
+    if (await thumbFile.exists()) {
+      data = await thumbFile.readAsBytes();
+      if (mounted) {
+        setState(() {
+          _videoThumbnailData = data;
+        });
+      }
+    } else {
+      try {
+        data = await VideoThumbnail.thumbnailData(
+          video: path,
+          maxWidth: thumbnailSize.width,
+          quality: quality,
+        );
+        if (data != null) {
+          await thumbFile.writeAsBytes(data);
+          if (mounted) {
+            setState(() {
+              _videoThumbnailData = data;
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint("Failed to generate video thumbnail: $e");
+      }
     }
   }
 
@@ -862,20 +904,51 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
         lowercasedPath.endsWith('.mov') ||
         lowercasedPath.endsWith('.avi') ||
         lowercasedPath.endsWith('.wmv') ||
-        lowercasedPath.endsWith('.mkv');
+        lowercasedPath.endsWith('.mkv') ||
+        lowercasedPath.endsWith('.m4v') ||
+        lowercasedPath.endsWith('.webm');
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_thumbnailData != null) {
+    Widget? imageContent;
+
+    if (_isAssetEntity) {
+      imageContent = Image(
+        image: AssetEntityImageProvider(
+          widget.media as AssetEntity,
+          isOriginal: false,
+          thumbnailSize: const ThumbnailSize.square(300),
+          thumbnailFormat: ThumbnailFormat.jpeg,
+        ),
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        errorBuilder: (context, error, stackTrace) => Container(color: AppTheme.colorsOf(context).grey4),
+      );
+    } else {
+      if (_isVideo) {
+        if (_videoThumbnailData != null) {
+          imageContent = Image.memory(
+            _videoThumbnailData!,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+          );
+        }
+      } else if (_imagePath != null) {
+        imageContent = Image.file(
+          File(_imagePath!),
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          cacheWidth: 300, // Forces low-footprint render, preventing layout stutter on main thread
+        );
+      }
+    }
+
+    if (imageContent != null) {
       return Stack(
         fit: StackFit.expand,
         children: [
-          Image.memory(
-            _thumbnailData!,
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
-          ),
+          imageContent,
           if (_isVideo)
             Center(
               child: Icon(
@@ -887,7 +960,7 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
         ],
       );
     }
+
     return Container(color: AppTheme.colorsOf(context).grey4);
   }
 }
-

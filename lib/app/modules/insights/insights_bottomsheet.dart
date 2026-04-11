@@ -34,10 +34,12 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
 
   static const List<Map<String, String>> _moods = [
     {'svg': 'assets/1.svg', 'label': AppConstants.veryUnpleasant},
-    {'svg': 'assets/2.svg', 'label': AppConstants.unpleasant},
-    {'svg': 'assets/3.svg', 'label': AppConstants.neutral},
-    {'svg': 'assets/4.svg', 'label': AppConstants.pleasant},
-    {'svg': 'assets/5.svg', 'label': AppConstants.veryPleasant},
+    {'svg': 'assets/2.svg', 'label': AppConstants.slightlyUnpleasant},
+    {'svg': 'assets/3.svg', 'label': AppConstants.unpleasant},
+    {'svg': 'assets/4.svg', 'label': AppConstants.neutral},
+    {'svg': 'assets/5.svg', 'label': AppConstants.pleasant},
+    {'svg': 'assets/6.svg', 'label': AppConstants.slightlyPleasant},
+    {'svg': 'assets/7.svg', 'label': AppConstants.veryPleasant},
   ];
 
   @override

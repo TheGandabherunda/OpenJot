@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -7,6 +8,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
+import 'package:open_jot/app/modules/bookmarks/bookmarks_view.dart';
+import 'package:open_jot/app/modules/drafts/drafts_view.dart';
 import 'package:open_jot/app/modules/insights/insights_bottomsheet.dart';
 import 'package:open_jot/app/modules/read_journal/read_journal_bottom_sheet.dart';
 import 'package:open_jot/app/modules/search/search_view.dart';
@@ -20,6 +23,7 @@ import '../../core/theme.dart';
 import '../../core/widgets/custom_icon_button.dart';
 import '../../core/widgets/journal_tile.dart';
 import '../reflection/reflection_bottom_sheet.dart';
+import '../../utils/custom_toast.dart';
 import 'home_controller.dart';
 
 class HomeView extends GetView<HomeController> {
@@ -65,10 +69,14 @@ class _HomeScreenStack extends StatefulWidget {
 
 class _HomeScreenStackState extends State<_HomeScreenStack>
     with TickerProviderStateMixin {
+  static final DateFormat _monthYearFormat = DateFormat('MMM, yyyy');
+  static final DateFormat _monthFormat = DateFormat('MMMM');
+
   final _shareService = ShareService();
   double _lastOffset = 0.0;
   static const double _tileHeightEstimate = 100;
   int _topEntryIndex = 0;
+  final ScrollController _scrollController = ScrollController();
 
   late final ValueNotifier<String?> _currentMonthYearNotifier;
   late final ValueNotifier<bool> _showChipNotifier;
@@ -77,13 +85,12 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
   late Animation<double> _opacityAnimation;
   late Animation<double> _scaleAnimation;
   final GlobalKey _menuKey = GlobalKey();
+  final GlobalKey _bodyKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
     _shareService.startListening();
-    // FIX: Defer handling the share action until after the first frame has been built.
-    // This prevents issues where the context is not ready for showing a modal.
     _shareService.onShareReceived = ({
       String? text,
       List<String>? photos,
@@ -141,6 +148,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     _currentMonthYearNotifier.dispose();
     _showChipNotifier.dispose();
     _slideAnimationController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -245,6 +253,21 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
+          value: 'drafts',
+          child: Row(
+            children: [
+              Icon(Icons.edit_document, color: appThemeColors.grey10),
+              SizedBox(width: 8.w),
+              Text(AppConstants.drafts,
+                  style: TextStyle(
+                      color: appThemeColors.grey10,
+                      fontFamily: AppConstants.font,
+                      letterSpacing: -0.2)),
+            ],
+          ),
+        ),
+        PopupMenuDivider(height: 1, color: appThemeColors.grey6),
+        PopupMenuItem(
           value: 'insights',
           child: Row(
             children: [
@@ -292,7 +315,9 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       ],
     ).then((value) {
       if (value == 'bookmarks') {
-        Get.to(() => const SearchView(initialBookmarked: true));
+        Get.to(() => const BookmarksView());
+      } else if (value == 'drafts') {
+        Get.to(() => const DraftsView());
       } else if (value == 'insights') {
         _handleInsights();
       } else if (value == 'reflections') {
@@ -436,6 +461,241 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     );
   }
 
+  Future<void> _scrollToMonthYear(int month, int year) async {
+    final entries = widget.controller.journalEntries;
+
+    int targetIndex = -1;
+    for (int i = 0; i < entries.length; i++) {
+      if (entries[i].createdAt.month == month &&
+          entries[i].createdAt.year == year) {
+        targetIndex = i;
+        break;
+      }
+    }
+
+    if (targetIndex != -1) {
+      ScrollController? innerCtrl;
+      if (_bodyKey.currentContext != null) {
+        innerCtrl = PrimaryScrollController.of(_bodyKey.currentContext!);
+      }
+
+      if (innerCtrl == null || !innerCtrl.hasClients) return;
+
+      double targetOffset = 36.h + (36.sp * 1.2);
+      targetOffset += 16.h;
+
+      for (int i = 0; i < targetIndex; i++) {
+        final entry = entries[i];
+        final prevEntry = i > 0 ? entries[i - 1] : null;
+
+        bool showYearDivider = prevEntry == null || entry.createdAt.year != prevEntry.createdAt.year;
+        bool showMonthDivider = prevEntry == null || entry.createdAt.month != prevEntry.createdAt.month || entry.createdAt.year != prevEntry.createdAt.year;
+
+        if (showYearDivider) {
+          targetOffset += 20.h + (28.sp * 1.2);
+        }
+        if (showMonthDivider) {
+          targetOffset += (showYearDivider ? 0 : 8.h) + 16.h + (18.sp * 1.2);
+        }
+
+        double tileHeight = 46.h;
+
+        final hasMedia = entry.galleryImages.isNotEmpty || entry.cameraPhotos.isNotEmpty;
+        final hasAudio = entry.galleryAudios.isNotEmpty || entry.recordings.isNotEmpty;
+        final plainText = entry.content.toPlainText().trim();
+        final hasText = plainText.isNotEmpty;
+
+        if (hasMedia) {
+          tileHeight += 250.h;
+          if (hasText || hasAudio) tileHeight += 8.h;
+        }
+
+        if (hasAudio) {
+          tileHeight += (entry.galleryAudios.length * 44.h);
+          tileHeight += (entry.recordings.length * 54.h);
+          if (hasText) tileHeight += 8.h;
+        }
+
+        if (hasText) {
+          int lines = (plainText.length / 38).ceil().clamp(1, 4);
+          double textPadding = (hasMedia || hasAudio) ? 10.h : 20.h;
+          tileHeight += textPadding + (lines * 16.sp * 1.2);
+        }
+
+        targetOffset += tileHeight;
+        targetOffset += 32.h;
+      }
+
+      if (targetOffset > innerCtrl.position.maxScrollExtent) {
+        double jumpTarget = targetOffset > 400 ? targetOffset - 400 : targetOffset;
+        innerCtrl.jumpTo(jumpTarget);
+        await Future.delayed(const Duration(milliseconds: 50));
+        if (!mounted || !innerCtrl.hasClients) return;
+      }
+
+      innerCtrl.animateTo(
+        targetOffset,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOutCubic,
+      );
+    } else {
+      CustomToast.showToast(AppConstants.noEntriesForMonth);
+    }
+  }
+
+  void _showMonthYearPicker() {
+    final entries = widget.controller.journalEntries;
+    if (entries.isEmpty) return;
+
+    int initialMonth = DateTime.now().month;
+    int initialYear = DateTime.now().year;
+
+    if (_currentMonthYearNotifier.value != null) {
+      try {
+        final dt =
+        _monthYearFormat.parse(_currentMonthYearNotifier.value!);
+        initialMonth = dt.month;
+        initialYear = dt.year;
+      } catch (_) {}
+    }
+
+    final years = entries.map((e) => e.createdAt.year).toSet().toList();
+    years.sort((a, b) => b.compareTo(a));
+
+    if (!years.contains(initialYear)) {
+      initialYear = years.first;
+    }
+
+    showCupertinoModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final appThemeColors = AppTheme.colorsOf(context);
+        int tempMonth = initialMonth;
+        int tempYear = initialYear;
+
+        return Material(
+          color: Colors.transparent,
+          child: Container(
+            height: 320.h,
+            decoration: BoxDecoration(
+              color: appThemeColors.grey6,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: appThemeColors.grey5,
+                        width: 1.h,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      CupertinoButton(
+                        padding: EdgeInsets.symmetric(horizontal: 16.w),
+                        onPressed: () => Navigator.pop(context),
+                        child: Text(
+                          AppConstants.cancel,
+                          style: TextStyle(
+                            color: appThemeColors.grey2,
+                            fontFamily: AppConstants.font,
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        AppConstants.selectMonthAndYear,
+                        style: TextStyle(
+                          color: appThemeColors.grey10,
+                          fontFamily: AppConstants.font,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 17.sp,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                      CupertinoButton(
+                        padding: EdgeInsets.symmetric(horizontal: 16.w),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _scrollToMonthYear(tempMonth, tempYear);
+                        },
+                        child: Text(
+                          AppConstants.done,
+                          style: TextStyle(
+                            color: appThemeColors.primary,
+                            fontFamily: AppConstants.font,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16.sp,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: CupertinoPicker(
+                          itemExtent: 44.h,
+                          magnification: 1.1,
+                          useMagnifier: true,
+                          scrollController: FixedExtentScrollController(
+                              initialItem: initialMonth - 1),
+                          onSelectedItemChanged: (index) {
+                            tempMonth = index + 1;
+                          },
+                          children: AppConstants.months
+                              .map((m) => Center(
+                              child: Text(m,
+                                  style: TextStyle(
+                                      color: appThemeColors.grey10,
+                                      fontFamily: AppConstants.font,
+                                      fontSize: 19.sp,
+                                      letterSpacing: -0.2))))
+                              .toList(),
+                        ),
+                      ),
+                      Expanded(
+                        child: CupertinoPicker(
+                          itemExtent: 44.h,
+                          magnification: 1.1,
+                          useMagnifier: true,
+                          scrollController: FixedExtentScrollController(
+                              initialItem: years.indexOf(initialYear)),
+                          onSelectedItemChanged: (index) {
+                            tempYear = years[index];
+                          },
+                          children: years
+                              .map((y) => Center(
+                              child: Text(y.toString(),
+                                  style: TextStyle(
+                                      color: appThemeColors.grey10,
+                                      fontFamily: AppConstants.font,
+                                      fontSize: 19.sp,
+                                      letterSpacing: -0.2))))
+                              .toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 20.h),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _onScroll(double offset, int totalEntries, List entries) {
     if (entries.isEmpty) {
       if (_showChipNotifier.value) {
@@ -451,7 +711,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     if (_topEntryIndex != index) {
       _topEntryIndex = index;
       final dt = entries[index].createdAt;
-      _currentMonthYearNotifier.value = DateFormat('MMM, yyyy').format(dt);
+      _currentMonthYearNotifier.value = _monthYearFormat.format(dt);
     }
 
     final showThreshold = (_tileHeightEstimate + 32.h) * 0.8;
@@ -526,6 +786,8 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       children: [
         NotificationListener<ScrollNotification>(
           onNotification: (notification) {
+            if (notification.depth != 1) return false;
+
             if (notification is ScrollUpdateNotification ||
                 notification is ScrollMetricsNotification) {
               final offset = notification.metrics.pixels;
@@ -537,91 +799,100 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
             return false;
           },
           child: NestedScrollView(
+            controller: _scrollController,
             headerSliverBuilder:
                 (BuildContext context, bool innerBoxIsScrolled) {
               return <Widget>[
                 SliverAppBar(
                   backgroundColor: Colors.transparent,
+                  surfaceTintColor: Colors.transparent,
                   elevation: 0,
                   scrolledUnderElevation: 0,
                   expandedHeight: 80.h,
                   floating: false,
                   pinned: true,
-                  flexibleSpace: RepaintBoundary(
-                    child: ClipRect(
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                appThemeColors.grey7,
-                                appThemeColors.grey7.withOpacity(0.6),
-                              ],
-                              stops: const [0.0, 1.0],
+                  flexibleSpace: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // [RESTORED & FIXED] The blur/gradient is now in a Stack *behind* the FlexibleSpaceBar.
+                      // This ensures it DOES NOT fade to 0 opacity when collapsed, and prevents the jitter
+                      // from text-scaling redraws!
+                      RepaintBoundary(
+                        child: ClipRect(
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    appThemeColors.grey7,
+                                    appThemeColors.grey7.withOpacity(0.6),
+                                  ],
+                                  stops: const [0.0, 1.0],
+                                ),
+                              ),
                             ),
-                          ),
-                          child: FlexibleSpaceBar(
-                            title: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    AppConstants.appTitle,
-                                    style: TextStyle(
-                                      fontFamily: AppConstants.font,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 24.sp,
-                                      color: appThemeColors.grey10,
-                                      letterSpacing: -0.2,
-                                    ),
-                                  ),
-                                ),
-                                GestureDetector(
-                                  onTap: () => Get.to(() => const SearchView()),
-                                  child: Container(
-                                    width: 36.w,
-                                    height: 36.w,
-                                    decoration: BoxDecoration(
-                                      color: appThemeColors.grey6,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      Icons.search,
-                                      size: 24.sp,
-                                      color: appThemeColors.grey1,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(width: 8.w),
-                                GestureDetector(
-                                  key: _menuKey,
-                                  onTap: () => _showPopupMenu(context),
-                                  child: Container(
-                                    width: 36.w,
-                                    height: 36.w,
-                                    decoration: BoxDecoration(
-                                      color: appThemeColors.grey6,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      Icons.more_horiz_rounded,
-                                      size: 24.sp,
-                                      color: appThemeColors.grey1,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            titlePadding: EdgeInsets.only(
-                                left: 16.w, right: 16.w, bottom: 16.h),
-                            expandedTitleScale: 28.sp / 24.sp,
                           ),
                         ),
                       ),
-                    ),
+                      FlexibleSpaceBar(
+                        titlePadding: EdgeInsets.only(left: 16.w, right: 16.w, bottom: 16.h),
+                        expandedTitleScale: 28.sp / 24.sp,
+                        title: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                AppConstants.appTitle,
+                                style: TextStyle(
+                                  fontFamily: AppConstants.font,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 24.sp,
+                                  color: appThemeColors.grey10,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () => Get.to(() => const SearchView()),
+                              child: Container(
+                                width: 36.w,
+                                height: 36.w,
+                                decoration: BoxDecoration(
+                                  color: appThemeColors.grey6,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.search,
+                                  size: 24.sp,
+                                  color: appThemeColors.grey1,
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 8.w),
+                            GestureDetector(
+                              key: _menuKey,
+                              onTap: () => _showPopupMenu(context),
+                              child: Container(
+                                width: 36.w,
+                                height: 36.w,
+                                decoration: BoxDecoration(
+                                  color: appThemeColors.grey6,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.more_horiz_rounded,
+                                  size: 24.sp,
+                                  color: appThemeColors.grey1,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ];
@@ -635,127 +906,179 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                 end: Alignment.bottomCenter,
               ),
               tintColor: appThemeColors.grey7.withOpacity(0.15),
-              child: Obx(() {
-                if (entries.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(16.0.w),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          SvgPicture.asset('assets/app_icon.svg',
-                              height: 48.sp),
-                          SizedBox(height: 24.h),
-                          Text(
-                            AppConstants.jotYourThoughts,
-                            style: TextStyle(
-                              fontFamily: AppConstants.font,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 20.sp,
-                              height: 1.2.sp,
-                              color: appThemeColors.grey1,
-                              letterSpacing: -0.2,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          Text(
-                            AppConstants.tapToCreateJournal,
-                            style: TextStyle(
-                              fontFamily: AppConstants.font,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 14.sp,
-                              height: 1.2.sp,
-                              color: appThemeColors.grey2,
-                              letterSpacing: -0.2,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                } else {
-                  return CustomScrollView(
-                    slivers: [
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 16.h),
-                          child: IntrinsicHeight(
-                            child: Row(
+              child: Builder(
+                  key: _bodyKey,
+                  builder: (innerContext) {
+                    return Obx(() {
+                      if (entries.isEmpty) {
+                        return Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(16.0.w),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Expanded(
-                                    child: _buildStatItem(
-                                        AppConstants.entriesThisYear,
-                                        widget.controller.totalEntriesThisYear
-                                            .toString(),
-                                        Icons.web_stories)),
-                                VerticalDivider(
-                                  color: appThemeColors.grey5,
-                                  thickness: 1.w,
+                                SvgPicture.asset('assets/app_icon.svg',
+                                    height: 48.sp),
+                                SizedBox(height: 24.h),
+                                Text(
+                                  AppConstants.jotYourThoughts,
+                                  style: TextStyle(
+                                    fontFamily: AppConstants.font,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 20.sp,
+                                    height: 1.2.sp,
+                                    color: appThemeColors.grey1,
+                                    letterSpacing: -0.2,
+                                  ),
+                                  textAlign: TextAlign.center,
                                 ),
-                                Expanded(
-                                    child: _buildStatItem(
-                                        AppConstants.wordsWritten,
-                                        widget.controller.totalWordsWritten
-                                            .toString(),
-                                        Icons.format_quote_rounded)),
-                                VerticalDivider(
-                                  color: appThemeColors.grey5,
-                                  thickness: 1.w,
+                                Text(
+                                  AppConstants.tapToCreateJournal,
+                                  style: TextStyle(
+                                    fontFamily: AppConstants.font,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 14.sp,
+                                    height: 1.2.sp,
+                                    color: appThemeColors.grey2,
+                                    letterSpacing: -0.2,
+                                  ),
+                                  textAlign: TextAlign.center,
                                 ),
-                                Expanded(
-                                    child: _buildStatItem(
-                                        AppConstants.daysJournaled,
-                                        widget.controller.daysJournaled
-                                            .toString(),
-                                        Icons.calendar_today_rounded)),
                               ],
                             ),
                           ),
-                        ),
-                      ),
-                      SliverPadding(
-                        padding: EdgeInsets.only(
-                          left: 16.w,
-                          right: 16.w,
-                          top: 16.h,
-                          bottom: 140.h,
-                        ),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                                (context, index) {
-                              final itemIndex = index ~/ 2;
-                              if (index.isEven) {
-                                final entry = entries[itemIndex];
-                                return JournalTile(
-                                  entry: entry,
-                                  onTap: () {
-                                    showCupertinoModalBottomSheet(
-                                      context: context,
-                                      expand: true,
-                                      backgroundColor: Colors.transparent,
-                                      builder: (modalContext) {
-                                        return SafeArea(
-                                          child: ReadJournalBottomSheet(
-                                              entry: entry),
-                                        );
-                                      },
+                        );
+                      } else {
+                        return CustomScrollView(
+                          slivers: [
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 16.h),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Expanded(
+                                        child: _buildStatItem(
+                                            AppConstants.entriesThisYear,
+                                            widget.controller.totalEntriesThisYear
+                                                .toString(),
+                                            Icons.web_stories)),
+                                    Container(
+                                      width: 1.w,
+                                      height: 44.h,
+                                      color: appThemeColors.grey5,
+                                    ),
+                                    Expanded(
+                                        child: _buildStatItem(
+                                            AppConstants.wordsWritten,
+                                            widget.controller.totalWordsWritten
+                                                .toString(),
+                                            Icons.format_quote_rounded)),
+                                    Container(
+                                      width: 1.w,
+                                      height: 44.h,
+                                      color: appThemeColors.grey5,
+                                    ),
+                                    Expanded(
+                                        child: _buildStatItem(
+                                            AppConstants.daysJournaled,
+                                            widget.controller.daysJournaled
+                                                .toString(),
+                                            Icons.calendar_today_rounded)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            SliverPadding(
+                              padding: EdgeInsets.only(
+                                left: 16.w,
+                                right: 16.w,
+                                top: 16.h,
+                                bottom: 140.h,
+                              ),
+                              sliver: SliverList(
+                                delegate: SliverChildBuilderDelegate(
+                                      (context, index) {
+                                    final entry = entries[index];
+                                    final prevEntry = index > 0 ? entries[index - 1] : null;
+
+                                    bool showYearDivider = prevEntry == null ||
+                                        entry.createdAt.year != prevEntry.createdAt.year;
+                                    bool showMonthDivider = prevEntry == null ||
+                                        entry.createdAt.month != prevEntry.createdAt.month ||
+                                        entry.createdAt.year != prevEntry.createdAt.year;
+
+                                    return RepaintBoundary(
+                                      child: Padding(
+                                        padding: EdgeInsets.only(bottom: 32.h),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            if (showYearDivider) ...[
+                                              Padding(
+                                                padding:
+                                                EdgeInsets.only(bottom: 12.h, top: 8.h),
+                                                child: Text(
+                                                  entry.createdAt.year.toString(),
+                                                  style: TextStyle(
+                                                    fontFamily: AppConstants.font,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 28.sp,
+                                                    color: appThemeColors.grey10,
+                                                    letterSpacing: -0.5,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                            if (showMonthDivider) ...[
+                                              Padding(
+                                                padding: EdgeInsets.only(
+                                                    bottom: 16.h,
+                                                    top: showYearDivider ? 0 : 8.h),
+                                                child: Text(
+                                                  _monthFormat.format(entry.createdAt),
+                                                  style: TextStyle(
+                                                    fontFamily: AppConstants.font,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 18.sp,
+                                                    color: appThemeColors.grey2,
+                                                    letterSpacing: -0.2,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                            JournalTile(
+                                              entry: entry,
+                                              onTap: () {
+                                                showCupertinoModalBottomSheet(
+                                                  context: context,
+                                                  expand: true,
+                                                  backgroundColor: Colors.transparent,
+                                                  builder: (modalContext) {
+                                                    return SafeArea(
+                                                      child: ReadJournalBottomSheet(
+                                                          entry: entry),
+                                                    );
+                                                  },
+                                                );
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     );
                                   },
-                                );
-                              }
-                              return SizedBox(height: 32.h);
-                            },
-                            childCount:
-                            entries.isEmpty ? 0 : entries.length * 2 - 1,
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                }
-              }),
+                                  childCount: entries.isEmpty ? 0 : entries.length,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+                    });
+                  }
+              ),
             ),
           ),
         ),
@@ -780,30 +1103,33 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                             valueListenable: _currentMonthYearNotifier,
                             builder: (context, currentMonthYear, _) {
                               return (showChip && currentMonthYear != null)
-                                  ? Container(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 9.w, vertical: 5.h),
-                                decoration: BoxDecoration(
-                                  color: appThemeColors.grey5,
-                                  borderRadius:
-                                  BorderRadius.circular(6.r),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color:
-                                      Colors.black.withOpacity(0.12),
-                                      offset: const Offset(0, 2),
+                                  ? GestureDetector(
+                                onTap: _showMonthYearPicker,
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 9.w, vertical: 5.h),
+                                  decoration: BoxDecoration(
+                                    color: appThemeColors.grey5,
+                                    borderRadius:
+                                    BorderRadius.circular(6.r),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black
+                                            .withOpacity(0.12),
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Text(
+                                    currentMonthYear,
+                                    style: TextStyle(
+                                      fontFamily: AppConstants.font,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.2.sp,
+                                      fontSize: 14.sp,
+                                      color: appThemeColors.grey10,
+                                      letterSpacing: -0.2,
                                     ),
-                                  ],
-                                ),
-                                child: Text(
-                                  currentMonthYear,
-                                  style: TextStyle(
-                                    fontFamily: AppConstants.font,
-                                    fontWeight: FontWeight.w600,
-                                    height: 1.2.sp,
-                                    fontSize: 14.sp,
-                                    color: appThemeColors.grey10,
-                                    letterSpacing: -0.2,
                                   ),
                                 ),
                               )

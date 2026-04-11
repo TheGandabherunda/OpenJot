@@ -172,105 +172,133 @@ class NotificationService {
     }
   }
 
-  Future<void> checkForOnThisDayMemories() async {
-    final hiveService = Get.find<HiveService>();
-    if (!hiveService.onThisDay) {
-      if (kDebugMode) {
-        print("[NotificationService] 'On This Day' is disabled. Skipping check.");
-      }
-      return;
-    }
+  bool _isCheckingOnThisDay = false;
 
-    final now = DateTime.now();
-    final allEntries = hiveService.getAllJournalEntries();
-    final memories = allEntries.where((entry) {
-      return entry.createdAt.month == now.month &&
-          entry.createdAt.day == now.day &&
-          entry.createdAt.year < now.year;
-    }).toList();
+  Future<void> checkForOnThisDayMemories({bool force = false}) async {
+    if (_isCheckingOnThisDay) return;
+    _isCheckingOnThisDay = true;
 
-    if (memories.isEmpty) {
-      if (kDebugMode) {
-        print("[NotificationService] No memories found for this day.");
-      }
-      return;
-    }
-
-    memories.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    final schedulingTime = memories.first.createdAt;
-
-    final scheduledDateTime = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      schedulingTime.hour,
-      schedulingTime.minute,
-    );
-
-    if (scheduledDateTime.isBefore(tz.TZDateTime.now(tz.local))) {
-      if (kDebugMode) {
-        print(
-            "[NotificationService] Memory time for today has already passed. Skipping notification.");
-      }
-      return;
-    }
-
-    if (kDebugMode) {
-      print(
-          "[NotificationService] Found ${memories.length} memories. Scheduling notification for $scheduledDateTime.");
-    }
-
-    String title = AppConstants.onThisDayNotificationTitle;
-    String body;
-    String? largeIconPath;
-
-    final bool hasMedia =
-    memories.any((e) => e.cameraPhotos.isNotEmpty || e.galleryImages.isNotEmpty);
-
-    if (memories.length == 1) {
-      body = hasMedia
-          ? AppConstants.onThisDaySingleEntryWithMedia
-          : AppConstants.onThisDaySingleEntry;
-      if (hasMedia) {
-        final entryWithMedia = memories.firstWhere((e) =>
-        e.cameraPhotos.isNotEmpty || e.galleryImages.isNotEmpty);
-        if (entryWithMedia.cameraPhotos.isNotEmpty) {
-          largeIconPath = entryWithMedia.cameraPhotos.first.file.path;
+    try {
+      final hiveService = Get.find<HiveService>();
+      if (!hiveService.onThisDay) {
+        if (kDebugMode) {
+          print("[NotificationService] 'On This Day' is disabled. Skipping check.");
         }
+        return;
       }
-    } else {
-      body = AppConstants.onThisDayMultipleEntries;
-      title = AppConstants.onThisDayGroupedNotification
-          .replaceFirst('%d', memories.length.toString());
+
+      final now = DateTime.now();
+      final todayStr = "${now.year}-${now.month}-${now.day}";
+
+      // Only skip if not forced and already processed for today
+      if (!force && hiveService.lastOnThisDayNotificationDate == todayStr) {
+        if (kDebugMode) {
+          print("[NotificationService] Already processed 'On This Day' for today ($todayStr).");
+        }
+        return;
+      }
+
+      // Mark as processed
+      await hiveService.setLastOnThisDayNotificationDate(todayStr);
+
+      final allEntries = hiveService.getAllJournalEntries();
+      final excludedIds = hiveService.excludedOnThisDayEntries;
+
+      final memories = allEntries.where((entry) {
+        if (excludedIds.contains(entry.id)) return false;
+        if (entry.isDraft) return false;
+
+        return entry.createdAt.month == now.month &&
+            entry.createdAt.day == now.day &&
+            entry.createdAt.year < now.year;
+      }).toList();
+
+      if (memories.isEmpty) {
+        if (kDebugMode) {
+          print("[NotificationService] No memories found for today ($todayStr).");
+        }
+        await cancelOnThisDayNotification();
+        return;
+      }
+
+      memories.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final latestMemory = memories.first;
+
+      // Schedule for the time the memory was originally created
+      var scheduledDateTime = tz.TZDateTime(
+        tz.local,
+        now.year,
+        now.month,
+        now.day,
+        latestMemory.createdAt.hour,
+        latestMemory.createdAt.minute,
+      );
+
+      // If that time has already passed today, schedule for a short delay (e.g., 10 seconds)
+      if (scheduledDateTime.isBefore(tz.TZDateTime.now(tz.local))) {
+        if (kDebugMode) {
+          print("[NotificationService] Memory time has passed. Scheduling for 10s from now.");
+        }
+        scheduledDateTime = tz.TZDateTime.now(tz.local).add(const Duration(seconds: 10));
+      }
+
+      if (kDebugMode) {
+        print("[NotificationService] Scheduling 'On This Day' for $scheduledDateTime");
+      }
+
+      String title = AppConstants.onThisDayNotificationTitle;
+      String body;
+      String? largeIconPath;
+
+      final bool hasMedia = memories.any((e) => e.cameraPhotos.isNotEmpty || e.galleryImages.isNotEmpty);
+
+      if (memories.length == 1) {
+        body = hasMedia
+            ? AppConstants.onThisDaySingleEntryWithMedia
+            : AppConstants.onThisDaySingleEntry;
+        if (hasMedia) {
+          final entryWithMedia = memories.firstWhere((e) => e.cameraPhotos.isNotEmpty || e.galleryImages.isNotEmpty);
+          if (entryWithMedia.cameraPhotos.isNotEmpty) {
+            largeIconPath = entryWithMedia.cameraPhotos.first.file.path;
+          }
+        }
+      } else {
+        body = AppConstants.onThisDayMultipleEntries;
+        title = AppConstants.onThisDayGroupedNotification.replaceFirst('%d', memories.length.toString());
+      }
+
+      final payload = jsonEncode({
+        'type': 'on_this_day',
+        'date': now.toIso8601String(),
+      });
+
+      final androidDetails = AndroidNotificationDetails(
+        AppConstants.onThisDayChannelId,
+        AppConstants.onThisDayChannelName,
+        channelDescription: AppConstants.onThisDayChannelDescription,
+        importance: Importance.max,
+        priority: Priority.high,
+        largeIcon: largeIconPath != null ? FilePathAndroidBitmap(largeIconPath) : null,
+        styleInformation: BigTextStyleInformation(body),
+      );
+
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        id: 1,
+        title: title,
+        body: body,
+        scheduledDate: scheduledDateTime,
+        notificationDetails: NotificationDetails(android: androidDetails),
+        payload: payload,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        matchDateTimeComponents: null, // Critical: One-shot for today only.
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print("[NotificationService] Error checking for memories: $e");
+      }
+    } finally {
+      _isCheckingOnThisDay = false;
     }
-
-    final payload = jsonEncode({
-      'type': 'on_this_day',
-      'date': now.toIso8601String(),
-    });
-
-    final androidDetails = AndroidNotificationDetails(
-      AppConstants.onThisDayChannelId,
-      AppConstants.onThisDayChannelName,
-      channelDescription: AppConstants.onThisDayChannelDescription,
-      importance: Importance.max,
-      priority: Priority.high,
-      largeIcon:
-      largeIconPath != null ? FilePathAndroidBitmap(largeIconPath) : null,
-      styleInformation: BigTextStyleInformation(body),
-    );
-
-    await flutterLocalNotificationsPlugin.zonedSchedule(
-      id: 1,
-      title: title,
-      body: body,
-      scheduledDate: scheduledDateTime,
-      notificationDetails: NotificationDetails(android: androidDetails),
-      payload: payload,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time,
-    );
   }
 
   tz.TZDateTime _nextInstanceOfTime(TimeOfDay time) {
@@ -284,6 +312,20 @@ class NotificationService {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
     return scheduledDate;
+  }
+
+  Future<void> cancelDailyReminder() async {
+    if (kDebugMode) {
+      print("[NotificationService] Cancelling daily reminder.");
+    }
+    await flutterLocalNotificationsPlugin.cancel(id: 0);
+  }
+
+  Future<void> cancelOnThisDayNotification() async {
+    if (kDebugMode) {
+      print("[NotificationService] Cancelling 'On This Day' notification.");
+    }
+    await flutterLocalNotificationsPlugin.cancel(id: 1);
   }
 
   Future<void> cancelAllNotifications() async {
