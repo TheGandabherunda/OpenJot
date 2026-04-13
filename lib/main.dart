@@ -14,7 +14,7 @@ import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/services/notification_service.dart';
 import 'package:open_jot/app/core/theme.dart';
 import 'package:open_jot/app/routes/app_pages.dart';
-import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/data/latest_all.dart' as tz; // Updated to latest_all to support all global timezones
 import 'package:timezone/timezone.dart' as tz;
 
 void main() async {
@@ -33,7 +33,8 @@ void main() async {
     if (kDebugMode) {
       print('Could not find location: $e. Falling back to UTC.');
     }
-    tz.setLocalLocation(tz.getLocation('UTC'));
+    // FIX: The correct IANA timezone string for UTC is 'Etc/UTC'
+    tz.setLocalLocation(tz.getLocation('Etc/UTC'));
   }
 
   await Get.putAsync<HiveService>(() async {
@@ -114,7 +115,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       if (NotificationService.initialPayload != null) {
         try {
           final payloadData = jsonDecode(NotificationService.initialPayload!)
-              as Map<String, dynamic>;
+          as Map<String, dynamic>;
           if (payloadData['type'] == 'on_this_day') {
             final dateStr = payloadData['date'] as String;
             final date = DateTime.parse(dateStr);
