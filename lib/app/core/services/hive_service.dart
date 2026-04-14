@@ -41,6 +41,7 @@ class HiveService extends GetxService {
 
     // --- Data Migration: 5 Moods to 7 Moods ---
     await _migrateMoodsIfNeeded();
+    await _fixMoodOrder7();
 
     // Run Garbage Collection quietly in the background to free up storage
     if (runGC) {
@@ -153,9 +154,9 @@ class HiveService extends GetxService {
         if (oldIndex >= 0 && oldIndex <= 4) {
           switch (oldIndex) {
             case 0: newIndex = 0; break; // Very Unpleasant (0) -> Very Unpleasant (0)
-            case 1: newIndex = 2; break; // Unpleasant (1) -> Unpleasant (2)
+            case 1: newIndex = 1; break; // Unpleasant (1) -> Unpleasant (1)
             case 2: newIndex = 3; break; // Neutral (2) -> Neutral (3)
-            case 3: newIndex = 4; break; // Pleasant (3) -> Pleasant (4)
+            case 3: newIndex = 5; break; // Pleasant (3) -> Pleasant (5)
             case 4: newIndex = 6; break; // Very Pleasant (4) -> Very Pleasant (6)
           }
         }
@@ -172,6 +173,52 @@ class HiveService extends GetxService {
     await settingsBox.put('hasMigratedMoodsTo7', true); // Backward compatibility
 
     debugPrint("Mood migration: Completed. Migrated $migrationCount entries.");
+  }
+
+  Future<void> _fixMoodOrder7() async {
+    const migrationKey = 'hasFixedMoodOrder7';
+    final bool hasFixed = settingsBox.get(migrationKey, defaultValue: false);
+
+    if (hasFixed) {
+      debugPrint("Mood fix: Already fixed.");
+      return;
+    }
+
+    debugPrint("Mood fix: Starting check of ${journalsBox.length} entries...");
+    int fixCount = 0;
+
+    final keys = journalsBox.keys.toList();
+
+    for (final key in keys) {
+      final entry = journalsBox.get(key);
+      if (entry != null && entry.moodIndex != null) {
+        int oldIndex = entry.moodIndex!;
+        int? newIndex;
+
+        // Swapping indices based on the corrected 7-mood order
+        // Old 7 order: Very Unpleasant(0), Slightly Unpleasant(1), Unpleasant(2), Neutral(3), Pleasant(4), Slightly Pleasant(5), Very Pleasant(6)
+        // New 7 order: Very Unpleasant(0), Unpleasant(1), Slightly Unpleasant(2), Neutral(3), Slightly Pleasant(4), Pleasant(5), Very Pleasant(6)
+        // Required Swaps: 1 ↔ 2 and 4 ↔ 5
+        if (oldIndex == 1) {
+          newIndex = 2;
+        } else if (oldIndex == 2) {
+          newIndex = 1;
+        } else if (oldIndex == 4) {
+          newIndex = 5;
+        } else if (oldIndex == 5) {
+          newIndex = 4;
+        }
+
+        if (newIndex != null) {
+          final updatedEntry = entry.copyWith(moodIndex: newIndex);
+          await journalsBox.put(key, updatedEntry);
+          fixCount++;
+        }
+      }
+    }
+
+    await settingsBox.put(migrationKey, true);
+    debugPrint("Mood fix: Completed. Fixed $fixCount entries.");
   }
 
   void _registerAdapters() {
