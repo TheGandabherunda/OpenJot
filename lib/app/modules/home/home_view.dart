@@ -566,131 +566,103 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       initialYear = years.first;
     }
 
-    showCupertinoModalBottomSheet(
+    showCupertinoDialog(
       context: context,
-      backgroundColor: Colors.transparent,
+      barrierDismissible: true,
       builder: (context) {
         final appThemeColors = AppTheme.colorsOf(context);
         int tempMonth = initialMonth;
         int tempYear = initialYear;
 
-        return Material(
-          color: Colors.transparent,
-          child: Container(
-            height: 320.h,
-            decoration: BoxDecoration(
-              color: appThemeColors.grey6,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+        return CupertinoAlertDialog(
+          title: Text(
+            AppConstants.selectMonthAndYear,
+            style: TextStyle(
+              color: appThemeColors.grey10,
+              fontFamily: AppConstants.font,
+              fontWeight: FontWeight.bold,
+              fontSize: 17.sp,
+              letterSpacing: -0.4,
             ),
-            child: Column(
+          ),
+          content: SizedBox(
+            height: 200.h,
+            child: Row(
               children: [
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        color: appThemeColors.grey5,
-                        width: 1.h,
-                      ),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      CupertinoButton(
-                        padding: EdgeInsets.symmetric(horizontal: 16.w),
-                        onPressed: () => Navigator.pop(context),
-                        child: Text(
-                          AppConstants.cancel,
-                          style: TextStyle(
-                            color: appThemeColors.grey2,
-                            fontFamily: AppConstants.font,
-                            fontSize: 16.sp,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        AppConstants.selectMonthAndYear,
-                        style: TextStyle(
-                          color: appThemeColors.grey10,
-                          fontFamily: AppConstants.font,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 17.sp,
-                          letterSpacing: -0.4,
-                        ),
-                      ),
-                      CupertinoButton(
-                        padding: EdgeInsets.symmetric(horizontal: 16.w),
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _scrollToMonthYear(tempMonth, tempYear);
-                        },
-                        child: Text(
-                          AppConstants.done,
-                          style: TextStyle(
-                            color: appThemeColors.primary,
-                            fontFamily: AppConstants.font,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16.sp,
-                          ),
-                        ),
-                      ),
-                    ],
+                Expanded(
+                  child: CupertinoPicker(
+                    itemExtent: 44.h,
+                    magnification: 1.1,
+                    useMagnifier: true,
+                    scrollController: FixedExtentScrollController(
+                        initialItem: initialMonth - 1),
+                    onSelectedItemChanged: (index) {
+                      tempMonth = index + 1;
+                    },
+                    children: AppConstants.months
+                        .map((m) => Center(
+                                child: Text(m,
+                                    style: TextStyle(
+                                        color: appThemeColors.grey10,
+                                        fontFamily: AppConstants.font,
+                                        fontSize: 18.sp,
+                                        letterSpacing: -0.2))))
+                        .toList(),
                   ),
                 ),
                 Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: CupertinoPicker(
-                          itemExtent: 44.h,
-                          magnification: 1.1,
-                          useMagnifier: true,
-                          scrollController: FixedExtentScrollController(
-                              initialItem: initialMonth - 1),
-                          onSelectedItemChanged: (index) {
-                            tempMonth = index + 1;
-                          },
-                          children: AppConstants.months
-                              .map((m) => Center(
-                              child: Text(m,
-                                  style: TextStyle(
-                                      color: appThemeColors.grey10,
-                                      fontFamily: AppConstants.font,
-                                      fontSize: 19.sp,
-                                      letterSpacing: -0.2))))
-                              .toList(),
-                        ),
-                      ),
-                      Expanded(
-                        child: CupertinoPicker(
-                          itemExtent: 44.h,
-                          magnification: 1.1,
-                          useMagnifier: true,
-                          scrollController: FixedExtentScrollController(
-                              initialItem: years.indexOf(initialYear)),
-                          onSelectedItemChanged: (index) {
-                            tempYear = years[index];
-                          },
-                          children: years
-                              .map((y) => Center(
-                              child: Text(y.toString(),
-                                  style: TextStyle(
-                                      color: appThemeColors.grey10,
-                                      fontFamily: AppConstants.font,
-                                      fontSize: 19.sp,
-                                      letterSpacing: -0.2))))
-                              .toList(),
-                        ),
-                      ),
-                    ],
+                  child: CupertinoPicker(
+                    itemExtent: 44.h,
+                    magnification: 1.1,
+                    useMagnifier: true,
+                    scrollController: FixedExtentScrollController(
+                        initialItem: years.indexOf(initialYear)),
+                    onSelectedItemChanged: (index) {
+                      tempYear = years[index];
+                    },
+                    children: years
+                        .map((y) => Center(
+                                child: Text(y.toString(),
+                                    style: TextStyle(
+                                        color: appThemeColors.grey10,
+                                        fontFamily: AppConstants.font,
+                                        fontSize: 18.sp,
+                                        letterSpacing: -0.2))))
+                        .toList(),
                   ),
                 ),
-                SizedBox(height: 20.h),
               ],
             ),
           ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                AppConstants.cancel,
+                style: TextStyle(
+                  color: appThemeColors.grey2,
+                  fontFamily: AppConstants.font,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            CupertinoDialogAction(
+              onPressed: () {
+                Navigator.pop(context);
+                _scrollToMonthYear(tempMonth, tempYear);
+              },
+              child: Text(
+                AppConstants.done,
+                style: TextStyle(
+                  color: appThemeColors.primary,
+                  fontFamily: AppConstants.font,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16.sp,
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
