@@ -1,3 +1,4 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:get/get.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 
@@ -7,6 +8,9 @@ class HomeController extends GetxController {
   final _hiveService = Get.find<HiveService>();
   final journalEntries = <JournalEntry>[].obs;
   final draftEntries = <JournalEntry>[].obs;
+
+  final audioPlayer = AudioPlayer();
+  final plainTextCache = <String, String>{}.obs;
 
   final currentSortType = 'time'.obs;
   final Map<String, String> _sortTypeDisplayNames = {
@@ -32,6 +36,7 @@ class HomeController extends GetxController {
   @override
   void onClose() {
     _hiveService.getJournalEntriesNotifier().removeListener(loadJournalEntries);
+    audioPlayer.dispose();
     super.onClose();
   }
 
@@ -59,6 +64,10 @@ class HomeController extends GetxController {
 
     final loadedEntries = await _hiveService.loadAssetEntities(entriesFromDb);
 
+    for (var entry in loadedEntries) {
+      plainTextCache[entry.id] = entry.content.toPlainText().trim();
+    }
+
     journalEntries.assignAll(loadedEntries.where((e) => !e.isDraft));
     draftEntries.assignAll(loadedEntries.where((e) => e.isDraft));
 
@@ -68,6 +77,7 @@ class HomeController extends GetxController {
 
   void addJournalEntry(JournalEntry entry) {
     _hiveService.addJournalEntry(entry);
+    plainTextCache[entry.id] = entry.content.toPlainText().trim();
     if (entry.isDraft) {
       draftEntries.insert(0, entry);
       draftEntries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -80,7 +90,10 @@ class HomeController extends GetxController {
   void updateJournalEntry(JournalEntry updatedEntry) {
     _hiveService.updateJournalEntry(updatedEntry);
 
-    final isTextEmpty = updatedEntry.content.toPlainText().trim().isEmpty;
+    final plainText = updatedEntry.content.toPlainText().trim();
+    plainTextCache[updatedEntry.id] = plainText;
+
+    final isTextEmpty = plainText.isEmpty;
     final isMediaEmpty = updatedEntry.galleryImages.isEmpty &&
         updatedEntry.cameraPhotos.isEmpty &&
         updatedEntry.galleryAudios.isEmpty &&
@@ -108,6 +121,7 @@ class HomeController extends GetxController {
     _hiveService.deleteJournalEntry(entryId);
     journalEntries.removeWhere((e) => e.id == entryId);
     draftEntries.removeWhere((e) => e.id == entryId);
+    plainTextCache.remove(entryId);
   }
 
   void toggleBookmarkStatus(String entryId) {

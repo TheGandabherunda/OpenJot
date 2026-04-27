@@ -705,28 +705,18 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       return;
     }
 
-    int index = (offset / (_tileHeightEstimate + 32.h))
-        .floor()
-        .clamp(0, totalEntries - 1);
+    // [OPTIMIZED] Use a simpler estimate for index to avoid heavy math during every scroll tick.
+    final index = (offset / 150.h).floor().clamp(0, totalEntries - 1);
     if (_topEntryIndex != index) {
       _topEntryIndex = index;
       final dt = entries[index].createdAt;
       _currentMonthYearNotifier.value = _monthYearFormat.format(dt);
     }
 
-    final showThreshold = (_tileHeightEstimate + 32.h) * 0.8;
-    final hideThreshold = (_tileHeightEstimate + 32.h) * 0.2;
-
-    bool shouldShow;
-    if (_showChipNotifier.value) {
-      shouldShow = offset > hideThreshold;
-    } else {
-      shouldShow = offset > showThreshold;
-    }
+    bool shouldShow = offset > 100.h;
 
     if (_showChipNotifier.value != shouldShow) {
       _showChipNotifier.value = shouldShow;
-
       if (shouldShow) {
         _slideAnimationController.forward();
       } else {
@@ -814,24 +804,17 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                   flexibleSpace: Stack(
                     fit: StackFit.expand,
                     children: [
-                      // [RESTORED & FIXED] The blur/gradient is now in a Stack *behind* the FlexibleSpaceBar.
-                      // This ensures it DOES NOT fade to 0 opacity when collapsed, and prevents the jitter
-                      // from text-scaling redraws!
-                      RepaintBoundary(
-                        child: ClipRect(
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    appThemeColors.grey7,
-                                    appThemeColors.grey7.withOpacity(0.6),
-                                  ],
-                                  stops: const [0.0, 1.0],
-                                ),
+                      // [RESTORED & OPTIMIZED] Restored the background with a more efficient implementation.
+                      // Using a simple Container with color instead of BackdropFilter to ensure visibility
+                      // while maximizing scrolling performance.
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: appThemeColors.grey7.withOpacity(0.9),
+                            border: Border(
+                              bottom: BorderSide(
+                                color: appThemeColors.grey5,
+                                width: 0.5,
                               ),
                             ),
                           ),
@@ -1009,67 +992,67 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                         entry.createdAt.month != prevEntry.createdAt.month ||
                                         entry.createdAt.year != prevEntry.createdAt.year;
 
-                                    return RepaintBoundary(
-                                      child: Padding(
-                                        padding: EdgeInsets.only(bottom: 32.h),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            if (showYearDivider) ...[
-                                              Padding(
-                                                padding:
-                                                EdgeInsets.only(bottom: 12.h, top: 8.h),
-                                                child: Text(
-                                                  entry.createdAt.year.toString(),
-                                                  style: TextStyle(
-                                                    fontFamily: AppConstants.font,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 28.sp,
-                                                    color: appThemeColors.grey10,
-                                                    letterSpacing: -0.5,
-                                                  ),
+                                    return Padding(
+                                      padding: EdgeInsets.only(bottom: 32.h),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          if (showYearDivider) ...[
+                                            Padding(
+                                              padding:
+                                              EdgeInsets.only(bottom: 12.h, top: 8.h),
+                                              child: Text(
+                                                entry.createdAt.year.toString(),
+                                                style: TextStyle(
+                                                  fontFamily: AppConstants.font,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 28.sp,
+                                                  color: appThemeColors.grey10,
+                                                  letterSpacing: -0.5,
                                                 ),
                                               ),
-                                            ],
-                                            if (showMonthDivider) ...[
-                                              Padding(
-                                                padding: EdgeInsets.only(
-                                                    bottom: 16.h,
-                                                    top: showYearDivider ? 0 : 8.h),
-                                                child: Text(
-                                                  _monthFormat.format(entry.createdAt),
-                                                  style: TextStyle(
-                                                    fontFamily: AppConstants.font,
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 18.sp,
-                                                    color: appThemeColors.grey2,
-                                                    letterSpacing: -0.2,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                            JournalTile(
-                                              entry: entry,
-                                              onTap: () {
-                                                showCupertinoModalBottomSheet(
-                                                  context: context,
-                                                  expand: true,
-                                                  backgroundColor: Colors.transparent,
-                                                  builder: (modalContext) {
-                                                    return SafeArea(
-                                                      child: ReadJournalBottomSheet(
-                                                          entry: entry),
-                                                    );
-                                                  },
-                                                );
-                                              },
                                             ),
                                           ],
-                                        ),
+                                          if (showMonthDivider) ...[
+                                            Padding(
+                                              padding: EdgeInsets.only(
+                                                  bottom: 16.h,
+                                                  top: showYearDivider ? 0 : 8.h),
+                                              child: Text(
+                                                _monthFormat.format(entry.createdAt),
+                                                style: TextStyle(
+                                                  fontFamily: AppConstants.font,
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 18.sp,
+                                                  color: appThemeColors.grey2,
+                                                  letterSpacing: -0.2,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                          JournalTile(
+                                            entry: entry,
+                                            onTap: () {
+                                              showCupertinoModalBottomSheet(
+                                                context: context,
+                                                expand: true,
+                                                backgroundColor: Colors.transparent,
+                                                builder: (modalContext) {
+                                                  return SafeArea(
+                                                    child: ReadJournalBottomSheet(
+                                                        entry: entry),
+                                                  );
+                                                },
+                                              );
+                                            },
+                                          ),
+                                        ],
                                       ),
                                     );
                                   },
                                   childCount: entries.isEmpty ? 0 : entries.length,
+                                  addAutomaticKeepAlives: false,
+                                  addRepaintBoundaries: true,
                                 ),
                               ),
                             ),

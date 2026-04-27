@@ -55,8 +55,11 @@ class JournalTile extends StatefulWidget {
 
 class _JournalTileState extends State<JournalTile> {
   static const _platform = MethodChannel('app.channel.shared.data');
+  static final DateFormat _tileDateFormat = DateFormat('MMM d  •  h:mm a');
+
   final GlobalKey _menuKey = GlobalKey();
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  final HomeController _homeController = Get.find<HomeController>();
+  late final AudioPlayer _audioPlayer;
   String? _currentlyPlayingPath;
   PlayerState? _playerState;
   StreamSubscription? _playerStateSubscription;
@@ -74,6 +77,7 @@ class _JournalTileState extends State<JournalTile> {
   @override
   void initState() {
     super.initState();
+    _audioPlayer = _homeController.audioPlayer;
     _playerStateSubscription =
         _audioPlayer.onPlayerStateChanged.listen((state) {
           if (mounted) {
@@ -90,7 +94,6 @@ class _JournalTileState extends State<JournalTile> {
   @override
   void dispose() {
     _playerStateSubscription?.cancel();
-    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -198,93 +201,288 @@ class _JournalTileState extends State<JournalTile> {
 
   @override
   Widget build(BuildContext context) {
-    final appThemeColors = AppTheme.colorsOf(context);
-    final plainText = widget.entry.content.toPlainText().trim();
-    final hasMedia = widget.entry.galleryImages.isNotEmpty ||
-        widget.entry.cameraPhotos.isNotEmpty;
-    final hasAudio = widget.entry.galleryAudios.isNotEmpty ||
-        widget.entry.recordings.isNotEmpty;
-    final tileColor = widget.backgroundColor ?? appThemeColors.grey6;
+    return _JournalTileContent(
+      entry: widget.entry,
+      onTap: widget.onTap,
+      backgroundColor: widget.backgroundColor,
+      dividerColor: widget.dividerColor,
+      footerTextColor: widget.footerTextColor,
+      reflectionBackground: widget.reflectionBackground,
+      showMenuIcon: widget.showMenuIcon,
+      plainText: _homeController.plainTextCache[widget.entry.id] ?? '',
+      audioPlayer: _audioPlayer,
+      currentlyPlayingPath: _currentlyPlayingPath,
+      playerState: _playerState,
+      onMenuPressed: () {
+        final RenderBox renderBox =
+        _menuKey.currentContext!.findRenderObject() as RenderBox;
+        final position = renderBox.localToGlobal(Offset.zero);
+        _showMenu(context, position, renderBox);
+      },
+    );
+  }
 
-    return RepaintBoundary(
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            color: tileColor,
-            borderRadius: BorderRadius.circular(16.r),
+  void _showMenu(BuildContext context, Offset position, RenderBox renderBox) {
+    final appThemeColors = AppTheme.colorsOf(context);
+    showMenu<String>(
+      context: context,
+      color: appThemeColors.grey5,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16.r),
+      ),
+      position: RelativeRect.fromLTRB(
+        position.dx - renderBox.size.width * 2,
+        position.dy + renderBox.size.height,
+        position.dx,
+        position.dy + renderBox.size.height * 2,
+      ),
+      items: [
+        PopupMenuItem(
+          value: 'edit',
+          child: Row(
+            children: [
+              Icon(Icons.edit, color: appThemeColors.grey10),
+              SizedBox(width: 8.w),
+              Text(AppConstants.edit,
+                  style: TextStyle(
+                      color: appThemeColors.grey10,
+                      fontFamily: AppConstants.font,
+                      letterSpacing: -0.2)),
+            ],
           ),
-          child:
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(
-              padding: EdgeInsets.all(2.w),
-              decoration: BoxDecoration(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(16.r),
+        ),
+        PopupMenuDivider(
+            height: 1,
+            color: widget.popupDividerColor ??
+                appThemeColors.grey6),
+        PopupMenuItem(
+          value: 'bookmark',
+          child: Row(
+            children: [
+              Icon(
+                widget.entry.isBookmarked
+                    ? Icons.bookmark_remove_rounded
+                    : Icons.bookmark_add_outlined,
+                color: appThemeColors.grey10,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (hasMedia)
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(0.w, 0.h, 0.w,
-                          (plainText.isNotEmpty || hasAudio) ? 8.h : 0.h),
-                      child: _buildMediaPreview(context),
-                    ),
-                  if (hasAudio)
-                    Padding(
-                      padding: EdgeInsets.only(
-                          bottom: plainText.isNotEmpty ? 8.h : 0),
-                      child: _buildAudioPreviews(),
-                    ),
-                  if (plainText.isNotEmpty)
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(10.w,
-                          (hasMedia || hasAudio) ? 2.h : 12.h, 10.w, 8.h),
-                      child: Text(
-                        plainText,
-                        maxLines: 4,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: AppConstants.font,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 16.sp,
-                          color: appThemeColors.grey10,
-                          letterSpacing: -0.2,
-                        ),
+              SizedBox(width: 8.w),
+              Text(
+                widget.entry.isBookmarked
+                    ? AppConstants.removeBookmark
+                    : AppConstants.bookmark,
+                style: TextStyle(
+                    color: appThemeColors.grey10,
+                    fontFamily: AppConstants.font,
+                    letterSpacing: -0.2),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuDivider(
+            height: 1,
+            color: widget.popupDividerColor ??
+                appThemeColors.grey6),
+        PopupMenuItem(
+          value: 'share',
+          child: Row(
+            children: [
+              Icon(Icons.share_outlined,
+                  color: appThemeColors.grey10),
+              SizedBox(width: 8.w),
+              Text(AppConstants.share,
+                  style: TextStyle(
+
+                      color: appThemeColors.grey10,
+                      fontFamily: AppConstants.font,
+                      letterSpacing: -0.2)),
+            ],
+          ),
+        ),
+        PopupMenuDivider(
+            height: 1,
+            color: widget.popupDividerColor ??
+                appThemeColors.grey6),
+        PopupMenuItem(
+          value: 'pdf',
+          child: Row(
+            children: [
+              Icon(Icons.save_outlined,
+                  color: appThemeColors.grey10),
+              SizedBox(width: 8.w),
+              Text(AppConstants.saveAsPdf,
+                  style: TextStyle(
+                      color: appThemeColors.grey10,
+                      fontFamily: AppConstants.font,
+                      letterSpacing: -0.2)),
+            ],
+          ),
+        ),
+        PopupMenuDivider(
+            height: 1,
+            color: widget.popupDividerColor ??
+                appThemeColors.grey6),
+        PopupMenuItem(
+          value: 'delete',
+          child: Row(
+            children: [
+              Icon(Icons.delete_outline_outlined,
+                  color: appThemeColors.error),
+              SizedBox(width: 8.w),
+              Text(AppConstants.delete,
+                  style: TextStyle(
+                      color: appThemeColors.error,
+                      fontFamily: AppConstants.font,
+                      letterSpacing: -0.2)),
+            ],
+          ),
+        ),
+      ],
+    ).then((value) async {
+      if (value == 'edit') {
+        _onEditPressed();
+      } else if (value == 'bookmark') {
+        Get.find<HomeController>()
+            .toggleBookmarkStatus(widget.entry.id);
+      } else if (value == 'share') {
+        _onSharePressed();
+      } else if (value == 'pdf') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Generating PDF...'),
+              duration: Duration(seconds: 2)),
+        );
+        try {
+          await PdfGenerator.generateAndSharePdf(widget.entry);
+        } catch (e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to generate PDF: $e')),
+          );
+        }
+      } else if (value == 'delete') {
+        _onDeletePressed();
+      }
+    });
+  }
+}
+
+class _JournalTileContent extends StatelessWidget {
+  final JournalEntry entry;
+  final VoidCallback? onTap;
+  final Color? backgroundColor;
+  final Color? dividerColor;
+  final Color? footerTextColor;
+  final Color? reflectionBackground;
+  final bool showMenuIcon;
+  final String plainText;
+  final AudioPlayer audioPlayer;
+  final String? currentlyPlayingPath;
+  final PlayerState? playerState;
+  final VoidCallback onMenuPressed;
+
+  const _JournalTileContent({
+    required this.entry,
+    required this.onTap,
+    this.backgroundColor,
+    this.dividerColor,
+    this.footerTextColor,
+    this.reflectionBackground,
+    required this.showMenuIcon,
+    required this.plainText,
+    required this.audioPlayer,
+    this.currentlyPlayingPath,
+    this.playerState,
+    required this.onMenuPressed,
+  });
+
+  static final DateFormat _tileDateFormat = DateFormat('MMM d  •  h:mm a');
+
+  @override
+  Widget build(BuildContext context) {
+    final appThemeColors = AppTheme.colorsOf(context);
+    final hasMedia = entry.galleryImages.isNotEmpty ||
+        entry.cameraPhotos.isNotEmpty;
+    final hasAudio = entry.galleryAudios.isNotEmpty ||
+        entry.recordings.isNotEmpty;
+    final tileColor = backgroundColor ?? appThemeColors.grey6;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: tileColor,
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        child:
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            padding: EdgeInsets.all(2.w),
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(16.r),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (hasMedia)
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(0.w, 0.h, 0.w,
+                        (plainText.isNotEmpty || hasAudio) ? 8.h : 0.h),
+                    child: _buildMediaPreview(context, entry),
+                  ),
+                if (hasAudio)
+                  Padding(
+                    padding: EdgeInsets.only(
+                        bottom: plainText.isNotEmpty ? 8.h : 0),
+                    child: _buildAudioPreviews(context, entry, audioPlayer, currentlyPlayingPath, playerState),
+                  ),
+                if (plainText.isNotEmpty)
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(10.w,
+                        (hasMedia || hasAudio) ? 2.h : 12.h, 10.w, 8.h),
+                    child: Text(
+                      plainText,
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppConstants.font,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 16.sp,
+                        color: appThemeColors.grey10,
+                        letterSpacing: -0.2,
                       ),
                     ),
-                ],
-              ),
-            ),
-            SizedBox(height: 8.h),
-            Container(
-              padding: EdgeInsetsGeometry.fromLTRB(2.w, 4.h, 2.w, 0.h),
-              decoration: BoxDecoration(
-                color: tileColor,
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(16.r),
-                  bottomRight: Radius.circular(16.r),
-                ),
-                border: Border(
-                  top: BorderSide(
-                    color: widget.dividerColor ?? appThemeColors.grey5,
-                    width: 1,
                   ),
+              ],
+            ),
+          ),
+          SizedBox(height: 8.h),
+          Container(
+            padding: EdgeInsetsGeometry.fromLTRB(2.w, 4.h, 2.w, 0.h),
+            decoration: BoxDecoration(
+              color: tileColor,
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(16.r),
+                bottomRight: Radius.circular(16.r),
+              ),
+              border: Border(
+                top: BorderSide(
+                  color: dividerColor ?? appThemeColors.grey5,
+                  width: 1,
                 ),
               ),
-              child: _buildFooter(appThemeColors, context),
             ),
-          ]),
-        ),
+            child: _buildFooter(appThemeColors, context),
+          ),
+        ]),
       ),
     );
   }
 
-  Widget _buildMediaPreview(BuildContext context) {
+  Widget _buildMediaPreview(BuildContext context, JournalEntry entry) {
     final allMedia = [
-      ...widget.entry.galleryImages,
-      ...widget.entry.cameraPhotos
+      ...entry.galleryImages,
+      ...entry.cameraPhotos
     ];
     if (allMedia.isEmpty) {
       return const SizedBox.shrink();
@@ -389,11 +587,11 @@ class _JournalTileState extends State<JournalTile> {
     return content;
   }
 
-  Widget _buildAudioPreviews() {
+  Widget _buildAudioPreviews(BuildContext context, JournalEntry entry, AudioPlayer audioPlayer, String? currentlyPlayingPath, PlayerState? playerState) {
     return Column(
       children: [
-        _buildGalleryAudioPreview(),
-        _buildRecordingsPreview(),
+        _buildGalleryAudioPreview(context, entry),
+        _buildRecordingsPreview(context, entry, audioPlayer, currentlyPlayingPath, playerState),
       ],
     );
   }
@@ -408,13 +606,13 @@ class _JournalTileState extends State<JournalTile> {
     return '$minutes:$seconds';
   }
 
-  Widget _buildGalleryAudioPreview() {
-    if (widget.entry.galleryAudios.isEmpty) {
+  Widget _buildGalleryAudioPreview(BuildContext context, JournalEntry entry) {
+    if (entry.galleryAudios.isEmpty) {
       return const SizedBox.shrink();
     }
     final appThemeColors = AppTheme.colorsOf(context);
     return Column(
-      children: widget.entry.galleryAudios.map((audio) {
+      children: entry.galleryAudios.map((audio) {
         return Padding(
           padding: EdgeInsets.only(bottom: 4.h),
           child: Container(
@@ -453,17 +651,17 @@ class _JournalTileState extends State<JournalTile> {
     );
   }
 
-  Widget _buildRecordingsPreview() {
-    if (widget.entry.recordings.isEmpty) {
+  Widget _buildRecordingsPreview(BuildContext context, JournalEntry entry, AudioPlayer audioPlayer, String? currentlyPlayingPath, PlayerState? playerState) {
+    if (entry.recordings.isEmpty) {
       return const SizedBox.shrink();
     }
     final appThemeColors = AppTheme.colorsOf(context);
     return Column(
-      children: widget.entry.recordings.map((recording) {
-        final isPlaying = _currentlyPlayingPath == recording.path &&
-            _playerState == PlayerState.playing;
-        final isPaused = _currentlyPlayingPath == recording.path &&
-            _playerState == PlayerState.paused;
+      children: entry.recordings.map((recording) {
+        final isPlaying = currentlyPlayingPath == recording.path &&
+            playerState == PlayerState.playing;
+        final isPaused = currentlyPlayingPath == recording.path &&
+            playerState == PlayerState.paused;
         return Padding(
           padding: EdgeInsets.only(bottom: 4.h),
           child: Container(
@@ -486,15 +684,12 @@ class _JournalTileState extends State<JournalTile> {
                   ),
                   onPressed: () async {
                     if (isPlaying) {
-                      await _audioPlayer.pause();
+                      await audioPlayer.pause();
                     } else if (isPaused) {
-                      await _audioPlayer.resume();
+                      await audioPlayer.resume();
                     } else {
-                      await _audioPlayer
+                      await audioPlayer
                           .play(DeviceFileSource(recording.path));
-                      setState(() {
-                        _currentlyPlayingPath = recording.path;
-                      });
                     }
                   },
                 ),
@@ -549,13 +744,12 @@ class _JournalTileState extends State<JournalTile> {
             Row(
               children: [
                 Text(
-                  DateFormat('MMM d  •  h:mm a')
-                      .format(widget.entry.createdAt),
+                  _tileDateFormat.format(entry.createdAt),
                   style: TextStyle(
                     fontFamily: AppConstants.font,
                     fontWeight: FontWeight.w500,
                     fontSize: 14.sp,
-                    color: widget.footerTextColor ?? appThemeColors.grey3,
+                    color: footerTextColor ?? appThemeColors.grey3,
                     letterSpacing: -0.2,
                   ),
                 ),
@@ -563,19 +757,19 @@ class _JournalTileState extends State<JournalTile> {
                 Container(
                   width: 1.w,
                   height: 16.h,
-                  color: widget.dividerColor ?? appThemeColors.grey5,
+                  color: dividerColor ?? appThemeColors.grey5,
                   margin: EdgeInsets.symmetric(horizontal: 8.w),
                 ),
                 Row(
                   children: [
-                    if (widget.entry.isReflection)
+                    if (entry.isReflection)
                       Container(
                         margin: EdgeInsets.only(
-                            right: widget.entry.moodIndex != null || widget.entry.isDraft ? 8.w : 0),
+                            right: entry.moodIndex != null || entry.isDraft ? 8.w : 0),
                         padding: EdgeInsets.symmetric(
                             horizontal: 8.w, vertical: 2.h),
                         decoration: BoxDecoration(
-                          color: widget.reflectionBackground ??
+                          color: reflectionBackground ??
                               appThemeColors.grey5,
                           borderRadius: BorderRadius.circular(24.r),
                         ),
@@ -590,14 +784,14 @@ class _JournalTileState extends State<JournalTile> {
                           ),
                         ),
                       ),
-                    if (widget.entry.isDraft)
+                    if (entry.isDraft)
                       Container(
                         margin: EdgeInsets.only(
-                            right: widget.entry.moodIndex != null ? 8.w : 0),
+                            right: entry.moodIndex != null ? 8.w : 0),
                         padding: EdgeInsets.symmetric(
                             horizontal: 8.w, vertical: 2.h),
                         decoration: BoxDecoration(
-                          color: widget.reflectionBackground ??
+                          color: reflectionBackground ??
                               appThemeColors.grey5,
                           borderRadius: BorderRadius.circular(24.r),
                         ),
@@ -612,17 +806,17 @@ class _JournalTileState extends State<JournalTile> {
                           ),
                         ),
                       ),
-                    if (widget.entry.moodIndex != null)
+                    if (entry.moodIndex != null)
                       SvgPicture.asset(
-                        _moods[widget.entry.moodIndex!]['svg']!,
+                        _JournalTileState._moods[entry.moodIndex!]['svg']!,
                         width: 22.w,
                         height: 22.h,
                       ),
-                    if (widget.entry.isBookmarked)
+                    if (entry.isBookmarked)
                       Padding(
                         padding: EdgeInsets.only(
-                            left: widget.entry.moodIndex != null ||
-                                widget.entry.isReflection || widget.entry.isDraft
+                            left: entry.moodIndex != null ||
+                                entry.isReflection || entry.isDraft
                                 ? 8.w
                                 : 0),
                         child: Icon(
@@ -635,153 +829,9 @@ class _JournalTileState extends State<JournalTile> {
                 ),
               ],
             ),
-            if (widget.showMenuIcon)
+            if (showMenuIcon)
               GestureDetector(
-                key: _menuKey,
-                onTap: () {
-                  final RenderBox renderBox =
-                  _menuKey.currentContext!.findRenderObject() as RenderBox;
-                  final position = renderBox.localToGlobal(Offset.zero);
-                  showMenu<String>(
-                    context: context,
-                    color: appThemeColors.grey5,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16.r),
-                    ),
-                    position: RelativeRect.fromLTRB(
-                      position.dx - renderBox.size.width * 2,
-                      position.dy + renderBox.size.height,
-                      position.dx,
-                      position.dy + renderBox.size.height * 2,
-                    ),
-                    items: [
-                      PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit, color: appThemeColors.grey10),
-                            SizedBox(width: 8.w),
-                            Text(AppConstants.edit,
-                                style: TextStyle(
-                                    color: appThemeColors.grey10,
-                                    fontFamily: AppConstants.font,
-                                    letterSpacing: -0.2)),
-                          ],
-                        ),
-                      ),
-                      PopupMenuDivider(
-                          height: 1,
-                          color: widget.popupDividerColor ??
-                              appThemeColors.grey6),
-                      PopupMenuItem(
-                        value: 'bookmark',
-                        child: Row(
-                          children: [
-                            Icon(
-                              widget.entry.isBookmarked
-                                  ? Icons.bookmark_remove_rounded
-                                  : Icons.bookmark_add_outlined,
-                              color: appThemeColors.grey10,
-                            ),
-                            SizedBox(width: 8.w),
-                            Text(
-                              widget.entry.isBookmarked
-                                  ? AppConstants.removeBookmark
-                                  : AppConstants.bookmark,
-                              style: TextStyle(
-                                  color: appThemeColors.grey10,
-                                  fontFamily: AppConstants.font,
-                                  letterSpacing: -0.2),
-                            ),
-                          ],
-                        ),
-                      ),
-                      PopupMenuDivider(
-                          height: 1,
-                          color: widget.popupDividerColor ??
-                              appThemeColors.grey6),
-                      PopupMenuItem(
-                        value: 'share',
-                        child: Row(
-                          children: [
-                            Icon(Icons.share_outlined,
-                                color: appThemeColors.grey10),
-                            SizedBox(width: 8.w),
-                            Text(AppConstants.share,
-                                style: TextStyle(
-
-                                    color: appThemeColors.grey10,
-                                    fontFamily: AppConstants.font,
-                                    letterSpacing: -0.2)),
-                          ],
-                        ),
-                      ),
-                      PopupMenuDivider(
-                          height: 1,
-                          color: widget.popupDividerColor ??
-                              appThemeColors.grey6),
-                      PopupMenuItem(
-                        value: 'pdf',
-                        child: Row(
-                          children: [
-                            Icon(Icons.save_outlined,
-                                color: appThemeColors.grey10),
-                            SizedBox(width: 8.w),
-                            Text(AppConstants.saveAsPdf,
-                                style: TextStyle(
-                                    color: appThemeColors.grey10,
-                                    fontFamily: AppConstants.font,
-                                    letterSpacing: -0.2)),
-                          ],
-                        ),
-                      ),
-                      PopupMenuDivider(
-                          height: 1,
-                          color: widget.popupDividerColor ??
-                              appThemeColors.grey6),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete_outline_outlined,
-                                color: appThemeColors.error),
-                            SizedBox(width: 8.w),
-                            Text(AppConstants.delete,
-                                style: TextStyle(
-                                    color: appThemeColors.error,
-                                    fontFamily: AppConstants.font,
-                                    letterSpacing: -0.2)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ).then((value) async {
-                    if (value == 'edit') {
-                      _onEditPressed();
-                    } else if (value == 'bookmark') {
-                      Get.find<HomeController>()
-                          .toggleBookmarkStatus(widget.entry.id);
-                    } else if (value == 'share') {
-                      _onSharePressed();
-                    } else if (value == 'pdf') {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Generating PDF...'),
-                            duration: Duration(seconds: 2)),
-                      );
-                      try {
-                        await PdfGenerator.generateAndSharePdf(widget.entry);
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Failed to generate PDF: $e')),
-                        );
-                      }
-                    } else if (value == 'delete') {
-                      _onDeletePressed();
-                    }
-                  });
-                },
+                onTap: onMenuPressed,
                 child: Icon(
                   Icons.more_horiz_rounded,
                   color: appThemeColors.grey1,
@@ -806,7 +856,6 @@ class MediaThumbnail extends StatefulWidget {
 }
 
 class _MediaThumbnailState extends State<MediaThumbnail> {
-  Uint8List? _videoThumbnailData;
   bool _isVideo = false;
   String? _imagePath;
   bool _isAssetEntity = false;
@@ -820,14 +869,7 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
   @override
   void didUpdateWidget(covariant MediaThumbnail oldWidget) {
     super.didUpdateWidget(oldWidget);
-    dynamic oldId = oldWidget.media is AssetEntity
-        ? oldWidget.media.id
-        : oldWidget.media.file.path;
-    dynamic newId =
-    widget.media is AssetEntity ? widget.media.id : widget.media.file.path;
-
-    if (oldId != newId) {
-      _videoThumbnailData = null; // Invalidate old data
+    if (oldWidget.media != widget.media) {
       _imagePath = null;
       _initMedia();
     }
@@ -863,32 +905,29 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
   Future<void> _loadVideoThumbnail(String path) async {
     if (!mounted) return;
 
-    const thumbnailSize = ThumbnailSize(300, 300);
-    const quality = 75;
-    Uint8List? data;
-
     final thumbPath = await _getThumbnailPath(path);
     final thumbFile = File(thumbPath);
 
     if (await thumbFile.exists()) {
-      data = await thumbFile.readAsBytes();
+      // Use Image.file with cache constraints instead of Image.memory(data)
+      // to let the engine manage memory more efficiently.
       if (mounted) {
         setState(() {
-          _videoThumbnailData = data;
+          _imagePath = thumbPath;
         });
       }
     } else {
       try {
-        data = await VideoThumbnail.thumbnailData(
+        final data = await VideoThumbnail.thumbnailData(
           video: path,
-          maxWidth: thumbnailSize.width,
-          quality: quality,
+          maxWidth: 300,
+          quality: 50, // Reduced quality for faster generation and smaller footprint
         );
         if (data != null) {
           await thumbFile.writeAsBytes(data);
           if (mounted) {
             setState(() {
-              _videoThumbnailData = data;
+              _imagePath = thumbPath;
             });
           }
         }
@@ -918,7 +957,7 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
         image: AssetEntityImageProvider(
           widget.media as AssetEntity,
           isOriginal: false,
-          thumbnailSize: const ThumbnailSize.square(300),
+          thumbnailSize: const ThumbnailSize.square(200), // Slightly reduced for even more smoothness
           thumbnailFormat: ThumbnailFormat.jpeg,
         ),
         fit: BoxFit.cover,
@@ -926,20 +965,12 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
         errorBuilder: (context, error, stackTrace) => Container(color: AppTheme.colorsOf(context).grey4),
       );
     } else {
-      if (_isVideo) {
-        if (_videoThumbnailData != null) {
-          imageContent = Image.memory(
-            _videoThumbnailData!,
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
-          );
-        }
-      } else if (_imagePath != null) {
+      if (_imagePath != null) {
         imageContent = Image.file(
           File(_imagePath!),
           fit: BoxFit.cover,
           gaplessPlayback: true,
-          cacheWidth: 300, // Forces low-footprint render, preventing layout stutter on main thread
+          cacheWidth: 350, // Slightly reduced for even more smoothness
         );
       }
     }

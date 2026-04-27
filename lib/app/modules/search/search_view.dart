@@ -79,7 +79,8 @@ class _SearchViewState extends State<SearchView> {
       ];
 
       _filteredEntries = allEntries.where((entry) {
-        final content = entry.content.toPlainText().toLowerCase();
+        final plainText = _homeController.plainTextCache[entry.id] ?? '';
+        final content = plainText.toLowerCase();
         bool matchesQuery = content.contains(query);
 
         if (_isBookmarked && !entry.isBookmarked) {
