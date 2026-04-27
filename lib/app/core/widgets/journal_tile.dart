@@ -202,6 +202,7 @@ class _JournalTileState extends State<JournalTile> {
   @override
   Widget build(BuildContext context) {
     return _JournalTileContent(
+      menuKey: _menuKey,
       entry: widget.entry,
       onTap: widget.onTap,
       backgroundColor: widget.backgroundColor,
@@ -367,6 +368,7 @@ class _JournalTileState extends State<JournalTile> {
 }
 
 class _JournalTileContent extends StatelessWidget {
+  final GlobalKey menuKey;
   final JournalEntry entry;
   final VoidCallback? onTap;
   final Color? backgroundColor;
@@ -381,6 +383,7 @@ class _JournalTileContent extends StatelessWidget {
   final VoidCallback onMenuPressed;
 
   const _JournalTileContent({
+    required this.menuKey,
     required this.entry,
     required this.onTap,
     this.backgroundColor,
@@ -831,6 +834,7 @@ class _JournalTileContent extends StatelessWidget {
             ),
             if (showMenuIcon)
               GestureDetector(
+                key: menuKey,
                 onTap: onMenuPressed,
                 child: Icon(
                   Icons.more_horiz_rounded,
