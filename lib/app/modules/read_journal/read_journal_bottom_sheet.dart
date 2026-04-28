@@ -553,56 +553,87 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 14.w),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            if (_currentEntry.location != null)
-              GestureDetector(
-                onTap: _launchLocationLink,
-                child: Container(
-                  height: 38.w,
-                  padding: EdgeInsets.only(right: 12.w, left: 8.w),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.location_on_rounded,
-                        color: appThemeColors.grey3,
-                        size: 20.w,
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _currentEntry.tags.map((tag) => Padding(
+                    padding: EdgeInsets.only(right: 8.w),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                      decoration: BoxDecoration(
+                        color: AppTheme.getTagBaseColor(tag, Theme.of(context).brightness, allTags: Get.find<HomeController>().allUniqueTags),
+                        borderRadius: BorderRadius.circular(20.r),
                       ),
-                      SizedBox(width: 6.w),
-                      Text(
-                        '${_currentEntry.location!.coordinates.latitude.toStringAsFixed(4)}, ${_currentEntry.location!.coordinates.longitude.toStringAsFixed(4)}',
+                      child: Text(
+                        tag,
                         style: TextStyle(
-                          color: appThemeColors.grey1,
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w600,
-                          decoration: TextDecoration.none,
+                          color: AppTheme.getTagLightColor(tag, Theme.of(context).brightness, allTags: Get.find<HomeController>().allUniqueTags),
+                          fontSize: 12.sp,
                           fontFamily: AppConstants.font,
-                          overflow: TextOverflow.ellipsis,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  )).toList(),
                 ),
               ),
-            if (_currentEntry.moodIndex != null)
-              Padding(
-                padding: EdgeInsets.only(right: 12.w, left: 12.w),
-                child: Container(
-                  width: 38.w,
-                  height: 38.w,
-                  decoration: BoxDecoration(
-                    color: appThemeColors.grey6,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: SvgPicture.asset(
-                      _moods[_currentEntry.moodIndex!]['svg']!,
-                      width: 28.w,
-                      height: 28.h,
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_currentEntry.location != null)
+                  GestureDetector(
+                    onTap: _launchLocationLink,
+                    child: Container(
+                      height: 38.w,
+                      padding: EdgeInsets.only(right: 12.w, left: 8.w),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.location_on_rounded,
+                            color: appThemeColors.grey3,
+                            size: 20.w,
+                          ),
+                          SizedBox(width: 6.w),
+                          Text(
+                            '${_currentEntry.location!.coordinates.latitude.toStringAsFixed(4)}, ${_currentEntry.location!.coordinates.longitude.toStringAsFixed(4)}',
+                            style: TextStyle(
+                              color: appThemeColors.grey1,
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.none,
+                              fontFamily: AppConstants.font,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ),
+                if (_currentEntry.moodIndex != null)
+                  Padding(
+                    padding: EdgeInsets.only(right: 12.w, left: 12.w),
+                    child: Container(
+                      width: 38.w,
+                      height: 38.w,
+                      decoration: BoxDecoration(
+                        color: appThemeColors.grey6,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: SvgPicture.asset(
+                          _moods[_currentEntry.moodIndex!]['svg']!,
+                          width: 28.w,
+                          height: 28.h,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ],
         ),
       ),

@@ -150,13 +150,14 @@ class JournalEntryAdapter extends TypeAdapter<JournalEntry> {
       recordings:
           fields[10] == null ? [] : (fields[10] as List).cast<RecordedAudio>(),
       isDraft: fields[11] == null ? false : fields[11] as bool,
+      tags: fields[12] == null ? [] : (fields[12] as List).cast<String>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, JournalEntry obj) {
     writer
-      ..writeByte(12)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -180,7 +181,9 @@ class JournalEntryAdapter extends TypeAdapter<JournalEntry> {
       ..writeByte(10)
       ..write(obj.recordings)
       ..writeByte(11)
-      ..write(obj.isDraft);
+      ..write(obj.isDraft)
+      ..writeByte(12)
+      ..write(obj.tags);
   }
 
   @override

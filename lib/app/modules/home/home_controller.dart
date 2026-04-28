@@ -21,7 +21,19 @@ class HomeController extends GetxController {
     'text': 'Text only first',
     'location': 'With location first',
     'mood': 'With mood first',
+    'tags': 'With tags first',
   };
+
+  List<String> get allUniqueTags {
+    final tags = <String>{};
+    for (var entry in journalEntries) {
+      tags.addAll(entry.tags);
+    }
+    for (var entry in draftEntries) {
+      tags.addAll(entry.tags);
+    }
+    return tags.toList();
+  }
 
   String get currentSortTypeDisplayName =>
       _sortTypeDisplayNames[currentSortType.value] ?? 'Entry time';
@@ -202,6 +214,15 @@ class HomeController extends GetxController {
           final bHasMood = b.moodIndex != null;
           if (aHasMood && !bHasMood) return -1;
           if (!aHasMood && bHasMood) return 1;
+          return b.createdAt.compareTo(a.createdAt);
+        });
+        break;
+      case 'tags':
+        journalEntries.sort((a, b) {
+          final aHasTags = a.tags.isNotEmpty;
+          final bHasTags = b.tags.isNotEmpty;
+          if (aHasTags && !bHasTags) return -1;
+          if (!aHasTags && bHasTags) return 1;
           return b.createdAt.compareTo(a.createdAt);
         });
         break;

@@ -71,6 +71,8 @@ class JournalEntry extends HiveObject {
   final List<RecordedAudio> recordings;
   @HiveField(11, defaultValue: false) // NEW Draft Field added
   final bool isDraft;
+  @HiveField(12, defaultValue: [])
+  final List<String> tags;
 
   JournalEntry({
     required this.id,
@@ -85,6 +87,7 @@ class JournalEntry extends HiveObject {
     this.galleryAudios = const [],
     this.recordings = const [],
     this.isDraft = false,
+    this.tags = const [],
   });
 
   JournalEntry copyWith({
@@ -100,6 +103,7 @@ class JournalEntry extends HiveObject {
     List<AssetEntity>? galleryAudios,
     List<RecordedAudio>? recordings,
     bool? isDraft,
+    List<String>? tags,
   }) {
     return JournalEntry(
       id: id ?? this.id,
@@ -114,6 +118,7 @@ class JournalEntry extends HiveObject {
       galleryAudios: galleryAudios ?? this.galleryAudios,
       recordings: recordings ?? this.recordings,
       isDraft: isDraft ?? this.isDraft,
+      tags: tags ?? this.tags,
     );
   }
 }

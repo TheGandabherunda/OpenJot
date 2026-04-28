@@ -36,6 +36,7 @@ class _SearchViewState extends State<SearchView> {
   bool _withLocation = false;
   bool _isReflection = false;
   bool _isDraft = false;
+  final Set<String> _selectedTags = {};
 
   @override
   void initState() {
@@ -81,7 +82,20 @@ class _SearchViewState extends State<SearchView> {
       _filteredEntries = allEntries.where((entry) {
         final plainText = _homeController.plainTextCache[entry.id] ?? '';
         final content = plainText.toLowerCase();
-        bool matchesQuery = content.contains(query);
+        final entryTags = entry.tags.map((t) => t.toLowerCase()).toList();
+
+        bool matchesQuery = false;
+        if (query.startsWith('#')) {
+          // If query starts with #, search specifically in tags
+          matchesQuery = entryTags.any((t) => t.contains(query));
+        } else {
+          // Otherwise search in content OR tags
+          matchesQuery = content.contains(query) || entryTags.any((t) => t.contains(query));
+        }
+
+        if (_selectedTags.isNotEmpty && !_selectedTags.every((tag) => entry.tags.contains(tag))) {
+          return false;
+        }
 
         if (_isBookmarked && !entry.isBookmarked) {
           return false;
@@ -255,6 +269,20 @@ class _SearchViewState extends State<SearchView> {
                           _applyFilters();
                         });
                       }),
+                  ..._homeController.allUniqueTags.map((tag) => _buildFilterChip(
+                    tag,
+                    _selectedTags.contains(tag),
+                    (selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedTags.add(tag);
+                        } else {
+                          _selectedTags.remove(tag);
+                        }
+                        _applyFilters();
+                      });
+                    },
+                  )),
                 ],
               ),
             ),

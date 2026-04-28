@@ -456,6 +456,34 @@ class _JournalTileContent extends StatelessWidget {
                       ),
                     ),
                   ),
+                if (entry.tags.isNotEmpty)
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(10.w, 0, 10.w, 8.h),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: entry.tags.map((tag) => Padding(
+                          padding: EdgeInsets.only(right: 6.w),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                            decoration: BoxDecoration(
+                              color: AppTheme.getTagBaseColor(tag, Theme.of(context).brightness, allTags: Get.find<HomeController>().allUniqueTags),
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                            child: Text(
+                              tag,
+                              style: TextStyle(
+                                color: AppTheme.getTagLightColor(tag, Theme.of(context).brightness, allTags: Get.find<HomeController>().allUniqueTags),
+                                fontSize: 11.sp,
+                                fontWeight: FontWeight.w600,
+                                fontFamily: AppConstants.font,
+                              ),
+                            ),
+                          ),
+                        )).toList(),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

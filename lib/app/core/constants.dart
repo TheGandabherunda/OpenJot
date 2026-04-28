@@ -93,6 +93,7 @@ class AppConstants {
   static const String textOnlyFirst = "Text only first";
   static const String withLocationFirst = "With location first";
   static const String withMoodFirst = "With mood first";
+  static const String withTagsFirst = "With tags first";
 
   // Insights Bottom Sheet
   static const String stats = "Stats";
@@ -188,6 +189,7 @@ class AppConstants {
   static const String withMedia = "With Media";
   static const String withMood = "With Mood";
   static const String withLocation = "With Location";
+  static const String withTags = "With Tags";
   static const String noResultsFound = "No results found";
 
   // Settings Bottom Sheet
@@ -240,6 +242,9 @@ class AppConstants {
   static const String sharedAudio = "Shared Audio (%s)";
   static const String openJotRecording = "OpenJot recording (%s)";
   static const String openJotImage = "OpenJot image (%s)";
+  static const String tags = "Tags";
+  static const String addTags = "Add tags";
+  static const String tagPlaceholder = "#tag";
   static const String todayDate = "Today date";
   static const String customDate = "Custom Date";
   static const String done = "Done";

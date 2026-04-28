@@ -374,6 +374,100 @@ class AppTheme {
   static AppThemeColors colorsOf(BuildContext context) {
     return Theme.of(context).extension<AppThemeColors>()!;
   }
+
+  /// Returns the base "normal" color for a tag.
+  static Color getTagBaseColor(String tag, Brightness brightness,
+      {List<String>? allTags}) {
+    final Map<String, List<Color>> accentColors = brightness == Brightness.light
+        ? {
+            'Indigo': AppColors.aLIndigo,
+            'Purple': AppColors.aLPurple,
+            'Blue': AppColors.aLBlue,
+            'Cyan': AppColors.aLCyan,
+            'Teal': AppColors.aLTeal,
+            'Mint': AppColors.aLMint,
+            'Green': AppColors.aLGreen,
+            'Red': AppColors.aLRed,
+            'Yellow': AppColors.aLYellow,
+            'Pink': AppColors.aLPink,
+            'Orange': AppColors.aLOrange,
+          }
+        : {
+            'Indigo': AppColors.aDIndigo,
+            'Purple': AppColors.aDPurple,
+            'Blue': AppColors.aDBlue,
+            'Cyan': AppColors.aDCyan,
+            'Teal': AppColors.aDTeal,
+            'Mint': AppColors.aDMint,
+            'Green': AppColors.aDGreen,
+            'Red': AppColors.aDRed,
+            'Yellow': AppColors.aDYellow,
+            'Pink': AppColors.aDPink,
+            'Orange': AppColors.aDOrange,
+          };
+    final keys = accentColors.keys.toList();
+    final int index;
+    if (allTags != null && allTags.contains(tag)) {
+      index = allTags.indexOf(tag) % keys.length;
+    } else {
+      index = tag.toLowerCase().hashCode % keys.length;
+    }
+    return accentColors[keys[index]]![1]; // Base/Normal color is index 1
+  }
+
+  /// Returns the "light" variant color for a tag.
+  static Color getTagLightColor(String tag, Brightness brightness,
+      {List<String>? allTags}) {
+    final Map<String, List<Color>> accentColors = brightness == Brightness.light
+        ? {
+            'Indigo': AppColors.aLIndigo,
+            'Purple': AppColors.aLPurple,
+            'Blue': AppColors.aLBlue,
+            'Cyan': AppColors.aLCyan,
+            'Teal': AppColors.aLTeal,
+            'Mint': AppColors.aLMint,
+            'Green': AppColors.aLGreen,
+            'Red': AppColors.aLRed,
+            'Yellow': AppColors.aLYellow,
+            'Pink': AppColors.aLPink,
+            'Orange': AppColors.aLOrange,
+          }
+        : {
+            'Indigo': AppColors.aDIndigo,
+            'Purple': AppColors.aDPurple,
+            'Blue': AppColors.aDBlue,
+            'Cyan': AppColors.aDCyan,
+            'Teal': AppColors.aDTeal,
+            'Mint': AppColors.aDMint,
+            'Green': AppColors.aDGreen,
+            'Red': AppColors.aDRed,
+            'Yellow': AppColors.aDYellow,
+            'Pink': AppColors.aDPink,
+            'Orange': AppColors.aDOrange,
+          };
+    final keys = accentColors.keys.toList();
+    final int index;
+    if (allTags != null && allTags.contains(tag)) {
+      index = allTags.indexOf(tag) % keys.length;
+    } else {
+      index = tag.toLowerCase().hashCode % keys.length;
+    }
+    return accentColors[keys[index]]![2]; // Light color is index 2
+  }
+
+  /// Returns a consistent color for a tag based on its name.
+  static Color getTagColor(String tag, Brightness brightness) {
+    final colors = getNamedColors(brightness);
+    final keys = colors.keys.toList();
+    // Use hash code to pick a consistent color from the palette
+    final index = tag.toLowerCase().hashCode % keys.length;
+    return colors[keys[index]]!;
+  }
+
+  /// Returns the inverted theme brightness
+  static Brightness getInvertedBrightness(Brightness brightness) {
+    return brightness == Brightness.light ? Brightness.dark : Brightness.light;
+  }
 }
 
 /// Defines custom color properties for the application theme using ThemeExtension.
