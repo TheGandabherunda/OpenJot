@@ -376,8 +376,7 @@ class AppTheme {
   }
 
   /// Returns the base "normal" color for a tag.
-  static Color getTagBaseColor(String tag, Brightness brightness,
-      {List<String>? allTags}) {
+  static Color getTagBaseColor(String tag, Brightness brightness) {
     final Map<String, List<Color>> accentColors = brightness == Brightness.light
         ? {
             'Indigo': AppColors.aLIndigo,
@@ -406,18 +405,12 @@ class AppTheme {
             'Orange': AppColors.aDOrange,
           };
     final keys = accentColors.keys.toList();
-    final int index;
-    if (allTags != null && allTags.contains(tag)) {
-      index = allTags.indexOf(tag) % keys.length;
-    } else {
-      index = tag.toLowerCase().hashCode % keys.length;
-    }
+    final int index = tag.toLowerCase().hashCode.abs() % keys.length;
     return accentColors[keys[index]]![1]; // Base/Normal color is index 1
   }
 
   /// Returns the "light" variant color for a tag.
-  static Color getTagLightColor(String tag, Brightness brightness,
-      {List<String>? allTags}) {
+  static Color getTagLightColor(String tag, Brightness brightness) {
     final Map<String, List<Color>> accentColors = brightness == Brightness.light
         ? {
             'Indigo': AppColors.aLIndigo,
@@ -446,12 +439,7 @@ class AppTheme {
             'Orange': AppColors.aDOrange,
           };
     final keys = accentColors.keys.toList();
-    final int index;
-    if (allTags != null && allTags.contains(tag)) {
-      index = allTags.indexOf(tag) % keys.length;
-    } else {
-      index = tag.toLowerCase().hashCode % keys.length;
-    }
+    final int index = tag.toLowerCase().hashCode.abs() % keys.length;
     return accentColors[keys[index]]![2]; // Light color is index 2
   }
 

@@ -564,13 +564,13 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
                     child: Container(
                       padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
                       decoration: BoxDecoration(
-                        color: AppTheme.getTagBaseColor(tag, Theme.of(context).brightness, allTags: Get.find<HomeController>().allUniqueTags),
+                        color: AppTheme.getTagBaseColor(tag, Theme.of(context).brightness),
                         borderRadius: BorderRadius.circular(20.r),
                       ),
                       child: Text(
                         tag,
                         style: TextStyle(
-                          color: AppTheme.getTagLightColor(tag, Theme.of(context).brightness, allTags: Get.find<HomeController>().allUniqueTags),
+                          color: AppTheme.getTagLightColor(tag, Theme.of(context).brightness),
                           fontSize: 12.sp,
                           fontFamily: AppConstants.font,
                           fontWeight: FontWeight.w600,

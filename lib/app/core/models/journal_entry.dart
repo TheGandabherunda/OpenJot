@@ -73,6 +73,8 @@ class JournalEntry extends HiveObject {
   final bool isDraft;
   @HiveField(12, defaultValue: [])
   final List<String> tags;
+  @HiveField(13)
+  final String? originalId;
 
   JournalEntry({
     required this.id,
@@ -88,6 +90,7 @@ class JournalEntry extends HiveObject {
     this.recordings = const [],
     this.isDraft = false,
     this.tags = const [],
+    this.originalId,
   });
 
   JournalEntry copyWith({
@@ -104,6 +107,7 @@ class JournalEntry extends HiveObject {
     List<RecordedAudio>? recordings,
     bool? isDraft,
     List<String>? tags,
+    String? originalId,
   }) {
     return JournalEntry(
       id: id ?? this.id,
@@ -119,6 +123,7 @@ class JournalEntry extends HiveObject {
       recordings: recordings ?? this.recordings,
       isDraft: isDraft ?? this.isDraft,
       tags: tags ?? this.tags,
+      originalId: originalId ?? this.originalId,
     );
   }
 }

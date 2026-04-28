@@ -195,7 +195,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       _tags = List.from(entry.tags);
       _isCustomDate = true;
     } else {
-      _currentEntryId = const Uuid().v4();
+      _currentEntryId = Uuid().v4();
       _quillController = quill.QuillController.basic();
       final initialContent = widget.initialText ?? '';
       if (initialContent.isNotEmpty) {
@@ -256,7 +256,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
           !_previewRecordings.every((e) => originalRecordings.any((o) => o.path == e.path))) return true;
 
       if (_selectedMoodIndex != widget.entry!.moodIndex) return true;
-      if (_selectedDate != widget.entry!.createdAt) return true;
+      if (_selectedDate.millisecondsSinceEpoch != widget.entry!.createdAt.millisecondsSinceEpoch) return true;
       if (_isBookmarked != widget.entry!.isBookmarked) return true;
       if (_selectedLocation?.coordinates != widget.entry!.location?.coordinates) return true;
 
@@ -364,8 +364,25 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       final documentJson = _quillController.document.toDelta().toJson();
       final cleanDocument = quill.Document.fromJson(documentJson);
 
+      String saveId = _currentEntryId;
+      String? originalId = widget.entry?.originalId;
+
+      // Handle non-destructive draft saving for existing journals
+      if (isDraft && widget.entry != null && !widget.entry!.isDraft) {
+        // Create a new branched draft ID
+        saveId = Uuid().v4();
+        originalId = widget.entry!.id;
+      }
+
+      // If we are updating an existing entry from a draft that has an originalId
+      if (!isDraft && widget.entry != null && widget.entry!.isDraft && widget.entry!.originalId != null) {
+        saveId = widget.entry!.originalId!;
+        // Delete the draft entry after updating the original
+        homeController.deleteJournalEntry(widget.entry!.id);
+      }
+
       final updatedEntry = JournalEntry(
-        id: _currentEntryId,
+        id: saveId,
         content: cleanDocument,
         createdAt: _selectedDate,
         isBookmarked: _isBookmarked,
@@ -378,10 +395,11 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         recordings: _previewRecordings,
         isDraft: isDraft,
         tags: _tags,
+        originalId: originalId,
       );
 
-      final exists = homeController.journalEntries.any((e) => e.id == _currentEntryId) ||
-          homeController.draftEntries.any((e) => e.id == _currentEntryId);
+      final exists = homeController.journalEntries.any((e) => e.id == saveId) ||
+          homeController.draftEntries.any((e) => e.id == saveId);
 
       if (exists) {
         homeController.updateJournalEntry(updatedEntry);
@@ -1982,11 +2000,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   }
 
   Widget _buildTagField(AppThemeColors appThemeColors) {
-    final allTagsForColor = {
-      ...Get.find<HomeController>().allUniqueTags,
-      ..._tags,
-    }.toList();
-
     return Material(
       color: Colors.transparent,
       child: Padding(
@@ -2030,13 +2043,13 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                     Container(
                       padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
                       decoration: BoxDecoration(
-                        color: AppTheme.getTagBaseColor(tag, Theme.of(context).brightness, allTags: allTagsForColor),
+                        color: AppTheme.getTagBaseColor(tag, Theme.of(context).brightness),
                         borderRadius: BorderRadius.circular(20.r),
                       ),
                       child: Text(
                         tag.startsWith('#') ? tag : '#$tag',
                         style: TextStyle(
-                          color: AppTheme.getTagLightColor(tag, Theme.of(context).brightness, allTags: allTagsForColor),
+                          color: AppTheme.getTagLightColor(tag, Theme.of(context).brightness),
                           fontSize: 12.sp,
                           fontFamily: AppConstants.font,
                           fontWeight: FontWeight.w600,

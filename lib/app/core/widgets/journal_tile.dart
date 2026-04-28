@@ -467,13 +467,13 @@ class _JournalTileContent extends StatelessWidget {
                           child: Container(
                             padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
                             decoration: BoxDecoration(
-                              color: AppTheme.getTagBaseColor(tag, Theme.of(context).brightness, allTags: Get.find<HomeController>().allUniqueTags),
+                              color: AppTheme.getTagBaseColor(tag, Theme.of(context).brightness),
                               borderRadius: BorderRadius.circular(12.r),
                             ),
                             child: Text(
                               tag,
                               style: TextStyle(
-                                color: AppTheme.getTagLightColor(tag, Theme.of(context).brightness, allTags: Get.find<HomeController>().allUniqueTags),
+                                color: AppTheme.getTagLightColor(tag, Theme.of(context).brightness),
                                 fontSize: 11.sp,
                                 fontWeight: FontWeight.w600,
                                 fontFamily: AppConstants.font,
