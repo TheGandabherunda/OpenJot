@@ -1,7 +1,9 @@
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 
+import '../../core/constants.dart';
 import '../../core/models/journal_entry.dart';
 
 class HomeController extends GetxController {
@@ -11,6 +13,10 @@ class HomeController extends GetxController {
 
   final audioPlayer = AudioPlayer();
   final plainTextCache = <String, String>{}.obs;
+
+  // Reactive audio state
+  final currentlyPlayingPath = RxnString();
+  final playerState = Rx<PlayerState>(PlayerState.stopped);
 
   final currentSortType = 'time'.obs;
   final Map<String, String> _sortTypeDisplayNames = {
@@ -43,6 +49,23 @@ class HomeController extends GetxController {
     super.onInit();
     _hiveService.getJournalEntriesNotifier().addListener(loadJournalEntries);
     loadJournalEntries();
+
+    // Listen to audio player state changes globally
+    audioPlayer.onPlayerStateChanged.listen((state) {
+      playerState.value = state;
+      if (state == PlayerState.completed) {
+        currentlyPlayingPath.value = null;
+      }
+    });
+
+    // Pre-cache mood SVGs
+    for (var mood in AppConstants.moods) {
+      final loader = SvgAssetLoader(mood['svg']!);
+      svg.cache.putIfAbsent(loader.cacheKey(null), () => loader.loadBytes(null));
+    }
+    // Also pre-cache app icon
+    const iconLoader = SvgAssetLoader('assets/app_icon.svg');
+    svg.cache.putIfAbsent(iconLoader.cacheKey(null), () => iconLoader.loadBytes(null));
   }
 
   @override

@@ -946,80 +946,86 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                 top: 16.h,
                                 bottom: 140.h,
                               ),
-                              sliver: SliverList(
-                                delegate: SliverChildBuilderDelegate(
-                                      (context, index) {
-                                    final entry = entries[index];
-                                    final prevEntry = index > 0 ? entries[index - 1] : null;
+                              sliver: SliverMainAxisGroup(
+                                slivers: [
+                                  SliverList(
+                                    delegate: SliverChildBuilderDelegate(
+                                          (context, index) {
+                                        final entry = entries[index];
+                                        final prevEntry = index > 0 ? entries[index - 1] : null;
 
-                                    bool showYearDivider = prevEntry == null ||
-                                        entry.createdAt.year != prevEntry.createdAt.year;
-                                    bool showMonthDivider = prevEntry == null ||
-                                        entry.createdAt.month != prevEntry.createdAt.month ||
-                                        entry.createdAt.year != prevEntry.createdAt.year;
+                                        bool showYearDivider = prevEntry == null ||
+                                            entry.createdAt.year != prevEntry.createdAt.year;
+                                        bool showMonthDivider = prevEntry == null ||
+                                            entry.createdAt.month != prevEntry.createdAt.month ||
+                                            entry.createdAt.year != prevEntry.createdAt.year;
 
-                                    return Padding(
-                                      padding: EdgeInsets.only(bottom: 32.h),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          if (showYearDivider) ...[
-                                            Padding(
-                                              padding:
-                                              EdgeInsets.only(bottom: 12.h, top: 8.h),
-                                              child: Text(
-                                                entry.createdAt.year.toString(),
-                                                style: TextStyle(
-                                                  fontFamily: AppConstants.font,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 28.sp,
-                                                  color: appThemeColors.grey10,
-                                                  letterSpacing: -0.5,
+                                        return RepaintBoundary(
+                                          child: Padding(
+                                            padding: EdgeInsets.only(bottom: 32.h),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                if (showYearDivider) ...[
+                                                  Padding(
+                                                    padding:
+                                                    EdgeInsets.only(bottom: 12.h, top: 8.h),
+                                                    child: Text(
+                                                      entry.createdAt.year.toString(),
+                                                      style: TextStyle(
+                                                        fontFamily: AppConstants.font,
+                                                        fontWeight: FontWeight.bold,
+                                                        fontSize: 28.sp,
+                                                        color: appThemeColors.grey10,
+                                                        letterSpacing: -0.5,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                                if (showMonthDivider) ...[
+                                                  Padding(
+                                                    padding: EdgeInsets.only(
+                                                        bottom: 16.h,
+                                                        top: showYearDivider ? 0 : 8.h),
+                                                    child: Text(
+                                                      _monthFormat.format(entry.createdAt),
+                                                      style: TextStyle(
+                                                        fontFamily: AppConstants.font,
+                                                        fontWeight: FontWeight.w600,
+                                                        fontSize: 18.sp,
+                                                        color: appThemeColors.grey2,
+                                                        letterSpacing: -0.2,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                                JournalTile(
+                                                  entry: entry,
+                                                  onTap: () {
+                                                    showCupertinoModalBottomSheet(
+                                                      context: context,
+                                                      expand: true,
+                                                      backgroundColor: Colors.transparent,
+                                                      builder: (modalContext) {
+                                                        return SafeArea(
+                                                          child: ReadJournalBottomSheet(
+                                                              entry: entry),
+                                                        );
+                                                      },
+                                                    );
+                                                  },
                                                 ),
-                                              ),
+                                              ],
                                             ),
-                                          ],
-                                          if (showMonthDivider) ...[
-                                            Padding(
-                                              padding: EdgeInsets.only(
-                                                  bottom: 16.h,
-                                                  top: showYearDivider ? 0 : 8.h),
-                                              child: Text(
-                                                _monthFormat.format(entry.createdAt),
-                                                style: TextStyle(
-                                                  fontFamily: AppConstants.font,
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 18.sp,
-                                                  color: appThemeColors.grey2,
-                                                  letterSpacing: -0.2,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                          JournalTile(
-                                            entry: entry,
-                                            onTap: () {
-                                              showCupertinoModalBottomSheet(
-                                                context: context,
-                                                expand: true,
-                                                backgroundColor: Colors.transparent,
-                                                builder: (modalContext) {
-                                                  return SafeArea(
-                                                    child: ReadJournalBottomSheet(
-                                                        entry: entry),
-                                                  );
-                                                },
-                                              );
-                                            },
                                           ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                  childCount: entries.isEmpty ? 0 : entries.length,
-                                  addAutomaticKeepAlives: false,
-                                  addRepaintBoundaries: true,
-                                ),
+                                        );
+                                      },
+                                      childCount: entries.isEmpty ? 0 : entries.length,
+                                      addAutomaticKeepAlives: false,
+                                      addRepaintBoundaries: true,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],

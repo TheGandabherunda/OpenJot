@@ -1581,7 +1581,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
               child: Row(
                 children: [
                   Icon(
-                    Icons.play_circle_fill_rounded,
+                    Icons.music_note_rounded,
                     color: appThemeColors.grey1,
                     size: 28.sp,
                   ),
@@ -1677,7 +1677,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
               child: Row(
                 children: [
                   Icon(
-                    Icons.play_circle_fill_rounded,
+                    Icons.music_note_rounded,
                     color: appThemeColors.grey1,
                     size: 28.sp,
                   ),

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:image/image.dart' as img; // Left safely for compilation compatibility
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -59,33 +58,16 @@ class _JournalTileState extends State<JournalTile> {
 
   final GlobalKey _menuKey = GlobalKey();
   final HomeController _homeController = Get.find<HomeController>();
-  late final AudioPlayer _audioPlayer;
-  String? _currentlyPlayingPath;
-  PlayerState? _playerState;
-  StreamSubscription? _playerStateSubscription;
 
   static const List<Map<String, String>> _moods = AppConstants.moods;
 
   @override
   void initState() {
     super.initState();
-    _audioPlayer = _homeController.audioPlayer;
-    _playerStateSubscription =
-        _audioPlayer.onPlayerStateChanged.listen((state) {
-          if (mounted) {
-            setState(() {
-              _playerState = state;
-              if (state == PlayerState.completed) {
-                _currentlyPlayingPath = null;
-              }
-            });
-          }
-        });
   }
 
   @override
   void dispose() {
-    _playerStateSubscription?.cancel();
     super.dispose();
   }
 
@@ -203,9 +185,7 @@ class _JournalTileState extends State<JournalTile> {
       reflectionBackground: widget.reflectionBackground,
       showMenuIcon: widget.showMenuIcon,
       plainText: _homeController.plainTextCache[widget.entry.id] ?? '',
-      audioPlayer: _audioPlayer,
-      currentlyPlayingPath: _currentlyPlayingPath,
-      playerState: _playerState,
+      homeController: _homeController,
       onMenuPressed: () {
         final RenderBox renderBox =
         _menuKey.currentContext!.findRenderObject() as RenderBox;
@@ -369,9 +349,7 @@ class _JournalTileContent extends StatelessWidget {
   final Color? reflectionBackground;
   final bool showMenuIcon;
   final String plainText;
-  final AudioPlayer audioPlayer;
-  final String? currentlyPlayingPath;
-  final PlayerState? playerState;
+  final HomeController homeController;
   final VoidCallback onMenuPressed;
 
   const _JournalTileContent({
@@ -384,9 +362,7 @@ class _JournalTileContent extends StatelessWidget {
     this.reflectionBackground,
     required this.showMenuIcon,
     required this.plainText,
-    required this.audioPlayer,
-    this.currentlyPlayingPath,
-    this.playerState,
+    required this.homeController,
     required this.onMenuPressed,
   });
 
@@ -429,7 +405,7 @@ class _JournalTileContent extends StatelessWidget {
                   Padding(
                     padding: EdgeInsets.only(
                         bottom: plainText.isNotEmpty ? 8.h : 0),
-                    child: _buildAudioPreviews(context, entry, audioPlayer, currentlyPlayingPath, playerState),
+                    child: _buildAudioPreviews(context, entry),
                   ),
                 if (plainText.isNotEmpty)
                   Padding(
@@ -610,11 +586,11 @@ class _JournalTileContent extends StatelessWidget {
     return content;
   }
 
-  Widget _buildAudioPreviews(BuildContext context, JournalEntry entry, AudioPlayer audioPlayer, String? currentlyPlayingPath, PlayerState? playerState) {
+  Widget _buildAudioPreviews(BuildContext context, JournalEntry entry) {
     return Column(
       children: [
         _buildGalleryAudioPreview(context, entry),
-        _buildRecordingsPreview(context, entry, audioPlayer, currentlyPlayingPath, playerState),
+        _buildRecordingsPreview(context, entry),
       ],
     );
   }
@@ -674,17 +650,13 @@ class _JournalTileContent extends StatelessWidget {
     );
   }
 
-  Widget _buildRecordingsPreview(BuildContext context, JournalEntry entry, AudioPlayer audioPlayer, String? currentlyPlayingPath, PlayerState? playerState) {
+  Widget _buildRecordingsPreview(BuildContext context, JournalEntry entry) {
     if (entry.recordings.isEmpty) {
       return const SizedBox.shrink();
     }
     final appThemeColors = AppTheme.colorsOf(context);
     return Column(
       children: entry.recordings.map((recording) {
-        final isPlaying = currentlyPlayingPath == recording.path &&
-            playerState == PlayerState.playing;
-        final isPaused = currentlyPlayingPath == recording.path &&
-            playerState == PlayerState.paused;
         return Padding(
           padding: EdgeInsets.only(bottom: 4.h),
           child: Container(
@@ -697,26 +669,12 @@ class _JournalTileContent extends StatelessWidget {
             ),
             child: Row(
               children: [
-                IconButton(
-                  icon: Icon(
-                    isPlaying
-                        ? Icons.pause_circle_filled_rounded
-                        : Icons.play_circle_fill_rounded,
-                    color: appThemeColors.grey1,
-                    size: 28.sp,
-                  ),
-                  onPressed: () async {
-                    if (isPlaying) {
-                      await audioPlayer.pause();
-                    } else if (isPaused) {
-                      await audioPlayer.resume();
-                    } else {
-                      await audioPlayer
-                          .play(DeviceFileSource(recording.path));
-                    }
-                  },
+                Icon(
+                  Icons.music_note_rounded,
+                  color: appThemeColors.grey1,
+                  size: 28.sp,
                 ),
-                SizedBox(width: 4.w),
+                SizedBox(width: 12.w),
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,

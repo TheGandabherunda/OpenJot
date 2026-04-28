@@ -431,7 +431,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
               child: Row(
                 children: [
                   Icon(
-                    Icons.play_circle_fill_rounded,
+                    Icons.music_note_rounded,
                     color: appThemeColors.grey1,
                     size: 28.sp,
                   ),
@@ -496,7 +496,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
               child: Row(
                 children: [
                   Icon(
-                    Icons.play_circle_fill_rounded,
+                    Icons.music_note_rounded,
                     color: appThemeColors.grey1,
                     size: 28.sp,
                   ),
