@@ -39,9 +39,8 @@ class HiveService extends GetxService {
     // This fixes absolute paths changing after app updates, backup restores, or iOS app restarts.
     await _sanitizeMediaPathsIfNeeded(appDocumentDir);
 
-    // --- Data Migration: 5 Moods to 7 Moods ---
-    await _migrateMoodsIfNeeded();
-    await _fixMoodOrder7();
+    // --- Data Migration: Mood Evolution ---
+    await _migrateMoods();
 
     // Run Garbage Collection quietly in the background to free up storage
     if (runGC) {
@@ -126,23 +125,35 @@ class HiveService extends GetxService {
     }
   }
 
-  Future<void> _migrateMoodsIfNeeded() async {
-    const migrationKey = 'hasMigratedMoodsTo7_v2';
-    final bool hasMigrated = settingsBox.get(migrationKey, defaultValue: false);
-    // Check old key to avoid corrupting new data if user updated from an older 1.1.0 build
-    final bool hasMigratedOld = settingsBox.get('hasMigratedMoodsTo7', defaultValue: false);
+  Future<void> _migrateMoods() async {
+    const String moodVersionKey = 'mood_schema_version';
+    // Version 0: v1.0.0 (5 moods)
+    // Version 1: v1.1.0 (7 moods, old order)
+    // Version 2: v1.1.1 (7 moods, new order - Current)
 
-    if (hasMigrated || hasMigratedOld) {
-      debugPrint("Mood migration: Already migrated.");
-      if (!hasMigrated) await settingsBox.put(migrationKey, true);
+    int currentVersion = settingsBox.get(moodVersionKey, defaultValue: -1);
+
+    // Inferred versioning for existing users who haven't tracked version yet
+    if (currentVersion == -1) {
+      if (settingsBox.get('hasFixedMoodOrder7', defaultValue: false)) {
+        currentVersion = 2;
+      } else if (settingsBox.get('hasMigratedMoodsTo7', defaultValue: false)) {
+        currentVersion = 1;
+      } else {
+        // If journals is empty, we can safely start at latest version
+        // Otherwise, assume they are on the oldest version (5 moods)
+        currentVersion = journalsBox.isEmpty ? 2 : 0;
+      }
+    }
+
+    if (currentVersion >= 2) {
+      debugPrint("Mood migration: Already at version $currentVersion.");
       return;
     }
 
-    debugPrint("Mood migration: Starting check of ${journalsBox.length} entries...");
-    int migrationCount = 0;
-
-    // Use keys to avoid iterator issues during modification
+    debugPrint("Mood migration: Migrating from version $currentVersion to 2...");
     final keys = journalsBox.keys.toList();
+    int migrationCount = 0;
 
     for (final key in keys) {
       final entry = journalsBox.get(key);
@@ -150,75 +161,44 @@ class HiveService extends GetxService {
         int oldIndex = entry.moodIndex!;
         int? newIndex;
 
-        // Only migrate if the index is within the old 5-mood range (0-4)
-        if (oldIndex >= 0 && oldIndex <= 4) {
+        if (currentVersion == 0) {
+          // v1.0.0 (5 moods) to v1.1.1 (7 moods, new order)
+          // Old 5: VU(0), U(1), N(2), P(3), VP(4)
+          // New 7: VU(0), U(1), SU(2), N(3), SP(4), P(5), VP(6)
           switch (oldIndex) {
-            case 0: newIndex = 0; break; // Very Unpleasant (0) -> Very Unpleasant (0)
-            case 1: newIndex = 1; break; // Unpleasant (1) -> Unpleasant (1)
-            case 2: newIndex = 3; break; // Neutral (2) -> Neutral (3)
-            case 3: newIndex = 5; break; // Pleasant (3) -> Pleasant (5)
-            case 4: newIndex = 6; break; // Very Pleasant (4) -> Very Pleasant (6)
+            case 0: newIndex = 0; break; // VU -> VU
+            case 1: newIndex = 1; break; // U -> U
+            case 2: newIndex = 3; break; // N -> N
+            case 3: newIndex = 5; break; // P -> P
+            case 4: newIndex = 6; break; // VP -> VP
+          }
+        } else if (currentVersion == 1) {
+          // v1.1.0 (7 moods, old order) to v1.1.1 (7 moods, new order)
+          // Old 7: VU(0), SU(1), U(2), N(3), P(4), SP(5), VP(6)
+          // New 7: VU(0), U(1), SU(2), N(3), SP(4), P(5), VP(6)
+          // Swaps: SU(1) <-> U(2) and P(4) <-> SP(5)
+          switch (oldIndex) {
+            case 1: newIndex = 2; break; // Old SU -> New SU
+            case 2: newIndex = 1; break; // Old U -> New U
+            case 4: newIndex = 5; break; // Old P -> New P
+            case 5: newIndex = 4; break; // Old SP -> New SP
           }
         }
 
         if (newIndex != null && newIndex != oldIndex) {
-          final updatedEntry = entry.copyWith(moodIndex: newIndex);
-          await journalsBox.put(key, updatedEntry);
+          await journalsBox.put(key, entry.copyWith(moodIndex: newIndex));
           migrationCount++;
         }
       }
     }
 
-    await settingsBox.put(migrationKey, true);
-    await settingsBox.put('hasMigratedMoodsTo7', true); // Backward compatibility
+    await settingsBox.put(moodVersionKey, 2);
+    // Cleanup old flags
+    await settingsBox.delete('hasMigratedMoodsTo7');
+    await settingsBox.delete('hasMigratedMoodsTo7_v2');
+    await settingsBox.delete('hasFixedMoodOrder7');
 
     debugPrint("Mood migration: Completed. Migrated $migrationCount entries.");
-  }
-
-  Future<void> _fixMoodOrder7() async {
-    const migrationKey = 'hasFixedMoodOrder7';
-    final bool hasFixed = settingsBox.get(migrationKey, defaultValue: false);
-
-    if (hasFixed) {
-      debugPrint("Mood fix: Already fixed.");
-      return;
-    }
-
-    debugPrint("Mood fix: Starting check of ${journalsBox.length} entries...");
-    int fixCount = 0;
-
-    final keys = journalsBox.keys.toList();
-
-    for (final key in keys) {
-      final entry = journalsBox.get(key);
-      if (entry != null && entry.moodIndex != null) {
-        int oldIndex = entry.moodIndex!;
-        int? newIndex;
-
-        // Swapping indices based on the corrected 7-mood order
-        // Old 7 order: Very Unpleasant(0), Slightly Unpleasant(1), Unpleasant(2), Neutral(3), Pleasant(4), Slightly Pleasant(5), Very Pleasant(6)
-        // New 7 order: Very Unpleasant(0), Unpleasant(1), Slightly Unpleasant(2), Neutral(3), Slightly Pleasant(4), Pleasant(5), Very Pleasant(6)
-        // Required Swaps: 1 ↔ 2 and 4 ↔ 5
-        if (oldIndex == 1) {
-          newIndex = 2;
-        } else if (oldIndex == 2) {
-          newIndex = 1;
-        } else if (oldIndex == 4) {
-          newIndex = 5;
-        } else if (oldIndex == 5) {
-          newIndex = 4;
-        }
-
-        if (newIndex != null) {
-          final updatedEntry = entry.copyWith(moodIndex: newIndex);
-          await journalsBox.put(key, updatedEntry);
-          fixCount++;
-        }
-      }
-    }
-
-    await settingsBox.put(migrationKey, true);
-    debugPrint("Mood fix: Completed. Fixed $fixCount entries.");
   }
 
   void _registerAdapters() {

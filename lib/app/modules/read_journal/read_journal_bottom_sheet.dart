@@ -37,15 +37,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
   late JournalEntry _currentEntry;
   late quill.QuillController _quillController;
 
-  static const List<Map<String, String>> _moods = [
-    {'svg': 'assets/1.svg', 'label': AppConstants.veryUnpleasant},
-    {'svg': 'assets/2.svg', 'label': AppConstants.unpleasant},
-    {'svg': 'assets/3.svg', 'label': AppConstants.slightlyUnpleasant},
-    {'svg': 'assets/4.svg', 'label': AppConstants.neutral},
-    {'svg': 'assets/5.svg', 'label': AppConstants.slightlyPleasant},
-    {'svg': 'assets/6.svg', 'label': AppConstants.pleasant},
-    {'svg': 'assets/7.svg', 'label': AppConstants.veryPleasant},
-  ];
+  static const List<Map<String, String>> _moods = AppConstants.moods;
 
   @override
   void initState() {

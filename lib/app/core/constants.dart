@@ -64,6 +64,16 @@ class AppConstants {
   static const String audioTrack = "Audio track";
   static const String emptyDuration = "--:--";
 
+  static const List<Map<String, String>> moods = [
+    {'svg': 'assets/1.svg', 'label': veryUnpleasant},
+    {'svg': 'assets/2.svg', 'label': unpleasant},
+    {'svg': 'assets/3.svg', 'label': slightlyUnpleasant},
+    {'svg': 'assets/4.svg', 'label': neutral},
+    {'svg': 'assets/5.svg', 'label': slightlyPleasant},
+    {'svg': 'assets/6.svg', 'label': pleasant},
+    {'svg': 'assets/7.svg', 'label': veryPleasant},
+  ];
+
   // Drafts & Auto-saves
   static const String drafts = "Drafts";
   static const String draft = "Draft";
