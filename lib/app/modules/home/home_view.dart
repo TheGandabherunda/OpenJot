@@ -783,12 +783,6 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                         child: Container(
                           decoration: BoxDecoration(
                             color: appThemeColors.grey7.withOpacity(0.9),
-                            border: Border(
-                              bottom: BorderSide(
-                                color: appThemeColors.grey5,
-                                width: 0.5,
-                              ),
-                            ),
                           ),
                         ),
                       ),
