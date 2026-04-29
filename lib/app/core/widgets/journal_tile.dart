@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:image/image.dart' as img; // Left safely for compilation compatibility
 import 'package:flutter/cupertino.dart';
@@ -55,7 +56,6 @@ class JournalTile extends StatefulWidget {
 
 class _JournalTileState extends State<JournalTile> {
   static const _platform = MethodChannel('app.channel.shared.data');
-  static final DateFormat _tileDateFormat = DateFormat('MMM d  •  h:mm a');
 
   final GlobalKey _menuKey = GlobalKey();
   final HomeController _homeController = Get.find<HomeController>();
@@ -787,11 +787,24 @@ class _JournalTileContent extends StatelessWidget {
                         ),
                       ),
                     if (entry.moodIndex != null)
-                      SvgPicture.asset(
-                        _JournalTileState._moods[entry.moodIndex!]['svg']!,
-                        width: 22.w,
-                        height: 22.h,
-                      ),
+                      Obx(() {
+                        final rasterizedImage = homeController.moodImages[entry.moodIndex!];
+                        if (rasterizedImage != null) {
+                          return RawImage(
+                            image: rasterizedImage,
+                            width: 22.w,
+                            height: 22.h,
+                            filterQuality: ui.FilterQuality.high,
+                          );
+                        }
+                        return RepaintBoundary(
+                          child: SvgPicture.asset(
+                            _JournalTileState._moods[entry.moodIndex!]['svg']!,
+                            width: 22.w,
+                            height: 22.h,
+                          ),
+                        );
+                      }),
                     if (entry.isBookmarked)
                       Padding(
                         padding: EdgeInsets.only(

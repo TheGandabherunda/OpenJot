@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:camera/camera.dart';
@@ -8,6 +9,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:get/get.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/core/constants.dart';
@@ -16,6 +18,7 @@ import 'package:open_jot/app/core/widgets/camera_view.dart';
 import 'package:open_jot/app/core/widgets/custom_button.dart';
 import 'package:open_jot/app/core/widgets/custom_slider.dart';
 import 'package:open_jot/app/core/widgets/location_map_view.dart';
+import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/media_preview/media_preview_bottom_sheet.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -186,9 +189,7 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
       _albums = albums;
 
       // Explicitly default to the "All" album
-      if (_selectedAlbum == null) {
-        _selectedAlbum = _albums.firstWhere((a) => a.isAll, orElse: () => _albums.first);
-      }
+      _selectedAlbum ??= _albums.firstWhere((a) => a.isAll, orElse: () => _albums.first);
     }
 
     if (_selectedAlbum == null) return;
@@ -413,7 +414,7 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
         assetType = AssetType.other;
     }
 
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: type,
       allowMultiple: true,
     );
@@ -692,9 +693,9 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
                   if (_isLoading)
                     _buildSkeletonSliver(colors)
                   else if (_permissionStatus == null)
-                    SliverFillRemaining(
+                    const SliverFillRemaining(
                       hasScrollBody: false,
-                      child: const Center(child: CircularProgressIndicator()),
+                      child: Center(child: CircularProgressIndicator()),
                     )
                   else if (!_permissionStatus!.isGranted)
                     SliverFillRemaining(
@@ -1890,20 +1891,37 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
                                 child: IndexedStack(
                                   index: moodIndex,
                                   alignment: Alignment.center,
-                                  children: _moods
-                                      .map((mood) => SvgPicture.asset(
-                                            mood['svg']!,
-                                            width: 160.w,
-                                            height: 160.h,
-                                          ))
-                                      .toList(),
+                                  children: _moods.asMap().entries.map((entry) {
+                                    final idx = entry.key;
+                                    final mood = entry.value;
+
+                                    return Obx(() {
+                                      final HomeController controller = Get.find();
+                                      final rasterizedImage = controller.moodImagesLarge[idx];
+
+                                      if (rasterizedImage != null) {
+                                        return RawImage(
+                                          image: rasterizedImage,
+                                          width: 160.w,
+                                          height: 160.h,
+                                          filterQuality: ui.FilterQuality.high,
+                                        );
+                                      }
+
+                                      return SvgPicture.asset(
+                                        mood['svg']!,
+                                        width: 160.w,
+                                        height: 160.h,
+                                      );
+                                    });
+                                  }).toList(),
                                 ),
                               ),
                             ],
                           ),
                         ),
                       ),
-                      SizedBox(height: 32.h),
+                      SizedBox(height: 20.h),
                       SizedBox(
                         height: 72.h,
                         child: CustomSliderWithTooltip(

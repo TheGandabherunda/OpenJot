@@ -1,7 +1,10 @@
+import 'dart:ui' as ui;
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
+import 'package:vector_graphics/vector_graphics.dart';
 
 import '../../core/constants.dart';
 import '../../core/models/journal_entry.dart';
@@ -13,6 +16,11 @@ class HomeController extends GetxController {
 
   final audioPlayer = AudioPlayer();
   final plainTextCache = <String, String>{}.obs;
+
+  // Pre-rasterized mood images for maximum scroll performance
+  final moodImages = <int, ui.Image>{}.obs;
+  // Large rasterized images for the selector to maintain sharpness (480x480)
+  final moodImagesLarge = <int, ui.Image>{}.obs;
 
   // Reactive audio state
   final currentlyPlayingPath = RxnString();
@@ -58,7 +66,7 @@ class HomeController extends GetxController {
       }
     });
 
-    // Pre-cache mood SVGs
+    // Pre-cache mood SVGs to prevent scroll lag
     for (var mood in AppConstants.moods) {
       final loader = SvgAssetLoader(mood['svg']!);
       svg.cache.putIfAbsent(loader.cacheKey(null), () => loader.loadBytes(null));
@@ -66,6 +74,45 @@ class HomeController extends GetxController {
     // Also pre-cache app icon
     const iconLoader = SvgAssetLoader('assets/app_icon.svg');
     svg.cache.putIfAbsent(iconLoader.cacheKey(null), () => iconLoader.loadBytes(null));
+
+    // Pre-rasterize mood icons for buttery smooth scrolling
+    _rasterizeMoodIcons();
+  }
+
+  Future<void> _rasterizeMoodIcons() async {
+    // 3x scale for high-density displays (22w * 3 = 66 pixels)
+    const double targetSizeSmall = 66.0;
+    // 3x scale for the large selector (160w * 3 = 480 pixels)
+    const double targetSizeLarge = 480.0;
+
+    for (int i = 0; i < AppConstants.moods.length; i++) {
+      try {
+        final loader = SvgAssetLoader(AppConstants.moods[i]['svg']!);
+        final pictureInfo = await vg.loadPicture(loader, null);
+
+        // Rasterize Small
+        moodImages[i] = await _renderToImage(pictureInfo, targetSizeSmall);
+        
+        // Rasterize Large
+        moodImagesLarge[i] = await _renderToImage(pictureInfo, targetSizeLarge);
+      } catch (e) {
+        print('Failed to rasterize mood icon $i: $e');
+      }
+    }
+  }
+
+  Future<ui.Image> _renderToImage(PictureInfo pictureInfo, double targetSize) async {
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+
+    final scale = targetSize / pictureInfo.size.width;
+    canvas.scale(scale);
+    canvas.drawPicture(pictureInfo.picture);
+
+    return await recorder.endRecording().toImage(
+          targetSize.toInt(),
+          targetSize.toInt(),
+        );
   }
 
   @override

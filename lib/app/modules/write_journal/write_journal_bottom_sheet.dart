@@ -1975,11 +1975,23 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                     width: 38.w,
                     height: 38.w,
                     child: Center(
-                      child: SvgPicture.asset(
-                        _moods[_selectedMoodIndex!]['svg']!,
-                        width: 28.w,
-                        height: 28.h,
-                      ),
+                      child: Obx(() {
+                        final HomeController controller = Get.find();
+                        final rasterizedImage = controller.moodImages[_selectedMoodIndex!];
+                        if (rasterizedImage != null) {
+                          return RawImage(
+                            image: rasterizedImage,
+                            width: 28.w,
+                            height: 28.h,
+                            filterQuality: ui.FilterQuality.high,
+                          );
+                        }
+                        return SvgPicture.asset(
+                          _moods[_selectedMoodIndex!]['svg']!,
+                          width: 28.w,
+                          height: 28.h,
+                        );
+                      }),
                     ),
                   ),
                 ),

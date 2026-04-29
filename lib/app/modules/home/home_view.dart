@@ -74,7 +74,6 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
 
   final _shareService = ShareService();
   double _lastOffset = 0.0;
-  static const double _tileHeightEstimate = 100;
   int _topEntryIndex = 0;
   final ScrollController _scrollController = ScrollController();
 

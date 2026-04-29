@@ -616,11 +616,23 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
                         shape: BoxShape.circle,
                       ),
                       child: Center(
-                        child: SvgPicture.asset(
-                          _moods[_currentEntry.moodIndex!]['svg']!,
-                          width: 28.w,
-                          height: 28.h,
-                        ),
+                        child: Obx(() {
+                          final HomeController controller = Get.find();
+                          final rasterizedImage = controller.moodImages[_currentEntry.moodIndex!];
+                          if (rasterizedImage != null) {
+                            return RawImage(
+                              image: rasterizedImage,
+                              width: 28.w,
+                              height: 28.h,
+                              filterQuality: ui.FilterQuality.high,
+                            );
+                          }
+                          return SvgPicture.asset(
+                            _moods[_currentEntry.moodIndex!]['svg']!,
+                            width: 28.w,
+                            height: 28.h,
+                          );
+                        }),
                       ),
                     ),
                   ),

@@ -1,5 +1,6 @@
 import 'dart:collection';
 import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -31,8 +32,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
   late DateTime _selectedYearDate;
   late DateTime _calendarDate;
   CalendarType _selectedCalendarType = CalendarType.standard;
-
-  static const List<Map<String, String>> _moods = AppConstants.moods;
 
   @override
   void initState() {
@@ -632,16 +631,28 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
   }
 
   Widget _buildMoodCell(List<JournalEntry> entries) {
+    final HomeController controller = Get.find();
     for (var entry in entries) {
       if (entry.moodIndex != null) {
         return Center(
           child: Opacity(
             opacity: 0.5,
-            child: SvgPicture.asset(
-              _moods[entry.moodIndex!]['svg']!,
-              width: 24.w,
-              height: 24.h,
-            ),
+            child: Obx(() {
+              final rasterizedImage = controller.moodImages[entry.moodIndex!];
+              if (rasterizedImage != null) {
+                return RawImage(
+                  image: rasterizedImage,
+                  width: 24.w,
+                  height: 24.h,
+                  filterQuality: ui.FilterQuality.high,
+                );
+              }
+              return SvgPicture.asset(
+                AppConstants.moods[entry.moodIndex!]['svg']!,
+                width: 24.w,
+                height: 24.h,
+              );
+            }),
           ),
         );
       }
