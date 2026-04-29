@@ -38,8 +38,8 @@ dependencies:
   # --- MEDIA & FILE HANDLING ---
   archive: ^4.0.7
   audioplayers: ^6.5.0
-  camera: ^0.12.0+1
-  file_picker: ^11.0.2
+  camera: ^0.11.2
+  file_picker: ^10.3.2
   get_thumbnail_video: ^0.7.3
   image: ^4.5.4
   pdf: ^3.11.3

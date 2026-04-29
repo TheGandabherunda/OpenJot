@@ -139,6 +139,9 @@ class AppConstants {
   static const String onThisDayChannelDescription =
       "Notifications for memories from past years.";
   static const String onThisDayNotificationTitle = "A memory from your journal";
+  static const String mostly = "Mostly";
+  static const String averageForThisDay = "Average for this day";
+  static const String averageForThisYear = "Average for this year";
   static const String onThisDaySingleEntry =
       "A year ago today, you wrote something special. Tap to revisit your thoughts.";
   static const String onThisDaySingleEntryWithMedia =
@@ -180,6 +183,8 @@ class AppConstants {
   static const String all = "All";
   static const String folder = "Folder";
   static const String browse = "Browse";
+  static const String tiles = "Tiles";
+  static const String graph = "Graph";
   static const String recording = "Recording...";
   static const String paused = "Paused";
   static const String stop = "Stop";

@@ -414,7 +414,7 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
         assetType = AssetType.other;
     }
 
-    final result = await FilePicker.pickFiles(
+    final result = await FilePicker.platform.pickFiles(
       type: type,
       allowMultiple: true,
     );

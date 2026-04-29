@@ -502,7 +502,7 @@ class HiveService extends GetxService {
       final zipFile = File(zipPath);
       final zipBytes = await zipFile.readAsBytes();
 
-      final String? selectedPath = await FilePicker.saveFile(
+      final String? selectedPath = await FilePicker.platform.saveFile(
         dialogTitle: AppConstants.selectBackupFolder,
         fileName: backupFileName,
         type: FileType.custom,
@@ -539,7 +539,7 @@ class HiveService extends GetxService {
 
     Directory? tempDir;
     try {
-      final result = await FilePicker.pickFiles(
+      final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['zip'],
       );
