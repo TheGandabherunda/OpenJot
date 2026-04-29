@@ -14,6 +14,7 @@ import 'package:intl/intl.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
+import 'package:open_jot/app/utils/custom_toast.dart';
 import 'package:open_jot/app/utils/pdf_generator.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -320,19 +321,17 @@ class _JournalTileState extends State<JournalTile> {
       } else if (value == 'share') {
         _onSharePressed();
       } else if (value == 'pdf') {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Generating PDF...'),
-              duration: Duration(seconds: 2)),
-        );
+        final loadingToast = CustomToast.showLoadingToast('Generating PDF...');
         try {
           await PdfGenerator.generateAndSharePdf(widget.entry);
-        } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to generate PDF: $e')),
-          );
+        } catch (e, stack) {
+          debugPrint('PDF GENERATION FAILED: $e');
+          debugPrint('STACK TRACE: $stack');
+        } finally {
+          loadingToast.close();
         }
-      } else if (value == 'delete') {
+      }
+else if (value == 'delete') {
         _onDeletePressed();
       }
     });
