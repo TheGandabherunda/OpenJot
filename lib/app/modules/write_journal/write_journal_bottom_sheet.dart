@@ -187,7 +187,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       _tags = List.from(entry.tags);
       _isCustomDate = true;
     } else {
-      _currentEntryId = Uuid().v4();
+      _currentEntryId = const Uuid().v4();
       _quillController = quill.QuillController.basic();
       final initialContent = widget.initialText ?? '';
       if (initialContent.isNotEmpty) {
@@ -229,25 +229,37 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       return currentText.isNotEmpty || !isMediaEmpty || _tags.isNotEmpty;
     } else {
       final originalText = widget.entry!.content.toPlainText().trim();
-      if (currentText != originalText) return true;
+      if (currentText != originalText) {
+        return true;
+      }
 
       final originalImages = widget.entry!.galleryImages;
       if (_previewImages.length != originalImages.length ||
-          !_previewImages.every((e) => originalImages.any((o) => o.id == e.id))) return true;
+          !_previewImages.every((e) => originalImages.any((o) => o.id == e.id))) {
+        return true;
+      }
 
       final originalPhotos = widget.entry!.cameraPhotos;
       if (_previewPhotos.length != originalPhotos.length ||
-          !_previewPhotos.every((e) => originalPhotos.any((o) => o.file.path == e.file.path))) return true;
+          !_previewPhotos.every((e) => originalPhotos.any((o) => o.file.path == e.file.path))) {
+        return true;
+      }
 
       final originalAudios = widget.entry!.galleryAudios;
       if (_previewAudios.length != originalAudios.length ||
-          !_previewAudios.every((e) => originalAudios.any((o) => o.id == e.id))) return true;
+          !_previewAudios.every((e) => originalAudios.any((o) => o.id == e.id))) {
+        return true;
+      }
 
       final originalRecordings = widget.entry!.recordings;
       if (_previewRecordings.length != originalRecordings.length ||
-          !_previewRecordings.every((e) => originalRecordings.any((o) => o.path == e.path))) return true;
+          !_previewRecordings.every((e) => originalRecordings.any((o) => o.path == e.path))) {
+        return true;
+      }
 
-      if (_selectedMoodIndex != widget.entry!.moodIndex) return true;
+      if (_selectedMoodIndex != widget.entry!.moodIndex) {
+        return true;
+      }
       if (_selectedDate.millisecondsSinceEpoch != widget.entry!.createdAt.millisecondsSinceEpoch) return true;
       if (_isBookmarked != widget.entry!.isBookmarked) return true;
       if (_selectedLocation?.coordinates != widget.entry!.location?.coordinates) return true;
@@ -255,7 +267,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       // Check if tags have changed
       final originalTags = widget.entry!.tags;
       if (_tags.length != originalTags.length ||
-          !_tags.every((tag) => originalTags.contains(tag))) return true;
+          !_tags.every((tag) => originalTags.contains(tag))) {
+        return true;
+      }
 
       return false;
     }
@@ -362,7 +376,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       // Handle non-destructive draft saving for existing journals
       if (isDraft && widget.entry != null && !widget.entry!.isDraft) {
         // Create a new branched draft ID
-        saveId = Uuid().v4();
+        saveId = const Uuid().v4();
         originalId = widget.entry!.id;
       }
 
@@ -1296,17 +1310,17 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
               child: Row(
                 children: [
                   SizedBox(width: 16.w),
-                  Text(
-                    DateFormat('MMM d  •  h:mm a').format(_selectedDate),
-                    style: TextStyle(
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w500,
-                      fontFamily: AppConstants.font,
-                      color:
-                      appThemeColors.grey10.withAlpha((255 * 0.6).round()),
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
+          Text(
+            DateFormat('MMM d  •  h:mm a').format(_selectedDate),
+            style: TextStyle(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w500,
+              fontFamily: AppConstants.font,
+              color:
+                  appThemeColors.grey10.withAlpha((255 * 0.6).round()),
+              decoration: TextDecoration.none,
+            ),
+          ),
                   SizedBox(width: 8.w),
                   Icon(
                     Icons.more_vert_rounded,

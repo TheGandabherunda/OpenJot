@@ -4,7 +4,6 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
-import 'package:vector_graphics/vector_graphics.dart';
 
 import '../../core/constants.dart';
 import '../../core/models/journal_entry.dart';
@@ -96,7 +95,7 @@ class HomeController extends GetxController {
         // Rasterize Large
         moodImagesLarge[i] = await _renderToImage(pictureInfo, targetSizeLarge);
       } catch (e) {
-        print('Failed to rasterize mood icon $i: $e');
+        // Failed to rasterize mood icon $i
       }
     }
   }
@@ -109,7 +108,7 @@ class HomeController extends GetxController {
     canvas.scale(scale);
     canvas.drawPicture(pictureInfo.picture);
 
-    return await recorder.endRecording().toImage(
+    return recorder.endRecording().toImage(
           targetSize.toInt(),
           targetSize.toInt(),
         );

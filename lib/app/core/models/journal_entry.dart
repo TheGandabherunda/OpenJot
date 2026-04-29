@@ -6,6 +6,8 @@ import 'package:photo_manager/photo_manager.dart' hide LatLng;
 
 part 'journal_entry.g.dart';
 
+// ignore_for_file: avoid_bool_literals_in_conditional_expressions
+
 @HiveType(typeId: 1)
 class RecordedAudio {
   @HiveField(0)

@@ -165,7 +165,7 @@ Future<({Uint8List png, double heightPt})> _renderLineAsPng(
   final TextDirection dir =
   isRtl ? TextDirection.rtl : TextDirection.ltr;
 
-  // Left padding for blockquote bar.
+  // Measurement logic
   const double blockquotePadPx = 14.0 * _kRenderScale;
 
   final double availableWidthPx = line.isBlockquote
@@ -370,10 +370,10 @@ class PdfGenerator {
       await Printing.sharePdf(
         bytes: bytes,
         filename:
-        'Journal_Entry_${intl.DateFormat('yyyy-MM-dd_HH-mm').format(entry.createdAt)}.pdf',
+            'Journal_Entry_${intl.DateFormat('yyyy-MM-dd_HH-mm').format(entry.createdAt)}.pdf',
       );
-    } catch (e, stack) {
-      print('PDF GENERATION FAILED: $e\n$stack');
+    } catch (e) {
+      // PDF generation failed
       rethrow;
     }
   }
