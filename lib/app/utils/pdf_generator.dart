@@ -186,7 +186,7 @@ Future<({Uint8List png, double heightPt})> _renderLineAsPng(
   // Add a small vertical buffer so descenders / top diacritics are not clipped.
   final double extraPx = fontSizePx * 0.35;
   final double totalHeightPx = painter.height + extraPx;
-  final double totalWidthPx = _kColumnWidthPx;
+  const double totalWidthPx = _kColumnWidthPx;
 
   // Draw.
   final recorder = ui.PictureRecorder();

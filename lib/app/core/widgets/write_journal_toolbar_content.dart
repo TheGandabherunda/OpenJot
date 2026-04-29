@@ -1709,10 +1709,6 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
     _targetTurns = _currentMoodIndex.toDouble();
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 
   void _updateRotation(int newIndex) {
     // Ensuring an integer number of turns ensures the logo is perfectly upright at each stop.

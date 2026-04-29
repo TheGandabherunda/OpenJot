@@ -317,8 +317,12 @@ class HiveService extends GetxService {
       // Use basenames to avoid GC incorrectly deleting files when absolute path changes
       Set<String> activeMediaBasenames = {};
       for (final entry in journalsBox.values) {
-        for (final photo in entry.cameraPhotos) activeMediaBasenames.add(p.basename(photo.file.path));
-        for (final rec in entry.recordings) activeMediaBasenames.add(p.basename(rec.path));
+        for (final photo in entry.cameraPhotos) {
+          activeMediaBasenames.add(p.basename(photo.file.path));
+        }
+        for (final rec in entry.recordings) {
+          activeMediaBasenames.add(p.basename(rec.path));
+        }
       }
 
       // Clean up extracted/restored files in appDocDir/media

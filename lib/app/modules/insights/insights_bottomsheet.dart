@@ -773,10 +773,11 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
           }
 
           final hasMoods = entriesToShow.any((e) => e.moodIndex != null);
+          final showTabs = hasMoods && widget.calendarType == CalendarType.mood;
 
           return Column(
             children: [
-              if (hasMoods)
+              if (showTabs)
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                   child: SizedBox(
@@ -842,8 +843,8 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
         final entriesInYear = groupedByYear[year]!;
 
         final moods = entriesInYear.map((e) => e.moodIndex).whereType<int>().toList();
-        final int? avgMoodIndex = moods.isNotEmpty 
-            ? (moods.reduce((a, b) => a + b) / moods.length).round() 
+        final int? avgMoodIndex = moods.isNotEmpty
+            ? (moods.reduce((a, b) => a + b) / moods.length).round()
             : null;
 
         return Column(
@@ -862,7 +863,7 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
                 ),
               ),
             ),
-            if (avgMoodIndex != null) ...[
+            if (avgMoodIndex != null && widget.calendarType == CalendarType.mood) ...[
               Center(child: _buildCenteredMoodSummary(avgMoodIndex, AppConstants.averageForThisYear, colors)),
               SizedBox(height: 32.h),
             ],
@@ -924,8 +925,8 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
         entriesInYear.sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
         final moods = entriesInYear.map((e) => e.moodIndex).whereType<int>().toList();
-        final int? avgMoodIndex = moods.isNotEmpty 
-            ? (moods.reduce((a, b) => a + b) / moods.length).round() 
+        final int? avgMoodIndex = moods.isNotEmpty
+            ? (moods.reduce((a, b) => a + b) / moods.length).round()
             : null;
 
         return Column(
@@ -945,7 +946,7 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
                 ),
               ),
             ),
-            if (avgMoodIndex != null) ...[
+            if (avgMoodIndex != null && widget.calendarType == CalendarType.mood) ...[
               Center(child: _buildCenteredMoodSummary(avgMoodIndex, AppConstants.averageForThisYear, appThemeColors)),
               SizedBox(height: 32.h),
             ],
@@ -1015,21 +1016,54 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
   }
 }
 
-class MoodGraph extends StatelessWidget {
+class MoodGraph extends StatefulWidget {
   final List<JournalEntry> entries;
 
   const MoodGraph({super.key, required this.entries});
 
   @override
+  State<MoodGraph> createState() => _MoodGraphState();
+}
+
+class _MoodGraphState extends State<MoodGraph> {
+  int? _touchedIndex;
+  OverlayEntry? _overlayEntry;
+  final LayerLink _layerLink = LayerLink();
+
+  @override
+  void dispose() {
+    _removeTooltip();
+    super.dispose();
+  }
+
+  void _removeTooltip() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
-    
-    final sortedEntries = List<JournalEntry>.from(entries)
-      ..sort((a, b) {
-        final timeA = a.createdAt.hour * 60 + a.createdAt.minute;
-        final timeB = b.createdAt.hour * 60 + b.createdAt.minute;
-        return timeA.compareTo(timeB);
-      });
+
+    if (widget.entries.isEmpty) return const SizedBox.shrink();
+
+    // Group and average mood for same timestamps
+    final Map<int, List<int>> rawPoints = {};
+    for (var entry in widget.entries) {
+      if (entry.moodIndex == null) continue;
+      final timeInMinutes = entry.createdAt.hour * 60 + entry.createdAt.minute;
+      rawPoints.putIfAbsent(timeInMinutes, () => []).add(entry.moodIndex!);
+    }
+
+    final List<({int timeInMinutes, int moodIndex})> processedData = [];
+    final sortedTimes = rawPoints.keys.toList()..sort();
+    for (final time in sortedTimes) {
+      final moods = rawPoints[time]!;
+      final avgMood = (moods.reduce((a, b) => a + b) / moods.length).round();
+      processedData.add((timeInMinutes: time, moodIndex: avgMood));
+    }
+
+    if (processedData.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1037,11 +1071,29 @@ class MoodGraph extends StatelessWidget {
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              return CustomPaint(
-                size: Size(constraints.maxWidth, constraints.maxHeight),
-                painter: _MoodGraphPainter(
-                  entries: sortedEntries,
-                  colors: appThemeColors,
+              return CompositedTransformTarget(
+                link: _layerLink,
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    if (notification is ScrollUpdateNotification) {
+                      _removeTooltip();
+                    }
+                    return false;
+                  },
+                  child: GestureDetector(
+                    onTapDown: (details) => _handleTouch(details.localPosition, constraints.maxWidth, constraints.maxHeight, processedData, appThemeColors),
+                    onPanUpdate: (details) => _handleTouch(details.localPosition, constraints.maxWidth, constraints.maxHeight, processedData, appThemeColors),
+                    onPanEnd: (_) => _handleTouchEnd(),
+                    onTapUp: (_) => _handleTouchEnd(),
+                    child: CustomPaint(
+                      size: Size(constraints.maxWidth, constraints.maxHeight),
+                      painter: _MoodGraphPainter(
+                        data: processedData,
+                        colors: appThemeColors,
+                        touchedIndex: _touchedIndex,
+                      ),
+                    ),
+                  ),
                 ),
               );
             },
@@ -1062,6 +1114,152 @@ class MoodGraph extends StatelessWidget {
     );
   }
 
+  void _handleTouch(Offset localPosition, double width, double height, List<({int timeInMinutes, int moodIndex})> data, AppThemeColors colors) {
+    double minDistance = double.infinity;
+    int closestIndex = -1;
+
+    for (int i = 0; i < data.length; i++) {
+      final x = (data[i].timeInMinutes / 1440.0) * width;
+      final distance = (x - localPosition.dx).abs();
+      if (distance < minDistance && distance < 30) { // Threshold for easier tapping
+        minDistance = distance;
+        closestIndex = i;
+      }
+    }
+
+    if (closestIndex != -1 && closestIndex != _touchedIndex) {
+      setState(() {
+        _touchedIndex = closestIndex;
+      });
+      _showTooltip(closestIndex, data, width, height, colors);
+    }
+  }
+
+  void _handleTouchEnd() {
+    setState(() {
+      _touchedIndex = null;
+    });
+    _removeTooltip();
+  }
+
+  void _showTooltip(int index, List<({int timeInMinutes, int moodIndex})> data, double width, double height, AppThemeColors colors) {
+    _removeTooltip();
+    if (index < 0 || index >= data.length) return;
+
+    final item = data[index];
+    final x = (item.timeInMinutes / 1440.0) * width;
+    final y = height - (item.moodIndex / 6.0 * height);
+
+    final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final Offset globalTargetOffset = renderBox.localToGlobal(Offset.zero);
+    final double screenWidth = MediaQuery.of(context).size.width;
+
+    // Calculate clamped offset for the follower
+    // Tooltip width is 120, so we center it by subtracting 60
+    final double tooltipWidth = 120.w;
+    final double localX = x - (tooltipWidth / 2);
+    final double globalX = globalTargetOffset.dx + localX;
+    
+    final double clampedGlobalX = globalX.clamp(16.w, screenWidth - tooltipWidth - 16.w);
+    final double followerOffsetX = clampedGlobalX - globalTargetOffset.dx;
+
+    // Calculate arrow position relative to the tooltip box
+    // x is the coordinate of the dot relative to the graph
+    // followerOffsetX is the coordinate of the left edge of the tooltip relative to the graph
+    // We clamp it slightly more to ensure it doesn't go outside the pill's curve
+    final double arrowRelativeX = (x - followerOffsetX).clamp(16.w, tooltipWidth - 16.w);
+
+    final hour = item.timeInMinutes ~/ 60;
+    final minute = item.timeInMinutes % 60;
+    final timeStr = DateFormat('h:mm a').format(DateTime(2024, 1, 1, hour, minute));
+    final moodLabel = AppConstants.moods[item.moodIndex.clamp(0, 6)]['label'];
+
+    final accentColors = [
+      colors.aPurple[1],
+      colors.aPink[1],
+      colors.aBlue[1],
+      colors.aTeal[1],
+      colors.aMint[1],
+      colors.aGreen[1],
+      colors.aYellow[1],
+    ];
+    final accentColor = accentColors[item.moodIndex.clamp(0, 6)];
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          CompositedTransformFollower(
+            link: _layerLink,
+            showWhenUnlinked: false,
+            offset: Offset(followerOffsetX, y - 68.h),
+            child: Material(
+              color: Colors.transparent,
+              child: SizedBox(
+                width: tooltipWidth,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                      decoration: BoxDecoration(
+                        color: accentColor,
+                        borderRadius: BorderRadius.circular(24.r), // Pill shape
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.15),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            timeStr,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11.sp,
+                              fontFamily: AppConstants.font,
+                            ),
+                          ),
+                          Text(
+                            moodLabel!,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontSize: 10.sp,
+                              fontFamily: AppConstants.font,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.only(left: arrowRelativeX - 6.w),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: CustomPaint(
+                          size: Size(12.w, 6.h),
+                          painter: _TooltipArrowPainter(color: accentColor),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
   Widget _timeLabel(String text, AppThemeColors colors) => Text(
     text,
     style: TextStyle(
@@ -1073,27 +1271,46 @@ class MoodGraph extends StatelessWidget {
   );
 }
 
-class _MoodGraphPainter extends CustomPainter {
-  final List<JournalEntry> entries;
-  final AppThemeColors colors;
+class _TooltipArrowPainter extends CustomPainter {
+  final Color color;
 
-  _MoodGraphPainter({required this.entries, required this.colors});
+  _TooltipArrowPainter({required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (entries.isEmpty) return;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
 
-    final accentColors = [
-      colors.aPurple[1],
-      colors.aPink[1],
-      colors.aBlue[1],
-      colors.aTeal[1],
-      colors.aMint[1],
-      colors.aGreen[1],
-      colors.aYellow[1],
-    ];
+    final path = Path();
+    path.moveTo(0, 0);
+    path.lineTo(size.width, 0);
+    path.lineTo(size.width / 2, size.height);
+    path.close();
 
-    // Grid lines - horizontal only for mood levels
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _MoodGraphPainter extends CustomPainter {
+  final List<({int timeInMinutes, int moodIndex})> data;
+  final AppThemeColors colors;
+  final int? touchedIndex;
+
+  _MoodGraphPainter({
+    required this.data,
+    required this.colors,
+    this.touchedIndex,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (data.isEmpty) return;
+
+    // 1. Grid lines
     final gridPaint = Paint()
       ..color = colors.grey3.withOpacity(0.2)
       ..strokeWidth = 1.0;
@@ -1103,118 +1320,137 @@ class _MoodGraphPainter extends CustomPainter {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
 
-    // Pass 1: Collect points and their mood indices to ensure alignment
-    final List<({Offset pos, int moodIndex})> points = [];
-    for (var entry in entries) {
-      if (entry.moodIndex == null) continue;
+    // 2. Map data to offsets
+    final List<Offset> points = data.map((d) {
+      final x = (d.timeInMinutes / 1440.0) * size.width;
+      final y = size.height - (d.moodIndex / 6.0 * size.height);
+      return Offset(x, y);
+    }).toList();
 
-      final timeInMinutes = entry.createdAt.hour * 60 + entry.createdAt.minute;
-      final x = (timeInMinutes / (24 * 60.0)) * size.width;
-      final y = size.height - (entry.moodIndex! / 6.0 * size.height);
-      points.add((pos: Offset(x, y), moodIndex: entry.moodIndex!));
+    if (points.length < 2) {
+      _drawPoints(canvas, points);
+      return;
     }
 
-    if (points.isEmpty) return;
-
-    // Draw Smooth Curve (Thread Style)
+    // 3. Monotone Cubic Spline (PCHIP)
     final path = Path();
-    path.moveTo(points.first.pos.dx, points.first.pos.dy);
+    path.moveTo(points.first.dx, points.first.dy);
 
-    if (points.length > 1) {
-      // 1. Calculate Slopes between points
-      final List<double> slopes = [];
-      for (int i = 0; i < points.length - 1; i++) {
-        final dX = points[i + 1].pos.dx - points[i].pos.dx;
-        final dY = points[i + 1].pos.dy - points[i].pos.dy;
-        slopes.add(dX == 0 ? 0 : dY / dX);
-      }
+    final List<double> h = [];
+    final List<double> m = [];
+    for (int i = 0; i < points.length - 1; i++) {
+      final dx = points[i + 1].dx - points[i].dx;
+      final dy = points[i + 1].dy - points[i].dy;
+      h.add(dx);
+      m.add(dy / dx);
+    }
 
-      // 2. Calculate Tangents at points (C1 continuity)
-      final List<double> tangents = List.filled(points.length, 0);
-      for (int i = 0; i < points.length; i++) {
-        if (i == 0) {
-          tangents[i] = slopes[0];
-        } else if (i == points.length - 1) {
-          tangents[i] = slopes[i - 1];
+    final List<double> d = List.filled(points.length, 0.0);
+    for (int i = 0; i < points.length; i++) {
+      if (points.length == 2) {
+        d[i] = m[0];
+      } else if (i == 0) {
+        final d0 = ((2 * h[0] + h[1]) * m[0] - h[0] * m[1]) / (h[0] + h[1]);
+        d[i] = (d0 * m[0] <= 0) ? 0 : d0;
+        if (m[0] * m[1] <= 0 && d[i].abs() > (3 * m[0]).abs()) d[i] = 3 * m[0];
+      } else if (i == points.length - 1) {
+        final n = points.length - 1;
+        final dn = ((2 * h[n - 1] + h[n - 2]) * m[n - 1] - h[n - 1] * m[n - 2]) / (h[n - 1] + h[n - 2]);
+        d[i] = (dn * m[n - 1] <= 0) ? 0 : dn;
+        if (m[n - 1] * m[n - 2] <= 0 && d[i].abs() > (3 * m[n - 1]).abs()) d[i] = 3 * m[n - 1];
+      } else {
+        final m0 = m[i - 1];
+        final m1 = m[i];
+        if (m0 * m1 <= 0) {
+          d[i] = 0;
         } else {
-          // Weighted average for smoother transitions
-          final s0 = slopes[i - 1];
-          final s1 = slopes[i];
-          if (s0 * s1 <= 0) {
-            tangents[i] = 0; // Maintain monotonicity
-          } else {
-            tangents[i] = (s0 + s1) / 2.0;
-          }
+          final h0 = h[i - 1];
+          final h1 = h[i];
+          final w1 = 2 * h1 + h0;
+          final w2 = h1 + 2 * h0;
+          d[i] = (w1 + w2) / (w1 / m0 + w2 / m1);
         }
       }
-
-      // 3. Draw Path using Monotone-preserving Cubic Bezier
-      for (int i = 0; i < points.length - 1; i++) {
-        final p0 = points[i].pos;
-        final p1 = points[i + 1].pos;
-        final dX = p1.dx - p0.dx;
-        
-        // Control points positioned at 1/3 horizontal distance
-        // Vertical offset derived from the tangents
-        final cp1 = Offset(p0.dx + dX / 3.0, p0.dy + (dX * tangents[i]) / 3.0);
-        final cp2 = Offset(p1.dx - dX / 3.0, p1.dy - (dX * tangents[i + 1]) / 3.0);
-
-        path.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p1.dx, p1.dy);
-      }
-
-      // Draw Gradient Fill under the curve (Very subtle for thread style)
-      final fillPath = Path.from(path);
-      fillPath.lineTo(points.last.pos.dx, size.height);
-      fillPath.lineTo(points.first.pos.dx, size.height);
-      fillPath.close();
-
-      final fillPaint = Paint()
-        ..shader = ui.Gradient.linear(
-          Offset(0, size.height * 0.4),
-          Offset(0, size.height),
-          [
-            colors.primary.withOpacity(0.12),
-            colors.primary.withOpacity(0.0),
-          ],
-        )
-        ..style = PaintingStyle.fill;
-      canvas.drawPath(fillPath, fillPaint);
-
-      // Thread Shadow (Increased blur for thicker line)
-      canvas.drawPath(
-        path,
-        Paint()
-          ..color = Colors.black.withOpacity(0.25)
-          ..strokeWidth = 4.0
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
-      );
-
-      // Thread Line (The "Thread") - Increased thickness
-      final linePaint = Paint()
-        ..color = colors.primary
-        ..strokeWidth = 2.0 // Slightly thicker for better visibility
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round;
-      canvas.drawPath(path, linePaint);
     }
 
-    // Draw dots for each mood
-    final dotPaint = Paint()..style = PaintingStyle.fill;
+    for (int i = 0; i < points.length - 1; i++) {
+      final p0 = points[i];
+      final p1 = points[i + 1];
+      final dx = p1.dx - p0.dx;
 
+      final cp1 = Offset(p0.dx + dx / 3.0, p0.dy + (d[i] * dx) / 3.0);
+      final cp2 = Offset(p1.dx - dx / 3.0, p1.dy - (d[i + 1] * dx) / 3.0);
+
+      path.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p1.dx, p1.dy);
+    }
+
+    // 4. Fill Gradient
+    final fillPath = Path.from(path);
+    fillPath.lineTo(points.last.dx, size.height);
+    fillPath.lineTo(points.first.dx, size.height);
+    fillPath.close();
+
+    final fillPaint = Paint()
+      ..shader = ui.Gradient.linear(
+        Offset(0, size.height * 0.4),
+        Offset(0, size.height),
+        [
+          colors.primary.withOpacity(0.12),
+          colors.primary.withOpacity(0.0),
+        ],
+      )
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(fillPath, fillPaint);
+
+    // 5. Shadow
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = Colors.black.withOpacity(0.2)
+        ..strokeWidth = 3.0
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+    );
+
+    // 6. Main Line
+    final linePaint = Paint()
+      ..color = colors.primary
+      ..strokeWidth = 3.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawPath(path, linePaint);
+
+    // 7. Draw dots
+    _drawPoints(canvas, points);
+  }
+
+  void _drawPoints(Canvas canvas, List<Offset> points) {
+    final dotPaint = Paint()..style = PaintingStyle.fill;
     for (int i = 0; i < points.length; i++) {
-      final point = points[i];
-      final color = accentColors[point.moodIndex.clamp(0, 6)];
-      
-      // Outer border for the dot (Increased size)
-      canvas.drawCircle(point.pos, 5.r, Paint()..color = colors.grey7);
-      
-      // Inner colored dot (Increased size)
-      canvas.drawCircle(point.pos, 3.5.r, dotPaint..color = color);
+      final moodIndex = data[i].moodIndex.clamp(0, 6);
+      final accentColor = [
+        colors.aPurple[1],
+        colors.aPink[1],
+        colors.aBlue[1],
+        colors.aTeal[1],
+        colors.aMint[1],
+        colors.aGreen[1],
+        colors.aYellow[1],
+      ][moodIndex];
+
+      final isTouched = i == touchedIndex;
+      final radius = isTouched ? 6.r : 4.r;
+
+      // Border
+      canvas.drawCircle(points[i], radius + 1.5.r, Paint()..color = colors.grey7);
+      // Inner dot
+      canvas.drawCircle(points[i], radius, dotPaint..color = accentColor);
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _MoodGraphPainter oldDelegate) {
+    return oldDelegate.touchedIndex != touchedIndex || oldDelegate.data != data;
+  }
 }

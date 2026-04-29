@@ -626,8 +626,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
 
     // Dynamically calculate the fraction needed to fit the minimized map (380.h)
     // + sheet headers (~80.h) uniformly without excessive bottom space.
-    final double locationMinFraction = (460.h / screenHeight);
-    final double moodMinFraction = (480.h / screenHeight); // Accommodate larger mood SVG & slider
+    final double locationMinFraction = 460.h / screenHeight;
+    final double moodMinFraction = 480.h / screenHeight; // Accommodate larger mood SVG & slider
 
     double baseFraction;
     if (iconData == Icons.location_on_rounded) {
@@ -2109,7 +2109,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     showCupertinoDialog(
       context: context,
       builder: (context) => CupertinoAlertDialog(
-        title: Text(AppConstants.addTags),
+        title: const Text(AppConstants.addTags),
         content: Padding(
           padding: EdgeInsets.only(top: 10.h),
           child: Row(
@@ -2145,11 +2145,11 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         ),
         actions: [
           CupertinoDialogAction(
-            child: Text(AppConstants.cancel),
+            child: const Text(AppConstants.cancel),
             onPressed: () => Navigator.pop(context),
           ),
           CupertinoDialogAction(
-            child: Text(AppConstants.add),
+            child: const Text(AppConstants.add),
             onPressed: () {
               _addTag(_tagController.text);
               Navigator.pop(context);

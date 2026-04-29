@@ -1,4 +1,3 @@
-import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -510,8 +509,8 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         }
 
         if (hasAudio) {
-          tileHeight += (entry.galleryAudios.length * 44.h);
-          tileHeight += (entry.recordings.length * 54.h);
+          tileHeight += entry.galleryAudios.length * 44.h;
+          tileHeight += entry.recordings.length * 54.h;
           if (hasText) tileHeight += 8.h;
         }
 

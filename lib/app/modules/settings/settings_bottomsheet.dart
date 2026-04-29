@@ -165,13 +165,13 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     showCupertinoModalPopup(
       context: context,
       builder: (BuildContext context) => CupertinoActionSheet(
-        title: Text(AppConstants.autoDeleteDrafts,
+        title: const Text(AppConstants.autoDeleteDrafts,
             style: TextStyle(fontFamily: AppConstants.font)),
-        message: Text(AppConstants.autoDeleteDraftsDescription,
+        message: const Text(AppConstants.autoDeleteDraftsDescription,
             style: TextStyle(fontFamily: AppConstants.font)),
         actions: <CupertinoActionSheetAction>[
           CupertinoActionSheetAction(
-            child: Text(AppConstants.days7,
+            child: const Text(AppConstants.days7,
                 style: TextStyle(fontFamily: AppConstants.font)),
             onPressed: () {
               controller.setAutoDeleteDrafts(7);
@@ -179,7 +179,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
             },
           ),
           CupertinoActionSheetAction(
-            child: Text(AppConstants.never,
+            child: const Text(AppConstants.never,
                 style: TextStyle(fontFamily: AppConstants.font)),
             onPressed: () {
               controller.setAutoDeleteDrafts(-1);
@@ -187,7 +187,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
             },
           ),
           CupertinoActionSheetAction(
-            child: Text(AppConstants.custom,
+            child: const Text(AppConstants.custom,
                 style: TextStyle(fontFamily: AppConstants.font)),
             onPressed: () {
               Navigator.pop(context);
@@ -200,7 +200,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
           onPressed: () {
             Navigator.pop(context);
           },
-          child: Text(AppConstants.cancel,
+          child: const Text(AppConstants.cancel,
               style: TextStyle(fontFamily: AppConstants.font)),
         ),
       ),

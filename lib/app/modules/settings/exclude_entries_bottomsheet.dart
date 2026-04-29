@@ -136,7 +136,9 @@ class _ExcludeEntriesBottomSheetState extends State<ExcludeEntriesBottomSheet> {
             (entry.galleryImages.isEmpty &&
                 entry.cameraPhotos.isEmpty &&
                 entry.galleryAudios.isEmpty &&
-                entry.recordings.isEmpty)) return false;
+                entry.recordings.isEmpty)) {
+          return false;
+        }
         if (_withMood && entry.moodIndex == null) return false;
         if (_withLocation && entry.location == null) return false;
         if (_isReflection && !entry.isReflection) return false;
