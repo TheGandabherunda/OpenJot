@@ -1,6 +1,5 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -44,7 +43,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime:
-      controller.reminderTime.value ?? const TimeOfDay(hour: 20, minute: 0),
+          controller.reminderTime.value ?? const TimeOfDay(hour: 20, minute: 0),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -120,9 +119,9 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 Get.back();
               },
               trailing: Obx(() =>
-              controller.theme.value == AppConstants.themeLight
-                  ? Icon(Icons.check, color: appThemeColors.primary)
-                  : const SizedBox.shrink()),
+                controller.theme.value == AppConstants.themeLight
+                    ? Icon(Icons.check, color: appThemeColors.primary)
+                    : const SizedBox.shrink()),
             ),
             Divider(color: appThemeColors.grey4, height: 1),
             ListTile(
@@ -136,9 +135,9 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 Get.back();
               },
               trailing: Obx(() =>
-              controller.theme.value == AppConstants.themeDark
-                  ? Icon(Icons.check, color: appThemeColors.primary)
-                  : const SizedBox.shrink()),
+                controller.theme.value == AppConstants.themeDark
+                    ? Icon(Icons.check, color: appThemeColors.primary)
+                    : const SizedBox.shrink()),
             ),
             Divider(color: appThemeColors.grey4, height: 1),
             ListTile(
@@ -152,9 +151,9 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 Get.back();
               },
               trailing: Obx(() =>
-              controller.theme.value == AppConstants.themeSystem
-                  ? Icon(Icons.check, color: appThemeColors.primary)
-                  : const SizedBox.shrink()),
+                controller.theme.value == AppConstants.themeSystem
+                    ? Icon(Icons.check, color: appThemeColors.primary)
+                    : const SizedBox.shrink()),
             ),
           ],
         ),
@@ -166,13 +165,13 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     showCupertinoModalPopup(
       context: context,
       builder: (BuildContext context) => CupertinoActionSheet(
-        title: Text(AppConstants.autoDeleteDrafts,
+        title: const Text(AppConstants.autoDeleteDrafts,
             style: TextStyle(fontFamily: AppConstants.font)),
-        message: Text(AppConstants.autoDeleteDraftsDescription,
+        message: const Text(AppConstants.autoDeleteDraftsDescription,
             style: TextStyle(fontFamily: AppConstants.font)),
         actions: <CupertinoActionSheetAction>[
           CupertinoActionSheetAction(
-            child: Text(AppConstants.days7,
+            child: const Text(AppConstants.days7,
                 style: TextStyle(fontFamily: AppConstants.font)),
             onPressed: () {
               controller.setAutoDeleteDrafts(7);
@@ -180,7 +179,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
             },
           ),
           CupertinoActionSheetAction(
-            child: Text(AppConstants.never,
+            child: const Text(AppConstants.never,
                 style: TextStyle(fontFamily: AppConstants.font)),
             onPressed: () {
               controller.setAutoDeleteDrafts(-1);
@@ -188,7 +187,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
             },
           ),
           CupertinoActionSheetAction(
-            child: Text(AppConstants.custom,
+            child: const Text(AppConstants.custom,
                 style: TextStyle(fontFamily: AppConstants.font)),
             onPressed: () {
               Navigator.pop(context);
@@ -201,7 +200,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
           onPressed: () {
             Navigator.pop(context);
           },
-          child: Text(AppConstants.cancel,
+          child: const Text(AppConstants.cancel,
               style: TextStyle(fontFamily: AppConstants.font)),
         ),
       ),

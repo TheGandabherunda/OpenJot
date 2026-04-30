@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:camera/camera.dart';
@@ -8,6 +9,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:get/get.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/core/constants.dart';
@@ -16,6 +18,7 @@ import 'package:open_jot/app/core/widgets/camera_view.dart';
 import 'package:open_jot/app/core/widgets/custom_button.dart';
 import 'package:open_jot/app/core/widgets/custom_slider.dart';
 import 'package:open_jot/app/core/widgets/location_map_view.dart';
+import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/media_preview/media_preview_bottom_sheet.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -186,9 +189,7 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
       _albums = albums;
 
       // Explicitly default to the "All" album
-      if (_selectedAlbum == null) {
-        _selectedAlbum = _albums.firstWhere((a) => a.isAll, orElse: () => _albums.first);
-      }
+      _selectedAlbum ??= _albums.firstWhere((a) => a.isAll, orElse: () => _albums.first);
     }
 
     if (_selectedAlbum == null) return;
@@ -534,27 +535,25 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
   Widget build(BuildContext context) {
     final colors = AppTheme.colorsOf(context);
 
+    Widget content;
+
     if (widget.selectedToolbarIcon == Icons.mic_rounded) {
-      return AudioRecorderView(
+      content = AudioRecorderView(
         key: _audioRecorderKey,
         scrollController: widget.scrollController,
         onRecordingComplete: (path, duration) {
           widget.onRecordingComplete?.call(path, duration);
         },
       );
-    }
-
-    if (widget.selectedToolbarIcon == Icons.camera_alt_rounded) {
-      return CameraView(
+    } else if (widget.selectedToolbarIcon == Icons.camera_alt_rounded) {
+      content = CameraView(
         scrollController: widget.scrollController,
         onPhotoTaken: (photo) {
           widget.onPhotoTaken?.call(photo);
         },
       );
-    }
-
-    if (widget.selectedToolbarIcon == Icons.location_on_rounded) {
-      return LocationMapView(
+    } else if (widget.selectedToolbarIcon == Icons.location_on_rounded) {
+      content = LocationMapView(
         scrollController: widget.scrollController,
         initialLocation: widget.selectedLocation,
         onLocationSelected: (location) {
@@ -562,24 +561,20 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
         },
         onMaximizeToggled: widget.onMapMaximizeToggled,
       );
-    }
-
-    if (widget.selectedToolbarIcon == Icons.sentiment_satisfied_rounded) {
-      return _MoodSelectorView(
+    } else if (widget.selectedToolbarIcon == Icons.sentiment_satisfied_rounded) {
+      content = _MoodSelectorView(
         scrollController: widget.scrollController,
         onMoodChanged: widget.onMoodChanged,
         initialMoodIndex: widget.selectedMoodIndex,
         isPitchBlack: widget.isPitchBlack,
       );
-    }
-
-    if (widget.selectedToolbarIcon != Icons.image_rounded) {
+    } else if (widget.selectedToolbarIcon != Icons.image_rounded) {
       final Map<IconData, String> contentMap = {
         Icons.format_quote_rounded: AppConstants.contentForQuote,
       };
       final contentText = contentMap[widget.selectedToolbarIcon] ??
           AppConstants.noContentSelected;
-      return ListView(
+      content = ListView(
         controller: widget.scrollController,
         padding: EdgeInsets.zero,
         children: [
@@ -595,247 +590,252 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
           ),
         ],
       );
-    }
+    } else {
+      final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    // SLIVER REFACTOR: Combines the headers, media grids, loaders, and empty states
-    // entirely into a single CustomScrollView with a ProgressiveBlurWidget to match home screen.
-    return Stack(
-      children: [
-        ProgressiveBlurWidget(
-          sigma: 25.0,
-          linearGradientBlur: const LinearGradientBlur(
-            values: [0, 0, 0.23, 1],
-            stops: [0.0, 0.12, 0.88, 1.0],
-            start: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-          tintColor: widget.isPitchBlack
-              ? (isDark ? Colors.black : Colors.white).withOpacity(0.15)
-              : colors.grey5.withOpacity(0.15),
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              return true;
-            },
-            child: CustomScrollView(
-              controller: widget.scrollController,
-              slivers: [
-                // 1. Fixed height headers (Segmented Control & Album Chips)
-                SliverToBoxAdapter(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: double.infinity,
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16.w),
-                          child: CupertinoSlidingSegmentedControl<int>(
-                            backgroundColor: colors.grey3,
-                            thumbColor: colors.grey5,
-                            children: {
-                              0: Padding(
-                                padding: EdgeInsets.symmetric(vertical: 8.h),
-                                child: Text(
-                                  AppConstants.photos,
-                                  style: TextStyle(
-                                    color: colors.grey10,
-                                    decoration: TextDecoration.none,
-                                    fontSize: 14.sp,
-                                    fontFamily: AppConstants.font,
+      // SLIVER REFACTOR: Combines the headers, media grids, loaders, and empty states
+      // entirely into a single CustomScrollView with a ProgressiveBlurWidget to match home screen.
+      content = Stack(
+        children: [
+          ProgressiveBlurWidget(
+            sigma: 25.0,
+            linearGradientBlur: const LinearGradientBlur(
+              values: [0, 0, 0.23, 1],
+              stops: [0.0, 0.12, 0.88, 1.0],
+              start: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+            tintColor: widget.isPitchBlack
+                ? (isDark ? Colors.black : Colors.white).withOpacity(0.15)
+                : colors.grey5.withOpacity(0.15),
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                return true;
+              },
+              child: CustomScrollView(
+                controller: widget.scrollController,
+                slivers: [
+                  // 1. Fixed height headers (Segmented Control & Album Chips)
+                  SliverToBoxAdapter(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16.w),
+                            child: CupertinoSlidingSegmentedControl<int>(
+                              backgroundColor: colors.grey3,
+                              thumbColor: colors.grey5,
+                              children: {
+                                0: Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 8.h),
+                                  child: Text(
+                                    AppConstants.photos,
+                                    style: TextStyle(
+                                      color: colors.grey10,
+                                      decoration: TextDecoration.none,
+                                      fontSize: 14.sp,
+                                      fontFamily: AppConstants.font,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              1: Padding(
-                                padding: EdgeInsets.symmetric(vertical: 8.h),
-                                child: Text(
-                                  AppConstants.videos,
-                                  style: TextStyle(
-                                    color: colors.grey10,
-                                    decoration: TextDecoration.none,
-                                    fontSize: 14.sp,
-                                    fontFamily: AppConstants.font,
+                                1: Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 8.h),
+                                  child: Text(
+                                    AppConstants.videos,
+                                    style: TextStyle(
+                                      color: colors.grey10,
+                                      decoration: TextDecoration.none,
+                                      fontSize: 14.sp,
+                                      fontFamily: AppConstants.font,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              2: Padding(
-                                padding: EdgeInsets.symmetric(vertical: 8.h),
-                                child: Text(
-                                  AppConstants.audio,
-                                  style: TextStyle(
-                                    color: colors.grey10,
-                                    decoration: TextDecoration.none,
-                                    fontSize: 14.sp,
-                                    fontFamily: AppConstants.font,
+                                2: Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 8.h),
+                                  child: Text(
+                                    AppConstants.audio,
+                                    style: TextStyle(
+                                      color: colors.grey10,
+                                      decoration: TextDecoration.none,
+                                      fontSize: 14.sp,
+                                      fontFamily: AppConstants.font,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            },
-                            onValueChanged: (int? value) {
-                              if (value != null) {
-                                setState(() {
-                                  _selectedSegment = value;
-                                  _selectedAssets.clear();
-                                  _albums.clear();
-                                  _selectedAlbum = null;
-                                });
-                                unawaited(_requestPermission());
-                              }
-                            },
-                            groupValue: _selectedSegment,
+                              },
+                              onValueChanged: (int? value) {
+                                if (value != null) {
+                                  setState(() {
+                                    _selectedSegment = value;
+                                    _selectedAssets.clear();
+                                    _albums.clear();
+                                    _selectedAlbum = null;
+                                  });
+                                  unawaited(_requestPermission());
+                                }
+                              },
+                              groupValue: _selectedSegment,
+                            ),
                           ),
                         ),
-                      ),
-                      SizedBox(height: 16.h),
-                      if (!_isLoading && _permissionStatus?.isGranted == true) ...[
-                        _buildAlbumChips(colors),
-                        SizedBox(height: 12.h),
+                        SizedBox(height: 16.h),
+                        if (!_isLoading && _permissionStatus?.isGranted == true) ...[
+                          _buildAlbumChips(colors),
+                          SizedBox(height: 12.h),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
 
-                // 2. Dynamic Content States
-                if (_isLoading)
-                  _buildSkeletonSliver(colors)
-                else if (_permissionStatus == null)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: const Center(child: CircularProgressIndicator()),
-                  )
-                else if (!_permissionStatus!.isGranted)
+                  // 2. Dynamic Content States
+                  if (_isLoading)
+                    _buildSkeletonSliver(colors)
+                  else if (_permissionStatus == null)
+                    const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (!_permissionStatus!.isGranted)
                     SliverFillRemaining(
                       hasScrollBody: false,
                       child: _buildPermissionDenied(colors),
                     )
                   else if (_groupedAssets.isEmpty)
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Center(
-                          child: Text(
-                            AppConstants.noMediaFound.replaceFirst(
-                                '%s', _getTabName(_selectedSegment).toLowerCase()),
-                            style: TextStyle(
-                              color: colors.grey10,
-                              decoration: TextDecoration.none,
-                              fontFamily: AppConstants.font,
-                            ),
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: Text(
+                          AppConstants.noMediaFound.replaceFirst(
+                              '%s', _getTabName(_selectedSegment).toLowerCase()),
+                          style: TextStyle(
+                            color: colors.grey10,
+                            decoration: TextDecoration.none,
+                            fontFamily: AppConstants.font,
                           ),
                         ),
-                      )
-                    else
-                      ..._buildMediaSlivers(colors),
+                      ),
+                    )
+                  else
+                    ..._buildMediaSlivers(colors),
 
-                // 3. Pagination Loader / Bottom Padding
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.only(top: 16.h, bottom: 80.h),
-                    child: _isLoadingMore
-                        ? const Center(child: CircularProgressIndicator())
-                        : const SizedBox.shrink(),
+                  // 3. Pagination Loader / Bottom Padding
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 16.h, bottom: 80.h),
+                      child: _isLoadingMore
+                          ? const Center(child: CircularProgressIndicator())
+                          : const SizedBox.shrink(),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
-        Positioned(
-          bottom: 20.h,
-          left: 0,
-          right: 0,
-          // ANIMATION: Animate the appearance and disappearance of the 'Add' button.
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            transitionBuilder: (child, animation) {
-              return ScaleTransition(
-                scale: CurvedAnimation(
-                  parent: animation,
-                  curve: Curves.easeOutBack,
-                ),
-                child: FadeTransition(opacity: animation, child: child),
-              );
-            },
-            child: _selectedAssets.isNotEmpty
-                ? Center(
-              key: const ValueKey('add_button'),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildSelectedMediaPreviewStack(),
-                  SizedBox(width: 12.w),
-                  GestureDetector(
-                    onTap: () {
-                      widget.onAssetsSelected?.call(_selectedAssets);
-                      setState(() {
-                        _selectedAssets.clear();
-                      });
-                    },
-                    child: Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 24.w,
-                        vertical: 14.h,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor,
-                        borderRadius: BorderRadius.circular(60.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Theme.of(context)
-                                .primaryColor
-                                .withOpacity(0.3),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
+          Positioned(
+            bottom: 20.h,
+            left: 0,
+            right: 0,
+            // ANIMATION: Animate the appearance and disappearance of the 'Add' button.
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (child, animation) {
+                return ScaleTransition(
+                  scale: CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutBack,
+                  ),
+                  child: FadeTransition(opacity: animation, child: child),
+                );
+              },
+              child: _selectedAssets.isNotEmpty
+                  ? Center(
+                      key: const ValueKey('add_button'),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            AppConstants.add,
-                            style: TextStyle(
-                              color: colors.grey8,
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w600,
-                              fontFamily: AppConstants.font,
-                              decoration: TextDecoration.none,
-                            ),
-                          ),
+                          _buildSelectedMediaPreviewStack(),
                           SizedBox(width: 12.w),
-                          Container(
-                            constraints: BoxConstraints(
-                              minWidth: 26.w,
-                              minHeight: 26.w,
-                            ),
-                            padding: EdgeInsets.symmetric(horizontal: 6.w),
-                            decoration: BoxDecoration(
-                              color: colors.error, // Red notification badge
-                              borderRadius: BorderRadius.circular(13.w),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              '${_selectedAssets.length}',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: AppConstants.font,
-                                height: 1.0,
-                                decoration: TextDecoration.none,
+                          GestureDetector(
+                            onTap: () {
+                              widget.onAssetsSelected?.call(_selectedAssets);
+                              setState(() {
+                                _selectedAssets.clear();
+                              });
+                            },
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 24.w,
+                                vertical: 14.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).primaryColor,
+                                borderRadius: BorderRadius.circular(60.r),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Theme.of(context)
+                                        .primaryColor
+                                        .withOpacity(0.3),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    AppConstants.add,
+                                    style: TextStyle(
+                                      color: colors.grey8,
+                                      fontSize: 16.sp,
+                                      fontWeight: FontWeight.w600,
+                                      fontFamily: AppConstants.font,
+                                      decoration: TextDecoration.none,
+                                    ),
+                                  ),
+                                  SizedBox(width: 12.w),
+                                  Container(
+                                    constraints: BoxConstraints(
+                                      minWidth: 26.w,
+                                      minHeight: 26.w,
+                                    ),
+                                    padding: EdgeInsets.symmetric(horizontal: 6.w),
+                                    decoration: BoxDecoration(
+                                      color: colors.error, // Red notification badge
+                                      borderRadius: BorderRadius.circular(13.w),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      '${_selectedAssets.length}',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14.sp,
+                                        fontWeight: FontWeight.bold,
+                                        fontFamily: AppConstants.font,
+                                        height: 1.0,
+                                        decoration: TextDecoration.none,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                ],
-              ),
-            )
-                : const SizedBox.shrink(key: ValueKey('empty_button')),
+                    )
+                  : const SizedBox.shrink(key: ValueKey('empty_button')),
+            ),
           ),
-        ),
-      ],
+        ],
+      );
+    }
+
+    return KeyedSubtree(
+      key: ValueKey(widget.selectedToolbarIcon),
+      child: content,
     );
   }
 
@@ -1695,48 +1695,41 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
     with TickerProviderStateMixin {
   late int _currentMoodIndex;
   late double _lastSliderValue;
-  late final AnimationController _rotationController;
 
-  static const List<Map<String, String>> _moods = [
-    {'svg': 'assets/1.svg', 'label': AppConstants.veryUnpleasant},
-    {'svg': 'assets/2.svg', 'label': AppConstants.slightlyUnpleasant},
-    {'svg': 'assets/3.svg', 'label': AppConstants.unpleasant},
-    {'svg': 'assets/4.svg', 'label': AppConstants.neutral},
-    {'svg': 'assets/5.svg', 'label': AppConstants.pleasant},
-    {'svg': 'assets/6.svg', 'label': AppConstants.slightlyPleasant},
-    {'svg': 'assets/7.svg', 'label': AppConstants.veryPleasant},
-  ];
+  // Track total turns for smooth continuous rotation
+  double _targetTurns = 0.0;
+
+  static const List<Map<String, String>> _moods = AppConstants.moods;
 
   @override
   void initState() {
     super.initState();
     _currentMoodIndex = widget.initialMoodIndex ?? 3;
     _lastSliderValue = _currentMoodIndex.toDouble();
-
-    _rotationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
+    _targetTurns = _currentMoodIndex.toDouble();
   }
 
-  @override
-  void dispose() {
-    _rotationController.dispose();
-    super.dispose();
-  }
 
-  void _triggerRotationAnimation() {
-    _rotationController.reset();
-    unawaited(_rotationController.forward());
+  void _updateRotation(int newIndex) {
+    // Ensuring an integer number of turns ensures the logo is perfectly upright at each stop.
+    _targetTurns = newIndex.toDouble();
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = AppTheme.colorsOf(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // We use a double mood index for continuous color transitions
+    final double displayIndex = _lastSliderValue.clamp(0.0, 6.0);
+    final int floorIndex = displayIndex.floor();
+    final int ceilIndex = displayIndex.ceil();
+    final double t = displayIndex - floorIndex;
+
     final moodIndex = _currentMoodIndex.clamp(0, _moods.length - 1);
     final selectedMood = _moods[moodIndex];
 
+    // Refined color lists for better harmony
     final backgroundColors = [
       colors.aPurple[2],
       colors.aPink[2],
@@ -1757,7 +1750,7 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
       colors.aYellow[1],
     ];
 
-    final sliderAndTextColors = [
+    final accentColors = [
       colors.aPurple[0],
       colors.aPink[0],
       colors.aBlue[0],
@@ -1767,39 +1760,48 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
       colors.aYellow[0],
     ];
 
-    final currentSliderAndTextColor = sliderAndTextColors[moodIndex];
+    // Helper to lerp between two indices in the color lists
+    Color lerpMoodColor(List<Color> colorList, int i1, int i2, double t) {
+      return Color.lerp(colorList[i1], colorList[i2], t)!;
+    }
 
-    // Create the gradient colors: Lighter tone in the center, darker base on the outside.
-    final themeBgColor = backgroundColors[moodIndex];
-    final normalColor = normalColors[moodIndex];
+    // Calculate interpolated colors for fluid background "wash"
+    final Color currentAccent = lerpMoodColor(accentColors, floorIndex, ceilIndex, t);
+    final Color currentNormal = lerpMoodColor(normalColors, floorIndex, ceilIndex, t);
+    final Color currentBg = lerpMoodColor(backgroundColors, floorIndex, ceilIndex, t);
 
-    final currentOuterColor = isDark
-        ? Color.lerp(normalColor, themeBgColor, 0.5)! // Less dark, uses normal shade mixed with dark
-        : Color.lerp(themeBgColor, normalColor, 0.12)!; // Add a touch of the base color to make it visible in light mode
+    // Refined Gradient calculation
+    final Color outerColor = isDark
+        ? Color.lerp(currentNormal, currentBg, 0.4)!
+        : Color.lerp(currentBg, currentNormal, 0.08)!;
 
-    final brightColor = Color.lerp(currentSliderAndTextColor, Colors.white, 0.4)!;
-    final currentCenterColor = isDark
-        ? Color.lerp(currentOuterColor, brightColor, 0.7)! // Even lighter center glow in dark mode
-        : Colors.white;
+    final Color brightTarget = Color.lerp(currentAccent, Colors.white, 0.5)!;
+    final Color centerColor = isDark
+        ? Color.lerp(outerColor, brightTarget, 0.65)!
+        : Color.lerp(outerColor, Colors.white, 0.9)!;
 
-    final currentInactiveColor = isDark
-        ? currentSliderAndTextColor.withOpacity(0.12) // Keep the tint distinct from the active part
-        : currentSliderAndTextColor.withOpacity(0.15);
+    final Color inactiveColor = isDark
+        ? currentAccent.withOpacity(0.1)
+        : currentAccent.withOpacity(0.12);
 
     final decoration = widget.isPitchBlack
         ? BoxDecoration(color: isDark ? Colors.black : Colors.white)
         : BoxDecoration(
-      gradient: RadialGradient(
-        colors: [
-          currentCenterColor,
-          currentOuterColor,
-        ],
-        radius: 1.0,
-      ),
-    );
+            gradient: RadialGradient(
+              colors: [
+                centerColor,
+                Color.lerp(centerColor, outerColor, 0.4)!,
+                outerColor,
+              ],
+              stops: const [0.0, 0.4, 1.0],
+              radius: 1.3,
+              center: const Alignment(0, -0.15),
+            ),
+          );
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeOutCubic,
       decoration: decoration,
       child: Stack(
         children: [
@@ -1816,48 +1818,108 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
                       Center(
                         child: SizedBox(
                           height: 32.h,
-                          child: Text(
-                            selectedMood['label']!,
-                            style: TextStyle(
-                              color: currentSliderAndTextColor,
-                              fontSize: 20.sp,
-                              fontWeight: FontWeight.w600,
-                              fontFamily: AppConstants.font,
-                              decoration: TextDecoration.none,
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 500),
+                            layoutBuilder: (currentChild, previousChildren) {
+                              return Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  ...previousChildren,
+                                  if (currentChild != null) currentChild,
+                                ],
+                              );
+                            },
+                            transitionBuilder: (child, animation) {
+                              return FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: const Offset(0, 0.2),
+                                    end: Offset.zero,
+                                  ).animate(CurvedAnimation(
+                                    parent: animation,
+                                    curve: Curves.easeOutCubic,
+                                  )),
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: Text(
+                              selectedMood['label']!,
+                              key: ValueKey(selectedMood['label']),
+                              style: TextStyle(
+                                color: currentAccent,
+                                fontSize: 20.sp,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: AppConstants.font,
+                                decoration: TextDecoration.none,
+                                letterSpacing: -0.5,
+                              ),
                             ),
                           ),
                         ),
                       ),
                       SizedBox(height: 24.h),
                       Center(
-                        // Optimized Animation - The SVG is passed as a cached child inside an IndexedStack,
-                        // stopping it from being re-rendered and causing jank during rotation!
-                        child: AnimatedBuilder(
-                          animation: _rotationController,
-                          child: RepaintBoundary(
-                            child: IndexedStack(
-                              index: moodIndex,
-                              alignment: Alignment.center,
-                              children: _moods.map((mood) => SvgPicture.asset(
-                                mood['svg']!,
-                                width: 160.w,
-                                height: 160.h,
-                              )).toList(),
-                            ),
+                        child: AnimatedRotation(
+                          turns: _targetTurns,
+                          duration: const Duration(milliseconds: 700),
+                          curve: Curves.easeOutBack,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // Lush Glow behind the icon
+                              Container(
+                                width: 150.w,
+                                height: 150.w,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: currentAccent.withOpacity(isDark ? 0.25 : 0.15),
+                                      blurRadius: 50,
+                                      spreadRadius: 15,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              RepaintBoundary(
+                                child: IndexedStack(
+                                  index: moodIndex,
+                                  alignment: Alignment.center,
+                                  children: _moods.asMap().entries.map((entry) {
+                                    final idx = entry.key;
+                                    final mood = entry.value;
+
+                                    return Obx(() {
+                                      final HomeController controller = Get.find();
+                                      final rasterizedImage = controller.moodImagesLarge[idx];
+
+                                      if (rasterizedImage != null) {
+                                        return RawImage(
+                                          image: rasterizedImage,
+                                          width: 160.w,
+                                          height: 160.h,
+                                          filterQuality: ui.FilterQuality.high,
+                                        );
+                                      }
+
+                                      return SvgPicture.asset(
+                                        mood['svg']!,
+                                        width: 160.w,
+                                        height: 160.h,
+                                      );
+                                    });
+                                  }).toList(),
+                                ),
+                              ),
+                            ],
                           ),
-                          builder: (context, child) {
-                            final bounceAnimation =
-                            Curves.easeOutBack.transform(_rotationController.value);
-                            return Transform.rotate(
-                              angle: (bounceAnimation * 2 * 3.14159),
-                              child: child,
-                            );
-                          },
                         ),
                       ),
-                      SizedBox(height: 8.h), // Reduced from 16.h to balance the newly expanded slider touch target container below
+                      SizedBox(height: 20.h),
                       SizedBox(
-                        height: 72.h, // EXPANDED HEIGHT: Solves clipping on the top half so entire slider track handles touches perfectly
+                        height: 72.h,
                         child: CustomSliderWithTooltip(
                           min: 0,
                           max: 6,
@@ -1866,28 +1928,27 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
                           minLabel: AppConstants.veryUnpleasant,
                           maxLabel: AppConstants.veryPleasant,
                           labelTextStyle: TextStyle(
-                            color: currentSliderAndTextColor.withOpacity(isDark ? 0.7 : 0.9),
+                            color: currentAccent.withOpacity(isDark ? 0.6 : 0.7),
                             fontSize: 11.sp,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                             fontFamily: AppConstants.font,
                           ),
-                          activeColor: currentSliderAndTextColor,
-                          unfocusedActiveColor:
-                          currentSliderAndTextColor.withOpacity(0.7),
-                          inactiveColor: currentInactiveColor,
-                          focusedTrackHeight: 20.h,
-                          unfocusedTrackHeight: 16.h,
+                          activeColor: currentAccent,
+                          unfocusedActiveColor: currentAccent.withOpacity(0.8),
+                          inactiveColor: inactiveColor,
+                          dividerColor: isDark ? Colors.white : currentAccent.withOpacity(0.8),
+                          focusedTrackHeight: 22.h,
+                          unfocusedTrackHeight: 18.h,
                           onChanged: (value) {
-                            _lastSliderValue = value; // Silent update prevents rebuilds on every pixel drag
-                            final newIndex = value.round();
-                            // ONLY trigger heavy state changes when the actual rounded mood index changes
-                            if (newIndex != _currentMoodIndex) {
-                              widget.onMoodChanged?.call(newIndex);
-                              _triggerRotationAnimation();
-                              setState(() {
+                            setState(() {
+                              _lastSliderValue = value;
+                              final newIndex = value.round();
+                              if (newIndex != _currentMoodIndex) {
+                                widget.onMoodChanged?.call(newIndex);
+                                _updateRotation(newIndex);
                                 _currentMoodIndex = newIndex;
-                              });
-                            }
+                              }
+                            });
                           },
                         ),
                       ),
@@ -1906,16 +1967,17 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
                   widget.onMoodChanged?.call(null);
                 },
                 style: TextButton.styleFrom(
-                  foregroundColor: currentSliderAndTextColor,
+                  foregroundColor: currentAccent,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8.r),
+                    borderRadius: BorderRadius.circular(12.r),
                   ),
+                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                 ),
-                child: const Text(
+                child: Text(
                   AppConstants.clear,
                   style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w700,
                     fontFamily: AppConstants.font,
                   ),
                 ),

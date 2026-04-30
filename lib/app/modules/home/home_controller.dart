@@ -1,12 +1,29 @@
+import 'dart:ui' as ui;
+
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 
+import '../../core/constants.dart';
 import '../../core/models/journal_entry.dart';
 
 class HomeController extends GetxController {
   final _hiveService = Get.find<HiveService>();
   final journalEntries = <JournalEntry>[].obs;
   final draftEntries = <JournalEntry>[].obs;
+
+  final audioPlayer = AudioPlayer();
+  final plainTextCache = <String, String>{}.obs;
+
+  // Pre-rasterized mood images for maximum scroll performance
+  final moodImages = <int, ui.Image>{}.obs;
+  // Large rasterized images for the selector to maintain sharpness (480x480)
+  final moodImagesLarge = <int, ui.Image>{}.obs;
+
+  // Reactive audio state
+  final currentlyPlayingPath = RxnString();
+  final playerState = Rx<PlayerState>(PlayerState.stopped);
 
   final currentSortType = 'time'.obs;
   final Map<String, String> _sortTypeDisplayNames = {
@@ -17,7 +34,19 @@ class HomeController extends GetxController {
     'text': 'Text only first',
     'location': 'With location first',
     'mood': 'With mood first',
+    'tags': 'With tags first',
   };
+
+  List<String> get allUniqueTags {
+    final tags = <String>{};
+    for (var entry in journalEntries) {
+      tags.addAll(entry.tags);
+    }
+    for (var entry in draftEntries) {
+      tags.addAll(entry.tags);
+    }
+    return tags.toList();
+  }
 
   String get currentSortTypeDisplayName =>
       _sortTypeDisplayNames[currentSortType.value] ?? 'Entry time';
@@ -27,11 +56,68 @@ class HomeController extends GetxController {
     super.onInit();
     _hiveService.getJournalEntriesNotifier().addListener(loadJournalEntries);
     loadJournalEntries();
+
+    // Listen to audio player state changes globally
+    audioPlayer.onPlayerStateChanged.listen((state) {
+      playerState.value = state;
+      if (state == PlayerState.completed) {
+        currentlyPlayingPath.value = null;
+      }
+    });
+
+    // Pre-cache mood SVGs to prevent scroll lag
+    for (var mood in AppConstants.moods) {
+      final loader = SvgAssetLoader(mood['svg']!);
+      svg.cache.putIfAbsent(loader.cacheKey(null), () => loader.loadBytes(null));
+    }
+    // Also pre-cache app icon
+    const iconLoader = SvgAssetLoader('assets/app_icon.svg');
+    svg.cache.putIfAbsent(iconLoader.cacheKey(null), () => iconLoader.loadBytes(null));
+
+    // Pre-rasterize mood icons for buttery smooth scrolling
+    _rasterizeMoodIcons();
+  }
+
+  Future<void> _rasterizeMoodIcons() async {
+    // 3x scale for high-density displays (22w * 3 = 66 pixels)
+    const double targetSizeSmall = 66.0;
+    // 3x scale for the large selector (160w * 3 = 480 pixels)
+    const double targetSizeLarge = 480.0;
+
+    for (int i = 0; i < AppConstants.moods.length; i++) {
+      try {
+        final loader = SvgAssetLoader(AppConstants.moods[i]['svg']!);
+        final pictureInfo = await vg.loadPicture(loader, null);
+
+        // Rasterize Small
+        moodImages[i] = await _renderToImage(pictureInfo, targetSizeSmall);
+        
+        // Rasterize Large
+        moodImagesLarge[i] = await _renderToImage(pictureInfo, targetSizeLarge);
+      } catch (e) {
+        // Failed to rasterize mood icon $i
+      }
+    }
+  }
+
+  Future<ui.Image> _renderToImage(PictureInfo pictureInfo, double targetSize) async {
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+
+    final scale = targetSize / pictureInfo.size.width;
+    canvas.scale(scale);
+    canvas.drawPicture(pictureInfo.picture);
+
+    return recorder.endRecording().toImage(
+          targetSize.toInt(),
+          targetSize.toInt(),
+        );
   }
 
   @override
   void onClose() {
     _hiveService.getJournalEntriesNotifier().removeListener(loadJournalEntries);
+    audioPlayer.dispose();
     super.onClose();
   }
 
@@ -59,6 +145,10 @@ class HomeController extends GetxController {
 
     final loadedEntries = await _hiveService.loadAssetEntities(entriesFromDb);
 
+    for (var entry in loadedEntries) {
+      plainTextCache[entry.id] = entry.content.toPlainText().trim();
+    }
+
     journalEntries.assignAll(loadedEntries.where((e) => !e.isDraft));
     draftEntries.assignAll(loadedEntries.where((e) => e.isDraft));
 
@@ -68,6 +158,7 @@ class HomeController extends GetxController {
 
   void addJournalEntry(JournalEntry entry) {
     _hiveService.addJournalEntry(entry);
+    plainTextCache[entry.id] = entry.content.toPlainText().trim();
     if (entry.isDraft) {
       draftEntries.insert(0, entry);
       draftEntries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -80,7 +171,10 @@ class HomeController extends GetxController {
   void updateJournalEntry(JournalEntry updatedEntry) {
     _hiveService.updateJournalEntry(updatedEntry);
 
-    final isTextEmpty = updatedEntry.content.toPlainText().trim().isEmpty;
+    final plainText = updatedEntry.content.toPlainText().trim();
+    plainTextCache[updatedEntry.id] = plainText;
+
+    final isTextEmpty = plainText.isEmpty;
     final isMediaEmpty = updatedEntry.galleryImages.isEmpty &&
         updatedEntry.cameraPhotos.isEmpty &&
         updatedEntry.galleryAudios.isEmpty &&
@@ -108,6 +202,7 @@ class HomeController extends GetxController {
     _hiveService.deleteJournalEntry(entryId);
     journalEntries.removeWhere((e) => e.id == entryId);
     draftEntries.removeWhere((e) => e.id == entryId);
+    plainTextCache.remove(entryId);
   }
 
   void toggleBookmarkStatus(String entryId) {
@@ -188,6 +283,15 @@ class HomeController extends GetxController {
           final bHasMood = b.moodIndex != null;
           if (aHasMood && !bHasMood) return -1;
           if (!aHasMood && bHasMood) return 1;
+          return b.createdAt.compareTo(a.createdAt);
+        });
+        break;
+      case 'tags':
+        journalEntries.sort((a, b) {
+          final aHasTags = a.tags.isNotEmpty;
+          final bHasTags = b.tags.isNotEmpty;
+          if (aHasTags && !bHasTags) return -1;
+          if (!aHasTags && bHasTags) return 1;
           return b.createdAt.compareTo(a.createdAt);
         });
         break;

@@ -1,0 +1,6 @@
+• Tags: Organize your entries with custom categories and tag-based search.
+• Mood Graph: Visualize your emotional journey with a new interactive chart.
+• Smooth Scrolling: Significant performance optimizations for a buttery-smooth experience.
+• Improved Drafts: A more robust system to save and resume your writing.
+• PDF Fixes: Improved text rendering and layout for all exported journals.
+• UI Refinement: Cleaned up interface with better date pickers and removed clutter.

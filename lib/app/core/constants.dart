@@ -64,6 +64,16 @@ class AppConstants {
   static const String audioTrack = "Audio track";
   static const String emptyDuration = "--:--";
 
+  static const List<Map<String, String>> moods = [
+    {'svg': 'assets/1.svg', 'label': veryUnpleasant},
+    {'svg': 'assets/2.svg', 'label': unpleasant},
+    {'svg': 'assets/3.svg', 'label': slightlyUnpleasant},
+    {'svg': 'assets/4.svg', 'label': neutral},
+    {'svg': 'assets/5.svg', 'label': slightlyPleasant},
+    {'svg': 'assets/6.svg', 'label': pleasant},
+    {'svg': 'assets/7.svg', 'label': veryPleasant},
+  ];
+
   // Drafts & Auto-saves
   static const String drafts = "Drafts";
   static const String draft = "Draft";
@@ -93,6 +103,7 @@ class AppConstants {
   static const String textOnlyFirst = "Text only first";
   static const String withLocationFirst = "With location first";
   static const String withMoodFirst = "With mood first";
+  static const String withTagsFirst = "With tags first";
 
   // Insights Bottom Sheet
   static const String stats = "Stats";
@@ -128,6 +139,9 @@ class AppConstants {
   static const String onThisDayChannelDescription =
       "Notifications for memories from past years.";
   static const String onThisDayNotificationTitle = "A memory from your journal";
+  static const String mostly = "Mostly";
+  static const String averageForThisDay = "Average for this day";
+  static const String averageForThisYear = "Average for this year";
   static const String onThisDaySingleEntry =
       "A year ago today, you wrote something special. Tap to revisit your thoughts.";
   static const String onThisDaySingleEntryWithMedia =
@@ -169,6 +183,8 @@ class AppConstants {
   static const String all = "All";
   static const String folder = "Folder";
   static const String browse = "Browse";
+  static const String tiles = "Tiles";
+  static const String graph = "Graph";
   static const String recording = "Recording...";
   static const String paused = "Paused";
   static const String stop = "Stop";
@@ -188,6 +204,7 @@ class AppConstants {
   static const String withMedia = "With Media";
   static const String withMood = "With Mood";
   static const String withLocation = "With Location";
+  static const String withTags = "With Tags";
   static const String noResultsFound = "No results found";
 
   // Settings Bottom Sheet
@@ -240,6 +257,9 @@ class AppConstants {
   static const String sharedAudio = "Shared Audio (%s)";
   static const String openJotRecording = "OpenJot recording (%s)";
   static const String openJotImage = "OpenJot image (%s)";
+  static const String tags = "Tags";
+  static const String addTags = "Add tags";
+  static const String tagPlaceholder = "#tag";
   static const String todayDate = "Today date";
   static const String customDate = "Custom Date";
   static const String done = "Done";

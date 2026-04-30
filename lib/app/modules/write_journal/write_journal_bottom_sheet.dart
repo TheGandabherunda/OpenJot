@@ -67,6 +67,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   final _textFieldKey = GlobalKey();
   final _dateMenuKey = GlobalKey();
   final _locationMenuKey = GlobalKey();
+  final _tagController = TextEditingController();
   final GlobalKey<WriteJournalToolbarContentState> _contentKey = GlobalKey();
 
   DateTime _selectedDate = DateTime.now();
@@ -90,6 +91,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   List<CapturedPhoto> _previewPhotos = [];
   List<AssetEntity> _previewAudios = [];
   List<RecordedAudio> _previewRecordings = [];
+  List<String> _tags = [];
   SelectedLocation? _selectedLocation;
   int? _selectedMoodIndex;
 
@@ -115,15 +117,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     Icons.sentiment_satisfied_rounded,
   ];
 
-  static const List<Map<String, String>> _moods = [
-    {'svg': 'assets/1.svg', 'label': AppConstants.veryUnpleasant},
-    {'svg': 'assets/2.svg', 'label': AppConstants.slightlyUnpleasant},
-    {'svg': 'assets/3.svg', 'label': AppConstants.unpleasant},
-    {'svg': 'assets/4.svg', 'label': AppConstants.neutral},
-    {'svg': 'assets/5.svg', 'label': AppConstants.pleasant},
-    {'svg': 'assets/6.svg', 'label': AppConstants.slightlyPleasant},
-    {'svg': 'assets/7.svg', 'label': AppConstants.veryPleasant},
-  ];
+  static const List<Map<String, String>> _moods = AppConstants.moods;
 
   @override
   void initState() {
@@ -190,6 +184,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       _previewPhotos = List.from(entry.cameraPhotos);
       _previewAudios = List.from(entry.galleryAudios);
       _previewRecordings = List.from(entry.recordings);
+      _tags = List.from(entry.tags);
       _isCustomDate = true;
     } else {
       _currentEntryId = const Uuid().v4();
@@ -231,31 +226,50 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         _previewRecordings.isEmpty;
 
     if (widget.entry == null) {
-      return currentText.isNotEmpty || !isMediaEmpty;
+      return currentText.isNotEmpty || !isMediaEmpty || _tags.isNotEmpty;
     } else {
       final originalText = widget.entry!.content.toPlainText().trim();
-      if (currentText != originalText) return true;
+      if (currentText != originalText) {
+        return true;
+      }
 
       final originalImages = widget.entry!.galleryImages;
       if (_previewImages.length != originalImages.length ||
-          !_previewImages.every((e) => originalImages.any((o) => o.id == e.id))) return true;
+          !_previewImages.every((e) => originalImages.any((o) => o.id == e.id))) {
+        return true;
+      }
 
       final originalPhotos = widget.entry!.cameraPhotos;
       if (_previewPhotos.length != originalPhotos.length ||
-          !_previewPhotos.every((e) => originalPhotos.any((o) => o.file.path == e.file.path))) return true;
+          !_previewPhotos.every((e) => originalPhotos.any((o) => o.file.path == e.file.path))) {
+        return true;
+      }
 
       final originalAudios = widget.entry!.galleryAudios;
       if (_previewAudios.length != originalAudios.length ||
-          !_previewAudios.every((e) => originalAudios.any((o) => o.id == e.id))) return true;
+          !_previewAudios.every((e) => originalAudios.any((o) => o.id == e.id))) {
+        return true;
+      }
 
       final originalRecordings = widget.entry!.recordings;
       if (_previewRecordings.length != originalRecordings.length ||
-          !_previewRecordings.every((e) => originalRecordings.any((o) => o.path == e.path))) return true;
+          !_previewRecordings.every((e) => originalRecordings.any((o) => o.path == e.path))) {
+        return true;
+      }
 
-      if (_selectedMoodIndex != widget.entry!.moodIndex) return true;
-      if (_selectedDate != widget.entry!.createdAt) return true;
+      if (_selectedMoodIndex != widget.entry!.moodIndex) {
+        return true;
+      }
+      if (_selectedDate.millisecondsSinceEpoch != widget.entry!.createdAt.millisecondsSinceEpoch) return true;
       if (_isBookmarked != widget.entry!.isBookmarked) return true;
       if (_selectedLocation?.coordinates != widget.entry!.location?.coordinates) return true;
+
+      // Check if tags have changed
+      final originalTags = widget.entry!.tags;
+      if (_tags.length != originalTags.length ||
+          !_tags.every((tag) => originalTags.contains(tag))) {
+        return true;
+      }
 
       return false;
     }
@@ -322,6 +336,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _tagController.dispose();
 
     try {
       if (!_isSavedOrDiscarded && _hasUnsavedChanges) {
@@ -343,12 +358,37 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
 
   void _saveEntry({bool isDraft = false}) {
     try {
+      final isTextEmpty = _quillController.document.toPlainText().trim().isEmpty;
+      final isMediaEmpty = _previewImages.isEmpty &&
+          _previewPhotos.isEmpty &&
+          _previewAudios.isEmpty &&
+          _previewRecordings.isEmpty;
+
+      if (isTextEmpty && isMediaEmpty && !isDraft) return;
+
       final homeController = Get.find<HomeController>();
       final documentJson = _quillController.document.toDelta().toJson();
       final cleanDocument = quill.Document.fromJson(documentJson);
 
+      String saveId = _currentEntryId;
+      String? originalId = widget.entry?.originalId;
+
+      // Handle non-destructive draft saving for existing journals
+      if (isDraft && widget.entry != null && !widget.entry!.isDraft) {
+        // Create a new branched draft ID
+        saveId = const Uuid().v4();
+        originalId = widget.entry!.id;
+      }
+
+      // If we are updating an existing entry from a draft that has an originalId
+      if (!isDraft && widget.entry != null && widget.entry!.isDraft && widget.entry!.originalId != null) {
+        saveId = widget.entry!.originalId!;
+        // Delete the draft entry after updating the original
+        homeController.deleteJournalEntry(widget.entry!.id);
+      }
+
       final updatedEntry = JournalEntry(
-        id: _currentEntryId,
+        id: saveId,
         content: cleanDocument,
         createdAt: _selectedDate,
         isBookmarked: _isBookmarked,
@@ -360,10 +400,12 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         galleryAudios: _previewAudios,
         recordings: _previewRecordings,
         isDraft: isDraft,
+        tags: _tags,
+        originalId: originalId,
       );
 
-      final exists = homeController.journalEntries.any((e) => e.id == _currentEntryId) ||
-          homeController.draftEntries.any((e) => e.id == _currentEntryId);
+      final exists = homeController.journalEntries.any((e) => e.id == saveId) ||
+          homeController.draftEntries.any((e) => e.id == saveId);
 
       if (exists) {
         homeController.updateJournalEntry(updatedEntry);
@@ -376,6 +418,19 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   }
 
   void _onDonePressed() {
+    final isTextEmpty = _quillController.document.toPlainText().trim().isEmpty;
+    final isMediaEmpty = _previewImages.isEmpty &&
+        _previewPhotos.isEmpty &&
+        _previewAudios.isEmpty &&
+        _previewRecordings.isEmpty;
+
+    if (isTextEmpty && isMediaEmpty) {
+      CustomToast.showToast(
+        'Journal entry cannot be empty',
+      );
+      return;
+    }
+
     _isSavedOrDiscarded = true;
     final wasDraft = widget.entry?.isDraft ?? false;
 
@@ -390,12 +445,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     }
 
     _saveEntry(isDraft: false);
-
-    final isTextEmpty = _quillController.document.toPlainText().trim().isEmpty;
-    final isMediaEmpty = _previewImages.isEmpty &&
-        _previewPhotos.isEmpty &&
-        _previewAudios.isEmpty &&
-        _previewRecordings.isEmpty;
 
     Navigator.of(context).pop(isTextEmpty && isMediaEmpty);
   }
@@ -416,7 +465,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
           return;
         }
         final urlRegExp = RegExp(
-          r'((https?:\/\/)|(www\.))[^\s]+',
+          r'((https?://)|(www\.))\S+',
           caseSensitive: false,
         );
         final emailRegExp = RegExp(
@@ -577,8 +626,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
 
     // Dynamically calculate the fraction needed to fit the minimized map (380.h)
     // + sheet headers (~80.h) uniformly without excessive bottom space.
-    final double locationMinFraction = (460.h / screenHeight);
-    final double moodMinFraction = (480.h / screenHeight); // Accommodate larger mood SVG & slider
+    final double locationMinFraction = 460.h / screenHeight;
+    final double moodMinFraction = 480.h / screenHeight; // Accommodate larger mood SVG & slider
 
     double baseFraction;
     if (iconData == Icons.location_on_rounded) {
@@ -1261,17 +1310,17 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
               child: Row(
                 children: [
                   SizedBox(width: 16.w),
-                  Text(
-                    DateFormat('MMM d  •  h:mm a').format(_selectedDate),
-                    style: TextStyle(
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w500,
-                      fontFamily: AppConstants.font,
-                      color:
-                      appThemeColors.grey10.withAlpha((255 * 0.6).round()),
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
+          Text(
+            DateFormat('MMM d  •  h:mm a').format(_selectedDate),
+            style: TextStyle(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w500,
+              fontFamily: AppConstants.font,
+              color:
+                  appThemeColors.grey10.withAlpha((255 * 0.6).round()),
+              decoration: TextDecoration.none,
+            ),
+          ),
                   SizedBox(width: 8.w),
                   Icon(
                     Icons.more_vert_rounded,
@@ -1546,7 +1595,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
               child: Row(
                 children: [
                   Icon(
-                    Icons.play_circle_fill_rounded,
+                    Icons.music_note_rounded,
                     color: appThemeColors.grey1,
                     size: 28.sp,
                   ),
@@ -1642,7 +1691,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
               child: Row(
                 children: [
                   Icon(
-                    Icons.play_circle_fill_rounded,
+                    Icons.music_note_rounded,
                     color: appThemeColors.grey1,
                     size: 28.sp,
                   ),
@@ -1761,197 +1810,371 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   Widget _buildMoodField(AppThemeColors appThemeColors) {
     return Material(
       color: Colors.transparent,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          if (_selectedLocation != null)
-            Padding(
-              padding: EdgeInsets.only(right: 12.w),
-              child: GestureDetector(
-                key: _locationMenuKey,
-                onTap: () {
-                  final renderBox = _locationMenuKey.currentContext!
-                      .findRenderObject() as RenderBox;
-                  final position = renderBox.localToGlobal(Offset.zero);
-                  unawaited(
-                    showMenu<String>(
-                      context: context,
-                      color: appThemeColors.grey5,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16.r),
-                      ),
-                      position: RelativeRect.fromLTRB(
-                        position.dx,
-                        position.dy + renderBox.size.height + 10.h,
-                        position.dx + renderBox.size.width,
-                        position.dy + renderBox.size.height + 200.h,
-                      ),
-                      items: [
-                        PopupMenuItem(
-                          value: 'open',
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.open_in_new,
-                                color: appThemeColors.grey10,
-                              ),
-                              SizedBox(width: 8.w),
-                              Text(
-                                AppConstants.openInMaps,
-                                style: TextStyle(color: appThemeColors.grey10),
-                              ),
-                            ],
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 14.w),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            if (_selectedLocation != null)
+              Padding(
+                padding: EdgeInsets.only(right: 12.w),
+                child: GestureDetector(
+                  key: _locationMenuKey,
+                  onTap: () {
+                    final renderBox = _locationMenuKey.currentContext!
+                        .findRenderObject() as RenderBox;
+                    final position = renderBox.localToGlobal(Offset.zero);
+                    unawaited(
+                      showMenu<String>(
+                        context: context,
+                        color: appThemeColors.grey5,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16.r),
+                        ),
+                        position: RelativeRect.fromLTRB(
+                          position.dx,
+                          position.dy + renderBox.size.height + 10.h,
+                          position.dx + renderBox.size.width,
+                          position.dy + renderBox.size.height + 200.h,
+                        ),
+                        items: [
+                          PopupMenuItem(
+                            value: 'open',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.open_in_new,
+                                  color: appThemeColors.grey10,
+                                ),
+                                SizedBox(width: 8.w),
+                                Text(
+                                  AppConstants.openInMaps,
+                                  style: TextStyle(color: appThemeColors.grey10),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        PopupMenuDivider(
-                          height: 1,
-                          color: appThemeColors.grey6,
-                        ),
-                        PopupMenuItem(
-                          value: 'edit',
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit, color: appThemeColors.grey10),
-                              SizedBox(width: 8.w),
-                              Text(
-                                AppConstants.changeLocation,
-                                style: TextStyle(color: appThemeColors.grey10),
-                              ),
-                            ],
+                          PopupMenuDivider(
+                            height: 1,
+                            color: appThemeColors.grey6,
                           ),
+                          PopupMenuItem(
+                            value: 'edit',
+                            child: Row(
+                              children: [Icon(Icons.edit, color: appThemeColors.grey10),
+                                SizedBox(width: 8.w),
+                                Text(
+                                  AppConstants.changeLocation,
+                                  style: TextStyle(color: appThemeColors.grey10),
+                                ),
+                              ],
+                            ),
+                          ),
+                          PopupMenuDivider(
+                            height: 1,
+                            color: appThemeColors.grey6,
+                          ),
+                          PopupMenuItem(
+                            value: 'remove',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.delete_outline_outlined,
+                                  color: appThemeColors.error,
+                                ),
+                                SizedBox(width: 8.w),
+                                Text(
+                                  AppConstants.remove,
+                                  style: TextStyle(color: appThemeColors.error),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ).then((value) {
+                        if (value == 'open') {
+                          unawaited(_launchLocationLink());
+                        } else if (value == 'edit') {
+                          _handlelocationTap();
+                        } else if (value == 'remove') {
+                          setState(() {
+                            _selectedLocation = null;
+                          });
+                        }
+                      }),
+                    );
+                  },
+                  child: Container(
+                    height: 38.w,
+                    padding: EdgeInsets.only(right: 12.w),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.location_on_rounded,
+                          color: appThemeColors.grey3,
+                          size: 20.w,
                         ),
-                        PopupMenuDivider(
-                          height: 1,
-                          color: appThemeColors.grey6,
+                        SizedBox(
+                          width: 6.w,
                         ),
-                        PopupMenuItem(
-                          value: 'remove',
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.delete_outline_outlined,
-                                color: appThemeColors.error,
-                              ),
-                              SizedBox(width: 8.w),
-                              Text(
-                                AppConstants.remove,
-                                style: TextStyle(color: appThemeColors.error),
-                              ),
-                            ],
+                        Text(
+                          '${_selectedLocation!.coordinates.latitude.toStringAsFixed(4)}, ${_selectedLocation!.coordinates.longitude.toStringAsFixed(4)}',
+                          style: TextStyle(
+                            color: appThemeColors.grey1,
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.none,
+                            fontFamily: AppConstants.font,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
-                    ).then((value) {
-                      if (value == 'open') {
-                        unawaited(_launchLocationLink());
-                      } else if (value == 'edit') {
-                        _handlelocationTap();
-                      } else if (value == 'remove') {
-                        setState(() {
-                          _selectedLocation = null;
-                        });
-                      }
-                    }),
-                  );
-                },
-                child: Container(
-                  height: 38.w,
-                  padding: EdgeInsets.only(right: 12.w),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.location_on_rounded,
-                        color: appThemeColors.grey3,
-                        size: 20.w,
-                      ),
-                      SizedBox(
-                        width: 6.w,
-                      ),
-                      Text(
-                        '${_selectedLocation!.coordinates.latitude.toStringAsFixed(4)}, ${_selectedLocation!.coordinates.longitude.toStringAsFixed(4)}',
-                        style: TextStyle(
-                          color: appThemeColors.grey1,
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w600,
-                          decoration: TextDecoration.none,
-                          fontFamily: AppConstants.font,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            )
-          else
-            Padding(
-              padding: EdgeInsets.only(right: 12.w),
-              child: CustomPaint(
-                painter: DashedBorderPainter(
-                  color: appThemeColors.grey5,
-                  strokeWidth: 2.w,
-                  fillColor: appThemeColors.grey6,
-                ),
-                child: SizedBox(
-                  width: 38.w,
-                  height: 38.w,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      GestureDetector(
-                        onTap: _handlelocationTap,
-                        child: Icon(
-                          Icons.add_location_alt_outlined,
-                          color: appThemeColors.grey4,
-                          size: 28.w,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          Padding(
-            padding: EdgeInsets.only(right: 12.w, left: 12.w),
-            child: GestureDetector(
-              onTap: _handlemoodTap,
-              child: _selectedMoodIndex == null
-                  ? CustomPaint(
-                painter: DashedBorderPainter(
-                  color: appThemeColors.grey5,
-                  strokeWidth: 2.w,
-                  fillColor: appThemeColors.grey6,
-                ),
-                child: SizedBox(
-                  width: 38.w,
-                  height: 38.w,
-                  child: Icon(
-                    Icons.add_reaction_outlined,
-                    color: appThemeColors.grey4,
-                    size: 28.w,
+                    ),
                   ),
                 ),
               )
-                  : ColoredBox(
-                color: appThemeColors.grey6,
-                child: SizedBox(
-                  width: 38.w,
-                  height: 38.w,
-                  child: Center(
-                    child: SvgPicture.asset(
-                      _moods[_selectedMoodIndex!]['svg']!,
-                      width: 28.w,
-                      height: 28.h,
+            else
+              Padding(
+                padding: EdgeInsets.only(right: 12.w),
+                child: CustomPaint(
+                  painter: DashedBorderPainter(
+                    color: appThemeColors.grey5,
+                    strokeWidth: 2.w,
+                    fillColor: appThemeColors.grey6,
+                  ),
+                  child: SizedBox(
+                    width: 38.w,
+                    height: 38.w,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        GestureDetector(
+                          onTap: _handlelocationTap,
+                          child: Icon(
+                            Icons.add_location_alt_outlined,
+                            color: appThemeColors.grey4,
+                            size: 28.w,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            Padding(
+              padding: EdgeInsets.only(right: 12.w, left: 12.w),
+              child: GestureDetector(
+                onTap: _handlemoodTap,
+                child: _selectedMoodIndex == null
+                    ? CustomPaint(
+                  painter: DashedBorderPainter(
+                    color: appThemeColors.grey5,
+                    strokeWidth: 2.w,
+                    fillColor: appThemeColors.grey6,
+                  ),
+                  child: SizedBox(
+                    width: 38.w,
+                    height: 38.w,
+                    child: Icon(
+                      Icons.add_reaction_outlined,
+                      color: appThemeColors.grey4,
+                      size: 28.w,
+                    ),
+                  ),
+                )
+                    : ColoredBox(
+                  color: appThemeColors.grey6,
+                  child: SizedBox(
+                    width: 38.w,
+                    height: 38.w,
+                    child: Center(
+                      child: Obx(() {
+                        final HomeController controller = Get.find();
+                        final rasterizedImage = controller.moodImages[_selectedMoodIndex!];
+                        if (rasterizedImage != null) {
+                          return RawImage(
+                            image: rasterizedImage,
+                            width: 28.w,
+                            height: 28.h,
+                            filterQuality: ui.FilterQuality.high,
+                          );
+                        }
+                        return SvgPicture.asset(
+                          _moods[_selectedMoodIndex!]['svg']!,
+                          width: 28.w,
+                          height: 28.h,
+                        );
+                      }),
                     ),
                   ),
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTagField(AppThemeColors appThemeColors) {
+    return Material(
+      color: Colors.transparent,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 14.w),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => _showTagInputDialog(appThemeColors),
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+                  decoration: BoxDecoration(
+                    color: appThemeColors.grey5,
+                    borderRadius: BorderRadius.circular(20.r),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add, size: 14.sp, color: appThemeColors.grey1),
+                      SizedBox(width: 4.w),
+                      Text(
+                        AppConstants.addTags,
+                        style: TextStyle(
+                          color: appThemeColors.grey1,
+                          fontSize: 12.sp,
+                          fontFamily: AppConstants.font,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (_tags.isNotEmpty) SizedBox(width: 8.w),
+              ..._tags.map((tag) => Padding(
+                padding: EdgeInsets.only(right: 8.w),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                      decoration: BoxDecoration(
+                        color: AppTheme.getTagBaseColor(tag, Theme.of(context).brightness),
+                        borderRadius: BorderRadius.circular(20.r),
+                      ),
+                      child: Text(
+                        tag.startsWith('#') ? tag : '#$tag',
+                        style: TextStyle(
+                          color: AppTheme.getTagLightColor(tag, Theme.of(context).brightness),
+                          fontSize: 12.sp,
+                          fontFamily: AppConstants.font,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 4.w),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _tags.remove(tag);
+                        });
+                      },
+                      child: Container(
+                        padding: EdgeInsets.all(4.w),
+                        decoration: BoxDecoration(
+                          color: appThemeColors.error,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.close,
+                          size: 10.sp,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showTagInputDialog(AppThemeColors appThemeColors) {
+    _tagController.clear();
+    showCupertinoDialog(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text(AppConstants.addTags),
+        content: Padding(
+          padding: EdgeInsets.only(top: 10.h),
+          child: Row(
+            children: [
+              Text(
+                '#',
+                style: TextStyle(
+                  color: appThemeColors.grey1,
+                  fontSize: 20.sp,
+                  fontFamily: AppConstants.font,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: CupertinoTextField(
+                  controller: _tagController,
+                  placeholder: AppConstants.tagPlaceholder.replaceAll('#', ''),
+                  autofocus: true,
+                  style: TextStyle(color: appThemeColors.grey10, fontFamily: AppConstants.font),
+                  decoration: BoxDecoration(
+                    color: appThemeColors.grey6,
+                    borderRadius: BorderRadius.circular(8.r),
+                  ),
+                  onSubmitted: (value) {
+                    _addTag(value);
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text(AppConstants.cancel),
+            onPressed: () => Navigator.pop(context),
+          ),
+          CupertinoDialogAction(
+            child: const Text(AppConstants.add),
+            onPressed: () {
+              _addTag(_tagController.text);
+              Navigator.pop(context);
+            },
           ),
         ],
       ),
     );
+  }
+
+  void _addTag(String value) {
+    String tag = value.trim();
+    if (tag.isEmpty) return;
+
+    // Split by spaces to allow multiple tags at once
+    final rawTags = tag.split(RegExp(r'\s+')).where((t) => t.isNotEmpty);
+
+    setState(() {
+      for (var t in rawTags) {
+        String formattedTag = t.startsWith('#') ? t : '#$t';
+        if (!_tags.contains(formattedTag)) {
+          _tags.add(formattedTag);
+        }
+      }
+    });
   }
 
   Widget _buildDraggableSheet(
@@ -2441,11 +2664,20 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                                                 ],
                                               ),
                                             ),
-                                            _buildMoodField(appThemeColors),
-                                            SizedBox(height: 16.h),
                                             Expanded(
-                                              child: _buildTextField(
-                                                appThemeColors,
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  _buildMoodField(appThemeColors),
+                                                  SizedBox(height: 16.h),
+                                                  _buildTagField(appThemeColors),
+                                                  SizedBox(height: 16.h),
+                                                  Expanded(
+                                                    child: _buildTextField(
+                                                      appThemeColors,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                           ],

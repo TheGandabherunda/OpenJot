@@ -122,17 +122,23 @@ class _ExcludeEntriesBottomSheetState extends State<ExcludeEntriesBottomSheet> {
         final content = entry.content.toPlainText().toLowerCase();
         bool matchesQuery = content.contains(query);
 
-        if (_isBookmarked && !entry.isBookmarked) return false;
+        if (_isBookmarked && !entry.isBookmarked) {
+          return false;
+        }
         if (_isTextOnly &&
             (entry.galleryImages.isNotEmpty ||
                 entry.cameraPhotos.isNotEmpty ||
                 entry.galleryAudios.isNotEmpty ||
-                entry.recordings.isNotEmpty)) return false;
+                entry.recordings.isNotEmpty)) {
+          return false;
+        }
         if (_isMediaOnly &&
             (entry.galleryImages.isEmpty &&
                 entry.cameraPhotos.isEmpty &&
                 entry.galleryAudios.isEmpty &&
-                entry.recordings.isEmpty)) return false;
+                entry.recordings.isEmpty)) {
+          return false;
+        }
         if (_withMood && entry.moodIndex == null) return false;
         if (_withLocation && entry.location == null) return false;
         if (_isReflection && !entry.isReflection) return false;
@@ -213,8 +219,10 @@ class _ExcludeEntriesBottomSheetState extends State<ExcludeEntriesBottomSheet> {
 
     return WillPopScope(
       onWillPop: () async {
-        if (!_hasUnsavedChanges) return true;
-        return await _showUnsavedChangesDialog();
+        if (!_hasUnsavedChanges) {
+          return true;
+        }
+        return _showUnsavedChangesDialog();
       },
       child: Scaffold(
         backgroundColor: appThemeColors.grey7,

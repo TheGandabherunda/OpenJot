@@ -245,13 +245,6 @@ class _LocationMapViewState extends State<LocationMapView>
     }
   }
 
-  void _refreshMap() {
-    FocusScope.of(context).unfocus();
-    _searchController.clear();
-    setState(() => _searchResults = []);
-    _getCurrentLocation(moveMap: true);
-  }
-
   void _handleTap(TapPosition tapPosition, LatLng latLng) {
     FocusScope.of(context).unfocus();
     setState(() => _searchResults = []);

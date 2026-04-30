@@ -36,6 +36,8 @@ class _SearchViewState extends State<SearchView> {
   bool _withLocation = false;
   bool _isReflection = false;
   bool _isDraft = false;
+  bool _isTagsFilterActive = false;
+  final Set<String> _selectedTags = {};
 
   @override
   void initState() {
@@ -79,8 +81,22 @@ class _SearchViewState extends State<SearchView> {
       ];
 
       _filteredEntries = allEntries.where((entry) {
-        final content = entry.content.toPlainText().toLowerCase();
-        bool matchesQuery = content.contains(query);
+        final plainText = _homeController.plainTextCache[entry.id] ?? '';
+        final content = plainText.toLowerCase();
+        final entryTags = entry.tags.map((t) => t.toLowerCase()).toList();
+
+        bool matchesQuery = false;
+        if (query.startsWith('#')) {
+          // If query starts with #, search specifically in tags
+          matchesQuery = entryTags.any((t) => t.contains(query));
+        } else {
+          // Otherwise search in content OR tags
+          matchesQuery = content.contains(query) || entryTags.any((t) => t.contains(query));
+        }
+
+        if (_selectedTags.isNotEmpty && !_selectedTags.every((tag) => entry.tags.contains(tag))) {
+          return false;
+        }
 
         if (_isBookmarked && !entry.isBookmarked) {
           return false;
@@ -112,6 +128,14 @@ class _SearchViewState extends State<SearchView> {
           return false;
         }
 
+        if (_isTagsFilterActive && entry.tags.isEmpty) {
+          return false;
+        }
+
+        if (_selectedTags.isNotEmpty && !_selectedTags.every((tag) => entry.tags.contains(tag))) {
+          return false;
+        }
+
         return matchesQuery;
       }).toList();
     });
@@ -133,6 +157,41 @@ class _SearchViewState extends State<SearchView> {
       ),
       shape: const StadiumBorder(),
       side: BorderSide.none,
+      showCheckmark: false,
+    );
+  }
+
+  Widget _buildTagChip(String tag) {
+    final isSelected = _selectedTags.contains(tag);
+    final brightness = Theme.of(context).brightness;
+    final baseColor = AppTheme.getTagBaseColor(tag, brightness);
+    final lightColor = AppTheme.getTagLightColor(tag, brightness);
+
+    return FilterChip(
+      label: Text(tag),
+      selected: isSelected,
+      onSelected: (selected) {
+        setState(() {
+          if (selected) {
+            _selectedTags.add(tag);
+          } else {
+            _selectedTags.remove(tag);
+          }
+          _applyFilters();
+        });
+      },
+      backgroundColor: lightColor,
+      selectedColor: baseColor,
+      labelStyle: TextStyle(
+        fontFamily: AppConstants.font,
+        fontSize: 13.sp,
+        fontWeight: FontWeight.w600,
+        color: isSelected ? lightColor : baseColor,
+        letterSpacing: -0.2,
+      ),
+      shape: StadiumBorder(side: BorderSide(color: baseColor.withOpacity(0.1))),
+      side: BorderSide.none,
+      showCheckmark: false,
     );
   }
 
@@ -196,6 +255,7 @@ class _SearchViewState extends State<SearchView> {
         ),
       ),
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: EdgeInsets.symmetric(vertical: 8.h),
@@ -254,10 +314,37 @@ class _SearchViewState extends State<SearchView> {
                           _applyFilters();
                         });
                       }),
+                  _buildFilterChip(AppConstants.tags, _isTagsFilterActive,
+                          (selected) {
+                        setState(() {
+                          _isTagsFilterActive = selected;
+                          if (!selected) {
+                            _selectedTags.clear();
+                          }
+                          _applyFilters();
+                        });
+                      }),
                 ],
               ),
             ),
           ),
+          if (_isTagsFilterActive && _homeController.allUniqueTags.isNotEmpty)
+            Padding(
+              padding: EdgeInsets.only(bottom: 8.h),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: _homeController.allUniqueTags
+                      .map((tag) => Padding(
+                            padding: EdgeInsets.only(right: 8.w),
+                            child: _buildTagChip(tag),
+                          ))
+                      .toList(),
+                ),
+              ),
+            ),
           Expanded(
             child: _filteredEntries.isEmpty
                 ? Center(

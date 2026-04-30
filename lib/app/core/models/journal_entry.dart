@@ -6,6 +6,8 @@ import 'package:photo_manager/photo_manager.dart' hide LatLng;
 
 part 'journal_entry.g.dart';
 
+// ignore_for_file: avoid_bool_literals_in_conditional_expressions
+
 @HiveType(typeId: 1)
 class RecordedAudio {
   @HiveField(0)
@@ -71,6 +73,10 @@ class JournalEntry extends HiveObject {
   final List<RecordedAudio> recordings;
   @HiveField(11, defaultValue: false) // NEW Draft Field added
   final bool isDraft;
+  @HiveField(12, defaultValue: [])
+  final List<String> tags;
+  @HiveField(13)
+  final String? originalId;
 
   JournalEntry({
     required this.id,
@@ -85,6 +91,8 @@ class JournalEntry extends HiveObject {
     this.galleryAudios = const [],
     this.recordings = const [],
     this.isDraft = false,
+    this.tags = const [],
+    this.originalId,
   });
 
   JournalEntry copyWith({
@@ -100,6 +108,8 @@ class JournalEntry extends HiveObject {
     List<AssetEntity>? galleryAudios,
     List<RecordedAudio>? recordings,
     bool? isDraft,
+    List<String>? tags,
+    String? originalId,
   }) {
     return JournalEntry(
       id: id ?? this.id,
@@ -114,6 +124,8 @@ class JournalEntry extends HiveObject {
       galleryAudios: galleryAudios ?? this.galleryAudios,
       recordings: recordings ?? this.recordings,
       isDraft: isDraft ?? this.isDraft,
+      tags: tags ?? this.tags,
+      originalId: originalId ?? this.originalId,
     );
   }
 }
