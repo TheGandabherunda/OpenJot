@@ -583,9 +583,11 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                             child: Text(
                               '$day',
                               style: TextStyle(
-                                color: isToday && _selectedCalendarType == CalendarType.standard
-                                    ? appThemeColors.grey7
-                                    : appThemeColors.grey10,
+                                color: _selectedCalendarType != CalendarType.standard && hasJournalEntry
+                                    ? Colors.white
+                                    : (isToday && _selectedCalendarType == CalendarType.standard
+                                        ? appThemeColors.grey7
+                                        : appThemeColors.grey10),
                                 fontWeight: isToday
                                     ? FontWeight.bold
                                     : FontWeight.normal,
@@ -601,6 +603,9 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                               ),
                             ),
                           ),
+
+                          if (_selectedCalendarType == CalendarType.mood && averageMood != null)
+                            _buildMoodIconOverlay(averageMood),
                         ],
                       ),
                     ),
@@ -639,8 +644,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
   }
 
   Widget _buildMoodCell(int moodIndex, AppThemeColors colors) {
-    final HomeController controller = Get.find();
-
     final accentColors = [
       colors.aPurple[0],
       colors.aPink[0],
@@ -658,25 +661,35 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
         color: bgColor,
         borderRadius: BorderRadius.circular(8.r),
       ),
-      child: Center(
-        child: Opacity(
-          opacity: 0.8,
-          child: Obx(() {
-            final rasterizedImage = controller.moodImages[moodIndex];
-            if (rasterizedImage != null) {
-              return RawImage(
-                image: rasterizedImage,
-                width: 24.w,
-                height: 24.h,
-                filterQuality: ui.FilterQuality.high,
+    );
+  }
+
+  Widget _buildMoodIconOverlay(int moodIndex) {
+    final HomeController controller = Get.find();
+    return Positioned.fill(
+      child: Padding(
+        padding: EdgeInsets.all(4.w),
+        child: Align(
+          alignment: Alignment.topRight,
+          child: Opacity(
+            opacity: 0.9,
+            child: Obx(() {
+              final rasterizedImage = controller.moodImages[moodIndex];
+              if (rasterizedImage != null) {
+                return RawImage(
+                  image: rasterizedImage,
+                  width: 12.w,
+                  height: 12.h,
+                  filterQuality: ui.FilterQuality.high,
+                );
+              }
+              return SvgPicture.asset(
+                AppConstants.moods[moodIndex]['svg']!,
+                width: 12.w,
+                height: 12.h,
               );
-            }
-            return SvgPicture.asset(
-              AppConstants.moods[moodIndex]['svg']!,
-              width: 24.w,
-              height: 24.h,
-            );
-          }),
+            }),
+          ),
         ),
       ),
     );
