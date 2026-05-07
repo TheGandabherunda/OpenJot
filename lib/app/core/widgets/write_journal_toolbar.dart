@@ -9,6 +9,8 @@ class WriteJournalToolbar extends StatelessWidget {
     required this.selectedToolbarIcon,
     required this.isDraggableSheetActive,
     required this.onToolbarItemTap,
+    required this.isRtlActive,
+    required this.onRtlToggle,
     this.onCloseTap,
   });
 
@@ -16,6 +18,8 @@ class WriteJournalToolbar extends StatelessWidget {
   final IconData? selectedToolbarIcon;
   final bool isDraggableSheetActive;
   final Function(IconData) onToolbarItemTap;
+  final bool isRtlActive;
+  final VoidCallback onRtlToggle;
   final VoidCallback? onCloseTap;
 
   @override

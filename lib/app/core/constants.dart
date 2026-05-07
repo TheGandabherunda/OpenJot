@@ -83,7 +83,6 @@ class AppConstants {
   static const String saveAsDraft = "Save as Draft";
   static const String discardChanges = "Discard";
   static const String autoDeleteDrafts = "Auto-delete Drafts";
-  static const String autoDeleteDraftsDescription = "Automatically remove old drafts.";
   static const String days7 = "7 Days";
   static const String never = "Never";
   static const String custom = "Custom...";
@@ -153,7 +152,6 @@ class AppConstants {
 
   // --- NEW: Exclude Entries Constants ---
   static const String excludeEntries = "Exclude Entries";
-  static const String excludeEntriesDescription = "Select entries to hide from memories.";
   static const String excludedEntriesKey = "excludedEntries";
   static const String saveExclusions = "Save Exclusions";
 
@@ -208,32 +206,31 @@ class AppConstants {
   static const String noResultsFound = "No results found";
 
   // Settings Bottom Sheet
-  static const String dailyReminder = "Daily Reminder";
-  static const String dailyReminderDescription = "Get a daily reminder to write.";
+  static const String dailyReminder = "Reminders";
+  static const String addReminder = "Add Reminder";
+  static const String reminders = "Reminders";
+  static const String deleteReminder = "Delete Reminder";
   static const String onThisDay = "On This Day";
-  static const String onThisDayDescription = "See memories from this day.";
   static const String appLock = "App Lock";
-  static const String appLockDescription = "Lock your journal with a PIN.";
   static const String backup = "Backup";
-  static const String backupDescription = "Save your entries to a file.";
   static const String restore = "Restore";
-  static const String restoreDescription = "Load entries from a backup file.";
+  static const String importFromAnotherApp = "Import from another app";
+  static const String importFromDailyYou = "Import from Daily You";
+  static const String selectDailyYouBackup = "Select Daily You backup zip file";
+  static const String importingEntries = "Importing entries...";
+  static const String importSuccess = "Successfully imported %d entries from Daily You!";
+  static const String importFailed = "Import failed: %s";
+  static const String noEntriesToImport = "No new entries found to import.";
   static const String privacyPolicy = "Privacy Policy";
-  static const String privacyPolicyDescription = "How we handle your data.";
   static const String termsNConditions = "Terms & Conditions";
-  static const String termsNConditionsDescription = "Guidelines for using the app.";
   static const String about = "About App";
-  static const String aboutDescription = "App version and information.";
   static const String changeTheme = "Change theme";
   static const String theme = "Theme";
-  static const String themeDescription = "Customize the app's appearance.";
   static const String pitchBlack = "Pitch Black";
-  static const String pitchBlackDescription = "Enable pure black/white for journal screens.";
   static const String themeLight = "Light";
   static const String themeDark = "Dark";
   static const String themeSystem = "System";
   static const String changePin = "Change PIN";
-  static const String changePinDescription = "Update your security PIN.";
   static const String loading = "Loading...";
   static const String confirmRestoreTitle = "Confirm Restore";
   static const String confirmRestoreMessage =
@@ -250,6 +247,9 @@ class AppConstants {
   static const String onThisDayOn = "You'll now get memories from this day.";
   static const String onThisDayOff = "'On This Day' reminders are turned off.";
   static const String themeChanged = "%s theme selected.";
+  static const String hideStats = "Hide Stats";
+  static const String hideHomeStats = "Hide Home Stats";
+  static const String hideInsightsStats = "Hide Insights Stats";
 
   // Write Journal Bottom Sheet
   static const String sharedImage = "Shared Image";
@@ -313,11 +313,16 @@ class AppConstants {
   static const String pitchBlackKey = 'pitchBlack';
   static const String dailyReminderKey = 'dailyReminder';
   static const String onThisDayKey = 'onThisDay'; // NEW
+  static const String rtlSupportKey = 'rtlSupport'; // NEW
   static const String lastOnThisDayNotificationDateKey = 'lastOnThisDayNotificationDate'; // NEW
   static const String autoDeleteDraftsKey = 'autoDeleteDrafts'; // NEW
   static const String reminderTimeKey = 'reminderTime';
+  static const String reminderTimesKey = 'reminderTimes';
+  static const String reminderSchemaVersionKey = 'reminder_schema_version';
   static const String appLockEnabledKey = 'appLockEnabled';
   static const String appLockPinKey = 'appLockPin';
+  static const String hideHomeStatsKey = 'hideHomeStats';
+  static const String hideInsightsStatsKey = 'hideInsightsStats';
   static const String storagePermissionsRequired =
       "Storage and media permissions are required to create a backup.";
   static const String selectBackupFolder = 'Select a folder to save the backup';

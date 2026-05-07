@@ -130,8 +130,18 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildStatsSection(context, controller),
-              SizedBox(height: 32.h),
+              Obx(() {
+                if (controller.hideInsightsStats.value) {
+                  return const SizedBox.shrink();
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildStatsSection(context, controller),
+                    SizedBox(height: 32.h),
+                  ],
+                );
+              }),
               _buildCalendarSection(context, controller),
               SizedBox(height: 32.h),
             ],
@@ -583,9 +593,11 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                             child: Text(
                               '$day',
                               style: TextStyle(
-                                color: isToday && _selectedCalendarType == CalendarType.standard
-                                    ? appThemeColors.grey7
-                                    : appThemeColors.grey10,
+                                color: _selectedCalendarType != CalendarType.standard && hasJournalEntry
+                                    ? Colors.white
+                                    : (isToday && _selectedCalendarType == CalendarType.standard
+                                        ? appThemeColors.grey7
+                                        : appThemeColors.grey10),
                                 fontWeight: isToday
                                     ? FontWeight.bold
                                     : FontWeight.normal,
@@ -601,6 +613,9 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                               ),
                             ),
                           ),
+
+                          if (_selectedCalendarType == CalendarType.mood && averageMood != null)
+                            _buildMoodIconOverlay(averageMood),
                         ],
                       ),
                     ),
@@ -639,8 +654,6 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
   }
 
   Widget _buildMoodCell(int moodIndex, AppThemeColors colors) {
-    final HomeController controller = Get.find();
-
     final accentColors = [
       colors.aPurple[0],
       colors.aPink[0],
@@ -658,25 +671,35 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
         color: bgColor,
         borderRadius: BorderRadius.circular(8.r),
       ),
-      child: Center(
-        child: Opacity(
-          opacity: 0.8,
-          child: Obx(() {
-            final rasterizedImage = controller.moodImages[moodIndex];
-            if (rasterizedImage != null) {
-              return RawImage(
-                image: rasterizedImage,
-                width: 24.w,
-                height: 24.h,
-                filterQuality: ui.FilterQuality.high,
+    );
+  }
+
+  Widget _buildMoodIconOverlay(int moodIndex) {
+    final HomeController controller = Get.find();
+    return Positioned.fill(
+      child: Padding(
+        padding: EdgeInsets.all(4.w),
+        child: Align(
+          alignment: Alignment.topRight,
+          child: Opacity(
+            opacity: 0.9,
+            child: Obx(() {
+              final rasterizedImage = controller.moodImages[moodIndex];
+              if (rasterizedImage != null) {
+                return RawImage(
+                  image: rasterizedImage,
+                  width: 12.w,
+                  height: 12.h,
+                  filterQuality: ui.FilterQuality.high,
+                );
+              }
+              return SvgPicture.asset(
+                AppConstants.moods[moodIndex]['svg']!,
+                width: 12.w,
+                height: 12.h,
               );
-            }
-            return SvgPicture.asset(
-              AppConstants.moods[moodIndex]['svg']!,
-              width: 24.w,
-              height: 24.h,
-            );
-          }),
+            }),
+          ),
         ),
       ),
     );
@@ -864,7 +887,7 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
               ),
             ),
             if (avgMoodIndex != null && widget.calendarType == CalendarType.mood) ...[
-              Center(child: _buildCenteredMoodSummary(avgMoodIndex, AppConstants.averageForThisYear, colors)),
+              Center(child: _buildCenteredMoodSummary(avgMoodIndex, AppConstants.averageForThisDay, colors)),
               SizedBox(height: 32.h),
             ],
             Container(
@@ -947,7 +970,7 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
               ),
             ),
             if (avgMoodIndex != null && widget.calendarType == CalendarType.mood) ...[
-              Center(child: _buildCenteredMoodSummary(avgMoodIndex, AppConstants.averageForThisYear, appThemeColors)),
+              Center(child: _buildCenteredMoodSummary(avgMoodIndex, AppConstants.averageForThisDay, appThemeColors)),
               SizedBox(height: 32.h),
             ],
             ...entriesInYear.map((entry) {

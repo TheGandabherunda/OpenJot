@@ -16,6 +16,7 @@ import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/models/journal_entry.dart';
+import 'package:open_jot/app/core/services/permission_service.dart';
 import 'package:open_jot/app/core/theme.dart';
 import 'package:open_jot/app/core/widgets/custom_button.dart';
 import 'package:open_jot/app/core/widgets/journal_tile.dart';
@@ -387,6 +388,17 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         homeController.deleteJournalEntry(widget.entry!.id);
       }
 
+      // Determine useRtl based on the first block's direction attribute
+      bool primaryRtl = false;
+      if (cleanDocument.root.children.isNotEmpty) {
+        final firstBlock = cleanDocument.root.children.first;
+        if (firstBlock is quill.Block) {
+          primaryRtl = firstBlock.style.containsKey(quill.Attribute.rtl.key);
+        } else if (firstBlock is quill.Line) {
+          primaryRtl = firstBlock.style.containsKey(quill.Attribute.rtl.key);
+        }
+      }
+
       final updatedEntry = JournalEntry(
         id: saveId,
         content: cleanDocument,
@@ -402,6 +414,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         isDraft: isDraft,
         tags: _tags,
         originalId: originalId,
+        useRtl: primaryRtl,
       );
 
       final exists = homeController.journalEntries.any((e) => e.id == saveId) ||
@@ -736,13 +749,20 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     }
 
     if (iconData == Icons.image_rounded) {
-      final status = await Permission.photos.request();
+      final status = await PermissionService.requestMediaPermission(0);
       if (!status.isGranted) {
         return;
       }
     }
     if (iconData == Icons.camera_alt_rounded) {
       final status = await Permission.camera.request();
+      if (!status.isGranted) {
+        return;
+      }
+    }
+
+    if (iconData == Icons.mic_rounded) {
+      final status = await Permission.microphone.request();
       if (!status.isGranted) {
         return;
       }
@@ -852,6 +872,16 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         break;
       case 'title':
         _toggleHeaderStyle(currentStyle);
+        break;
+      case 'rtl':
+        final isRtl = currentStyle.containsKey(quill.Attribute.rtl.key);
+        if (isRtl) {
+          _quillController.formatSelection(
+            quill.Attribute.clone(quill.Attribute.rtl, null),
+          );
+        } else {
+          _quillController.formatSelection(quill.Attribute.rtl);
+        }
         break;
     }
     if (!_focusNode.hasFocus) {
@@ -2409,6 +2439,17 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
             currentStyle.containsKey(quill.Attribute.h3.key),
         isQuoteActive: currentStyle.containsKey(quill.Attribute.blockQuote.key),
         isBulletActive: currentStyle.containsKey(quill.Attribute.ul.key),
+        isRtlActive: currentStyle.containsKey(quill.Attribute.rtl.key),
+        onRtlToggle: () {
+          final isRtl = currentStyle.containsKey(quill.Attribute.rtl.key);
+          if (isRtl) {
+            _quillController.formatSelection(
+              quill.Attribute.clone(quill.Attribute.rtl, null),
+            );
+          } else {
+            _quillController.formatSelection(quill.Attribute.rtl);
+          }
+        },
       );
     } else {
       toolbar = WriteJournalToolbar(
@@ -2417,6 +2458,17 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         selectedToolbarIcon: _selectedToolbarIcon,
         isDraggableSheetActive: _isDraggableSheetActive,
         onToolbarItemTap: _handleToolbarItemTap,
+        isRtlActive: currentStyle.containsKey(quill.Attribute.rtl.key),
+        onRtlToggle: () {
+          final isRtl = currentStyle.containsKey(quill.Attribute.rtl.key);
+          if (isRtl) {
+            _quillController.formatSelection(
+              quill.Attribute.clone(quill.Attribute.rtl, null),
+            );
+          } else {
+            _quillController.formatSelection(quill.Attribute.rtl);
+          }
+        },
         onCloseTap: _handleCloseSheetRequest,
       );
     }

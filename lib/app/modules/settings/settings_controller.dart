@@ -4,8 +4,10 @@ import 'package:get/get.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/services/app_lock_service.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
+import 'package:open_jot/app/core/services/daily_you_migration_service.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../../core/services/notification_service.dart';
 import '../../core/theme.dart';
@@ -17,15 +19,17 @@ class SettingsScreenController extends GetxController {
   final _hiveService = Get.find<HiveService>();
   final _appLockService = Get.find<AppLockService>();
   final _notificationService = Get.find<NotificationService>();
+  final _migrationService = Get.put(DailyYouMigrationService());
 
-  var dailyReminder = false.obs;
   var onThisDay = false.obs;
-  var excludedOnThisDayEntries = <String>[].obs; // NEW
-  var reminderTime = Rx<TimeOfDay?>(null);
+  var excludedOnThisDayEntries = <String>[].obs;
+  var reminderTimes = <TimeOfDay>[].obs;
   var theme = AppConstants.themeSystem.obs;
   var pitchBlack = false.obs;
   var appLock = false.obs;
   var autoDeleteDraftsDays = 7.obs;
+  var hideHomeStats = false.obs;
+  var hideInsightsStats = false.obs;
 
   @override
   void onInit() {
@@ -34,14 +38,15 @@ class SettingsScreenController extends GetxController {
   }
 
   void _loadSettings() {
-    dailyReminder.value = _hiveService.dailyReminder;
     onThisDay.value = _hiveService.onThisDay;
-    excludedOnThisDayEntries.value = _hiveService.excludedOnThisDayEntries; // NEW
+    excludedOnThisDayEntries.value = _hiveService.excludedOnThisDayEntries;
     autoDeleteDraftsDays.value = _hiveService.autoDeleteDraftsDays;
-    reminderTime.value = _hiveService.reminderTime;
+    reminderTimes.value = _hiveService.reminderTimes;
     theme.value = _hiveService.theme;
     pitchBlack.value = _hiveService.pitchBlack;
     appLock.value = _hiveService.appLockEnabled;
+    hideHomeStats.value = _hiveService.hideHomeStats;
+    hideInsightsStats.value = _hiveService.hideInsightsStats;
   }
 
   Future<bool> checkAndRequestNotificationPermissions() async {
@@ -57,22 +62,23 @@ class SettingsScreenController extends GetxController {
     return permissionsGranted;
   }
 
-  void turnOnDailyReminder(TimeOfDay time) {
-    dailyReminder.value = true;
-    _hiveService.setDailyReminder(true);
-    setReminderTime(time);
+  void addReminder(TimeOfDay time) {
+    if (!reminderTimes.any((t) => t.hour == time.hour && t.minute == time.minute)) {
+      reminderTimes.add(time);
+      _updateReminders();
+    }
   }
 
-  void turnOffDailyReminder() {
-    final appColors = AppTheme.colorsOf(Get.context!);
-    dailyReminder.value = false;
-    _hiveService.setDailyReminder(false);
-    _notificationService.cancelDailyReminder();
-    CustomToast.showToast(
-      AppConstants.notificationCanceled,
-      backgroundColor: appColors.grey10,
-      textColor: appColors.grey8,
-    );
+  void removeReminder(int index) {
+    if (index >= 0 && index < reminderTimes.length) {
+      reminderTimes.removeAt(index);
+      _updateReminders();
+    }
+  }
+
+  void _updateReminders() {
+    _hiveService.setReminderTimes(reminderTimes);
+    _notificationService.scheduleMultipleReminders(reminderTimes);
   }
 
   void toggleOnThisDay(bool value) async {
@@ -83,7 +89,6 @@ class SettingsScreenController extends GetxController {
       if (permissionsGranted) {
         onThisDay.value = true;
         _hiveService.setOnThisDay(true);
-        // Use force: true so toggling the switch always triggers a fresh check
         _notificationService.checkForOnThisDayMemories(force: true);
         CustomToast.showToast(
           AppConstants.onThisDayOn,
@@ -110,13 +115,11 @@ class SettingsScreenController extends GetxController {
     }
   }
 
-  // --- NEW: Logic to save Excluded Entries ---
   void updateExcludedEntries(List<String> ids) {
     final appColors = AppTheme.colorsOf(Get.context!);
     excludedOnThisDayEntries.value = ids;
     _hiveService.setExcludedOnThisDayEntries(ids);
 
-    // Reschedule so new exclusions take effect immediately
     if (onThisDay.value) {
       _notificationService.checkForOnThisDayMemories(force: true);
     }
@@ -143,30 +146,8 @@ class SettingsScreenController extends GetxController {
       textColor: appColors.grey8,
     );
 
-    // Reload entries so any already expired drafts are cleaned up immediately
     if (Get.isRegistered<HomeController>()) {
       Get.find<HomeController>().loadJournalEntries();
-    }
-  }
-
-  void setReminderTime(TimeOfDay time) {
-    final appColors = AppTheme.colorsOf(Get.context!);
-    final timeFormat = time.format(Get.context!);
-    final isReschedule = reminderTime.value != null;
-
-    reminderTime.value = time;
-    _hiveService.setReminderTime(time);
-
-    if (dailyReminder.value) {
-      _notificationService.scheduleDailyJournalReminder(time);
-      CustomToast.showToast(
-        (isReschedule
-            ? AppConstants.notificationRescheduled
-            : AppConstants.notificationScheduled)
-            .replaceFirst('%s', timeFormat),
-        backgroundColor: appColors.grey10,
-        textColor: appColors.grey8,
-      );
     }
   }
 
@@ -199,6 +180,22 @@ class SettingsScreenController extends GetxController {
   void togglePitchBlack(bool value) {
     pitchBlack.value = value;
     _hiveService.setPitchBlack(value);
+  }
+
+  void toggleHideHomeStats(bool value) {
+    hideHomeStats.value = value;
+    _hiveService.setHideHomeStats(value);
+    if (Get.isRegistered<HomeController>()) {
+      Get.find<HomeController>().loadSettings();
+    }
+  }
+
+  void toggleHideInsightsStats(bool value) {
+    hideInsightsStats.value = value;
+    _hiveService.setHideInsightsStats(value);
+    if (Get.isRegistered<HomeController>()) {
+      Get.find<HomeController>().loadSettings();
+    }
   }
 
   void toggleAppLock(bool value) async {
@@ -318,5 +315,59 @@ class SettingsScreenController extends GetxController {
         ],
       ),
     );
+  }
+
+  Future<void> importFromDailyYou() async {
+    final appColors = AppTheme.colorsOf(Get.context!);
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['zip'],
+        dialogTitle: AppConstants.selectDailyYouBackup,
+      );
+
+      if (result == null || result.files.single.path == null) return;
+
+      final zipPath = result.files.single.path!;
+
+      // Show loading dialog
+      Get.dialog(
+        const Center(child: CircularProgressIndicator()),
+        barrierDismissible: false,
+      );
+
+      final importedCount = await _migrationService.importFromDailyYou(
+        zipPath,
+        onStatusUpdate: (status) {
+          debugPrint("Migration status: $status");
+        },
+      );
+
+      Get.back(); // Close loading dialog
+
+      if (importedCount > 0) {
+        CustomToast.showToast(
+          AppConstants.importSuccess.replaceFirst('%d', importedCount.toString()),
+          backgroundColor: appColors.grey10,
+          textColor: appColors.grey8,
+        );
+        if (Get.isRegistered<HomeController>()) {
+          Get.find<HomeController>().loadJournalEntries();
+        }
+      } else {
+        CustomToast.showToast(
+          AppConstants.noEntriesToImport,
+          backgroundColor: appColors.grey10,
+          textColor: appColors.grey8,
+        );
+      }
+    } catch (e) {
+      if (Get.isOverlaysOpen) Get.back();
+      CustomToast.showToast(
+        AppConstants.importFailed.replaceFirst('%s', e.toString()),
+        backgroundColor: appColors.grey10,
+        textColor: appColors.grey8,
+      );
+    }
   }
 }

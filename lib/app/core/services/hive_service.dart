@@ -42,6 +42,9 @@ class HiveService extends GetxService {
     // --- Data Migration: Mood Evolution ---
     await _migrateMoods();
 
+    // --- Data Migration: Multiple Reminders ---
+    await _migrateReminders();
+
     // Run Garbage Collection quietly in the background to free up storage
     if (runGC) {
       unawaited(cleanUpOrphanedMedia());
@@ -201,6 +204,41 @@ class HiveService extends GetxService {
     debugPrint("Mood migration: Completed. Migrated $migrationCount entries.");
   }
 
+  Future<void> _migrateReminders() async {
+    int currentVersion = settingsBox.get(AppConstants.reminderSchemaVersionKey, defaultValue: 0);
+
+    if (currentVersion >= 1) return;
+
+    debugPrint("Reminder migration: Migrating to multiple reminders...");
+
+    final oldDailyReminder = settingsBox.get(AppConstants.dailyReminderKey, defaultValue: false);
+    final oldReminderTimeStr = settingsBox.get(AppConstants.reminderTimeKey);
+
+    if (oldReminderTimeStr != null) {
+      try {
+        final parts = oldReminderTimeStr.split(':');
+        final oldTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+
+        // If it was enabled, migrate it.
+        // Actually, the user says migrate it regardless? "that reminder time should be added into the list"
+        // I'll migrate it if it exists.
+        final List<TimeOfDay> existingTimes = reminderTimes;
+        if (!existingTimes.any((t) => t.hour == oldTime.hour && t.minute == oldTime.minute)) {
+          if (oldDailyReminder) {
+            existingTimes.add(oldTime);
+            await setReminderTimes(existingTimes);
+            debugPrint("Reminder migration: Migrated $oldReminderTimeStr to list.");
+          }
+        }
+      } catch (e) {
+        debugPrint("Reminder migration: Error parsing old time: $e");
+      }
+    }
+
+    await settingsBox.put(AppConstants.reminderSchemaVersionKey, 1);
+    debugPrint("Reminder migration: Completed.");
+  }
+
   void _registerAdapters() {
     if (_adaptersRegistered) return;
 
@@ -272,6 +310,18 @@ class HiveService extends GetxService {
   Future<void> setReminderTime(TimeOfDay time) => settingsBox
       .put(AppConstants.reminderTimeKey, '${time.hour}:${time.minute}');
 
+  List<TimeOfDay> get reminderTimes {
+    final list = settingsBox.get(AppConstants.reminderTimesKey, defaultValue: <String>[]);
+    return (list as List).cast<String>().map((e) {
+      final parts = e.split(':');
+      return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+    }).toList();
+  }
+
+  Future<void> setReminderTimes(List<TimeOfDay> times) => settingsBox.put(
+      AppConstants.reminderTimesKey,
+      times.map((e) => '${e.hour}:${e.minute}').toList());
+
   bool get appLockEnabled =>
       settingsBox.get(AppConstants.appLockEnabledKey, defaultValue: false);
   Future<void> setAppLock(bool value) =>
@@ -280,6 +330,16 @@ class HiveService extends GetxService {
   String? get appLockPin => settingsBox.get(AppConstants.appLockPinKey);
   Future<void> setAppLockPin(String pin) =>
       settingsBox.put(AppConstants.appLockPinKey, pin);
+
+  bool get hideHomeStats =>
+      settingsBox.get(AppConstants.hideHomeStatsKey, defaultValue: false);
+  Future<void> setHideHomeStats(bool value) =>
+      settingsBox.put(AppConstants.hideHomeStatsKey, value);
+
+  bool get hideInsightsStats =>
+      settingsBox.get(AppConstants.hideInsightsStatsKey, defaultValue: false);
+  Future<void> setHideInsightsStats(bool value) =>
+      settingsBox.put(AppConstants.hideInsightsStatsKey, value);
 
   // --- Journals Box Methods ---
   Future<void> addJournalEntry(JournalEntry entry) =>
