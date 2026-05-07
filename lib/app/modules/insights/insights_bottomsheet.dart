@@ -877,7 +877,7 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
               ),
             ),
             if (avgMoodIndex != null && widget.calendarType == CalendarType.mood) ...[
-              Center(child: _buildCenteredMoodSummary(avgMoodIndex, AppConstants.averageForThisYear, colors)),
+              Center(child: _buildCenteredMoodSummary(avgMoodIndex, AppConstants.averageForThisDay, colors)),
               SizedBox(height: 32.h),
             ],
             Container(
@@ -960,7 +960,7 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
               ),
             ),
             if (avgMoodIndex != null && widget.calendarType == CalendarType.mood) ...[
-              Center(child: _buildCenteredMoodSummary(avgMoodIndex, AppConstants.averageForThisYear, appThemeColors)),
+              Center(child: _buildCenteredMoodSummary(avgMoodIndex, AppConstants.averageForThisDay, appThemeColors)),
               SizedBox(height: 32.h),
             ],
             ...entriesInYear.map((entry) {
