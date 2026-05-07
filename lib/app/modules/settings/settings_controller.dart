@@ -25,6 +25,8 @@ class SettingsScreenController extends GetxController {
   var pitchBlack = false.obs;
   var appLock = false.obs;
   var autoDeleteDraftsDays = 7.obs;
+  var hideHomeStats = false.obs;
+  var hideInsightsStats = false.obs;
 
   @override
   void onInit() {
@@ -40,6 +42,8 @@ class SettingsScreenController extends GetxController {
     theme.value = _hiveService.theme;
     pitchBlack.value = _hiveService.pitchBlack;
     appLock.value = _hiveService.appLockEnabled;
+    hideHomeStats.value = _hiveService.hideHomeStats;
+    hideInsightsStats.value = _hiveService.hideInsightsStats;
   }
 
   Future<bool> checkAndRequestNotificationPermissions() async {
@@ -177,6 +181,22 @@ class SettingsScreenController extends GetxController {
   void togglePitchBlack(bool value) {
     pitchBlack.value = value;
     _hiveService.setPitchBlack(value);
+  }
+
+  void toggleHideHomeStats(bool value) {
+    hideHomeStats.value = value;
+    _hiveService.setHideHomeStats(value);
+    if (Get.isRegistered<HomeController>()) {
+      Get.find<HomeController>().loadSettings();
+    }
+  }
+
+  void toggleHideInsightsStats(bool value) {
+    hideInsightsStats.value = value;
+    _hiveService.setHideInsightsStats(value);
+    if (Get.isRegistered<HomeController>()) {
+      Get.find<HomeController>().loadSettings();
+    }
   }
 
   void toggleAppLock(bool value) async {

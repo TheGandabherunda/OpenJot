@@ -26,6 +26,8 @@ class HomeController extends GetxController {
   final playerState = Rx<PlayerState>(PlayerState.stopped);
 
   final currentSortType = 'time'.obs;
+  final hideHomeStats = false.obs;
+  final hideInsightsStats = false.obs;
   final Map<String, String> _sortTypeDisplayNames = {
     'time': 'Entry time',
     'bookmark': 'Bookmark first',
@@ -54,6 +56,7 @@ class HomeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    loadSettings();
     _hiveService.getJournalEntriesNotifier().addListener(loadJournalEntries);
     loadJournalEntries();
 
@@ -76,6 +79,11 @@ class HomeController extends GetxController {
 
     // Pre-rasterize mood icons for buttery smooth scrolling
     _rasterizeMoodIcons();
+  }
+
+  void loadSettings() {
+    hideHomeStats.value = _hiveService.hideHomeStats;
+    hideInsightsStats.value = _hiveService.hideInsightsStats;
   }
 
   Future<void> _rasterizeMoodIcons() async {

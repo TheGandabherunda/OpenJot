@@ -130,8 +130,18 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildStatsSection(context, controller),
-              SizedBox(height: 32.h),
+              Obx(() {
+                if (controller.hideInsightsStats.value) {
+                  return const SizedBox.shrink();
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildStatsSection(context, controller),
+                    SizedBox(height: 32.h),
+                  ],
+                );
+              }),
               _buildCalendarSection(context, controller),
               SizedBox(height: 32.h),
             ],

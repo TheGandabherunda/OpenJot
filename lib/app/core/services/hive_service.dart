@@ -331,6 +331,16 @@ class HiveService extends GetxService {
   Future<void> setAppLockPin(String pin) =>
       settingsBox.put(AppConstants.appLockPinKey, pin);
 
+  bool get hideHomeStats =>
+      settingsBox.get(AppConstants.hideHomeStatsKey, defaultValue: false);
+  Future<void> setHideHomeStats(bool value) =>
+      settingsBox.put(AppConstants.hideHomeStatsKey, value);
+
+  bool get hideInsightsStats =>
+      settingsBox.get(AppConstants.hideInsightsStatsKey, defaultValue: false);
+  Future<void> setHideInsightsStats(bool value) =>
+      settingsBox.put(AppConstants.hideInsightsStatsKey, value);
+
   // --- Journals Box Methods ---
   Future<void> addJournalEntry(JournalEntry entry) =>
       journalsBox.put(entry.id, entry);

@@ -253,6 +253,10 @@ class AppConstants {
   static const String onThisDayOn = "You'll now get memories from this day.";
   static const String onThisDayOff = "'On This Day' reminders are turned off.";
   static const String themeChanged = "%s theme selected.";
+  static const String hideStats = "Hide Stats";
+  static const String hideHomeStats = "Hide Home Stats";
+  static const String hideInsightsStats = "Hide Insights Stats";
+  static const String hideStatsDescription = "Choose where to hide journal statistics.";
 
   // Write Journal Bottom Sheet
   static const String sharedImage = "Shared Image";
@@ -324,6 +328,8 @@ class AppConstants {
   static const String reminderSchemaVersionKey = 'reminder_schema_version';
   static const String appLockEnabledKey = 'appLockEnabled';
   static const String appLockPinKey = 'appLockPin';
+  static const String hideHomeStatsKey = 'hideHomeStats';
+  static const String hideInsightsStatsKey = 'hideInsightsStats';
   static const String storagePermissionsRequired =
       "Storage and media permissions are required to create a backup.";
   static const String selectBackupFolder = 'Select a folder to save the backup';

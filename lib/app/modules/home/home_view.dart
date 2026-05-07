@@ -479,8 +479,8 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
 
       if (innerCtrl == null || !innerCtrl.hasClients) return;
 
-      double targetOffset = 36.h + (36.sp * 1.2);
-      targetOffset += 16.h;
+      final statsHeight = widget.controller.hideHomeStats.value ? 0.0 : (36.h + (36.sp * 1.2));
+      double targetOffset = statsHeight + 16.h;
 
       for (int i = 0; i < targetIndex; i++) {
         final entry = entries[i];
@@ -683,7 +683,8 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       _currentMonthYearNotifier.value = _monthYearFormat.format(dt);
     }
 
-    bool shouldShow = offset > 100.h;
+    final threshold = widget.controller.hideHomeStats.value ? 40.h : 100.h;
+    bool shouldShow = offset > threshold;
 
     if (_showChipNotifier.value != shouldShow) {
       _showChipNotifier.value = shouldShow;
@@ -899,44 +900,54 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                       } else {
                         return CustomScrollView(
                           slivers: [
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 16.h),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Expanded(
-                                        child: _buildStatItem(
-                                            AppConstants.entriesThisYear,
-                                            widget.controller.totalEntriesThisYear
-                                                .toString(),
-                                            Icons.web_stories)),
-                                    Container(
-                                      width: 1.w,
-                                      height: 44.h,
-                                      color: appThemeColors.grey5,
-                                    ),
-                                    Expanded(
-                                        child: _buildStatItem(
-                                            AppConstants.wordsWritten,
-                                            widget.controller.totalWordsWritten
-                                                .toString(),
-                                            Icons.format_quote_rounded)),
-                                    Container(
-                                      width: 1.w,
-                                      height: 44.h,
-                                      color: appThemeColors.grey5,
-                                    ),
-                                    Expanded(
-                                        child: _buildStatItem(
-                                            AppConstants.daysJournaled,
-                                            widget.controller.daysJournaled
-                                                .toString(),
-                                            Icons.calendar_today_rounded)),
-                                  ],
+                            Obx(() {
+                              if (widget.controller.hideHomeStats.value) {
+                                return const SliverToBoxAdapter(
+                                    child: SizedBox.shrink());
+                              }
+                              return SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: EdgeInsets.fromLTRB(
+                                      16.w, 16.h, 16.w, 16.h),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Expanded(
+                                          child: _buildStatItem(
+                                              AppConstants.entriesThisYear,
+                                              widget.controller
+                                                  .totalEntriesThisYear
+                                                  .toString(),
+                                              Icons.web_stories)),
+                                      Container(
+                                        width: 1.w,
+                                        height: 44.h,
+                                        color: appThemeColors.grey5,
+                                      ),
+                                      Expanded(
+                                          child: _buildStatItem(
+                                              AppConstants.wordsWritten,
+                                              widget.controller
+                                                  .totalWordsWritten
+                                                  .toString(),
+                                              Icons.format_quote_rounded)),
+                                      Container(
+                                        width: 1.w,
+                                        height: 44.h,
+                                        color: appThemeColors.grey5,
+                                      ),
+                                      Expanded(
+                                          child: _buildStatItem(
+                                              AppConstants.daysJournaled,
+                                              widget.controller.daysJournaled
+                                                  .toString(),
+                                              Icons.calendar_today_rounded)),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ),
+                              );
+                            }),
                             SliverPadding(
                               padding: EdgeInsets.only(
                                 left: 16.w,

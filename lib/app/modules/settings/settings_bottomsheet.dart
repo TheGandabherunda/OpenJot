@@ -208,6 +208,114 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
         });
   }
 
+  void _showHideStatsOptions() {
+    final appThemeColors = AppTheme.colorsOf(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isPitchBlack = controller.pitchBlack.value;
+
+    final tileBackgroundColor = isPitchBlack
+        ? (isDark
+            ? Colors.white.withOpacity(0.05)
+            : Colors.black.withOpacity(0.03))
+        : appThemeColors.grey5;
+
+    showCupertinoDialog(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: Text(AppConstants.hideStats,
+            style: TextStyle(
+                fontFamily: AppConstants.font, color: appThemeColors.grey10)),
+        content: Padding(
+          padding: EdgeInsets.only(top: 12.h),
+          child: Material(
+            color: Colors.transparent,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Obx(
+                  () => _buildDialogTile(
+                    label: AppConstants.hideHomeStats,
+                    value: controller.hideHomeStats.value,
+                    onChanged: controller.toggleHideHomeStats,
+                    appThemeColors: appThemeColors,
+                    backgroundColor: tileBackgroundColor,
+                    showDivider: true,
+                  ),
+                ),
+                Obx(
+                  () => _buildDialogTile(
+                    label: AppConstants.hideInsightsStats,
+                    value: controller.hideInsightsStats.value,
+                    onChanged: controller.toggleHideInsightsStats,
+                    appThemeColors: appThemeColors,
+                    backgroundColor: tileBackgroundColor,
+                    showDivider: false,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: Text(AppConstants.done,
+                style: TextStyle(
+                    fontFamily: AppConstants.font,
+                    color: appThemeColors.primary)),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDialogTile({
+    required String label,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+    required dynamic appThemeColors,
+    required Color backgroundColor,
+    required bool showDivider,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(vertical: 4.h),
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        border: showDivider
+            ? Border(
+                bottom: BorderSide(
+                    color: appThemeColors.grey4.withOpacity(0.4), width: 1.w),
+              )
+            : null,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: AppConstants.font,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w500,
+                color: appThemeColors.grey10,
+              ),
+            ),
+          ),
+          Transform.scale(
+            scale: 0.9,
+            child: Switch(
+              value: value,
+              onChanged: onChanged,
+              activeColor: appThemeColors.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
@@ -435,6 +543,24 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                           );
                         },
                       ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // UI Customization Section
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12.0),
+                child: Column(
+                  children: [
+                    _buildListTile(
+                      title: AppConstants.hideStats,
+                      subtitle: AppConstants.hideStatsDescription,
+                      icon: Icons.visibility_off_outlined,
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 18),
+                      showDivider: false,
+                      onTap: _showHideStatsOptions,
+                    ),
                   ],
                 ),
               ),
