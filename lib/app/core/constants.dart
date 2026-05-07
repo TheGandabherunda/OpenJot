@@ -313,6 +313,7 @@ class AppConstants {
   static const String pitchBlackKey = 'pitchBlack';
   static const String dailyReminderKey = 'dailyReminder';
   static const String onThisDayKey = 'onThisDay'; // NEW
+  static const String rtlSupportKey = 'rtlSupport'; // NEW
   static const String lastOnThisDayNotificationDateKey = 'lastOnThisDayNotificationDate'; // NEW
   static const String autoDeleteDraftsKey = 'autoDeleteDrafts'; // NEW
   static const String reminderTimeKey = 'reminderTime';
