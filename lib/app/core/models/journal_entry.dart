@@ -77,6 +77,8 @@ class JournalEntry extends HiveObject {
   final List<String> tags;
   @HiveField(13)
   final String? originalId;
+  @HiveField(14, defaultValue: false)
+  final bool useRtl;
 
   JournalEntry({
     required this.id,
@@ -93,6 +95,7 @@ class JournalEntry extends HiveObject {
     this.isDraft = false,
     this.tags = const [],
     this.originalId,
+    this.useRtl = false,
   });
 
   JournalEntry copyWith({
@@ -110,6 +113,7 @@ class JournalEntry extends HiveObject {
     bool? isDraft,
     List<String>? tags,
     String? originalId,
+    bool? useRtl,
   }) {
     return JournalEntry(
       id: id ?? this.id,
@@ -126,6 +130,7 @@ class JournalEntry extends HiveObject {
       isDraft: isDraft ?? this.isDraft,
       tags: tags ?? this.tags,
       originalId: originalId ?? this.originalId,
+      useRtl: useRtl ?? this.useRtl,
     );
   }
 }

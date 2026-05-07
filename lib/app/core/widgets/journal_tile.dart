@@ -21,6 +21,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 
+import '../services/hive_service.dart';
 import '../constants.dart';
 import '../models/journal_entry.dart';
 import '../theme.dart';
@@ -409,16 +410,27 @@ class _JournalTileContent extends StatelessWidget {
                   Padding(
                     padding: EdgeInsets.fromLTRB(10.w,
                         (hasMedia || hasAudio) ? 2.h : 12.h, 10.w, 8.h),
-                    child: Text(
-                      plainText,
-                      maxLines: 4,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: AppConstants.font,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 16.sp,
-                        color: appThemeColors.grey10,
-                        letterSpacing: -0.2,
+                    child: Directionality(
+                      textDirection: entry.useRtl
+                          ? ui.TextDirection.rtl
+                          : ui.TextDirection.ltr,
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Text(
+                          plainText,
+                          maxLines: 4,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: entry.useRtl
+                              ? TextAlign.right
+                              : TextAlign.left,
+                          style: TextStyle(
+                            fontFamily: AppConstants.font,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 16.sp,
+                            color: appThemeColors.grey10,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
                       ),
                     ),
                   ),

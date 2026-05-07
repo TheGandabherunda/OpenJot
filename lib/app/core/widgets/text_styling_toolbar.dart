@@ -14,6 +14,8 @@ class TextStylingToolbar extends StatelessWidget {
     this.isTitleActive = false,
     this.isQuoteActive = false,
     this.isBulletActive = false,
+    this.isRtlActive = false,
+    required this.onRtlToggle,
   });
 
   final Function(String) onToolbarItemTap;
@@ -25,6 +27,8 @@ class TextStylingToolbar extends StatelessWidget {
   final bool isTitleActive;
   final bool isQuoteActive;
   final bool isBulletActive;
+  final bool isRtlActive;
+  final VoidCallback onRtlToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +42,7 @@ class TextStylingToolbar extends StatelessWidget {
       'strikethrough': Icons.format_strikethrough,
       'bullet': Icons.format_list_bulleted,
       'quote': Icons.format_quote_rounded,
+      'rtl': Icons.format_textdirection_r_to_l_rounded,
     };
 
     final styles = styleMap.keys.toList();
@@ -45,33 +50,46 @@ class TextStylingToolbar extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              for (var i = 0; i < styles.length; i++)
-                Padding(
-                  padding: EdgeInsets.only(
-                    right: i < styles.length - 1 ? 2 : 0,
-                  ),
-                  child: _buildToolbarIcon(
-                    styleMap[styles[i]]!,
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var i = 0; i < styles.length; i++)
+                    Padding(
+                      padding: EdgeInsets.only(
+                        right: 2, // Spacing between styling icons
+                      ),
+                      child: _buildToolbarIcon(
+                        styleMap[styles[i]]!,
+                        appThemeColors,
+                        i,
+                        _isStyleActive(styles[i]),
+                        () {
+                          if (styles[i] == 'rtl') {
+                            onRtlToggle();
+                          } else {
+                            onToolbarItemTap(styles[i]);
+                          }
+                        },
+                        false,
+                      ),
+                    ),
+                  // Added Attachment (Clip) button at the end of the styling row
+                  _buildToolbarIcon(
+                    Icons.attach_file_rounded,
                     appThemeColors,
-                    i,
-                    _isStyleActive(styles[i]),
-                    () => onToolbarItemTap(styles[i]),
+                    0, // Index doesn't matter much for square icons in a scrollable list
                     false,
+                    onPinTap,
+                    false, // Changed to false to make it square like other styling tools
                   ),
-                ),
-            ],
-          ),
-          _buildToolbarIcon(
-            Icons.attach_file_rounded,
-            appThemeColors,
-            0, // Index here is for the pin icon, doesn't affect style icons
-            false,
-            onPinTap,
-            true,
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -94,6 +112,8 @@ class TextStylingToolbar extends StatelessWidget {
         return isQuoteActive;
       case 'bullet':
         return isBulletActive;
+      case 'rtl':
+        return isRtlActive;
       default:
         return false;
     }
@@ -114,8 +134,8 @@ class TextStylingToolbar extends StatelessWidget {
           left: Radius.circular(50),
           right: Radius.circular(16),
         );
-      } else if (index == 6) {
-        // 6 is the last index
+      } else if (index == 7) {
+        // 7 is the last index (rtl)
         borderRadius = const BorderRadius.horizontal(
           left: Radius.circular(16),
           right: Radius.circular(50),
