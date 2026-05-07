@@ -144,14 +144,14 @@ class NotificationService {
     return false;
   }
 
-  Future<void> scheduleDailyJournalReminder(TimeOfDay time) async {
+  Future<void> scheduleDailyJournalReminder(TimeOfDay time, {int id = 0}) async {
     final tz.TZDateTime scheduledDateTime = _nextInstanceOfTime(time);
     if (kDebugMode) {
       print(
-          "[NotificationService] Scheduling daily reminder for: $scheduledDateTime");
+          "[NotificationService] Scheduling daily reminder for: $scheduledDateTime with ID: $id");
     }
     await flutterLocalNotificationsPlugin.zonedSchedule(
-      id: 0,
+      id: id,
       title: AppConstants.notificationTitle,
       body: AppConstants.notificationBody,
       scheduledDate: scheduledDateTime,
@@ -168,7 +168,34 @@ class NotificationService {
       matchDateTimeComponents: DateTimeComponents.time,
     );
     if (kDebugMode) {
-      print("[NotificationService] Reminder scheduled successfully.");
+      print("[NotificationService] Reminder (ID: $id) scheduled successfully.");
+    }
+  }
+
+  Future<void> scheduleMultipleReminders(List<TimeOfDay> times) async {
+    await cancelAllDailyReminders();
+    for (int i = 0; i < times.length; i++) {
+      await scheduleDailyJournalReminder(times[i], id: 1000 + i);
+    }
+  }
+
+  Future<void> cancelAllDailyReminders() async {
+    if (kDebugMode) {
+      print("[NotificationService] Cancelling all daily reminders.");
+    }
+    await flutterLocalNotificationsPlugin.cancel(id: 0); // Old single reminder
+    for (int i = 0; i < 20; i++) {
+      await flutterLocalNotificationsPlugin.cancel(id: 1000 + i);
+    }
+  }
+
+  Future<void> ensureRemindersScheduled() async {
+    final hiveService = Get.find<HiveService>();
+    final times = hiveService.reminderTimes;
+    if (times.isNotEmpty) {
+      await scheduleMultipleReminders(times);
+    } else {
+      await cancelAllDailyReminders();
     }
   }
 
@@ -315,10 +342,7 @@ class NotificationService {
   }
 
   Future<void> cancelDailyReminder() async {
-    if (kDebugMode) {
-      print("[NotificationService] Cancelling daily reminder.");
-    }
-    await flutterLocalNotificationsPlugin.cancel(id: 0);
+    await cancelAllDailyReminders();
   }
 
   Future<void> cancelOnThisDayNotification() async {

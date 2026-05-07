@@ -208,8 +208,11 @@ class AppConstants {
   static const String noResultsFound = "No results found";
 
   // Settings Bottom Sheet
-  static const String dailyReminder = "Daily Reminder";
-  static const String dailyReminderDescription = "Get a daily reminder to write.";
+  static const String dailyReminder = "Reminders";
+  static const String dailyReminderDescription = "Set reminders to write in your journal.";
+  static const String addReminder = "Add Reminder";
+  static const String reminders = "Reminders";
+  static const String deleteReminder = "Delete Reminder";
   static const String onThisDay = "On This Day";
   static const String onThisDayDescription = "See memories from this day.";
   static const String appLock = "App Lock";
@@ -317,6 +320,8 @@ class AppConstants {
   static const String lastOnThisDayNotificationDateKey = 'lastOnThisDayNotificationDate'; // NEW
   static const String autoDeleteDraftsKey = 'autoDeleteDrafts'; // NEW
   static const String reminderTimeKey = 'reminderTime';
+  static const String reminderTimesKey = 'reminderTimes';
+  static const String reminderSchemaVersionKey = 'reminder_schema_version';
   static const String appLockEnabledKey = 'appLockEnabled';
   static const String appLockPinKey = 'appLockPin';
   static const String storagePermissionsRequired =

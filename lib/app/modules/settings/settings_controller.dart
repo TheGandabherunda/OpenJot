@@ -18,10 +18,9 @@ class SettingsScreenController extends GetxController {
   final _appLockService = Get.find<AppLockService>();
   final _notificationService = Get.find<NotificationService>();
 
-  var dailyReminder = false.obs;
   var onThisDay = false.obs;
   var excludedOnThisDayEntries = <String>[].obs; // NEW
-  var reminderTime = Rx<TimeOfDay?>(null);
+  var reminderTimes = <TimeOfDay>[].obs;
   var theme = AppConstants.themeSystem.obs;
   var pitchBlack = false.obs;
   var appLock = false.obs;
@@ -34,11 +33,10 @@ class SettingsScreenController extends GetxController {
   }
 
   void _loadSettings() {
-    dailyReminder.value = _hiveService.dailyReminder;
     onThisDay.value = _hiveService.onThisDay;
     excludedOnThisDayEntries.value = _hiveService.excludedOnThisDayEntries; // NEW
     autoDeleteDraftsDays.value = _hiveService.autoDeleteDraftsDays;
-    reminderTime.value = _hiveService.reminderTime;
+    reminderTimes.value = _hiveService.reminderTimes;
     theme.value = _hiveService.theme;
     pitchBlack.value = _hiveService.pitchBlack;
     appLock.value = _hiveService.appLockEnabled;
@@ -57,22 +55,23 @@ class SettingsScreenController extends GetxController {
     return permissionsGranted;
   }
 
-  void turnOnDailyReminder(TimeOfDay time) {
-    dailyReminder.value = true;
-    _hiveService.setDailyReminder(true);
-    setReminderTime(time);
+  void addReminder(TimeOfDay time) {
+    if (!reminderTimes.any((t) => t.hour == time.hour && t.minute == time.minute)) {
+      reminderTimes.add(time);
+      _updateReminders();
+    }
   }
 
-  void turnOffDailyReminder() {
-    final appColors = AppTheme.colorsOf(Get.context!);
-    dailyReminder.value = false;
-    _hiveService.setDailyReminder(false);
-    _notificationService.cancelDailyReminder();
-    CustomToast.showToast(
-      AppConstants.notificationCanceled,
-      backgroundColor: appColors.grey10,
-      textColor: appColors.grey8,
-    );
+  void removeReminder(int index) {
+    if (index >= 0 && index < reminderTimes.length) {
+      reminderTimes.removeAt(index);
+      _updateReminders();
+    }
+  }
+
+  void _updateReminders() {
+    _hiveService.setReminderTimes(reminderTimes);
+    _notificationService.scheduleMultipleReminders(reminderTimes);
   }
 
   void toggleOnThisDay(bool value) async {
@@ -146,27 +145,6 @@ class SettingsScreenController extends GetxController {
     // Reload entries so any already expired drafts are cleaned up immediately
     if (Get.isRegistered<HomeController>()) {
       Get.find<HomeController>().loadJournalEntries();
-    }
-  }
-
-  void setReminderTime(TimeOfDay time) {
-    final appColors = AppTheme.colorsOf(Get.context!);
-    final timeFormat = time.format(Get.context!);
-    final isReschedule = reminderTime.value != null;
-
-    reminderTime.value = time;
-    _hiveService.setReminderTime(time);
-
-    if (dailyReminder.value) {
-      _notificationService.scheduleDailyJournalReminder(time);
-      CustomToast.showToast(
-        (isReschedule
-            ? AppConstants.notificationRescheduled
-            : AppConstants.notificationScheduled)
-            .replaceFirst('%s', timeFormat),
-        backgroundColor: appColors.grey10,
-        textColor: appColors.grey8,
-      );
     }
   }
 

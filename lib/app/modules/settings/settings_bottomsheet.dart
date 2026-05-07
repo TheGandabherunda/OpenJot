@@ -11,6 +11,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/theme.dart';
 import 'settings_controller.dart';
+import 'reminders_bottomsheet.dart';
 import 'exclude_entries_bottomsheet.dart';
 
 class SettingsBottomSheet extends StatefulWidget {
@@ -36,51 +37,6 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     setState(() {
       _appVersion = packageInfo.version;
     });
-  }
-
-  Future<TimeOfDay?> _showTimePicker() async {
-    final appThemeColors = AppTheme.colorsOf(context);
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime:
-          controller.reminderTime.value ?? const TimeOfDay(hour: 20, minute: 0),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            timePickerTheme: TimePickerThemeData(
-              backgroundColor: appThemeColors.grey6,
-              hourMinuteTextColor: appThemeColors.grey10,
-              hourMinuteColor: appThemeColors.grey4,
-              dayPeriodTextColor: appThemeColors.grey10,
-              dayPeriodColor: appThemeColors.grey4,
-              dialHandColor: appThemeColors.primary,
-              dialBackgroundColor: appThemeColors.grey5,
-              entryModeIconColor: appThemeColors.primary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16.r),
-              ),
-              hourMinuteShape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.r),
-              ),
-            ),
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              surface: appThemeColors.grey5,
-              onSurface: appThemeColors.grey10,
-              primary: appThemeColors.primary,
-              onPrimary: appThemeColors.onPrimary,
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: appThemeColors.primary,
-              ),
-            ),
-            dialogBackgroundColor: appThemeColors.grey6,
-          ),
-          child: child!,
-        );
-      },
-    );
-    return picked;
   }
 
   void _showThemeSelectionBottomSheet() {
@@ -340,12 +296,12 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                   children: [
                     _buildListTile(
                       title: AppConstants.dailyReminder,
+                      subtitle: AppConstants.dailyReminderDescription,
                       icon: Icons.notifications,
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (controller.dailyReminder.value &&
-                              controller.reminderTime.value != null)
+                          if (controller.reminderTimes.isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(right: 8.0),
                               child: Container(
@@ -356,15 +312,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                                   borderRadius: BorderRadius.circular(20.0),
                                 ),
                                 child: Text(
-                                  (() {
-                                    final selectedTime =
-                                        controller.reminderTime.value!;
-                                    final now = DateTime.now();
-                                    final dt = DateTime(now.year, now.month,
-                                        now.day, selectedTime.hour,
-                                        selectedTime.minute);
-                                    return DateFormat.jm().format(dt);
-                                  })(),
+                                  "${controller.reminderTimes.length}",
                                   style: TextStyle(
                                     color: textColor,
                                     fontSize: 14.sp,
@@ -375,41 +323,18 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                                 ),
                               ),
                             ),
-                          Switch(
-                            value: controller.dailyReminder.value,
-                            onChanged: (bool value) async {
-                              if (value) {
-                                final hasPermission = await controller
-                                    .checkAndRequestNotificationPermissions();
-                                if (hasPermission) {
-                                  final picked = await _showTimePicker();
-                                  if (picked != null) {
-                                    // Wait for the dialog to fully close to avoid Overlay context errors
-                                    await Future.delayed(
-                                        const Duration(milliseconds: 300));
-                                    controller.turnOnDailyReminder(picked);
-                                  }
-                                }
-                              } else {
-                                controller.turnOffDailyReminder();
-                              }
-                            },
-                            activeColor: appThemeColors.primary,
-                          ),
+                          Icon(Icons.arrow_forward_ios,
+                              size: 16, color: appThemeColors.grey2),
                         ],
                       ),
-                      onTap: controller.dailyReminder.value
-                          ? () async {
-                              final picked = await _showTimePicker();
-                              if (picked != null &&
-                                  picked != controller.reminderTime.value) {
-                                // Wait for the dialog to fully close to avoid Overlay context errors
-                                await Future.delayed(
-                                    const Duration(milliseconds: 300));
-                                controller.setReminderTime(picked);
-                              }
-                            }
-                          : null,
+                      onTap: () {
+                        showCupertinoModalBottomSheet(
+                          context: context,
+                          expand: false,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) => const RemindersBottomSheet(),
+                        );
+                      },
                     ),
                     _buildListTile(
                       title: AppConstants.autoDeleteDrafts,

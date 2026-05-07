@@ -47,6 +47,7 @@ void main() async {
     return service.init();
   });
 
+  await notificationService.ensureRemindersScheduled();
   await notificationService.checkForOnThisDayMemories();
 
   Get.lazyPut(AppLockService.new);
