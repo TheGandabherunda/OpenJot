@@ -327,13 +327,17 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                               size: 16, color: appThemeColors.grey2),
                         ],
                       ),
-                      onTap: () {
-                        showCupertinoModalBottomSheet(
-                          context: context,
-                          expand: false,
-                          backgroundColor: Colors.transparent,
-                          builder: (context) => const RemindersBottomSheet(),
-                        );
+                      onTap: () async {
+                        final hasPermission = await controller
+                            .checkAndRequestNotificationPermissions();
+                        if (hasPermission) {
+                          showCupertinoModalBottomSheet(
+                            context: context,
+                            expand: false,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) => const RemindersBottomSheet(),
+                          );
+                        }
                       },
                     ),
                     _buildListTile(
