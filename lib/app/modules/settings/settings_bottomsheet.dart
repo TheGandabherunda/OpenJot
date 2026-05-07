@@ -6,11 +6,11 @@ import 'package:intl/intl.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/modules/settings/about_screen.dart';
+import 'package:open_jot/app/modules/settings/settings_controller.dart';
 import 'package:open_jot/app/modules/settings/terms_and_conditions_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/theme.dart';
-import 'settings_controller.dart';
 import 'reminders_bottomsheet.dart';
 import 'exclude_entries_bottomsheet.dart';
 
@@ -22,8 +22,7 @@ class SettingsBottomSheet extends StatefulWidget {
 }
 
 class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
-  final SettingsScreenController controller =
-  Get.put(SettingsScreenController());
+  final SettingsScreenController controller = Get.put(SettingsScreenController());
   String _appVersion = AppConstants.loading;
 
   @override
@@ -75,9 +74,9 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 Get.back();
               },
               trailing: Obx(() =>
-                controller.theme.value == AppConstants.themeLight
-                    ? Icon(Icons.check, color: appThemeColors.primary)
-                    : const SizedBox.shrink()),
+              controller.theme.value == AppConstants.themeLight
+                  ? Icon(Icons.check_rounded, color: appThemeColors.primary)
+                  : const SizedBox.shrink()),
             ),
             Divider(color: appThemeColors.grey4, height: 1),
             ListTile(
@@ -91,9 +90,9 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 Get.back();
               },
               trailing: Obx(() =>
-                controller.theme.value == AppConstants.themeDark
-                    ? Icon(Icons.check, color: appThemeColors.primary)
-                    : const SizedBox.shrink()),
+              controller.theme.value == AppConstants.themeDark
+                  ? Icon(Icons.check_rounded, color: appThemeColors.primary)
+                  : const SizedBox.shrink()),
             ),
             Divider(color: appThemeColors.grey4, height: 1),
             ListTile(
@@ -107,9 +106,9 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 Get.back();
               },
               trailing: Obx(() =>
-                controller.theme.value == AppConstants.themeSystem
-                    ? Icon(Icons.check, color: appThemeColors.primary)
-                    : const SizedBox.shrink()),
+              controller.theme.value == AppConstants.themeSystem
+                  ? Icon(Icons.check_rounded, color: appThemeColors.primary)
+                  : const SizedBox.shrink()),
             ),
           ],
         ),
@@ -122,8 +121,6 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
       context: context,
       builder: (BuildContext context) => CupertinoActionSheet(
         title: const Text(AppConstants.autoDeleteDrafts,
-            style: TextStyle(fontFamily: AppConstants.font)),
-        message: const Text(AppConstants.autoDeleteDraftsDescription,
             style: TextStyle(fontFamily: AppConstants.font)),
         actions: <CupertinoActionSheetAction>[
           CupertinoActionSheetAction(
@@ -215,8 +212,8 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
 
     final tileBackgroundColor = isPitchBlack
         ? (isDark
-            ? Colors.white.withOpacity(0.05)
-            : Colors.black.withOpacity(0.03))
+        ? Colors.white.withOpacity(0.05)
+        : Colors.black.withOpacity(0.03))
         : appThemeColors.grey5;
 
     showCupertinoDialog(
@@ -233,7 +230,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Obx(
-                  () => _buildDialogTile(
+                      () => _buildDialogTile(
                     label: AppConstants.hideHomeStats,
                     value: controller.hideHomeStats.value,
                     onChanged: controller.toggleHideHomeStats,
@@ -243,7 +240,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                   ),
                 ),
                 Obx(
-                  () => _buildDialogTile(
+                      () => _buildDialogTile(
                     label: AppConstants.hideInsightsStats,
                     value: controller.hideInsightsStats.value,
                     onChanged: controller.toggleHideInsightsStats,
@@ -284,9 +281,9 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
         color: Colors.transparent,
         border: showDivider
             ? Border(
-                bottom: BorderSide(
-                    color: appThemeColors.grey4.withOpacity(0.4), width: 1.w),
-              )
+          bottom: BorderSide(
+              color: appThemeColors.grey4.withOpacity(0.4), width: 1.w),
+        )
             : null,
       ),
       child: Row(
@@ -316,6 +313,245 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     );
   }
 
+  void _showImportOptionsBottomSheet() {
+    final appThemeColors = AppTheme.colorsOf(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isPitchBlack = controller.pitchBlack.value;
+
+    final sheetBackgroundColor = isPitchBlack
+        ? (isDark ? Colors.black : Colors.white)
+        : appThemeColors.grey5;
+
+    showCupertinoModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      expand: true,
+      builder: (context) => Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 20.w),
+          decoration: BoxDecoration(
+            color: sheetBackgroundColor,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20.r),
+              topRight: Radius.circular(20.r),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              // Handle bar
+              Container(
+                width: 40.w,
+                height: 4.h,
+                margin: EdgeInsets.only(bottom: 20.h),
+                decoration: BoxDecoration(
+                  color: appThemeColors.grey3,
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
+              ),
+              Text(
+                AppConstants.importFromAnotherApp,
+                style: TextStyle(
+                  fontSize: 18.sp,
+                  letterSpacing: -0.2,
+                  color: appThemeColors.grey10,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: AppConstants.font,
+                ),
+              ),
+              SizedBox(height: 24.h),
+              GridView.count(
+                shrinkWrap: true,
+                crossAxisCount: 3,
+                mainAxisSpacing: 16.h,
+                crossAxisSpacing: 16.w,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  _buildImportGridItem(
+                    title: "Daily You",
+                    icon: Icons.folder_zip_rounded,
+                    onTap: () {
+                      Navigator.pop(context);
+                      controller.importFromDailyYou();
+                    },
+                  ),
+                  _buildImportGridItem(
+                    title: "Ask Support",
+                    icon: Icons.contact_support_rounded,
+                    onTap: () {
+                      Navigator.pop(context);
+                      controller.launchURL(
+                          'https://github.com/TheGandabherunda/OpenJot/discussions/15');
+                    },
+                  ),
+                ],
+              ),
+              const Spacer(),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 24.h),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline,
+                        color: appThemeColors.primary.withOpacity(0.6),
+                        size: 20.w),
+                    SizedBox(width: 12.w),
+                    Expanded(
+                      child: Text(
+                        "Other app formats may not support all features. If you encounter issues or formats change, please raise an issue report so we can fix it.",
+                        style: TextStyle(
+                          fontSize: 13.sp,
+                          color: appThemeColors.grey10.withOpacity(0.7),
+                          height: 1.4,
+                          fontFamily: AppConstants.font,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImportGridItem({
+    required String title,
+    String? iconPath,
+    IconData? icon,
+    String? format,
+    VoidCallback? onTap,
+    bool isPlaceholder = false,
+  }) {
+    final appThemeColors = AppTheme.colorsOf(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isPitchBlack = controller.pitchBlack.value;
+
+    final itemBackgroundColor = isPitchBlack
+        ? (isDark
+        ? Colors.white.withOpacity(0.05)
+        : Colors.black.withOpacity(0.03))
+        : appThemeColors.grey4.withOpacity(0.3);
+
+    final iconContainerColor = isPitchBlack
+        ? (isDark
+        ? Colors.white.withOpacity(0.1)
+        : Colors.black.withOpacity(0.05))
+        : (isPlaceholder ? appThemeColors.grey3 : appThemeColors.grey5);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16.r),
+      child: Container(
+        decoration: BoxDecoration(
+          color: itemBackgroundColor,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(
+              color: isPitchBlack
+                  ? appThemeColors.grey4.withOpacity(0.2)
+                  : appThemeColors.grey4,
+              width: 1.w),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(12.w),
+                  decoration: BoxDecoration(
+                    color: iconContainerColor,
+                    shape: BoxShape.circle,
+                    boxShadow: isPitchBlack
+                        ? null
+                        : [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: iconPath != null
+                      ? Image.asset(iconPath, width: 32.w, height: 32.h)
+                      : Icon(icon ?? Icons.help_outline,
+                      color: appThemeColors.grey10, size: 32.w),
+                ),
+                if (format != null)
+                  Container(
+                    padding:
+                    EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.h),
+                    decoration: BoxDecoration(
+                      color: appThemeColors.primary,
+                      borderRadius: BorderRadius.circular(4.r),
+                    ),
+                    child: Text(
+                      format,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 8.sp,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12.sp,
+                color: appThemeColors.grey10,
+                fontWeight: FontWeight.w500,
+                fontFamily: AppConstants.font,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildListTile({
+    required String title,
+    required IconData icon,
+    required dynamic appThemeColors,
+    required Color backgroundColor,
+    required Color textColor,
+    Widget? trailing,
+    VoidCallback? onTap,
+    bool showDivider = true,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        border: showDivider
+            ? Border(
+          bottom: BorderSide(
+              color: appThemeColors.grey4.withOpacity(0.4),
+              width: 1.w),
+        )
+            : null,
+      ),
+      child: ListTile(
+        leading: Icon(icon, color: textColor),
+        title: Text(title,
+            style: TextStyle(
+                color: textColor,
+                fontWeight: FontWeight.w500,
+                letterSpacing: -0.2,
+                fontFamily: AppConstants.font)),
+        trailing: trailing,
+        onTap: onTap,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
@@ -330,44 +566,11 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
 
       final tileBackgroundColor = isPitchBlack
           ? (isDark
-              ? Colors.white.withOpacity(0.05)
-              : Colors.black.withOpacity(0.03))
+          ? Colors.white.withOpacity(0.05)
+          : Colors.black.withOpacity(0.03))
           : appThemeColors.grey5;
 
       final textColor = appThemeColors.grey10;
-
-      Widget _buildListTile({
-        required String title,
-        required IconData icon,
-        Widget? trailing,
-        VoidCallback? onTap,
-        String? subtitle,
-        bool showDivider = true,
-      }) {
-        return Container(
-          decoration: BoxDecoration(
-            color: tileBackgroundColor,
-            border: showDivider
-                ? Border(
-                    bottom: BorderSide(
-                        color: appThemeColors.grey4.withOpacity(0.4),
-                        width: 1.w),
-                  )
-                : null,
-          ),
-          child: ListTile(
-            leading: Icon(icon, color: textColor),
-            title: Text(title,
-                style: TextStyle(
-                    color: textColor,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: -0.2,
-                    fontFamily: AppConstants.font)),
-            trailing: trailing,
-            onTap: onTap,
-          ),
-        );
-      }
 
       return Material(
         child: Scaffold(
@@ -387,7 +590,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
             elevation: 0,
             leading: IconButton(
               icon: Icon(
-                Icons.close,
+                Icons.close_rounded,
                 color: appThemeColors.grey10,
               ),
               onPressed: () => Navigator.of(context).pop(),
@@ -395,7 +598,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
           ),
           body: ListView(
             padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
+            const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
             children: [
               // General Settings Section
               ClipRRect(
@@ -404,8 +607,10 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                   children: [
                     _buildListTile(
                       title: AppConstants.dailyReminder,
-                      subtitle: AppConstants.dailyReminderDescription,
-                      icon: Icons.notifications,
+                      icon: Icons.notifications_rounded,
+                      appThemeColors: appThemeColors,
+                      backgroundColor: tileBackgroundColor,
+                      textColor: textColor,
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -431,7 +636,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                                 ),
                               ),
                             ),
-                          Icon(Icons.arrow_forward_ios,
+                          Icon(Icons.arrow_forward_ios_rounded,
                               size: 16, color: appThemeColors.grey2),
                         ],
                       ),
@@ -450,15 +655,17 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                     ),
                     _buildListTile(
                       title: AppConstants.autoDeleteDrafts,
-                      subtitle: AppConstants.autoDeleteDraftsDescription,
-                      icon: Icons.auto_delete_outlined,
+                      icon: Icons.auto_delete_rounded,
+                      appThemeColors: appThemeColors,
+                      backgroundColor: tileBackgroundColor,
+                      textColor: textColor,
                       trailing: (() {
                         final days = controller.autoDeleteDraftsDays.value;
                         String display = days == -1
                             ? AppConstants.never
                             : (days == 7
-                                ? AppConstants.days7
-                                : "$days ${AppConstants.days}");
+                            ? AppConstants.days7
+                            : "$days ${AppConstants.days}");
                         return Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -468,7 +675,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                                     fontSize: 14.sp,
                                     fontFamily: AppConstants.font)),
                             SizedBox(width: 8.w),
-                            Icon(Icons.arrow_forward_ios,
+                            Icon(Icons.arrow_forward_ios_rounded,
                                 size: 16, color: appThemeColors.grey2),
                           ],
                         );
@@ -477,10 +684,11 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                     ),
                     _buildListTile(
                       title: AppConstants.appLock,
-                      subtitle: AppConstants.appLockDescription,
-                      icon: Icons.lock,
-                      showDivider: controller
-                          .appLock.value, // Hide divider if changePin isn't shown
+                      icon: Icons.lock_rounded,
+                      appThemeColors: appThemeColors,
+                      backgroundColor: tileBackgroundColor,
+                      textColor: textColor,
+                      showDivider: controller.appLock.value,
                       trailing: Switch(
                         value: controller.appLock.value,
                         onChanged: (bool value) {
@@ -492,8 +700,10 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                     if (controller.appLock.value)
                       _buildListTile(
                         title: AppConstants.changePin,
-                        subtitle: AppConstants.changePinDescription,
-                        icon: Icons.password,
+                        icon: Icons.password_rounded,
+                        appThemeColors: appThemeColors,
+                        backgroundColor: tileBackgroundColor,
+                        textColor: textColor,
                         onTap: controller.changePin,
                         showDivider: false,
                       ),
@@ -509,10 +719,11 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                   children: [
                     _buildListTile(
                       title: AppConstants.onThisDay,
-                      subtitle: AppConstants.onThisDayDescription,
-                      icon: Icons.history,
-                      showDivider: controller
-                          .onThisDay.value, // Hide divider if no items follow
+                      icon: Icons.history_rounded,
+                      appThemeColors: appThemeColors,
+                      backgroundColor: tileBackgroundColor,
+                      textColor: textColor,
+                      showDivider: controller.onThisDay.value,
                       trailing: Switch(
                         value: controller.onThisDay.value,
                         onChanged: controller.toggleOnThisDay,
@@ -522,10 +733,12 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                     if (controller.onThisDay.value)
                       _buildListTile(
                         title: AppConstants.excludeEntries,
-                        subtitle: AppConstants.excludeEntriesDescription,
-                        icon: Icons.notifications_off_outlined,
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 18),
-                        showDivider: false, // Last item in section
+                        icon: Icons.notifications_off_rounded,
+                        appThemeColors: appThemeColors,
+                        backgroundColor: tileBackgroundColor,
+                        textColor: textColor,
+                        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 18),
+                        showDivider: false,
                         onTap: () {
                           showCupertinoModalBottomSheet(
                             context: context,
@@ -534,7 +747,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                             builder: (context) => SafeArea(
                               child: ExcludeEntriesBottomSheet(
                                 initialExcludedIds:
-                                    controller.excludedOnThisDayEntries,
+                                controller.excludedOnThisDayEntries,
                                 onSave: (ids) {
                                   controller.updateExcludedEntries(ids);
                                 },
@@ -555,9 +768,11 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                   children: [
                     _buildListTile(
                       title: AppConstants.hideStats,
-                      subtitle: AppConstants.hideStatsDescription,
-                      icon: Icons.visibility_off_outlined,
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 18),
+                      icon: Icons.visibility_off_rounded,
+                      appThemeColors: appThemeColors,
+                      backgroundColor: tileBackgroundColor,
+                      textColor: textColor,
+                      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 18),
                       showDivider: false,
                       onTap: _showHideStatsOptions,
                     ),
@@ -573,17 +788,20 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                   children: [
                     _buildListTile(
                       title: AppConstants.theme,
-                      subtitle:
-                          "${controller.theme.value} - ${AppConstants.themeDescription}",
                       icon: Icons.style_rounded,
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 18),
+                      appThemeColors: appThemeColors,
+                      backgroundColor: tileBackgroundColor,
+                      textColor: textColor,
+                      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 18),
                       onTap: _showThemeSelectionBottomSheet,
                       showDivider: true,
                     ),
                     _buildListTile(
                       title: AppConstants.pitchBlack,
-                      subtitle: AppConstants.pitchBlackDescription,
-                      icon: Icons.nightlight_round,
+                      icon: Icons.nightlight_rounded,
+                      appThemeColors: appThemeColors,
+                      backgroundColor: tileBackgroundColor,
+                      textColor: textColor,
                       trailing: Switch(
                         value: controller.pitchBlack.value,
                         onChanged: (bool value) {
@@ -605,17 +823,31 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                   children: [
                     _buildListTile(
                       title: AppConstants.backup,
-                      subtitle: AppConstants.backupDescription,
-                      icon: Icons.cloud_upload,
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 18),
+                      icon: Icons.cloud_upload_rounded,
+                      appThemeColors: appThemeColors,
+                      backgroundColor: tileBackgroundColor,
+                      textColor: textColor,
+                      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 18),
                       onTap: () => controller.backup(),
                     ),
                     _buildListTile(
                       title: AppConstants.restore,
-                      subtitle: AppConstants.restoreDescription,
-                      icon: Icons.cloud_download,
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 18),
+                      icon: Icons.cloud_download_rounded,
+                      appThemeColors: appThemeColors,
+                      backgroundColor: tileBackgroundColor,
+                      textColor: textColor,
+                      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 18),
                       onTap: () => controller.restore(),
+                      showDivider: true,
+                    ),
+                    _buildListTile(
+                      title: AppConstants.importFromAnotherApp,
+                      icon: Icons.download_rounded,
+                      appThemeColors: appThemeColors,
+                      backgroundColor: tileBackgroundColor,
+                      textColor: textColor,
+                      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 18),
+                      onTap: _showImportOptionsBottomSheet,
                       showDivider: false,
                     ),
                   ],
@@ -630,25 +862,31 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                   children: [
                     _buildListTile(
                       title: AppConstants.termsNConditions,
-                      subtitle: AppConstants.termsNConditionsDescription,
                       icon: Icons.article_rounded,
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 18),
+                      appThemeColors: appThemeColors,
+                      backgroundColor: tileBackgroundColor,
+                      textColor: textColor,
+                      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 18),
                       onTap: () =>
                           Get.to(() => const TermsAndConditionsScreen()),
                     ),
                     _buildListTile(
                       title: AppConstants.privacyPolicy,
-                      subtitle: AppConstants.privacyPolicyDescription,
-                      icon: Icons.policy,
+                      icon: Icons.policy_rounded,
+                      appThemeColors: appThemeColors,
+                      backgroundColor: tileBackgroundColor,
+                      textColor: textColor,
                       trailing: const Icon(Icons.open_in_new_rounded, size: 18),
                       onTap: () => controller.launchURL(
                           'https://thegandabherunda.github.io/OpenJot/privacy_policy'),
                     ),
                     _buildListTile(
                       title: AppConstants.about,
-                      subtitle: AppConstants.aboutDescription,
-                      icon: Icons.info,
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 18),
+                      icon: Icons.info_rounded,
+                      appThemeColors: appThemeColors,
+                      backgroundColor: tileBackgroundColor,
+                      textColor: textColor,
+                      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 18),
                       onTap: () => Get.to(() => const AboutScreen()),
                       showDivider: false,
                     ),

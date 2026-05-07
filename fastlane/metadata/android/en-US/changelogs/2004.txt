@@ -1,0 +1,6 @@
+• RTL Support: Added support for Right-to-Left languages.
+• Multiple Reminders: You can now set multiple daily reminders to journal.
+• Import Data: Added the option to import your data from the Daily You app.
+• Hide Stats: New options to hide journal statistics on the Home and Insights screens.
+• Calendar Fix: Fixed an issue with date visibility inside the calendar.
+• Permissions: Fixed permission request handling for older Android versions.

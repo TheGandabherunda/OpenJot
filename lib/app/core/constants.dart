@@ -83,7 +83,6 @@ class AppConstants {
   static const String saveAsDraft = "Save as Draft";
   static const String discardChanges = "Discard";
   static const String autoDeleteDrafts = "Auto-delete Drafts";
-  static const String autoDeleteDraftsDescription = "Automatically remove old drafts.";
   static const String days7 = "7 Days";
   static const String never = "Never";
   static const String custom = "Custom...";
@@ -153,7 +152,6 @@ class AppConstants {
 
   // --- NEW: Exclude Entries Constants ---
   static const String excludeEntries = "Exclude Entries";
-  static const String excludeEntriesDescription = "Select entries to hide from memories.";
   static const String excludedEntriesKey = "excludedEntries";
   static const String saveExclusions = "Save Exclusions";
 
@@ -209,34 +207,30 @@ class AppConstants {
 
   // Settings Bottom Sheet
   static const String dailyReminder = "Reminders";
-  static const String dailyReminderDescription = "Set reminders to write in your journal.";
   static const String addReminder = "Add Reminder";
   static const String reminders = "Reminders";
   static const String deleteReminder = "Delete Reminder";
   static const String onThisDay = "On This Day";
-  static const String onThisDayDescription = "See memories from this day.";
   static const String appLock = "App Lock";
-  static const String appLockDescription = "Lock your journal with a PIN.";
   static const String backup = "Backup";
-  static const String backupDescription = "Save your entries to a file.";
   static const String restore = "Restore";
-  static const String restoreDescription = "Load entries from a backup file.";
+  static const String importFromAnotherApp = "Import from another app";
+  static const String importFromDailyYou = "Import from Daily You";
+  static const String selectDailyYouBackup = "Select Daily You backup zip file";
+  static const String importingEntries = "Importing entries...";
+  static const String importSuccess = "Successfully imported %d entries from Daily You!";
+  static const String importFailed = "Import failed: %s";
+  static const String noEntriesToImport = "No new entries found to import.";
   static const String privacyPolicy = "Privacy Policy";
-  static const String privacyPolicyDescription = "How we handle your data.";
   static const String termsNConditions = "Terms & Conditions";
-  static const String termsNConditionsDescription = "Guidelines for using the app.";
   static const String about = "About App";
-  static const String aboutDescription = "App version and information.";
   static const String changeTheme = "Change theme";
   static const String theme = "Theme";
-  static const String themeDescription = "Customize the app's appearance.";
   static const String pitchBlack = "Pitch Black";
-  static const String pitchBlackDescription = "Enable pure black/white for journal screens.";
   static const String themeLight = "Light";
   static const String themeDark = "Dark";
   static const String themeSystem = "System";
   static const String changePin = "Change PIN";
-  static const String changePinDescription = "Update your security PIN.";
   static const String loading = "Loading...";
   static const String confirmRestoreTitle = "Confirm Restore";
   static const String confirmRestoreMessage =
@@ -256,7 +250,6 @@ class AppConstants {
   static const String hideStats = "Hide Stats";
   static const String hideHomeStats = "Hide Home Stats";
   static const String hideInsightsStats = "Hide Insights Stats";
-  static const String hideStatsDescription = "Choose where to hide journal statistics.";
 
   // Write Journal Bottom Sheet
   static const String sharedImage = "Shared Image";
