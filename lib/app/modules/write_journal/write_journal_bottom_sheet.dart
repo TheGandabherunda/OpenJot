@@ -16,6 +16,7 @@ import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/models/journal_entry.dart';
+import 'package:open_jot/app/core/services/permission_service.dart';
 import 'package:open_jot/app/core/theme.dart';
 import 'package:open_jot/app/core/widgets/custom_button.dart';
 import 'package:open_jot/app/core/widgets/journal_tile.dart';
@@ -736,13 +737,20 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     }
 
     if (iconData == Icons.image_rounded) {
-      final status = await Permission.photos.request();
+      final status = await PermissionService.requestMediaPermission(0);
       if (!status.isGranted) {
         return;
       }
     }
     if (iconData == Icons.camera_alt_rounded) {
       final status = await Permission.camera.request();
+      if (!status.isGranted) {
+        return;
+      }
+    }
+
+    if (iconData == Icons.mic_rounded) {
+      final status = await Permission.microphone.request();
       if (!status.isGranted) {
         return;
       }

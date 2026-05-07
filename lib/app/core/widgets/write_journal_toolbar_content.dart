@@ -13,6 +13,7 @@ import 'package:get/get.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/core/constants.dart';
+import 'package:open_jot/app/core/services/permission_service.dart';
 import 'package:open_jot/app/core/theme.dart';
 import 'package:open_jot/app/core/widgets/camera_view.dart';
 import 'package:open_jot/app/core/widgets/custom_button.dart';
@@ -124,8 +125,7 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
   }
 
   Future<void> _requestPermission() async {
-    final permission = _getPermissionForSegment(_selectedSegment);
-    final status = await permission.request();
+    final status = await PermissionService.requestMediaPermission(_selectedSegment);
     if (mounted) {
       setState(() {
         _permissionStatus = status;
@@ -226,19 +226,6 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
         _isLoading = false;
         _isLoadingMore = false;
       });
-    }
-  }
-
-  Permission _getPermissionForSegment(int segment) {
-    switch (segment) {
-      case 0:
-        return Permission.photos;
-      case 1:
-        return Permission.videos;
-      case 2:
-        return Permission.audio;
-      default:
-        return Permission.photos;
     }
   }
 
