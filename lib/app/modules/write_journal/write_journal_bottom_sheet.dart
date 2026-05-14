@@ -2585,19 +2585,23 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                 final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
                 final isKeyboardVisible = keyboardHeight > 0;
 
-                // Scroll the editor up when typing text
+                // Scroll the editor up when typing text at the end of the note
                 if (isKeyboardVisible && _focusNode.hasFocus) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted && _mainScrollController.hasClients) {
-                      unawaited(
-                        _mainScrollController.animateTo(
-                          _mainScrollController.position.maxScrollExtent,
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut,
-                        ),
-                      );
-                    }
-                  });
+                  final isAtEnd = _quillController.selection.extentOffset >=
+                      _quillController.document.length - 1;
+                  if (isAtEnd) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted && _mainScrollController.hasClients) {
+                        unawaited(
+                          _mainScrollController.animateTo(
+                            _mainScrollController.position.maxScrollExtent,
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOut,
+                          ),
+                        );
+                      }
+                    });
+                  }
                 }
 
                 // Handle standard open transition logic
