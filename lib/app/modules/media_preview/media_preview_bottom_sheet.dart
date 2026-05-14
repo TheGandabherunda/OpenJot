@@ -163,24 +163,24 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
       if (item.asset is AssetEntity) {
         final asset = item.asset as AssetEntity;
         imageData = await asset.thumbnailDataWithSize(
-          const ThumbnailSize(150, 150),
-          quality: 70,
+          const ThumbnailSize(400, 400),
+          quality: 90,
         );
       } else if (item.asset is CapturedPhoto) {
         final file = File((item.asset as CapturedPhoto).file.path);
         if (item.type == AssetType.video) {
           imageData = await VideoThumbnail.thumbnailData(
             video: file.path,
-            maxWidth: 150,
-            maxHeight: 150,
-            quality: 70,
+            maxWidth: 400,
+            maxHeight: 400,
+            quality: 90,
           );
         } else {
           final bytes = await file.readAsBytes();
           final codec = await ui.instantiateImageCodec(
             bytes,
-            targetWidth: 150,
-            targetHeight: 150,
+            targetWidth: 400,
+            targetHeight: 400,
           );
           final frame = await codec.getNextFrame();
           final data =

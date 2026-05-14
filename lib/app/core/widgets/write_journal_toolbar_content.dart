@@ -360,7 +360,7 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
                     image: AssetEntityImageProvider(
                       lastAsset,
                       isOriginal: false,
-                      thumbnailSize: const ThumbnailSize.square(150),
+                      thumbnailSize: const ThumbnailSize.square(300),
                       thumbnailFormat: ThumbnailFormat.jpeg,
                     ),
                     fit: BoxFit.cover,
@@ -1076,7 +1076,7 @@ class AssetThumbnailItem extends StatelessWidget {
       image: AssetEntityImageProvider(
         asset,
         isOriginal: false,
-        thumbnailSize: const ThumbnailSize.square(250),
+        thumbnailSize: const ThumbnailSize.square(400),
         thumbnailFormat: ThumbnailFormat.jpeg,
       ),
       fit: BoxFit.cover,

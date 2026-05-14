@@ -925,8 +925,8 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
       try {
         final data = await VideoThumbnail.thumbnailData(
           video: path,
-          maxWidth: 300,
-          quality: 50, // Reduced quality for faster generation and smaller footprint
+          maxWidth: 500,
+          quality: 75, // Increased quality for better visuals
         );
         if (data != null) {
           await thumbFile.writeAsBytes(data);
@@ -962,7 +962,7 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
         image: AssetEntityImageProvider(
           widget.media as AssetEntity,
           isOriginal: false,
-          thumbnailSize: const ThumbnailSize.square(200), // Slightly reduced for even more smoothness
+          thumbnailSize: const ThumbnailSize.square(350), // Increased for better resolution
           thumbnailFormat: ThumbnailFormat.jpeg,
         ),
         fit: BoxFit.cover,
@@ -975,7 +975,7 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
           File(_imagePath!),
           fit: BoxFit.cover,
           gaplessPlayback: true,
-          cacheWidth: 350, // Slightly reduced for even more smoothness
+          cacheWidth: 450, // Increased for better resolution
         );
       }
     }

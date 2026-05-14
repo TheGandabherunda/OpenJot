@@ -287,7 +287,7 @@ class PdfGenerator {
           if (file != null) {
             if (asset.type == AssetType.video) {
               final thumb = await VideoThumbnail.thumbnailData(
-                  video: file.path, maxWidth: 300, quality: 50);
+                  video: file.path, maxWidth: 600, quality: 80);
               if (thumb != null) {
                 visualMedia.add(_VisualMedia(thumb, true));
               }
