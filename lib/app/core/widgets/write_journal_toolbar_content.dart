@@ -587,8 +587,8 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
           ProgressiveBlurWidget(
             sigma: 25.0,
             linearGradientBlur: const LinearGradientBlur(
-              values: [0, 0, 0.23, 1],
-              stops: [0.0, 0.12, 0.88, 1.0],
+              values: [0, 0, 1],
+              stops: [0.0, 0.9, 1.0],
               start: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
