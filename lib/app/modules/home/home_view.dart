@@ -743,8 +743,9 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     final appThemeColors = AppTheme.colorsOf(context);
     final entries = widget.controller.journalEntries;
 
-    return Stack(
-      children: [
+    return RepaintBoundary(
+      child: Stack(
+        children: [
         NotificationListener<ScrollNotification>(
           onNotification: (notification) {
             if (notification.depth != 1) return false;
@@ -969,63 +970,61 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                             entry.createdAt.month != prevEntry.createdAt.month ||
                                             entry.createdAt.year != prevEntry.createdAt.year;
 
-                                        return RepaintBoundary(
-                                          child: Padding(
-                                            padding: EdgeInsets.only(bottom: 32.h),
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                if (showYearDivider) ...[
-                                                  Padding(
-                                                    padding:
-                                                    EdgeInsets.only(bottom: 12.h, top: 8.h),
-                                                    child: Text(
-                                                      entry.createdAt.year.toString(),
-                                                      style: TextStyle(
-                                                        fontFamily: AppConstants.font,
-                                                        fontWeight: FontWeight.bold,
-                                                        fontSize: 28.sp,
-                                                        color: appThemeColors.grey10,
-                                                        letterSpacing: -0.5,
-                                                      ),
+                                        return Padding(
+                                          padding: EdgeInsets.only(bottom: 32.h),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              if (showYearDivider) ...[
+                                                Padding(
+                                                  padding:
+                                                  EdgeInsets.only(bottom: 12.h, top: 8.h),
+                                                  child: Text(
+                                                    entry.createdAt.year.toString(),
+                                                    style: TextStyle(
+                                                      fontFamily: AppConstants.font,
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 28.sp,
+                                                      color: appThemeColors.grey10,
+                                                      letterSpacing: -0.5,
                                                     ),
                                                   ),
-                                                ],
-                                                if (showMonthDivider) ...[
-                                                  Padding(
-                                                    padding: EdgeInsets.only(
-                                                        bottom: 16.h,
-                                                        top: showYearDivider ? 0 : 8.h),
-                                                    child: Text(
-                                                      _monthFormat.format(entry.createdAt),
-                                                      style: TextStyle(
-                                                        fontFamily: AppConstants.font,
-                                                        fontWeight: FontWeight.w600,
-                                                        fontSize: 18.sp,
-                                                        color: appThemeColors.grey2,
-                                                        letterSpacing: -0.2,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                                JournalTile(
-                                                  entry: entry,
-                                                  onTap: () {
-                                                    showCupertinoModalBottomSheet(
-                                                      context: context,
-                                                      expand: true,
-                                                      backgroundColor: Colors.transparent,
-                                                      builder: (modalContext) {
-                                                        return SafeArea(
-                                                          child: ReadJournalBottomSheet(
-                                                              entry: entry),
-                                                        );
-                                                      },
-                                                    );
-                                                  },
                                                 ),
                                               ],
-                                            ),
+                                              if (showMonthDivider) ...[
+                                                Padding(
+                                                  padding: EdgeInsets.only(
+                                                      bottom: 16.h,
+                                                      top: showYearDivider ? 0 : 8.h),
+                                                  child: Text(
+                                                    _monthFormat.format(entry.createdAt),
+                                                    style: TextStyle(
+                                                      fontFamily: AppConstants.font,
+                                                      fontWeight: FontWeight.w600,
+                                                      fontSize: 18.sp,
+                                                      color: appThemeColors.grey2,
+                                                      letterSpacing: -0.2,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                              JournalTile(
+                                                entry: entry,
+                                                onTap: () {
+                                                  showCupertinoModalBottomSheet(
+                                                    context: context,
+                                                    expand: true,
+                                                    backgroundColor: Colors.transparent,
+                                                    builder: (modalContext) {
+                                                      return SafeArea(
+                                                        child: ReadJournalBottomSheet(
+                                                            entry: entry),
+                                                      );
+                                                    },
+                                                  );
+                                                },
+                                              ),
+                                            ],
                                           ),
                                         );
                                       },
@@ -1145,8 +1144,9 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 }
 
 class TappablePopupMenuEntry extends PopupMenuEntry<Never> {

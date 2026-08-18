@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -204,7 +205,24 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     }
 
     _quillController.addListener(() {
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      if (_focusNode.hasFocus) {
+        final isAtEnd = _quillController.selection.extentOffset >=
+            _quillController.document.length - 1;
+        if (isAtEnd) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _mainScrollController.hasClients) {
+              unawaited(
+                _mainScrollController.animateTo(
+                  _mainScrollController.position.maxScrollExtent,
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                ),
+              );
+            }
+          });
+        }
+      }
     });
     _quillController.document.changes.listen(_handleTextChange);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -229,8 +247,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     if (widget.entry == null) {
       return currentText.isNotEmpty || !isMediaEmpty || _tags.isNotEmpty;
     } else {
-      final originalText = widget.entry!.content.toPlainText().trim();
-      if (currentText != originalText) {
+      final currentDeltaJson = jsonEncode(_quillController.document.toDelta().toJson());
+      final originalDeltaJson = jsonEncode(widget.entry!.content.toDelta().toJson());
+      if (currentDeltaJson != originalDeltaJson) {
         return true;
       }
 
@@ -2579,30 +2598,10 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
               animation: Listenable.merge([
                 _sheetController,
                 _focusNode,
-                _quillController,
               ]),
               builder: (context, child) {
                 final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
                 final isKeyboardVisible = keyboardHeight > 0;
-
-                // Scroll the editor up when typing text at the end of the note
-                if (isKeyboardVisible && _focusNode.hasFocus) {
-                  final isAtEnd = _quillController.selection.extentOffset >=
-                      _quillController.document.length - 1;
-                  if (isAtEnd) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted && _mainScrollController.hasClients) {
-                        unawaited(
-                          _mainScrollController.animateTo(
-                            _mainScrollController.position.maxScrollExtent,
-                            duration: const Duration(milliseconds: 200),
-                            curve: Curves.easeOut,
-                          ),
-                        );
-                      }
-                    });
-                  }
-                }
 
                 // Handle standard open transition logic
                 if (_sheetState == _SheetTransitionState.opening &&

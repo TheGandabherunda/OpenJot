@@ -177,25 +177,28 @@ class RemindersBottomSheet extends StatelessWidget {
                                   )
                                 : null,
                           ),
-                          child: ListTile(
-                            leading: Icon(Icons.access_time, color: textColor),
-                            title: Text(
-                              timeStr,
-                              style: TextStyle(
-                                color: textColor,
-                                fontSize: 16.sp,
-                                fontWeight: FontWeight.w500,
-                                fontFamily: AppConstants.font,
-                                letterSpacing: -0.2,
+                          child: Material(
+                            color: Colors.transparent,
+                            child: ListTile(
+                              leading: Icon(Icons.access_time, color: textColor),
+                              title: Text(
+                                timeStr,
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontSize: 16.sp,
+                                  fontWeight: FontWeight.w500,
+                                  fontFamily: AppConstants.font,
+                                  letterSpacing: -0.2,
+                                ),
                               ),
-                            ),
-                            trailing: CupertinoButton(
-                              padding: EdgeInsets.zero,
-                              onPressed: () => controller.removeReminder(index),
-                              child: Icon(
-                                Icons.delete_outline,
-                                color: appThemeColors.error.withOpacity(0.9),
-                                size: 24.sp,
+                              trailing: CupertinoButton(
+                                padding: EdgeInsets.zero,
+                                onPressed: () => controller.removeReminder(index),
+                                child: Icon(
+                                  Icons.delete_outline,
+                                  color: appThemeColors.error.withOpacity(0.9),
+                                  size: 24.sp,
+                                ),
                               ),
                             ),
                           ),

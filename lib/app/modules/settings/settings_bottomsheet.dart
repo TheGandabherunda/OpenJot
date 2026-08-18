@@ -63,52 +63,61 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 fontFamily: AppConstants.font,
               ),
             ),
-            ListTile(
-              title: Text(AppConstants.themeLight,
-                  style: TextStyle(
-                      letterSpacing: -0.2,
-                      color: appThemeColors.grey10,
-                      fontFamily: AppConstants.font)),
-              onTap: () {
-                controller.changeTheme(AppConstants.themeLight);
-                Get.back();
-              },
-              trailing: Obx(() =>
-              controller.theme.value == AppConstants.themeLight
-                  ? Icon(Icons.check_rounded, color: appThemeColors.primary)
-                  : const SizedBox.shrink()),
+            Material(
+              color: Colors.transparent,
+              child: ListTile(
+                title: Text(AppConstants.themeLight,
+                    style: TextStyle(
+                        letterSpacing: -0.2,
+                        color: appThemeColors.grey10,
+                        fontFamily: AppConstants.font)),
+                onTap: () {
+                  controller.changeTheme(AppConstants.themeLight);
+                  Get.back();
+                },
+                trailing: Obx(() =>
+                controller.theme.value == AppConstants.themeLight
+                    ? Icon(Icons.check_rounded, color: appThemeColors.primary)
+                    : const SizedBox.shrink()),
+              ),
             ),
             Divider(color: appThemeColors.grey4, height: 1),
-            ListTile(
-              title: Text(AppConstants.themeDark,
-                  style: TextStyle(
-                      letterSpacing: -0.2,
-                      color: appThemeColors.grey10,
-                      fontFamily: AppConstants.font)),
-              onTap: () {
-                controller.changeTheme(AppConstants.themeDark);
-                Get.back();
-              },
-              trailing: Obx(() =>
-              controller.theme.value == AppConstants.themeDark
-                  ? Icon(Icons.check_rounded, color: appThemeColors.primary)
-                  : const SizedBox.shrink()),
+            Material(
+              color: Colors.transparent,
+              child: ListTile(
+                title: Text(AppConstants.themeDark,
+                    style: TextStyle(
+                        letterSpacing: -0.2,
+                        color: appThemeColors.grey10,
+                        fontFamily: AppConstants.font)),
+                onTap: () {
+                  controller.changeTheme(AppConstants.themeDark);
+                  Get.back();
+                },
+                trailing: Obx(() =>
+                controller.theme.value == AppConstants.themeDark
+                    ? Icon(Icons.check_rounded, color: appThemeColors.primary)
+                    : const SizedBox.shrink()),
+              ),
             ),
             Divider(color: appThemeColors.grey4, height: 1),
-            ListTile(
-              title: Text(AppConstants.themeSystem,
-                  style: TextStyle(
-                      letterSpacing: -0.2,
-                      color: appThemeColors.grey10,
-                      fontFamily: AppConstants.font)),
-              onTap: () {
-                controller.changeTheme(AppConstants.themeSystem);
-                Get.back();
-              },
-              trailing: Obx(() =>
-              controller.theme.value == AppConstants.themeSystem
-                  ? Icon(Icons.check_rounded, color: appThemeColors.primary)
-                  : const SizedBox.shrink()),
+            Material(
+              color: Colors.transparent,
+              child: ListTile(
+                title: Text(AppConstants.themeSystem,
+                    style: TextStyle(
+                        letterSpacing: -0.2,
+                        color: appThemeColors.grey10,
+                        fontFamily: AppConstants.font)),
+                onTap: () {
+                  controller.changeTheme(AppConstants.themeSystem);
+                  Get.back();
+                },
+                trailing: Obx(() =>
+                controller.theme.value == AppConstants.themeSystem
+                    ? Icon(Icons.check_rounded, color: appThemeColors.primary)
+                    : const SizedBox.shrink()),
+              ),
             ),
           ],
         ),
@@ -538,16 +547,19 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
         )
             : null,
       ),
-      child: ListTile(
-        leading: Icon(icon, color: textColor),
-        title: Text(title,
-            style: TextStyle(
-                color: textColor,
-                fontWeight: FontWeight.w500,
-                letterSpacing: -0.2,
-                fontFamily: AppConstants.font)),
-        trailing: trailing,
-        onTap: onTap,
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
+          leading: Icon(icon, color: textColor),
+          title: Text(title,
+              style: TextStyle(
+                  color: textColor,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.2,
+                  fontFamily: AppConstants.font)),
+          trailing: trailing,
+          onTap: onTap,
+        ),
       ),
     );
   }
