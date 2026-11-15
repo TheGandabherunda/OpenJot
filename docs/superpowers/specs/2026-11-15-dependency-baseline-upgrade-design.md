@@ -37,7 +37,7 @@ The goal is a dependency set that is current, that installs, that analyzes clean
 - **The app must still write and read existing Hive data.** The `JournalEntry` Hive adapter (`journal_entry.g.dart`) and the settings/mood/reminder migrations in `hive_service.dart` are load-bearing for real users' journals. No dependency may force a change to persisted data.
 - **`flutter_quill` is pinned exactly** (`flutter_quill: 11.5.0`, no caret). That pin is deliberate. A move to 11.6.0 changes it to a range and must be checked against the editor code that depends on internals: `write_journal_bottom_sheet.dart` (`toDelta`, `Document.fromJson`, `Attribute.rtl`, `ChangeSource.remote`) and `write_journal_toolbar_content.dart`.
 - **Android minSdk is 24** (`android/app/build.gradle.kts`). `permission_handler` 13 and `device_info_plus` 13 raise their own floors; check them against 24 rather than assuming.
-- **Verification happens on box-04**, not on the machine that holds the working tree. box-02 (where this file is written) has Flutter 3.47.9 / Dart 3.13.7 and 4.9 GiB free, which cannot resolve `sdk: ^3.14.0`. box-04 has Flutter 3.50.0 / Dart 3.14.0, the Android SDK, and 7.9 GiB free.
+- **Static checks run on box-02** (Flutter 3.47.9, the declared baseline): `pub get`, `analyze`, `test`. **The APK build runs on a GitHub-hosted runner**, not on either sandbox. box-04 has a 20 GiB data disk and a debug build needs roughly 4 GiB on top of the toolchains; measured, it filled the disk to 100% twice.
 
 ## Approaches
 
@@ -49,7 +49,13 @@ Take the newest release of each package that still fits Dart 3.11. 23 packages m
 
 Raise the SDK floor, then bump every direct dependency to the newest release the new floor allows, majors included. This is the only route that clears the structural cause rather than routing around it, and it is the route you picked.
 
-**The floor, and where it is verified.** Verification runs on the box-04 self-hosted runner, which now has Flutter 3.50.0 / Dart 3.14.0 and the Android SDK installed. So the floor goes to `sdk: ^3.14.0` and `flutter: ^3.50.0` — the newest stable, not a compromise. box-02 has Flutter 3.47.9 / Dart 3.13.7 and cannot resolve this set; it is no longer part of the loop.
+**The floor: `sdk: ^3.13.0` and `flutter: ^3.47.9`, and why not 3.50.0.** Flutter 3.50 enforces a chain the project cannot satisfy without an Android migration, discovered by building rather than by reading:
+
+- Flutter 3.50 wants Gradle >= 9.3.1 and Android Gradle Plugin >= 9.1.1.
+- AGP 8.13.0 uses `org.gradle.api.problems.internal.InternalProblems`, which Gradle 9.6.0 removed, so AGP 8.x and Gradle >= 9.6 cannot coexist. AGP 9.x becomes mandatory.
+- `flutter_local_notifications` 23 declares `androidx.core:core:1.19.0`, which needs compileSdk 37 and AGP 9.1.0 — the same wall from the other side.
+
+`DependencyVersionChecker` in Flutter 3.47.9 accepts the project as it stands: `errorGradleVersion` 8.14.0, `errorAGPVersion` 8.11.1, `errorKGPVersion` 2.2.20, against this project's Gradle 9.1.0, AGP 8.13.0 and Kotlin 2.2.20. Nothing is given up by stopping there: every target release needs Dart ^3.12.0 or lower, and Dart 3.13.7 clears all of them. The one exception is `flutter_local_notifications`, held at ^22.3.3 instead of 23.0.2 for the reason above.
 
 ### C · Patch only
 
@@ -86,7 +92,7 @@ Newest release installable under Dart 3.13.7. `now` is the current constraint in
 | video_player | ^2.10.0 | ^2.14.1 | minor |
 | flutter_map | ^8.2.1 | ^8.3.2 | minor |
 | latlong2 | ^0.9.0 | ^0.10.1 | breaking (0.x) |
-| flutter_local_notifications | ^21.0.0-dev.2 | ^23.0.2 | major, off prerelease |
+| flutter_local_notifications | ^21.0.0-dev.2 | ^22.3.3 | major, off prerelease; 23 needs compileSdk 37 |
 | flutter_timezone | ^5.0.0 | ^5.1.1 | minor |
 | timezone | ^0.11.0 | ^0.11.2 | patch |
 | local_auth | ^3.0.0 | ^3.0.2 | patch |
