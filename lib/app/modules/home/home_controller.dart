@@ -2,11 +2,14 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:hive/hive.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 
 import '../../core/constants.dart';
+import 'package:flutter/foundation.dart';
+
 import '../../core/models/journal_entry.dart';
 import 'reload_coalescer.dart';
 import 'self_write_gate.dart';
@@ -21,6 +24,11 @@ class HomeController extends GetxController {
   late final ReloadCoalescer _reloads = ReloadCoalescer(
     onFire: loadJournalEntries,
   );
+
+  /// The box list this controller listens to, held so the listener can be
+  /// detached in onClose.
+  late final ValueListenable<Box<JournalEntry>> _boxChanges =
+      _hiveService.getJournalEntriesNotifier();
 
   /// How long to wait for the box notification a write causes, before dropping
   /// any mark it did not consume.
@@ -72,7 +80,7 @@ class HomeController extends GetxController {
   void onInit() {
     super.onInit();
     loadSettings();
-    _hiveService.getJournalEntriesNotifier().addListener(_onBoxChanged);
+    _boxChanges.addListener(_onBoxChanged);
     loadJournalEntries();
 
     // Listen to audio player state changes globally
@@ -139,7 +147,7 @@ class HomeController extends GetxController {
 
   @override
   void onClose() {
-    _hiveService.getJournalEntriesNotifier().removeListener(_onBoxChanged);
+    _boxChanges.removeListener(_onBoxChanged);
     _reloads.dispose();
     audioPlayer.dispose();
     super.onClose();

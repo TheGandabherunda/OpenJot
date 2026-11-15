@@ -365,8 +365,15 @@ class HiveService extends GetxService {
   }
 
   List<JournalEntry> getAllJournalEntries() => journalsBox.values.toList();
+
+  /// Cached because `Box.listenable()` builds a new listener wrapper on every
+  /// call, and `removeListener` on a different wrapper does not detach: a
+  /// controller that was replaced would keep reloading the journal on every
+  /// write.
+  ValueListenable<Box<JournalEntry>>? _journalsNotifier;
+
   ValueListenable<Box<JournalEntry>> getJournalEntriesNotifier() =>
-      journalsBox.listenable();
+      _journalsNotifier ??= journalsBox.listenable();
 
   // --- Garbage Collection (Storage Leak Fix) ---
   Future<void> cleanUpOrphanedMedia() async {

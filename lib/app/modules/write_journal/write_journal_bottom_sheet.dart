@@ -19,6 +19,7 @@ import 'package:open_jot/app/core/models/journal_entry.dart';
 import 'package:open_jot/app/core/services/permission_service.dart';
 import 'package:open_jot/app/core/theme.dart';
 import 'package:open_jot/app/modules/write_journal/draft_autosave.dart';
+import 'package:open_jot/app/modules/write_journal/save_target.dart';
 import 'package:open_jot/app/core/widgets/custom_button.dart';
 import 'package:open_jot/app/core/widgets/journal_tile.dart';
 import 'package:open_jot/app/core/widgets/text_styling_toolbar.dart';
@@ -105,6 +106,10 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   /// `_saveEntry` when the timer runs, so it always targets the entry the sheet
   /// is holding now, not the one it held when the timer was set.
   DraftAutosave? _autosave;
+
+  /// Works out which entry a save writes to, and keeps the branched draft id
+  /// stable across autosaves.
+  final SaveTargetResolver _saveTargets = SaveTargetResolver();
   bool _pendingLocationResume = false;
 
   bool _isLoadingMedia = false;
@@ -376,27 +381,32 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
           _previewAudios.isEmpty &&
           _previewRecordings.isEmpty;
 
-      if (isTextEmpty && isMediaEmpty && !isDraft) return;
+      // A draft save with nothing in it would leave a blank entry behind that
+      // the user cannot delete: Done refuses to save an empty entry, and
+      // HiveService only drops an empty entry it is asked to update.
+      if (!journalHasContent(isTextEmpty: isTextEmpty, isMediaEmpty: isMediaEmpty)) {
+        return;
+      }
 
       final homeController = Get.find<HomeController>();
       final documentJson = _quillController.document.toDelta().toJson();
       final cleanDocument = quill.Document.fromJson(documentJson);
 
-      String saveId = _currentEntryId;
-      String? originalId = widget.entry?.originalId;
+      final target = _saveTargets.resolve(
+        currentId: _currentEntryId,
+        entryId: widget.entry?.id,
+        entryIsDraft: widget.entry?.isDraft ?? false,
+        entryOriginalId: widget.entry?.originalId,
+        isDraft: isDraft,
+        newId: () => const Uuid().v4(),
+      );
 
-      // Handle non-destructive draft saving for existing journals
-      if (isDraft && widget.entry != null && !widget.entry!.isDraft) {
-        // Create a new branched draft ID
-        saveId = const Uuid().v4();
-        originalId = widget.entry!.id;
-      }
+      final String saveId = target.id;
+      final String? originalId = target.originalId;
 
-      // If we are updating an existing entry from a draft that has an originalId
-      if (!isDraft && widget.entry != null && widget.entry!.isDraft && widget.entry!.originalId != null) {
-        saveId = widget.entry!.originalId!;
-        // Delete the draft entry after updating the original
-        homeController.deleteJournalEntry(widget.entry!.id);
+      // A branch that Done has just written back is no longer needed.
+      if (target.draftToDelete != null) {
+        homeController.deleteJournalEntry(target.draftToDelete!);
       }
 
       // Determine useRtl based on the first block's direction attribute
