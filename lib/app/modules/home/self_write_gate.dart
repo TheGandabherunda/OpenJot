@@ -26,6 +26,16 @@ class SelfWriteGate {
     return true;
   }
 
+  /// Drops marks the notification did not consume.
+  ///
+  /// Call this once a write has finished and the box listener has had its turn.
+  /// Hive delivers box notifications through a stream, so a mark can outlive the
+  /// write that raised it if the box raised nothing; left in place it would make
+  /// the next change from outside look self-inflicted and skip its reload.
+  void clear() {
+    _depth = 0;
+  }
+
   /// Marks still waiting to be consumed.
   int get depth => _depth;
 }

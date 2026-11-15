@@ -28,5 +28,13 @@ void main() {
       gate.isSelfWrite();
       expect(gate.depth, 1);
     });
+
+    test('clear drops a mark the notification did not consume', () {
+      final gate = SelfWriteGate();
+      gate.begin();
+      gate.clear();
+      expect(gate.depth, 0);
+      expect(gate.isSelfWrite(), isFalse);
+    });
   });
 }

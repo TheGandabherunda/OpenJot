@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:audioplayers/audioplayers.dart';
@@ -7,9 +8,23 @@ import 'package:open_jot/app/core/services/hive_service.dart';
 
 import '../../core/constants.dart';
 import '../../core/models/journal_entry.dart';
+import 'reload_coalescer.dart';
+import 'self_write_gate.dart';
 
 class HomeController extends GetxController {
   final _hiveService = Get.find<HiveService>();
+
+  /// Keeps this controller's own writes from reloading the journal.
+  final SelfWriteGate _writes = SelfWriteGate();
+
+  /// Collapses writes from outside — a restore, an import — into one reload.
+  late final ReloadCoalescer _reloads = ReloadCoalescer(
+    onFire: loadJournalEntries,
+  );
+
+  /// How long to wait for the box notification a write causes, before dropping
+  /// any mark it did not consume.
+  static const Duration _notificationGrace = Duration.zero;
   final journalEntries = <JournalEntry>[].obs;
   final draftEntries = <JournalEntry>[].obs;
 
@@ -57,7 +72,7 @@ class HomeController extends GetxController {
   void onInit() {
     super.onInit();
     loadSettings();
-    _hiveService.getJournalEntriesNotifier().addListener(loadJournalEntries);
+    _hiveService.getJournalEntriesNotifier().addListener(_onBoxChanged);
     loadJournalEntries();
 
     // Listen to audio player state changes globally
@@ -124,9 +139,34 @@ class HomeController extends GetxController {
 
   @override
   void onClose() {
-    _hiveService.getJournalEntriesNotifier().removeListener(loadJournalEntries);
+    _hiveService.getJournalEntriesNotifier().removeListener(_onBoxChanged);
+    _reloads.dispose();
     audioPlayer.dispose();
     super.onClose();
+  }
+
+  /// The box changed. Skip the reload when the change came from this
+  /// controller's own write, which has already updated the lists in place.
+  void _onBoxChanged() {
+    if (_writes.isSelfWrite()) return;
+    _reloads.schedule();
+  }
+
+  /// Marks a write as this controller's own, and drops the mark if the box
+  /// raised nothing for it.
+  ///
+  /// Hive delivers box notifications through a stream, so the notification
+  /// arrives in a later microtask than the write. The grace turn gives the
+  /// listener its chance to consume the mark; anything still marked after that
+  /// did not belong to this write, and must not hide the next outside change.
+  Future<void> _selfWrite(Future<void> Function() write) async {
+    _writes.begin();
+    try {
+      await write();
+    } finally {
+      await Future<void>.delayed(_notificationGrace);
+      _writes.clear();
+    }
   }
 
   Future<void> loadJournalEntries() async {
@@ -165,7 +205,7 @@ class HomeController extends GetxController {
   }
 
   void addJournalEntry(JournalEntry entry) {
-    _hiveService.addJournalEntry(entry);
+    unawaited(_selfWrite(() => _hiveService.addJournalEntry(entry)));
     plainTextCache[entry.id] = entry.content.toPlainText().trim();
     if (entry.isDraft) {
       draftEntries.insert(0, entry);
@@ -177,7 +217,7 @@ class HomeController extends GetxController {
   }
 
   void updateJournalEntry(JournalEntry updatedEntry) {
-    _hiveService.updateJournalEntry(updatedEntry);
+    unawaited(_selfWrite(() => _hiveService.updateJournalEntry(updatedEntry)));
 
     final plainText = updatedEntry.content.toPlainText().trim();
     plainTextCache[updatedEntry.id] = plainText;
@@ -207,7 +247,7 @@ class HomeController extends GetxController {
   }
 
   void deleteJournalEntry(String entryId) {
-    _hiveService.deleteJournalEntry(entryId);
+    unawaited(_selfWrite(() => _hiveService.deleteJournalEntry(entryId)));
     journalEntries.removeWhere((e) => e.id == entryId);
     draftEntries.removeWhere((e) => e.id == entryId);
     plainTextCache.remove(entryId);
