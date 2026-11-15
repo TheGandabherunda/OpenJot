@@ -98,7 +98,7 @@ Newest release installable under Dart 3.13.7. `now` is the current constraint in
 | path_provider | ^2.1.5 | ^2.1.6 | patch |
 | url_launcher | ^6.3.2 | ^6.3.3 | patch |
 | uuid | ^4.5.1 | ^4.6.0 | minor |
-| build_runner (dev) | ^2.4.13 | ^2.17.1 | minor; drops 2 discontinued transitives |
+| build_runner (dev) | ^2.4.13 | removed | conflicts with hive_generator |
 
 ### Removals
 
@@ -107,15 +107,24 @@ Newest release installable under Dart 3.13.7. `now` is the current constraint in
 
 Both credit lines get removed with the dependency.
 
-### dev_dependencies
+### dev_dependencies, and the one conflict resolution could not avoid
 
 | package | now | target | kind |
 | --- | --- | --- | --- |
-| build_runner | ^2.4.13 | ^2.17.1 | minor |
+| build_runner | ^2.4.13 | **removed** | see below |
+| hive_generator | ^2.0.1 | **removed** | see below |
 | flutter_lints | ^6.0.0 | ^6.0.0 | none |
-| hive_generator | ^2.0.1 | ^2.0.1 | none; dead upstream, tied to `hive` |
 
-`build_runner` matters more than its version suggests. `flutter pub outdated` reports that the pinned 2.4.13 drags in two **discontinued** packages, `build_resolvers` and `build_runner_core`, both stuck at their final versions. Moving to 2.17.1 removes them from the graph.
+`flutter pub outdated` reports that the pinned `build_runner` 2.4.13 drags in two **discontinued** packages, `build_resolvers` and `build_runner_core`. The obvious fix is to move `build_runner` forward, and that is where the resolution dies. Verified on box-04, `flutter pub get` fails:
+
+```
+Because no versions of hive_generator match >2.0.1 <3.0.0 and hive_generator 2.0.1
+depends on build ^2.0.0, hive_generator ^2.0.1 requires build ^2.0.0.
+And because build_runner >=2.17.1 depends on build >=5.0.0 <5.1.0,
+hive_generator ^2.0.1 is incompatible with build_runner >=2.17.1.
+```
+
+The pattern is general, not specific to 2.17.1: from `build_runner` 2.5.0 onward every release needs `build` ^4 or ^5, and `hive_generator` 2.0.1 is frozen at `build` ^2.0.0. There is no pair that is current on both sides, so **both are removed**. `journal_entry.g.dart` is committed and nothing reads either package at runtime; the only cost is that adding a `HiveField` to `JournalEntry` needs the pair added back temporarily, which a comment in `pubspec.yaml` now records. Migrating to `hive_ce`, whose generator tracks modern `build_runner`, is the real fix and stays a non-goal here.
 
 ## Known breakage to expect
 

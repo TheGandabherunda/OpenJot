@@ -77,10 +77,19 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
-  # --- CODE ANALYSIS & GENERATION ---
-  build_runner: ^2.17.1
+  # --- CODE ANALYSIS ---
   flutter_lints: ^6.0.0
-  hive_generator: ^2.0.1
+
+  # --- CODE GENERATION: none ---
+  # hive_generator and build_runner were removed together. hive_generator
+  # 2.0.1 is from 2023 and requires build ^2.0.0; every build_runner from
+  # 2.5.0 on needs build ^4.0.0 or ^5.0.0. The pair cannot both be current,
+  # so the pair is gone. lib/app/core/models/journal_entry.g.dart is
+  # committed, and nothing regenerates it unless a HiveField is added to
+  # JournalEntry. If that happens, add the pinned pair back temporarily:
+  #   dart pub add dev:hive_generator:2.0.1 dev:build_runner:2.4.13
+  # and consider moving to hive_ce, whose generator tracks modern
+  # build_runner.
 
 flutter:
   uses-material-design: true
