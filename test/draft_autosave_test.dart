@@ -4,31 +4,26 @@ import 'package:open_jot/app/modules/write_journal/draft_autosave.dart';
 
 void main() {
   late List<int> saves;
+  late int nextId;
   late DraftAutosave autosave;
 
-  /// Builds an autosave whose save callback records the fake-clock time it ran.
+  /// Builds an autosave whose save callback records one entry per write.
   DraftAutosave build({Duration idle = const Duration(seconds: 2)}) {
     saves = <int>[];
+    nextId = 0;
     return DraftAutosave(
       save: () async {
-        saves.add(now.inMilliseconds);
+        saves.add(nextId++);
         return;
       },
       idle: idle,
     );
   }
 
-  late int now;
-
-  setUp(() {
-    now = 0;
-  });
-
   group('DraftAutosave', () {
     test('writes nothing until the idle time has passed', () {
       fakeAsync((async) {
         autosave = build();
-        now = 0;
 
         autosave.noteChange();
         async.elapse(const Duration(milliseconds: 1900));
@@ -36,7 +31,6 @@ void main() {
 
         async.elapse(const Duration(milliseconds: 100));
         expect(saves, hasLength(1));
-        expect(saves.single, 2000);
       });
     });
 
@@ -49,6 +43,7 @@ void main() {
         autosave.noteChange();
         async.elapse(const Duration(milliseconds: 1500));
         autosave.noteChange();
+
         async.elapse(const Duration(milliseconds: 1900));
         expect(saves, isEmpty);
 
@@ -129,6 +124,34 @@ void main() {
         async.elapse(const Duration(seconds: 2));
         async.flushMicrotasks();
         expect(autosave.hasPendingChanges, isFalse);
+      });
+    });
+
+    test('a slow write is not raced by the next change', () {
+      fakeAsync((async) {
+        var inFlight = 0;
+        var maxInFlight = 0;
+        saves = <int>[];
+        autosave = DraftAutosave(
+          idle: const Duration(seconds: 2),
+          save: () async {
+            inFlight++;
+            maxInFlight = inFlight > maxInFlight ? inFlight : maxInFlight;
+            await Future<void>.delayed(const Duration(seconds: 5));
+            saves.add(1);
+            inFlight--;
+          },
+        );
+
+        autosave.noteChange();
+        async.elapse(const Duration(seconds: 2));
+        // A second change arrives while the first write is still running.
+        autosave.noteChange();
+        async.elapse(const Duration(seconds: 30));
+        async.flushMicrotasks();
+
+        expect(maxInFlight, 1);
+        expect(saves, hasLength(2));
       });
     });
   });
