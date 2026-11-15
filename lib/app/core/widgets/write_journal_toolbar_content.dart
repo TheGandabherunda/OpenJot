@@ -1810,7 +1810,7 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
                                 alignment: Alignment.center,
                                 children: [
                                   ...previousChildren,
-                                  if (currentChild != null) currentChild,
+                                  ?currentChild,
                                 ],
                               );
                             },

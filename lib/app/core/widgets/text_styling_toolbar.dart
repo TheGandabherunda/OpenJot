@@ -60,7 +60,7 @@ class TextStylingToolbar extends StatelessWidget {
                 children: [
                   for (var i = 0; i < styles.length; i++)
                     Padding(
-                      padding: EdgeInsets.only(
+                      padding: const EdgeInsets.only(
                         right: 2, // Spacing between styling icons
                       ),
                       child: _buildToolbarIcon(

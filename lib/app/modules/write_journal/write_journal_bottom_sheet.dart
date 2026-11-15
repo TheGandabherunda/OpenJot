@@ -1461,7 +1461,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
               fit: StackFit.expand,
               children: [
                 MediaThumbnail(media: media),
-                if (overlay != null) overlay,
+                ?overlay,
                 Positioned(
                   top: 4.w,
                   right: 4.w,
