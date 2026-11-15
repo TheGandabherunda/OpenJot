@@ -7,8 +7,8 @@ publish_to: 'none'
 version: 1.2.0+4
 
 environment:
-  sdk: '>=3.2.3 <4.0.0'
-  flutter: ^3.41.2
+  sdk: ^3.14.0
+  flutter: ^3.50.0
 
 dependencies:
   # --- CORE FLUTTER ---
@@ -18,61 +18,59 @@ dependencies:
     sdk: flutter
 
   # --- STATE MANAGEMENT & ROUTING ---
-  get: ^4.7.2
+  get: ^4.7.3
 
   # --- LOCAL STORAGE ---
   hive: ^2.2.3
   hive_flutter: ^1.1.0
-  sqflite: ^2.4.1
+  sqflite: ^2.4.6
   markdown_quill: ^4.3.0
 
   # --- UI & UX ---
-  flutter_quill: 11.5.0
+  flutter_quill: ^11.6.0
   flutter_screenutil: ^5.9.3
-  flutter_staggered_grid_view: ^0.7.0
-  flutter_svg: ^2.2.0
-  vector_graphics: ^1.1.11
+  flutter_svg: ^2.4.0
   modal_bottom_sheet: ^3.0.0
   progressive_blur: ^0.0.2
-  shimmer: ^3.0.0
+  shimmer: ^4.0.0
   smooth_corner: ^1.1.1
 
   # --- MEDIA & FILE HANDLING ---
-  archive: ^4.0.7
-  audioplayers: ^6.5.0
-  camera: ^0.11.2
-  file_picker: ^10.3.2
+  archive: ^4.7.1
+  audioplayers: ^6.8.1
+  camera: ^0.12.2
+  file_picker: ^13.3.3
   get_thumbnail_video: ^0.7.3
-  image: ^4.5.4
-  pdf: ^3.11.3
-  permission_handler: ^12.0.1
-  photo_manager: ^3.7.1
+  image: ^4.13.1
+  pdf: ^3.13.1
+  permission_handler: ^13.0.2
+  photo_manager: ^3.12.0
   photo_manager_image_provider: ^2.2.0
-  printing: ^5.14.2
-  record: ^6.1.1
-  video_player: ^2.10.0
+  printing: ^5.15.1
+  record: ^7.2.0
+  video_player: ^2.14.1
 
   # --- LOCATION & MAPS ---
-  flutter_map: ^8.2.1
-  latlong2: ^0.9.0
+  flutter_map: ^8.3.2
+  latlong2: ^0.10.1
 
   # --- NOTIFICATIONS ---
-  flutter_local_notifications: ^21.0.0-dev.2
-  flutter_timezone: ^5.0.0
-  timezone: ^0.11.0
+  flutter_local_notifications: ^23.0.2
+  flutter_timezone: ^5.1.1
+  timezone: ^0.11.2
 
   # --- AUTHENTICATION ---
-  local_auth: ^3.0.0
+  local_auth: ^3.0.2
 
   # --- UTILITIES ---
-  device_info_plus: ^12.1.0
-  intl: ^0.20.2
-  package_info_plus: ^9.0.0
+  device_info_plus: ^13.3.0
+  intl: ^0.20.3
+  package_info_plus: ^10.2.2
   palette_generator: ^0.3.3+7
-  path: ^1.9.0
-  path_provider: ^2.1.5
-  url_launcher: ^6.3.2
-  uuid: ^4.5.1
+  path: ^1.9.1
+  path_provider: ^2.1.6
+  url_launcher: ^6.3.3
+  uuid: ^4.6.0
 
 dev_dependencies:
   # --- TESTING ---
@@ -80,7 +78,7 @@ dev_dependencies:
     sdk: flutter
 
   # --- CODE ANALYSIS & GENERATION ---
-  build_runner: ^2.4.13
+  build_runner: ^2.17.1
   flutter_lints: ^6.0.0
   hive_generator: ^2.0.1
 
