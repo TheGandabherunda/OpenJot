@@ -8,11 +8,12 @@ import 'dart:async';
 /// once, and `discard` cancels without writing.
 class DraftAutosave {
   DraftAutosave({
-    required Future<void> Function() save,
+    required this.save,
     this.idle = const Duration(seconds: 2),
-  }) : _save = save;
+  });
 
-  final Future<void> Function() _save;
+  /// Writes the draft. Injected, so the timing can be tested without storage.
+  final Future<void> Function() save;
   final Duration idle;
 
   Timer? _timer;
@@ -67,7 +68,7 @@ class DraftAutosave {
     _pending = false;
     _inFlight = true;
     try {
-      await _save();
+      await save();
     } finally {
       _inFlight = false;
     }
