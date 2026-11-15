@@ -10,8 +10,8 @@ permissions:
 
 jobs:
   build-android:
-    # GitHub-hosted, like anchor's release job: a release must not depend on a
-    # self-hosted sandbox being awake.
+    # GitHub-hosted: a release must not depend on a sandbox being awake, and
+    # box-04's data disk cannot hold a universal plus three split APKs.
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -35,8 +35,13 @@ jobs:
           java-version: '17'
 
       - name: Set up Flutter
+        # The project's declared baseline, not the newest stable. Flutter 3.50
+        # requires Gradle 9.3.1 and AGP 9.1.1; this project is on Gradle 9.1.0
+        # and AGP 8.13.0. See
+        # docs/superpowers/specs/2026-11-15-dependency-baseline-upgrade-design.md.
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.47.9'
           channel: 'stable'
           cache: true
 
