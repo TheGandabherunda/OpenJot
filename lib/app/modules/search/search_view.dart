@@ -13,6 +13,7 @@ import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/read_journal/read_journal_bottom_sheet.dart';
 
 import '../../core/models/journal_entry.dart';
+import 'entry_criteria.dart';
 
 class SearchView extends StatefulWidget {
   final bool initialBookmarked;
@@ -73,71 +74,37 @@ class _SearchViewState extends State<SearchView> {
   }
 
   void _applyFilters() {
-    final query = _searchController.text.toLowerCase();
+    final rawQuery = _searchController.text.toLowerCase();
+    final matchTagsOnly = rawQuery.startsWith('#');
+    final query = matchTagsOnly ? rawQuery.substring(1) : rawQuery;
+
     setState(() {
       final allEntries = [
         ..._homeController.journalEntries,
         ..._homeController.draftEntries,
       ];
 
-      _filteredEntries = allEntries.where((entry) {
-        final plainText = _homeController.plainTextCache[entry.id] ?? '';
-        final content = plainText.toLowerCase();
-        final entryTags = entry.tags.map((t) => t.toLowerCase()).toList();
-
-        bool matchesQuery = false;
-        if (query.startsWith('#')) {
-          // If query starts with #, search specifically in tags
-          matchesQuery = entryTags.any((t) => t.contains(query));
-        } else {
-          // Otherwise search in content OR tags
-          matchesQuery = content.contains(query) || entryTags.any((t) => t.contains(query));
-        }
-
-        if (_selectedTags.isNotEmpty && !_selectedTags.every((tag) => entry.tags.contains(tag))) {
-          return false;
-        }
-
-        if (_isBookmarked && !entry.isBookmarked) {
-          return false;
-        }
-        if (_isTextOnly &&
-            (entry.galleryImages.isNotEmpty ||
-                entry.cameraPhotos.isNotEmpty ||
-                entry.galleryAudios.isNotEmpty ||
-                entry.recordings.isNotEmpty)) {
-          return false;
-        }
-        if (_isMediaOnly &&
-            (entry.galleryImages.isEmpty &&
-                entry.cameraPhotos.isEmpty &&
-                entry.galleryAudios.isEmpty &&
-                entry.recordings.isEmpty)) {
-          return false;
-        }
-        if (_withMood && entry.moodIndex == null) {
-          return false;
-        }
-        if (_withLocation && entry.location == null) {
-          return false;
-        }
-        if (_isReflection && !entry.isReflection) {
-          return false;
-        }
-        if (_isDraft && !entry.isDraft) {
-          return false;
-        }
-
-        if (_isTagsFilterActive && entry.tags.isEmpty) {
-          return false;
-        }
-
-        if (_selectedTags.isNotEmpty && !_selectedTags.every((tag) => entry.tags.contains(tag))) {
-          return false;
-        }
-
-        return matchesQuery;
-      }).toList();
+      _filteredEntries = EntryQuery.filter(
+        allEntries,
+        EntryCriteria(
+          query: query,
+          matchTagsOnly: matchTagsOnly,
+          selectedTags: _selectedTags,
+          bookmarked: _isBookmarked,
+          textOnly: _isTextOnly,
+          mediaOnly: _isMediaOnly,
+          withMood: _withMood,
+          withLocation: _withLocation,
+          withReflection: _isReflection,
+          withDraft: _isDraft,
+          withAnyTags: _isTagsFilterActive,
+        ),
+        searchableText: (entry) {
+          final plainText = _homeController.plainTextCache[entry.id] ?? '';
+          final tagsText = entry.tags.join(' ');
+          return '$plainText $tagsText'.toLowerCase();
+        },
+      );
     });
   }
 
