@@ -160,6 +160,13 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       if (!_isSavedOrDiscarded && _hasUnsavedChanges) {
         _autosave?.flush();
       }
+      // Close the sheet when the app goes to the background so a picker view
+      // is not left on screen when the user returns.
+      if (_isDraggableSheetActive && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _closeSheet();
+        });
+      }
     }
   }
 
