@@ -1,25 +1,21 @@
 name: Android build check
 
-# A debug APK build. This is the gate that catches native plugin breakage from
-# a dependency bump: pub get, analyze and test are all static, while
-# permission_handler, camera, file_picker, record and
-# flutter_local_notifications carry Android code.
+# A debug APK build, on the box-04 self-hosted runner. This is the gate that
+# catches native plugin breakage from a dependency bump: pub get, analyze and
+# test are all static, while permission_handler, camera, file_picker, record
+# and flutter_local_notifications carry Android code.
 #
-# It runs on a GitHub-hosted runner on purpose. box-04 has a 20 GiB data disk
-# and a debug build needs roughly 4 GiB on top of the toolchains, so building
-# there fills the disk.
+# The runner has Flutter 3.47.9 (the project's declared baseline), the Android
+# SDK at /data/workspace/android-sdk and a Gradle home on the root disk, because
+# the data disk is too small for a build. Measured: 174 s for a single-ABI
+# debug APK.
 #
-# workflow_dispatch only works once this file is on the default branch, so the
-# same job also runs on a pull request that touches the dependency set or the
-# Android project.
+# One ABI. Every plugin's Android code is compiled either way, so this is as
+# much of a compile gate as a universal build, and the result is small enough to
+# hand to a phone.
 
 on:
   workflow_dispatch:
-    inputs:
-      branch:
-        description: 'Branch to build'
-        required: true
-        default: 'main'
   pull_request:
     paths:
       - 'pubspec.yaml'
@@ -29,34 +25,33 @@ on:
 
 jobs:
   apk:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, flutter]
+    timeout-minutes: 20
+    env:
+      ANDROID_HOME: /data/workspace/android-sdk
+      ANDROID_SDK_ROOT: /data/workspace/android-sdk
+      GRADLE_USER_HOME: /opt/gradle-home
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Set up Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: '17'
+      - name: Put Flutter on the path
+        run: echo "/data/workspace/toolchain/flutter-3.47.9/bin" >> "$GITHUB_PATH"
 
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.47.9'
-          channel: 'stable'
-          cache: true
+      - name: Flutter version
+        run: flutter --version
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Analyze and test
-        run: |
-          flutter analyze
-          flutter test
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
 
       - name: Build debug APK
-        run: flutter build apk --debug
+        run: flutter build apk --debug --target-platform android-arm64
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
