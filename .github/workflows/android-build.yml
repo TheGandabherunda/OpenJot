@@ -1,0 +1,57 @@
+name: Android build check
+
+# A debug APK build, on demand. This is the gate that catches native plugin
+# breakage from a dependency bump: pub get, analyze and test are all static,
+# while permission_handler, camera, file_picker, record and
+# flutter_local_notifications carry Android code.
+#
+# It runs on a GitHub-hosted runner on purpose. box-04 has a 20 GiB data disk
+# and a debug build needs roughly 4 GiB on top of the toolchains, so building
+# there fills the disk.
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build'
+        required: true
+        default: 'main'
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.9'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze and test
+        run: |
+          flutter analyze
+          flutter test
+
+      - name: Build debug APK
+        run: flutter build apk --debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: openjot-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
