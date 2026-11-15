@@ -18,6 +18,7 @@ import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/models/journal_entry.dart';
 import 'package:open_jot/app/core/services/permission_service.dart';
 import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/modules/write_journal/draft_autosave.dart';
 import 'package:open_jot/app/core/widgets/custom_button.dart';
 import 'package:open_jot/app/core/widgets/journal_tile.dart';
 import 'package:open_jot/app/core/widgets/text_styling_toolbar.dart';
@@ -97,6 +98,13 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   int? _selectedMoodIndex;
 
   _SheetTransitionState _sheetState = _SheetTransitionState.none;
+
+  /// Writes the draft to storage two seconds after the last change.
+  ///
+  /// Built in initState and disposed with the sheet. Its save callback calls
+  /// `_saveEntry` when the timer runs, so it always targets the entry the sheet
+  /// is holding now, not the one it held when the timer was set.
+  DraftAutosave? _autosave;
   bool _pendingLocationResume = false;
 
   bool _isLoadingMedia = false;
@@ -145,7 +153,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.detached) {
       if (!_isSavedOrDiscarded && _hasUnsavedChanges) {
-        _saveEntry(isDraft: true);
+        _autosave?.flush();
       }
     }
   }
@@ -206,7 +214,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     _quillController.addListener(() {
       if (mounted) setState(() {});
     });
+    _autosave = DraftAutosave(save: () async => _saveEntry(isDraft: true));
     _quillController.document.changes.listen(_handleTextChange);
+    _quillController.document.changes.listen((_) => _autosave?.noteChange());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         if (widget.initialText == null &&
@@ -341,12 +351,13 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
 
     try {
       if (!_isSavedOrDiscarded && _hasUnsavedChanges) {
-        _saveEntry(isDraft: true);
+        _autosave?.flush();
         CustomToast.showToast(AppConstants.draftSaved);
       }
     } catch (e) {
       debugPrint("Auto-draft save failed in dispose: $e");
     }
+    _autosave?.dispose();
 
     _quillController.document.changes.listen(null);
     _quillController.dispose();
@@ -458,6 +469,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     }
 
     _saveEntry(isDraft: false);
+    _autosave?.discard();
 
     Navigator.of(context).pop(isTextEmpty && isMediaEmpty);
   }
@@ -617,6 +629,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
 
       if (pickedTime != null) {
         setState(() {
+          _autosave?.noteChange();
           _selectedDate = DateTime(
             pickedDate.year,
             pickedDate.month,
@@ -1218,6 +1231,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
           onTap: () {
             setState(() {
               _isBookmarked = !_isBookmarked;
+              _autosave?.noteChange();
             });
           },
           child: Container(
@@ -2107,6 +2121,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                     SizedBox(width: 4.w),
                     GestureDetector(
                       onTap: () {
+                        _autosave?.noteChange();
                         setState(() {
                           _tags.remove(tag);
                         });
@@ -2197,6 +2212,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     // Split by spaces to allow multiple tags at once
     final rawTags = tag.split(RegExp(r'\s+')).where((t) => t.isNotEmpty);
 
+    _autosave?.noteChange();
     setState(() {
       for (var t in rawTags) {
         String formattedTag = t.startsWith('#') ? t : '#$t';
@@ -2296,6 +2312,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                 }
               },
               onRecordingComplete: (path, duration) {
+                _autosave?.noteChange();
                 setState(() {
                   final recordingName = AppConstants.openJotRecording
                       .replaceFirst(
@@ -2311,6 +2328,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                 _closeSheet();
               },
               onAssetsSelected: (assets) {
+                _autosave?.noteChange();
                 setState(() {
                   final imagesAndVideos = assets
                       .where(
@@ -2337,6 +2355,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                 _closeSheet();
               },
               onLocationSelected: (location) {
+                _autosave?.noteChange();
                 setState(() {
                   final link =
                       'geo:${location.latitude},${location.longitude}?q=${location.latitude},${location.longitude}';
@@ -2346,6 +2365,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                 _closeSheet();
               },
               onPhotoTaken: (photo) {
+                _autosave?.noteChange();
                 setState(() {
                   final photoName = AppConstants.openJotImage.replaceFirst(
                     '%s',
@@ -2361,6 +2381,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                 _closeSheet();
               },
               onFilesPicked: (paths, type) {
+                _autosave?.noteChange();
                 setState(() {
                   if (type == AssetType.audio) {
                     for (final path in paths) {
@@ -2389,6 +2410,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                 _closeSheet();
               },
               onMoodChanged: (index) {
+                _autosave?.noteChange();
                 setState(() {
                   _selectedMoodIndex = index;
                 });
@@ -2533,6 +2555,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
 
     if (action == 'discard') {
       _isSavedOrDiscarded = true;
+      _autosave?.discard();
       if (widget.entry == null) {
         Get.find<HomeController>().deleteJournalEntry(_currentEntryId);
       } else {
@@ -2542,6 +2565,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     } else if (action == 'draft') {
       _isSavedOrDiscarded = true;
       _saveEntry(isDraft: true);
+      _autosave?.discard();
       CustomToast.showToast(AppConstants.draftSaved);
       return true; // Allow pop
     }
