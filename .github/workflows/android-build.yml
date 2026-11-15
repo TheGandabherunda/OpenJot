@@ -1,13 +1,17 @@
 name: Android build check
 
-# A debug APK build, on demand. This is the gate that catches native plugin
-# breakage from a dependency bump: pub get, analyze and test are all static,
-# while permission_handler, camera, file_picker, record and
+# A debug APK build. This is the gate that catches native plugin breakage from
+# a dependency bump: pub get, analyze and test are all static, while
+# permission_handler, camera, file_picker, record and
 # flutter_local_notifications carry Android code.
 #
 # It runs on a GitHub-hosted runner on purpose. box-04 has a 20 GiB data disk
 # and a debug build needs roughly 4 GiB on top of the toolchains, so building
 # there fills the disk.
+#
+# workflow_dispatch only works once this file is on the default branch, so the
+# same job also runs on a pull request that touches the dependency set or the
+# Android project.
 
 on:
   workflow_dispatch:
@@ -16,6 +20,12 @@ on:
         description: 'Branch to build'
         required: true
         default: 'main'
+  pull_request:
+    paths:
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'android/**'
+      - '.github/workflows/android-build.yml'
 
 jobs:
   apk:
@@ -23,8 +33,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.inputs.branch }}
 
       - name: Set up Java
         uses: actions/setup-java@v5
