@@ -401,13 +401,11 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
         assetType = AssetType.other;
     }
 
-    final result = await FilePicker.platform.pickFiles(
-      type: type,
-      allowMultiple: true,
-    );
+    // allowMultiple is gone: pickFiles selects several files by default.
+    final files = await FilePicker.pickFiles(type: type);
 
-    if (result != null && result.paths.isNotEmpty) {
-      final paths = result.paths.whereType<String>().toList();
+    final paths = files.map((file) => file.path).whereType<String>().toList();
+    if (paths.isNotEmpty) {
       widget.onFilesPicked?.call(paths, assetType);
     }
   }
