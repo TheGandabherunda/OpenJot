@@ -13,7 +13,9 @@ concurrency:
 jobs:
   verify:
     # Flutter and the Android SDK live on the box-04 runner, so no SDK is
-    # downloaded and no cache step is needed.
+    # downloaded and no cache step is needed. The version is the project's
+    # declared baseline, not the newest stable: see pubspec.yaml and
+    # docs/superpowers/specs/2026-11-15-dependency-baseline-upgrade-design.md.
     runs-on: [self-hosted, linux, x64, flutter]
     timeout-minutes: 30
     steps:
@@ -21,7 +23,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Put Flutter on the path
-        run: echo "/data/workspace/toolchain/flutter/bin" >> "$GITHUB_PATH"
+        run: echo "/data/workspace/toolchain/flutter-3.47.9/bin" >> "$GITHUB_PATH"
 
       - name: Flutter version
         run: flutter --version
