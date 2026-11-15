@@ -154,14 +154,14 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       unawaited(_resumeLocationFlow());
     }
 
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.detached) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
       if (!_isSavedOrDiscarded && _hasUnsavedChanges) {
         _autosave?.flush();
       }
       // Close the sheet when the app goes to the background so a picker view
-      // is not left on screen when the user returns.
+      // is not left on screen when the user returns. 'inactive' is excluded
+      // because it fires transiently (permission dialogs, camera/gallery
+      // picker, notification shade) and must not close the editor mid-pick.
       if (_isDraggableSheetActive && mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _closeSheet();

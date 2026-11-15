@@ -102,14 +102,4 @@ class EntryQuery {
       return true;
     }).toList();
   }
-
-  /// Returns the sorted, deduplicated set of tags used across [entries].
-  static List<String> allTags(List<JournalEntry> entries) {
-    final tags = <String>{};
-    for (final entry in entries) {
-      tags.addAll(entry.tags);
-    }
-    final result = tags.toList()..sort();
-    return result;
-  }
 }

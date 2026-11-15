@@ -22,6 +22,7 @@ import '../../core/theme.dart';
 import '../../core/widgets/journal_bottom_bar.dart';
 import '../../core/widgets/journal_tile.dart';
 import '../search/entry_criteria.dart';
+import '../../core/models/journal_entry.dart';
 import '../reflection/reflection_bottom_sheet.dart';
 import '../../utils/custom_toast.dart';
 import 'home_controller.dart';
@@ -77,6 +78,27 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
   int _topEntryIndex = 0;
   final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
+  List<JournalEntry> _displayEntries = const [];
+
+  void _rebuildDisplay() {
+    final allEntries = [
+      ...widget.controller.journalEntries,
+      ...widget.controller.draftEntries,
+    ];
+    if (_searchQuery.isEmpty) {
+      _displayEntries = allEntries;
+    } else if (_searchQuery.startsWith('#')) {
+      _displayEntries = EntryQuery.filter(
+        allEntries,
+        EntryCriteria(query: _searchQuery.substring(1), matchTagsOnly: true),
+      );
+    } else {
+      _displayEntries = EntryQuery.filter(
+        allEntries,
+        EntryCriteria(query: _searchQuery.toLowerCase()),
+      );
+    }
+  }
 
   late final ValueNotifier<String?> _currentMonthYearNotifier;
   late final ValueNotifier<bool> _showChipNotifier;
@@ -312,6 +334,21 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
             ],
           ),
         ),
+        PopupMenuDivider(height: 1, color: appThemeColors.grey6),
+        PopupMenuItem(
+          value: 'search',
+          child: Row(
+            children: [
+              Icon(Icons.search, color: appThemeColors.grey10),
+              SizedBox(width: 8.w),
+              Text(AppConstants.searchJournalsHint,
+                  style: TextStyle(
+                      color: appThemeColors.grey10,
+                      fontFamily: AppConstants.font,
+                      letterSpacing: -0.2)),
+            ],
+          ),
+        ),
       ],
     ).then((value) {
       if (value == 'bookmarks') {
@@ -324,6 +361,8 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         _handleReflections();
       } else if (value == 'settings') {
         _handleSettings();
+      } else if (value == 'search') {
+        Get.to(() => const SearchView());
       }
     });
   }
@@ -743,13 +782,6 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
   @override
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
-    final entries = widget.controller.journalEntries;
-    final _displayEntries = _searchQuery.isEmpty
-        ? entries
-        : EntryQuery.filter(
-            entries,
-            EntryCriteria(query: _searchQuery.toLowerCase()),
-          );
 
     return Stack(
       children: [
@@ -762,7 +794,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
               final offset = notification.metrics.pixels;
               if ((offset - _lastOffset).abs() > 20.0 || offset == 0.0) {
                 _lastOffset = offset;
-                _onScroll(offset, entries.length, entries);
+                _onScroll(offset, _displayEntries.length, _displayEntries);
               }
             }
             return false;
@@ -850,6 +882,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                   key: _bodyKey,
                   builder: (innerContext) {
                     return Obx(() {
+                      _rebuildDisplay();
                       if (_displayEntries.isEmpty) {
                         return Center(
                           child: Padding(
@@ -862,7 +895,9 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                     height: 48.sp),
                                 SizedBox(height: 24.h),
                                 Text(
-                                  AppConstants.jotYourThoughts,
+                                  _searchQuery.isEmpty
+                                      ? AppConstants.jotYourThoughts
+                                      : AppConstants.noResultsFound,
                                   style: TextStyle(
                                     fontFamily: AppConstants.font,
                                     fontWeight: FontWeight.w600,
@@ -873,6 +908,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
+                                if (_searchQuery.isEmpty)
                                 Text(
                                   AppConstants.tapToCreateJournal,
                                   style: TextStyle(
