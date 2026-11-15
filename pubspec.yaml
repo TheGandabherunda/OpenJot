@@ -25,6 +25,9 @@ dependencies:
   hive_flutter: ^1.1.0
   sqflite: ^2.4.6
   markdown_quill: ^4.3.0
+  # Imported directly by daily_you_migration_service, so it is declared rather
+  # than relying on markdown_quill to pull it in.
+  markdown: ^7.3.1
 
   # --- UI & UX ---
   flutter_quill: ^11.6.0

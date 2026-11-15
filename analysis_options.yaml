@@ -101,7 +101,8 @@ linter:
     - throw_in_finally
     - type_init_formals
     # - unawaited_futures # Commented out
-    - unnecessary_await_in_return
+    # unnecessary_await_in_return: removed from the analyzer, so enabling it is
+    # itself a deprecation warning.
     - unnecessary_brace_in_string_interps
     - unnecessary_const
     - unnecessary_constructor_name
