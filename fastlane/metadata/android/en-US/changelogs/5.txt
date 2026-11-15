@@ -1,0 +1,4 @@
+• Draft Autosave: your entry is saved two seconds after you stop typing, so an unexpected close no longer loses what you wrote.
+• Faster Saving: saving an entry no longer re-reads your whole journal, so the app stays smooth as your library grows.
+• Dependency Refresh: the app is built on current libraries, with fixes from a year of upstream releases.
+• Editor Fixes: pausing while editing no longer fills Drafts with duplicate copies, and an emptied entry no longer leaves a blank one behind.

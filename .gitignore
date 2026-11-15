@@ -48,3 +48,9 @@ app.*.map.json
 android/key.properties
 **/*.keystore
 **/*.jks
+
+# Release signing material: the workflow decodes the keystore here from
+# ANDROID_UPLOAD_KEYSTORE. It must never be committed.
+android/app/release-key.jks
+*.jks
+*.keystore
