@@ -54,3 +54,6 @@ android/key.properties
 android/app/release-key.jks
 *.jks
 *.keystore
+
+# Locally built APKs
+dist/
