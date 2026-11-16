@@ -1,69 +1,133 @@
-name: Android Release Build
+name: Release
 
 on:
-  workflow_dispatch: # This makes the workflow runnable manually from the GitHub Actions UI
-    inputs:
-      branch:
-        description: 'Branch to build from'
-        required: true
-        default: 'main'
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
 
 jobs:
-  build_android_apk:
+  build-android:
+    # GitHub-hosted: a release must not depend on a sandbox being awake, and
+    # box-04's data disk cannot hold a universal plus three split APKs.
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.branch }}
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - name: The tag must match the pubspec version
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          PUBSPEC_VERSION=$(sed -n 's/^version: *\([0-9.]*\)+\([0-9]*\).*/\1/p' pubspec.yaml)
+          if [ "$TAG_VERSION" != "$PUBSPEC_VERSION" ]; then
+            echo "Tag v$TAG_VERSION does not match pubspec version $PUBSPEC_VERSION."
+            echo "Bump pubspec.yaml first, then tag."
+            exit 1
+          fi
+          echo "version $PUBSPEC_VERSION, build $(sed -n 's/^version: *[0-9.]*+\([0-9]*\).*/\1/p' pubspec.yaml)"
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Flutter
+      - name: Set up Flutter
+        # The project's declared baseline, not the newest stable. Flutter 3.50
+        # requires Gradle 9.3.1 and AGP 9.1.1; this project is on Gradle 9.1.0
+        # and AGP 8.13.0. See
+        # docs/superpowers/specs/2026-11-15-dependency-baseline-upgrade-design.md.
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.2' # Or flutter-version-file: pubspec.yaml
+          flutter-version: '3.47.9'
+          channel: 'stable'
+          cache: true
 
-      - name: Display Flutter Version
-        run: flutter --version
-
-      - name: Install Dependencies
+      - name: Install dependencies
         run: flutter pub get
 
-      # --- Signing setup ---
-      - name: Decode Keystore File
+      - name: Analyze and test
+        run: |
+          flutter analyze
+          flutter test
+
+      - name: Decode and save keystore
         run: echo "${{ secrets.ANDROID_UPLOAD_KEYSTORE }}" | base64 --decode > android/app/release-key.jks
 
-      - name: Create Keystore Properties File
+      - name: Create key.properties
         run: |
-          echo "storeFile=release-key.jks" > android/key.properties
-          echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> android/key.properties
-          echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> android/key.properties
-          echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/key.properties
+          cat > android/key.properties << EOF
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          storeFile=./release-key.jks
+          EOF
 
-      - name: Build Android APK (Release)
+      - name: Build universal APK
+        run: flutter build apk --release
+
+      - name: Build split APKs
+        run: flutter build apk --release --split-per-abi
+
+      - name: Rename APKs
         run: |
-          flutter build apk --release
-          flutter build apk --release --split-per-abi
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          OUT=build/app/outputs/flutter-apk
+          mv "$OUT/app-release.apk" "$OUT/openjot-${VERSION}.apk"
+          mv "$OUT/app-armeabi-v7a-release.apk" "$OUT/openjot-${VERSION}-armeabi-v7a.apk"
+          mv "$OUT/app-arm64-v8a-release.apk" "$OUT/openjot-${VERSION}-arm64-v8a.apk"
+          mv "$OUT/app-x86_64-release.apk" "$OUT/openjot-${VERSION}-x86_64.apk"
 
-      - name: Show APK Version Info
+      - name: Show APK version info
         run: |
-          AaptPath=$(ls ${ANDROID_HOME}/build-tools/*/aapt | sort -V | tail -n 1)
-          echo "Using aapt from: $AaptPath"
-
+          AAPT=$(ls ${ANDROID_HOME}/build-tools/*/aapt | sort -V | tail -n 1)
           for apk in build/app/outputs/flutter-apk/*.apk; do
             echo ""
             echo "APK: $apk"
-            $AaptPath dump badging "$apk" | grep versionCode
+            "$AAPT" dump badging "$apk" | grep versionCode
           done
 
-      - name: Upload Android APK Artifact
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-apk
-          path: build/app/outputs/flutter-apk/
+          name: openjot-apk
+          path: build/app/outputs/flutter-apk/openjot-*.apk
+
+  create-release:
+    runs-on: ubuntu-latest
+    needs: [build-android]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Download APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: openjot-apk
+          path: artifacts
+
+      - name: Generate release notes
+        id: release_notes
+        uses: mikepenz/release-changelog-builder-action@v6
+        with:
+          mode: 'COMMIT'
+          configuration: '.github/release-config.json'
+          outputFile: release-notes.md
+          ignorePreReleases: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          body_path: release-notes.md
+          prerelease: ${{ contains(github.ref, '-') }}
+          files: |
+            artifacts/openjot-*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

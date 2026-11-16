@@ -518,7 +518,7 @@ class _JournalTileContent extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               MediaThumbnail(media: media),
-              if (overlay != null) overlay,
+              ?overlay,
             ],
           ),
         ),

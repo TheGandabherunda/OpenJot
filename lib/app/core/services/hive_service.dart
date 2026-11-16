@@ -365,8 +365,15 @@ class HiveService extends GetxService {
   }
 
   List<JournalEntry> getAllJournalEntries() => journalsBox.values.toList();
+
+  /// Cached because `Box.listenable()` builds a new listener wrapper on every
+  /// call, and `removeListener` on a different wrapper does not detach: a
+  /// controller that was replaced would keep reloading the journal on every
+  /// write.
+  ValueListenable<Box<JournalEntry>>? _journalsNotifier;
+
   ValueListenable<Box<JournalEntry>> getJournalEntriesNotifier() =>
-      journalsBox.listenable();
+      _journalsNotifier ??= journalsBox.listenable();
 
   // --- Garbage Collection (Storage Leak Fix) ---
   Future<void> cleanUpOrphanedMedia() async {
@@ -566,15 +573,14 @@ class HiveService extends GetxService {
       final zipFile = File(zipPath);
       final zipBytes = await zipFile.readAsBytes();
 
-      final String? selectedPath = await FilePicker.platform.saveFile(
+      final savedUri = await FilePicker.saveFile(
         dialogTitle: AppConstants.selectBackupFolder,
         fileName: backupFileName,
-        type: FileType.custom,
-        allowedExtensions: ['zip'],
         bytes: zipBytes,
+        mimeType: 'application/zip',
       );
 
-      if (selectedPath == null) {
+      if (savedUri == null) {
         return false;
       }
 
@@ -603,13 +609,14 @@ class HiveService extends GetxService {
 
     Directory? tempDir;
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final picked = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['zip'],
       );
-      if (result == null || result.files.single.path == null) return false;
+      final zipPath = picked.isEmpty ? null : picked.single.path;
+      if (zipPath == null) return false;
 
-      final zipFile = File(result.files.single.path!);
+      final zipFile = File(zipPath);
       final appDocDir = await getApplicationDocumentsDirectory();
 
       tempDir = Directory(p.join((await getTemporaryDirectory()).path, 'restore_temp'));

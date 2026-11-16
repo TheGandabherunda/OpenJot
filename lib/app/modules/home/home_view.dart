@@ -19,8 +19,10 @@ import 'package:progressive_blur/progressive_blur.dart';
 import '../../core/constants.dart';
 import '../../core/services/shared_services.dart';
 import '../../core/theme.dart';
-import '../../core/widgets/custom_icon_button.dart';
+import '../../core/widgets/journal_bottom_bar.dart';
 import '../../core/widgets/journal_tile.dart';
+import '../search/entry_criteria.dart';
+import '../../core/models/journal_entry.dart';
 import '../reflection/reflection_bottom_sheet.dart';
 import '../../utils/custom_toast.dart';
 import 'home_controller.dart';
@@ -75,6 +77,28 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
   double _lastOffset = 0.0;
   int _topEntryIndex = 0;
   final ScrollController _scrollController = ScrollController();
+  String _searchQuery = '';
+  List<JournalEntry> _displayEntries = const [];
+
+  void _rebuildDisplay() {
+    final allEntries = [
+      ...widget.controller.journalEntries,
+      ...widget.controller.draftEntries,
+    ];
+    if (_searchQuery.isEmpty) {
+      _displayEntries = allEntries;
+    } else if (_searchQuery.startsWith('#')) {
+      _displayEntries = EntryQuery.filter(
+        allEntries,
+        EntryCriteria(query: _searchQuery.substring(1), matchTagsOnly: true),
+      );
+    } else {
+      _displayEntries = EntryQuery.filter(
+        allEntries,
+        EntryCriteria(query: _searchQuery.toLowerCase()),
+      );
+    }
+  }
 
   late final ValueNotifier<String?> _currentMonthYearNotifier;
   late final ValueNotifier<bool> _showChipNotifier;
@@ -310,6 +334,21 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
             ],
           ),
         ),
+        PopupMenuDivider(height: 1, color: appThemeColors.grey6),
+        PopupMenuItem(
+          value: 'search',
+          child: Row(
+            children: [
+              Icon(Icons.search, color: appThemeColors.grey10),
+              SizedBox(width: 8.w),
+              Text(AppConstants.searchJournalsHint,
+                  style: TextStyle(
+                      color: appThemeColors.grey10,
+                      fontFamily: AppConstants.font,
+                      letterSpacing: -0.2)),
+            ],
+          ),
+        ),
       ],
     ).then((value) {
       if (value == 'bookmarks') {
@@ -322,6 +361,8 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         _handleReflections();
       } else if (value == 'settings') {
         _handleSettings();
+      } else if (value == 'search') {
+        Get.to(() => const SearchView());
       }
     });
   }
@@ -741,7 +782,6 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
   @override
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
-    final entries = widget.controller.journalEntries;
 
     return Stack(
       children: [
@@ -754,7 +794,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
               final offset = notification.metrics.pixels;
               if ((offset - _lastOffset).abs() > 20.0 || offset == 0.0) {
                 _lastOffset = offset;
-                _onScroll(offset, entries.length, entries);
+                _onScroll(offset, _displayEntries.length, _displayEntries);
               }
             }
             return false;
@@ -803,22 +843,6 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                 ),
                               ),
                             ),
-                            GestureDetector(
-                              onTap: () => Get.to(() => const SearchView()),
-                              child: Container(
-                                width: 36.w,
-                                height: 36.w,
-                                decoration: BoxDecoration(
-                                  color: appThemeColors.grey6,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.search,
-                                  size: 24.sp,
-                                  color: appThemeColors.grey1,
-                                ),
-                              ),
-                            ),
                             SizedBox(width: 8.w),
                             GestureDetector(
                               key: _menuKey,
@@ -848,8 +872,8 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
             body: ProgressiveBlurWidget(
               sigma: 25.0,
               linearGradientBlur: const LinearGradientBlur(
-                values: [0, 0, 0.23, 1],
-                stops: [0.0, 0.12, 0.88, 1.0],
+                values: [0, 0, 1],
+                stops: [0.0, 0.9, 1.0],
                 start: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -858,7 +882,8 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                   key: _bodyKey,
                   builder: (innerContext) {
                     return Obx(() {
-                      if (entries.isEmpty) {
+                      _rebuildDisplay();
+                      if (_displayEntries.isEmpty) {
                         return Center(
                           child: Padding(
                             padding: EdgeInsets.all(16.0.w),
@@ -870,7 +895,9 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                     height: 48.sp),
                                 SizedBox(height: 24.h),
                                 Text(
-                                  AppConstants.jotYourThoughts,
+                                  _searchQuery.isEmpty
+                                      ? AppConstants.jotYourThoughts
+                                      : AppConstants.noResultsFound,
                                   style: TextStyle(
                                     fontFamily: AppConstants.font,
                                     fontWeight: FontWeight.w600,
@@ -881,6 +908,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
+                                if (_searchQuery.isEmpty)
                                 Text(
                                   AppConstants.tapToCreateJournal,
                                   style: TextStyle(
@@ -953,15 +981,15 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                 left: 16.w,
                                 right: 16.w,
                                 top: 16.h,
-                                bottom: 140.h,
+                                bottom: 90.h,
                               ),
                               sliver: SliverMainAxisGroup(
                                 slivers: [
                                   SliverList(
                                     delegate: SliverChildBuilderDelegate(
                                           (context, index) {
-                                        final entry = entries[index];
-                                        final prevEntry = index > 0 ? entries[index - 1] : null;
+                                        final entry = _displayEntries[index];
+                                        final prevEntry = index > 0 ? _displayEntries[index - 1] : null;
 
                                         bool showYearDivider = prevEntry == null ||
                                             entry.createdAt.year != prevEntry.createdAt.year;
@@ -1029,7 +1057,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                           ),
                                         );
                                       },
-                                      childCount: entries.isEmpty ? 0 : entries.length,
+                                      childCount: _displayEntries.isEmpty ? 0 : _displayEntries.length,
                                       addAutomaticKeepAlives: false,
                                       addRepaintBoundaries: true,
                                     ),
@@ -1110,38 +1138,30 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
           ),
         ),
         Positioned(
-          bottom: 40.h,
+          bottom: 0,
           left: 0,
           right: 0,
-          child: Center(
-            child: Builder(
-              builder: (BuildContext innerContext) {
-                return CustomIconButton(
-                  iconSize: 40,
-                  iconPadding: EdgeInsets.all(14.w),
-                  icon: Icons.add,
-                  color: appThemeColors.primary,
-                  iconColor: appThemeColors.onPrimary,
-                  onPressed: () {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      showCupertinoModalBottomSheet(
-                        context: innerContext,
-                        expand: true,
-                        backgroundColor: null,
-                        bounce: true,
-                        animationCurve: Curves.easeOutCubic,
-                        duration: const Duration(milliseconds: 400),
-                        builder: (BuildContext modalContext) {
-                          return const SafeArea(
-                            child: WriteJournalBottomSheet(),
-                          );
-                        },
-                      );
-                    });
-                  },
-                );
-              },
-            ),
+          child: JournalBottomBar(
+            onQueryChanged: (query) {
+              setState(() {
+                _searchQuery = query;
+              });
+            },
+            onWrite: () {
+              showCupertinoModalBottomSheet(
+                context: context,
+                expand: true,
+                backgroundColor: null,
+                bounce: true,
+                animationCurve: Curves.easeOutCubic,
+                duration: const Duration(milliseconds: 400),
+                builder: (modalContext) {
+                  return const SafeArea(
+                    child: WriteJournalBottomSheet(),
+                  );
+                },
+              );
+            },
           ),
         ),
       ],

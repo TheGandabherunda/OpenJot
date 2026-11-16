@@ -320,15 +320,17 @@ class SettingsScreenController extends GetxController {
   Future<void> importFromDailyYou() async {
     final appColors = AppTheme.colorsOf(Get.context!);
     try {
-      final result = await FilePicker.platform.pickFiles(
+      // file_picker 12 removed FilePicker.platform and FilePickerResult:
+      // the pickers are static, pickFiles returns a List<PlatformFile> that is
+      // empty when the user cancels, and saveFile returns the written Uri.
+      final files = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['zip'],
         dialogTitle: AppConstants.selectDailyYouBackup,
       );
 
-      if (result == null || result.files.single.path == null) return;
-
-      final zipPath = result.files.single.path!;
+      final zipPath = files.isEmpty ? null : files.single.path;
+      if (zipPath == null) return;
 
       // Show loading dialog
       Get.dialog(

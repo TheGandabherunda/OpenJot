@@ -12,6 +12,7 @@ import 'package:open_jot/app/core/widgets/journal_tile.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 
 import '../../core/models/journal_entry.dart';
+import '../search/entry_criteria.dart';
 
 enum SortOption { none, mutedFirst, unmutedFirst }
 
@@ -118,34 +119,20 @@ class _ExcludeEntriesBottomSheetState extends State<ExcludeEntriesBottomSheet> {
         ..._homeController.draftEntries,
       ];
 
-      _filteredEntries = allEntries.where((entry) {
-        final content = entry.content.toPlainText().toLowerCase();
-        bool matchesQuery = content.contains(query);
-
-        if (_isBookmarked && !entry.isBookmarked) {
-          return false;
-        }
-        if (_isTextOnly &&
-            (entry.galleryImages.isNotEmpty ||
-                entry.cameraPhotos.isNotEmpty ||
-                entry.galleryAudios.isNotEmpty ||
-                entry.recordings.isNotEmpty)) {
-          return false;
-        }
-        if (_isMediaOnly &&
-            (entry.galleryImages.isEmpty &&
-                entry.cameraPhotos.isEmpty &&
-                entry.galleryAudios.isEmpty &&
-                entry.recordings.isEmpty)) {
-          return false;
-        }
-        if (_withMood && entry.moodIndex == null) return false;
-        if (_withLocation && entry.location == null) return false;
-        if (_isReflection && !entry.isReflection) return false;
-        if (_isDraft && !entry.isDraft) return false;
-
-        return matchesQuery;
-      }).toList();
+      _filteredEntries = EntryQuery.filter(
+        allEntries,
+        EntryCriteria(
+          query: query,
+          bookmarked: _isBookmarked,
+          textOnly: _isTextOnly,
+          mediaOnly: _isMediaOnly,
+          withMood: _withMood,
+          withLocation: _withLocation,
+          withReflection: _isReflection,
+          withDraft: _isDraft,
+        ),
+        searchableText: (entry) => entry.content.toPlainText().toLowerCase(),
+      );
 
       // Apply Sorting Logic
       _filteredEntries.sort((a, b) {

@@ -1,0 +1,3 @@
+• Journal Bottom Bar: fixed search bar at the bottom — tap to search entries or #tag, with a new-entry button on the right.
+• Unified Filters: search and exclude-entry rules now live in one place, so results stay consistent everywhere.
+• Background Fix: the editor sheet closes when you switch apps, so no picker view is left behind.

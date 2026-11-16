@@ -1,0 +1,24 @@
+{
+  "template": "#{{CHANGELOG}}\n\n**Full Changelog**: #{{RELEASE_DIFF}}",
+  "categories": [
+    { "title": "## Features", "labels": ["feat", "feature"] },
+    { "title": "## Bug Fixes", "labels": ["fix", "bug"] },
+    { "title": "## Performance", "labels": ["perf", "performance"] },
+    { "title": "## Documentation", "labels": ["docs", "documentation"] },
+    { "title": "## Maintenance", "labels": ["chore", "refactor", "style", "test", "build", "ci"] },
+    { "title": "## Other", "labels": [] }
+  ],
+  "label_extractor": [
+    {
+      "pattern": "^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test){1}\\s*(\\([\\w\\-\\.]+\\))?(!)?: ([\\w ])+([\\s\\S]*)",
+      "on_property": "title",
+      "target": "$1"
+    }
+  ],
+  "trim_values": true,
+  "max_tags_to_fetch": 200,
+  "max_back_track_time_days": 365,
+  "pr_template": "- #{{TITLE}} by @#{{AUTHOR}} (#{{NUMBER}})",
+  "commit_template": "- #{{TITLE}} by @#{{AUTHOR}}",
+  "empty_template": "No changes in this release"
+}

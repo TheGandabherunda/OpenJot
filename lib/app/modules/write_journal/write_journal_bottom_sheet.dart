@@ -18,6 +18,8 @@ import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/models/journal_entry.dart';
 import 'package:open_jot/app/core/services/permission_service.dart';
 import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/modules/write_journal/draft_autosave.dart';
+import 'package:open_jot/app/modules/write_journal/save_target.dart';
 import 'package:open_jot/app/core/widgets/custom_button.dart';
 import 'package:open_jot/app/core/widgets/journal_tile.dart';
 import 'package:open_jot/app/core/widgets/text_styling_toolbar.dart';
@@ -97,6 +99,17 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   int? _selectedMoodIndex;
 
   _SheetTransitionState _sheetState = _SheetTransitionState.none;
+
+  /// Writes the draft to storage two seconds after the last change.
+  ///
+  /// Built in initState and disposed with the sheet. Its save callback calls
+  /// `_saveEntry` when the timer runs, so it always targets the entry the sheet
+  /// is holding now, not the one it held when the timer was set.
+  DraftAutosave? _autosave;
+
+  /// Works out which entry a save writes to, and keeps the branched draft id
+  /// stable across autosaves.
+  final SaveTargetResolver _saveTargets = SaveTargetResolver();
   bool _pendingLocationResume = false;
 
   bool _isLoadingMedia = false;
@@ -141,11 +154,18 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       unawaited(_resumeLocationFlow());
     }
 
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.detached) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
       if (!_isSavedOrDiscarded && _hasUnsavedChanges) {
-        _saveEntry(isDraft: true);
+        _autosave?.flush();
+      }
+      // Close the sheet when the app goes to the background so a picker view
+      // is not left on screen when the user returns. 'inactive' is excluded
+      // because it fires transiently (permission dialogs, camera/gallery
+      // picker, notification shade) and must not close the editor mid-pick.
+      if (_isDraggableSheetActive && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _closeSheet();
+        });
       }
     }
   }
@@ -206,7 +226,9 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     _quillController.addListener(() {
       if (mounted) setState(() {});
     });
+    _autosave = DraftAutosave(save: () async => _saveEntry(isDraft: true));
     _quillController.document.changes.listen(_handleTextChange);
+    _quillController.document.changes.listen((_) => _autosave?.noteChange());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         if (widget.initialText == null &&
@@ -341,12 +363,13 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
 
     try {
       if (!_isSavedOrDiscarded && _hasUnsavedChanges) {
-        _saveEntry(isDraft: true);
+        _autosave?.flush();
         CustomToast.showToast(AppConstants.draftSaved);
       }
     } catch (e) {
       debugPrint("Auto-draft save failed in dispose: $e");
     }
+    _autosave?.dispose();
 
     _quillController.document.changes.listen(null);
     _quillController.dispose();
@@ -365,27 +388,32 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
           _previewAudios.isEmpty &&
           _previewRecordings.isEmpty;
 
-      if (isTextEmpty && isMediaEmpty && !isDraft) return;
+      // A draft save with nothing in it would leave a blank entry behind that
+      // the user cannot delete: Done refuses to save an empty entry, and
+      // HiveService only drops an empty entry it is asked to update.
+      if (!journalHasContent(isTextEmpty: isTextEmpty, isMediaEmpty: isMediaEmpty)) {
+        return;
+      }
 
       final homeController = Get.find<HomeController>();
       final documentJson = _quillController.document.toDelta().toJson();
       final cleanDocument = quill.Document.fromJson(documentJson);
 
-      String saveId = _currentEntryId;
-      String? originalId = widget.entry?.originalId;
+      final target = _saveTargets.resolve(
+        currentId: _currentEntryId,
+        entryId: widget.entry?.id,
+        entryIsDraft: widget.entry?.isDraft ?? false,
+        entryOriginalId: widget.entry?.originalId,
+        isDraft: isDraft,
+        newId: () => const Uuid().v4(),
+      );
 
-      // Handle non-destructive draft saving for existing journals
-      if (isDraft && widget.entry != null && !widget.entry!.isDraft) {
-        // Create a new branched draft ID
-        saveId = const Uuid().v4();
-        originalId = widget.entry!.id;
-      }
+      final String saveId = target.id;
+      final String? originalId = target.originalId;
 
-      // If we are updating an existing entry from a draft that has an originalId
-      if (!isDraft && widget.entry != null && widget.entry!.isDraft && widget.entry!.originalId != null) {
-        saveId = widget.entry!.originalId!;
-        // Delete the draft entry after updating the original
-        homeController.deleteJournalEntry(widget.entry!.id);
+      // A branch that Done has just written back is no longer needed.
+      if (target.draftToDelete != null) {
+        homeController.deleteJournalEntry(target.draftToDelete!);
       }
 
       // Determine useRtl based on the first block's direction attribute
@@ -458,6 +486,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     }
 
     _saveEntry(isDraft: false);
+    _autosave?.discard();
 
     Navigator.of(context).pop(isTextEmpty && isMediaEmpty);
   }
@@ -617,6 +646,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
 
       if (pickedTime != null) {
         setState(() {
+          _autosave?.noteChange();
           _selectedDate = DateTime(
             pickedDate.year,
             pickedDate.month,
@@ -1218,6 +1248,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
           onTap: () {
             setState(() {
               _isBookmarked = !_isBookmarked;
+              _autosave?.noteChange();
             });
           },
           child: Container(
@@ -1461,7 +1492,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
               fit: StackFit.expand,
               children: [
                 MediaThumbnail(media: media),
-                if (overlay != null) overlay,
+                ?overlay,
                 Positioned(
                   top: 4.w,
                   right: 4.w,
@@ -2107,6 +2138,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                     SizedBox(width: 4.w),
                     GestureDetector(
                       onTap: () {
+                        _autosave?.noteChange();
                         setState(() {
                           _tags.remove(tag);
                         });
@@ -2197,6 +2229,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     // Split by spaces to allow multiple tags at once
     final rawTags = tag.split(RegExp(r'\s+')).where((t) => t.isNotEmpty);
 
+    _autosave?.noteChange();
     setState(() {
       for (var t in rawTags) {
         String formattedTag = t.startsWith('#') ? t : '#$t';
@@ -2296,6 +2329,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                 }
               },
               onRecordingComplete: (path, duration) {
+                _autosave?.noteChange();
                 setState(() {
                   final recordingName = AppConstants.openJotRecording
                       .replaceFirst(
@@ -2311,6 +2345,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                 _closeSheet();
               },
               onAssetsSelected: (assets) {
+                _autosave?.noteChange();
                 setState(() {
                   final imagesAndVideos = assets
                       .where(
@@ -2337,6 +2372,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                 _closeSheet();
               },
               onLocationSelected: (location) {
+                _autosave?.noteChange();
                 setState(() {
                   final link =
                       'geo:${location.latitude},${location.longitude}?q=${location.latitude},${location.longitude}';
@@ -2346,6 +2382,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                 _closeSheet();
               },
               onPhotoTaken: (photo) {
+                _autosave?.noteChange();
                 setState(() {
                   final photoName = AppConstants.openJotImage.replaceFirst(
                     '%s',
@@ -2361,6 +2398,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                 _closeSheet();
               },
               onFilesPicked: (paths, type) {
+                _autosave?.noteChange();
                 setState(() {
                   if (type == AssetType.audio) {
                     for (final path in paths) {
@@ -2389,6 +2427,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                 _closeSheet();
               },
               onMoodChanged: (index) {
+                _autosave?.noteChange();
                 setState(() {
                   _selectedMoodIndex = index;
                 });
@@ -2533,6 +2572,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
 
     if (action == 'discard') {
       _isSavedOrDiscarded = true;
+      _autosave?.discard();
       if (widget.entry == null) {
         Get.find<HomeController>().deleteJournalEntry(_currentEntryId);
       } else {
@@ -2542,6 +2582,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     } else if (action == 'draft') {
       _isSavedOrDiscarded = true;
       _saveEntry(isDraft: true);
+      _autosave?.discard();
       CustomToast.showToast(AppConstants.draftSaved);
       return true; // Allow pop
     }

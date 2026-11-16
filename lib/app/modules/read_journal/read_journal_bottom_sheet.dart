@@ -295,7 +295,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
               fit: StackFit.expand,
               children: [
                 MediaThumbnail(media: media),
-                if (overlay != null) overlay,
+                ?overlay,
               ],
             ),
           ),

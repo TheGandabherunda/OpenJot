@@ -1,4 +1,7 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
+// The generator is not available (see pubspec.yaml), and its output trips
+// avoid_bool_literals_in_conditional_expressions in the Hive field defaults.
+// ignore_for_file: avoid_bool_literals_in_conditional_expressions
 
 part of 'journal_entry.dart';
 

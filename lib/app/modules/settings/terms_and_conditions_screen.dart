@@ -24,9 +24,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
       // --- UI & UX ---
       'flutter_quill',
       'flutter_screenutil',
-      'flutter_staggered_grid_view',
       'flutter_svg',
-      'vector_graphics',
       'modal_bottom_sheet',
       'progressive_blur',
       'shimmer',
