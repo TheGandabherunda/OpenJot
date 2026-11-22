@@ -23,6 +23,7 @@ import 'package:open_jot/app/core/widgets/custom_button.dart';
 import 'package:open_jot/app/core/widgets/journal_tile.dart';
 import 'package:open_jot/app/core/widgets/text_styling_toolbar.dart';
 import 'package:open_jot/app/core/widgets/write_journal_toolbar.dart';
+import 'package:open_jot/app/utils/mood_helper.dart';
 import 'package:open_jot/app/core/widgets/write_journal_toolbar_content.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/media_preview/media_preview_bottom_sheet.dart';
@@ -118,8 +119,6 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     Icons.mic_rounded,
     Icons.sentiment_satisfied_rounded,
   ];
-
-  static const List<Map<String, String>> _moods = AppConstants.moods;
 
   @override
   void initState() {
@@ -2049,8 +2048,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                             filterQuality: ui.FilterQuality.high,
                           );
                         }
-                        return SvgPicture.asset(
-                          _moods[_selectedMoodIndex!]['svg']!,
+                        return MoodHelper.buildMoodSvg(
+                          _selectedMoodIndex!,
                           width: 28.w,
                           height: 28.h,
                         );

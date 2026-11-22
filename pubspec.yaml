@@ -89,13 +89,7 @@ flutter:
 
   assets:
     - assets/app_icon.svg
-    - assets/1.svg
-    - assets/2.svg
-    - assets/3.svg
-    - assets/4.svg
-    - assets/5.svg
-    - assets/6.svg
-    - assets/7.svg
+    - assets/mood.svg
 
   fonts:
     - family: OpenRunde

@@ -4,6 +4,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
+import 'package:open_jot/app/utils/mood_helper.dart';
 
 import '../../core/constants.dart';
 import '../../core/models/journal_entry.dart';
@@ -69,13 +70,15 @@ class HomeController extends GetxController {
     });
 
     // Pre-cache mood SVGs to prevent scroll lag
-    for (var mood in AppConstants.moods) {
-      final loader = SvgAssetLoader(mood['svg']!);
+    for (int i = 0; i < AppConstants.moods.length; i++) {
+      final loader = SvgStringLoader(MoodHelper.getMoodSvgString(i));
       svg.cache.putIfAbsent(loader.cacheKey(null), () => loader.loadBytes(null));
     }
-    // Also pre-cache app icon
+    // Also pre-cache app icon and mood icon
     const iconLoader = SvgAssetLoader('assets/app_icon.svg');
     svg.cache.putIfAbsent(iconLoader.cacheKey(null), () => iconLoader.loadBytes(null));
+    const moodLoader = SvgAssetLoader(AppConstants.moodSvgPath);
+    svg.cache.putIfAbsent(moodLoader.cacheKey(null), () => moodLoader.loadBytes(null));
 
     // Pre-rasterize mood icons for buttery smooth scrolling
     _rasterizeMoodIcons();
@@ -92,9 +95,11 @@ class HomeController extends GetxController {
     // 3x scale for the large selector (160w * 3 = 480 pixels)
     const double targetSizeLarge = 480.0;
 
+    await MoodHelper.init();
+
     for (int i = 0; i < AppConstants.moods.length; i++) {
       try {
-        final loader = SvgAssetLoader(AppConstants.moods[i]['svg']!);
+        final loader = SvgStringLoader(MoodHelper.getMoodSvgString(i));
         final pictureInfo = await vg.loadPicture(loader, null);
 
         // Rasterize Small

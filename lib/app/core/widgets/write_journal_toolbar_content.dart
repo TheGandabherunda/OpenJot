@@ -21,6 +21,7 @@ import 'package:open_jot/app/core/widgets/custom_slider.dart';
 import 'package:open_jot/app/core/widgets/location_map_view.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/media_preview/media_preview_bottom_sheet.dart';
+import 'package:open_jot/app/utils/mood_helper.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart' hide LatLng;
@@ -1874,10 +1875,7 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
                                 child: IndexedStack(
                                   index: moodIndex,
                                   alignment: Alignment.center,
-                                  children: _moods.asMap().entries.map((entry) {
-                                    final idx = entry.key;
-                                    final mood = entry.value;
-
+                                  children: List.generate(_moods.length, (idx) {
                                     return Obx(() {
                                       final HomeController controller = Get.find();
                                       final rasterizedImage = controller.moodImagesLarge[idx];
@@ -1891,13 +1889,13 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
                                         );
                                       }
 
-                                      return SvgPicture.asset(
-                                        mood['svg']!,
+                                      return MoodHelper.buildMoodSvg(
+                                        idx,
                                         width: 160.w,
                                         height: 160.h,
                                       );
                                     });
-                                  }).toList(),
+                                  }),
                                 ),
                               ),
                             ],

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:get_thumbnail_video/video_thumbnail.dart';
 import 'package:intl/intl.dart' as intl;
 import 'package:open_jot/app/core/models/journal_entry.dart';
+import 'package:open_jot/app/utils/mood_helper.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:photo_manager/photo_manager.dart';
@@ -275,8 +276,7 @@ class PdfGenerator {
       await rootBundle.loadString('assets/app_icon.svg');
       String? moodSvg;
       if (entry.moodIndex != null) {
-        moodSvg = await rootBundle
-            .loadString('assets/${entry.moodIndex! + 1}.svg');
+        moodSvg = MoodHelper.getMoodSvgString(entry.moodIndex!);
       }
 
       // --- Media ---

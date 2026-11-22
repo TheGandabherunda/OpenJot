@@ -15,6 +15,7 @@ import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
 import 'package:open_jot/app/utils/custom_toast.dart';
+import 'package:open_jot/app/utils/mood_helper.dart';
 import 'package:open_jot/app/utils/pdf_generator.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -59,8 +60,6 @@ class _JournalTileState extends State<JournalTile> {
 
   final GlobalKey _menuKey = GlobalKey();
   final HomeController _homeController = Get.find<HomeController>();
-
-  static const List<Map<String, String>> _moods = AppConstants.moods;
 
   @override
   void initState() {
@@ -809,8 +808,8 @@ class _JournalTileContent extends StatelessWidget {
                           );
                         }
                         return RepaintBoundary(
-                          child: SvgPicture.asset(
-                            _JournalTileState._moods[entry.moodIndex!]['svg']!,
+                          child: MoodHelper.buildMoodSvg(
+                            entry.moodIndex!,
                             width: 22.w,
                             height: 22.h,
                           ),

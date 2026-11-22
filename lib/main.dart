@@ -14,6 +14,7 @@ import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/services/notification_service.dart';
 import 'package:open_jot/app/core/theme.dart';
 import 'package:open_jot/app/routes/app_pages.dart';
+import 'package:open_jot/app/utils/mood_helper.dart';
 import 'package:timezone/data/latest_all.dart' as tz; // Updated to latest_all to support all global timezones
 import 'package:timezone/timezone.dart' as tz;
 
@@ -41,6 +42,8 @@ void main() async {
     final service = HiveService();
     return service.init();
   });
+
+  await MoodHelper.init();
 
   final notificationService = await Get.putAsync<NotificationService>(() async {
     final service = NotificationService();

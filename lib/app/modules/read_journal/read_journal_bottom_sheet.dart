@@ -21,6 +21,7 @@ import '../../core/theme.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/journal_tile.dart';
 import '../../utils/custom_toast.dart';
+import '../../utils/mood_helper.dart';
 import '../media_preview/media_preview_bottom_sheet.dart';
 import '../../core/services/hive_service.dart';
 
@@ -36,8 +37,6 @@ class ReadJournalBottomSheet extends StatefulWidget {
 class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
   late JournalEntry _currentEntry;
   late quill.QuillController _quillController;
-
-  static const List<Map<String, String>> _moods = AppConstants.moods;
 
   @override
   void initState() {
@@ -627,8 +626,8 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
                               filterQuality: ui.FilterQuality.high,
                             );
                           }
-                          return SvgPicture.asset(
-                            _moods[_currentEntry.moodIndex!]['svg']!,
+                          return MoodHelper.buildMoodSvg(
+                            _currentEntry.moodIndex!,
                             width: 28.w,
                             height: 28.h,
                           );

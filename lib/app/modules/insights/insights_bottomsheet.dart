@@ -13,6 +13,7 @@ import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/models/journal_entry.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/read_journal/read_journal_bottom_sheet.dart';
+import '../../utils/mood_helper.dart';
 
 import '../../core/theme.dart';
 import '../../core/widgets/journal_tile.dart';
@@ -693,8 +694,8 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                   filterQuality: ui.FilterQuality.high,
                 );
               }
-              return SvgPicture.asset(
-                AppConstants.moods[moodIndex]['svg']!,
+              return MoodHelper.buildMoodSvg(
+                moodIndex,
                 width: 12.w,
                 height: 12.h,
               );
@@ -1016,8 +1017,8 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
           filterQuality: ui.FilterQuality.high,
         );
       }
-      return SvgPicture.asset(
-        AppConstants.moods[moodIndex]['svg']!,
+      return MoodHelper.buildMoodSvg(
+        moodIndex,
         width: size,
         height: size,
       );
