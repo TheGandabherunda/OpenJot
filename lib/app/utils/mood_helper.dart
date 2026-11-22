@@ -237,6 +237,55 @@ class MoodHelper {
     return '';
   }
 
+  /// Returns recolored SVG string for any custom MoodPalette on-the-fly.
+  static String getSvgStringForPalette(int moodIndex, MoodPalette palette) {
+    if (_templateSvg == null) return '';
+    var result = _templateSvg!.replaceAll('_mood', '_mood_$moodIndex');
+    result = result
+        .replaceAll(basePalette.dark, palette.dark)
+        .replaceAll(basePalette.accent, palette.accent)
+        .replaceAll(basePalette.mid, palette.mid)
+        .replaceAll(basePalette.light, palette.light)
+        .replaceAll(basePalette.veryLight, palette.veryLight);
+    return result;
+  }
+
+  /// Builds SvgPicture widget for any custom MoodPalette on-the-fly.
+  static Widget buildMoodSvgForPalette(
+    int moodIndex,
+    MoodPalette palette, {
+    double? width,
+    double? height,
+    BoxFit fit = BoxFit.contain,
+    Alignment alignment = Alignment.center,
+  }) {
+    return SvgPicture.string(
+      getSvgStringForPalette(moodIndex, palette),
+      width: width,
+      height: height,
+      fit: fit,
+      alignment: alignment,
+    );
+  }
+
+  /// Saves all 7 palettes at once and re-rasterizes all icons.
+  static Future<void> saveAllPalettes(List<MoodPalette> newPalettes) async {
+    for (int i = 0; i < defaultPalettes.length && i < newPalettes.length; i++) {
+      _currentPalettes[i] = newPalettes[i];
+    }
+
+    if (_templateSvg != null) {
+      _populateCache(_templateSvg!);
+    }
+
+    await _savePalettesToSettings();
+
+    // Re-rasterize all for lag-free rendering
+    if (Get.isRegistered<HomeController>()) {
+      await Get.find<HomeController>().rasterizeMoodIcons();
+    }
+  }
+
   /// Sets a new palette for a specific mood index and re-rasterizes images.
   static Future<void> setMoodPalette(int moodIndex, MoodPalette palette) async {
     final clamped = moodIndex.clamp(0, _currentPalettes.length - 1);

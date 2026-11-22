@@ -1,7 +1,9 @@
+import 'dart:ui' as ui;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/theme.dart';
@@ -23,7 +25,15 @@ class MoodColorsBottomSheet extends StatefulWidget {
 
 class _MoodColorsBottomSheetState extends State<MoodColorsBottomSheet> {
   late int _selectedMoodIndex;
+  late List<MoodPalette> _initialPalettes;
+  late List<MoodPalette> _draftPalettes;
   final HomeController _homeController = Get.find<HomeController>();
+
+  // Cached pre-rasterized images for 100% lag-free rendering
+  final Map<int, ui.Image> _draftImagesSmall = {};
+  final Map<int, ui.Image> _draftImagesLarge = {};
+
+  bool _isSaving = false;
 
   // Complete Apple System & HIG Color Spectrum (21 colors in 3 harmonious rows of 7)
   static const List<Color> _row1 = [
@@ -61,6 +71,111 @@ class _MoodColorsBottomSheetState extends State<MoodColorsBottomSheet> {
     super.initState();
     _selectedMoodIndex =
         widget.initialMoodIndex.clamp(0, MoodHelper.palettes.length - 1);
+    _initialPalettes = List<MoodPalette>.from(MoodHelper.palettes);
+    _draftPalettes = List<MoodPalette>.from(MoodHelper.palettes);
+
+    // Seed immediately from HomeController's pre-rasterized caches (0ms overhead on open!)
+    _draftImagesSmall.addAll(_homeController.moodImages);
+    _draftImagesLarge.addAll(_homeController.moodImagesLarge);
+  }
+
+  bool get _hasUnsavedChanges {
+    if (_isSaving) return false;
+    for (int i = 0; i < _initialPalettes.length; i++) {
+      if (_draftPalettes[i].accent.toUpperCase() !=
+          _initialPalettes[i].accent.toUpperCase()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static Future<ui.Image> _renderPictureToImage(
+      PictureInfo pictureInfo, double targetSize) async {
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+
+    final scale = targetSize / pictureInfo.size.width;
+    canvas.scale(scale);
+    canvas.drawPicture(pictureInfo.picture);
+
+    return recorder.endRecording().toImage(
+          targetSize.toInt(),
+          targetSize.toInt(),
+        );
+  }
+
+  Future<void> _reRasterizeDraftMood(int moodIndex, MoodPalette palette) async {
+    try {
+      final svgString = MoodHelper.getSvgStringForPalette(moodIndex, palette);
+      final loader = SvgStringLoader(svgString);
+      final pictureInfo = await vg.loadPicture(loader, null);
+
+      final small = await _renderPictureToImage(pictureInfo, 66.0);
+      final large = await _renderPictureToImage(pictureInfo, 480.0);
+
+      if (mounted) {
+        setState(() {
+          _draftImagesSmall[moodIndex] = small;
+          _draftImagesLarge[moodIndex] = large;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<bool> _showUnsavedChangesDialog() async {
+    final result = await showCupertinoDialog<String>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: const Text(
+          AppConstants.unsavedChanges,
+          style: TextStyle(fontFamily: AppConstants.font),
+        ),
+        content: const Padding(
+          padding: EdgeInsets.only(top: 8.0),
+          child: Text(
+            "You have unsaved mood color changes. Would you like to save them before closing?",
+            style: TextStyle(fontFamily: AppConstants.font),
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text(
+              AppConstants.cancel,
+              style: TextStyle(fontFamily: AppConstants.font),
+            ),
+            onPressed: () => Navigator.pop(dialogContext, 'cancel'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            child: const Text(
+              AppConstants.discard,
+              style: TextStyle(fontFamily: AppConstants.font),
+            ),
+            onPressed: () => Navigator.pop(dialogContext, 'discard'),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: const Text(
+              AppConstants.save,
+              style: TextStyle(fontFamily: AppConstants.font),
+            ),
+            onPressed: () => Navigator.pop(dialogContext, 'save'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == 'save') {
+      _isSaving = true;
+      HapticFeedback.mediumImpact();
+      await MoodHelper.saveAllPalettes(_draftPalettes);
+      return true;
+    } else if (result == 'discard') {
+      return true;
+    } else {
+      return false;
+    }
   }
 
   void _confirmReset(BuildContext context, AppThemeColors colors) {
@@ -96,11 +211,16 @@ class _MoodColorsBottomSheetState extends State<MoodColorsBottomSheet> {
               AppConstants.reset,
               style: TextStyle(fontFamily: AppConstants.font),
             ),
-            onPressed: () async {
+            onPressed: () {
               Navigator.pop(dialogContext);
               HapticFeedback.mediumImpact();
-              await MoodHelper.resetToDefault();
-              if (mounted) setState(() {});
+              setState(() {
+                _draftPalettes =
+                    List<MoodPalette>.from(MoodHelper.defaultPalettes);
+              });
+              for (int i = 0; i < 7; i++) {
+                _reRasterizeDraftMood(i, MoodHelper.defaultPalettes[i]);
+              }
             },
           ),
         ],
@@ -132,11 +252,13 @@ class _MoodColorsBottomSheetState extends State<MoodColorsBottomSheet> {
     final isLight = color.computeLuminance() > 0.55;
 
     return GestureDetector(
-      onTap: () async {
+      onTap: () {
         HapticFeedback.selectionClick();
         final newPalette = MoodHelper.createFromColor(color);
-        await MoodHelper.setMoodPalette(_selectedMoodIndex, newPalette);
-        if (mounted) setState(() {});
+        setState(() {
+          _draftPalettes[_selectedMoodIndex] = newPalette;
+        });
+        _reRasterizeDraftMood(_selectedMoodIndex, newPalette);
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
@@ -193,249 +315,259 @@ class _MoodColorsBottomSheetState extends State<MoodColorsBottomSheet> {
         : colors.grey5;
 
     final textColor = colors.grey10;
-    final currentPalette = MoodHelper.palettes[_selectedMoodIndex];
-    final currentAccent = currentPalette.accentColor;
+    final currentDraftPalette = _draftPalettes[_selectedMoodIndex];
+    final currentAccent = currentDraftPalette.accentColor;
     final moodInfo = AppConstants.moods[_selectedMoodIndex];
 
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        height: MediaQuery.of(context).size.height * 0.62,
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20.r),
-            topRight: Radius.circular(20.r),
-          ),
-        ),
-        child: Column(
-          children: [
-            // Drag Handle
-            Container(
-              margin: EdgeInsets.only(top: 10.h, bottom: 4.h),
-              width: 36.w,
-              height: 4.h,
-              decoration: BoxDecoration(
-                color: colors.grey4,
-                borderRadius: BorderRadius.circular(2.r),
-              ),
-            ),
+    final largePreviewImage = _draftImagesLarge[_selectedMoodIndex];
 
-            // Top Bar with Reset on left, title in center, Done on right
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    onPressed: () => _confirmReset(context, colors),
-                    child: Text(
-                      AppConstants.reset,
-                      style: TextStyle(
-                        color: colors.grey3,
-                        fontSize: 16.sp,
-                        fontFamily: AppConstants.font,
+    return WillPopScope(
+      onWillPop: () async {
+        if (!_hasUnsavedChanges) return true;
+        return _showUnsavedChangesDialog();
+      },
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          height: MediaQuery.of(context).size.height * 0.62,
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20.r),
+              topRight: Radius.circular(20.r),
+            ),
+          ),
+          child: Column(
+            children: [
+              // Drag Handle
+              Container(
+                margin: EdgeInsets.only(top: 10.h, bottom: 4.h),
+                width: 36.w,
+                height: 4.h,
+                decoration: BoxDecoration(
+                  color: colors.grey4,
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
+              ),
+
+              // Top Bar with Reset on left, title in center, Save on right
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: () => _confirmReset(context, colors),
+                      child: Text(
+                        AppConstants.reset,
+                        style: TextStyle(
+                          color: colors.grey3,
+                          fontSize: 16.sp,
+                          fontFamily: AppConstants.font,
+                        ),
                       ),
                     ),
-                  ),
-                  Text(
-                    AppConstants.moodColors,
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 17.sp,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: AppConstants.font,
-                      letterSpacing: -0.4,
-                    ),
-                  ),
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(
-                      AppConstants.done,
+                    Text(
+                      AppConstants.moodColors,
                       style: TextStyle(
-                        color: colors.primary,
-                        fontSize: 16.sp,
+                        color: textColor,
+                        fontSize: 17.sp,
                         fontWeight: FontWeight.bold,
                         fontFamily: AppConstants.font,
+                        letterSpacing: -0.4,
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            Divider(color: colors.grey4.withOpacity(0.4), height: 1),
-
-            // Scrollable Content
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-                child: Column(
-                  children: [
-                    // --- 1. Minimal Centered Preview (Mood SVG + Mood Label only) ---
-                    SizedBox(height: 6.h),
-                    Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            width: 68.w,
-                            height: 68.w,
-                            child: Obx(() {
-                              final rasterized = _homeController
-                                  .moodImagesLarge[_selectedMoodIndex];
-                              if (rasterized != null) {
-                                return RawImage(
-                                  image: rasterized,
-                                  width: 68.w,
-                                  height: 68.w,
-                                  filterQuality: FilterQuality.medium,
-                                );
-                              }
-                              return MoodHelper.buildMoodSvg(
-                                _selectedMoodIndex,
-                                width: 68.w,
-                                height: 68.w,
-                              );
-                            }),
-                          ),
-                          SizedBox(height: 8.h),
-                          Text(
-                            moodInfo['label'] ?? '',
-                            style: TextStyle(
-                              color: textColor,
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: AppConstants.font,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                        ],
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: () async {
+                        _isSaving = true;
+                        HapticFeedback.mediumImpact();
+                        await MoodHelper.saveAllPalettes(_draftPalettes);
+                        Navigator.pop(context);
+                      },
+                      child: Text(
+                        AppConstants.save,
+                        style: TextStyle(
+                          color: colors.primary,
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: AppConstants.font,
+                        ),
                       ),
                     ),
-                    SizedBox(height: 20.h),
-
-                    // --- 2. 7-Mood Segment Selector with Prominent Selected Indicator ---
-                    Container(
-                      width: double.infinity,
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 8.w, vertical: 8.h),
-                      decoration: BoxDecoration(
-                        color: tileBackgroundColor,
-                        borderRadius: BorderRadius.circular(14.r),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: List.generate(7, (index) {
-                          final isSelected = index == _selectedMoodIndex;
-
-                          return GestureDetector(
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              setState(() {
-                                _selectedMoodIndex = index;
-                              });
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 160),
-                              curve: Curves.easeOut,
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 6.w, vertical: 6.h),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? (isDark
-                                        ? Colors.white.withOpacity(0.16)
-                                        : Colors.white)
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(10.r),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? colors.primary
-                                      : Colors.transparent,
-                                  width: 2,
-                                ),
-                                boxShadow: isSelected
-                                    ? [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(
-                                              isDark ? 0.3 : 0.08),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 1),
-                                        ),
-                                      ]
-                                    : null,
-                              ),
-                              child: SizedBox(
-                                width: 28.w,
-                                height: 28.w,
-                                child: Obx(() {
-                                  final rasterized =
-                                      _homeController.moodImages[index];
-                                  if (rasterized != null) {
-                                    return RawImage(
-                                      image: rasterized,
-                                      width: 28.w,
-                                      height: 28.w,
-                                      filterQuality: FilterQuality.medium,
-                                    );
-                                  }
-                                  return MoodHelper.buildMoodSvg(
-                                    index,
-                                    width: 28.w,
-                                    height: 28.w,
-                                  );
-                                }),
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-                    ),
-                    SizedBox(height: 16.h),
-
-                    // --- 3. Apple Colors Container (Exact same width & column alignment) ---
-                    Container(
-                      width: double.infinity,
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 10.w, vertical: 14.h),
-                      decoration: BoxDecoration(
-                        color: tileBackgroundColor,
-                        borderRadius: BorderRadius.circular(14.r),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: _row1
-                                .map((c) => _buildColorSwatch(c, currentAccent))
-                                .toList(),
-                          ),
-                          SizedBox(height: 12.h),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: _row2
-                                .map((c) => _buildColorSwatch(c, currentAccent))
-                                .toList(),
-                          ),
-                          SizedBox(height: 12.h),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: _row3
-                                .map((c) => _buildColorSwatch(c, currentAccent))
-                                .toList(),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 20.h),
                   ],
                 ),
               ),
-            ),
-          ],
+              Divider(color: colors.grey4.withOpacity(0.4), height: 1),
+
+              // Scrollable Content
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+                  child: Column(
+                    children: [
+                      // --- 1. Minimal Centered Preview (Mood SVG + Mood Label only) ---
+                      SizedBox(height: 6.h),
+                      Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 68.w,
+                              height: 68.w,
+                              child: largePreviewImage != null
+                                  ? RawImage(
+                                      image: largePreviewImage,
+                                      width: 68.w,
+                                      height: 68.w,
+                                      filterQuality: FilterQuality.medium,
+                                    )
+                                  : MoodHelper.buildMoodSvgForPalette(
+                                      _selectedMoodIndex,
+                                      currentDraftPalette,
+                                      width: 68.w,
+                                      height: 68.w,
+                                    ),
+                            ),
+                            SizedBox(height: 8.h),
+                            Text(
+                              moodInfo['label'] ?? '',
+                              style: TextStyle(
+                                color: textColor,
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: AppConstants.font,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 20.h),
+
+                      // --- 2. 7-Mood Segment Selector with Prominent Selected Indicator ---
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 8.w, vertical: 8.h),
+                        decoration: BoxDecoration(
+                          color: tileBackgroundColor,
+                          borderRadius: BorderRadius.circular(14.r),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: List.generate(7, (index) {
+                            final isSelected = index == _selectedMoodIndex;
+                            final smallImage = _draftImagesSmall[index];
+
+                            return GestureDetector(
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                setState(() {
+                                  _selectedMoodIndex = index;
+                                });
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 160),
+                                curve: Curves.easeOut,
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 6.w, vertical: 6.h),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? (isDark
+                                          ? Colors.white.withOpacity(0.16)
+                                          : Colors.white)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10.r),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? colors.primary
+                                        : Colors.transparent,
+                                    width: 2,
+                                  ),
+                                  boxShadow: isSelected
+                                      ? [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(
+                                                isDark ? 0.3 : 0.08),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 1),
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                                child: SizedBox(
+                                  width: 28.w,
+                                  height: 28.w,
+                                  child: smallImage != null
+                                      ? RawImage(
+                                          image: smallImage,
+                                          width: 28.w,
+                                          height: 28.w,
+                                          filterQuality: FilterQuality.medium,
+                                        )
+                                      : MoodHelper.buildMoodSvgForPalette(
+                                          index,
+                                          _draftPalettes[index],
+                                          width: 28.w,
+                                          height: 28.w,
+                                        ),
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+                      ),
+                      SizedBox(height: 16.h),
+
+                      // --- 3. Apple Colors Container (Exact same width & column alignment) ---
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 10.w, vertical: 14.h),
+                        decoration: BoxDecoration(
+                          color: tileBackgroundColor,
+                          borderRadius: BorderRadius.circular(14.r),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: _row1
+                                  .map((c) =>
+                                      _buildColorSwatch(c, currentAccent))
+                                  .toList(),
+                            ),
+                            SizedBox(height: 12.h),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: _row2
+                                  .map((c) =>
+                                      _buildColorSwatch(c, currentAccent))
+                                  .toList(),
+                            ),
+                            SizedBox(height: 12.h),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: _row3
+                                  .map((c) =>
+                                      _buildColorSwatch(c, currentAccent))
+                                  .toList(),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 20.h),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
