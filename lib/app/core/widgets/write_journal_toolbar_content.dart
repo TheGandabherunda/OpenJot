@@ -1717,35 +1717,40 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
     final moodIndex = _currentMoodIndex.clamp(0, _moods.length - 1);
     final selectedMood = _moods[moodIndex];
 
-    // Refined color lists for better harmony
+    // Harmonious theme-aware color lists
+    final moodThemeColors = List.generate(
+      _moods.length,
+      (i) => MoodHelper.getMoodThemeColors(i, colors, isDark),
+    );
+
     final backgroundColors = [
-      colors.aPurple[2],
-      colors.aPink[2],
-      colors.aBlue[2],
-      colors.aTeal[2],
-      colors.aMint[2],
-      colors.aGreen[2],
-      colors.aYellow[2],
+      moodThemeColors[0][2],
+      moodThemeColors[1][2],
+      moodThemeColors[2][2],
+      moodThemeColors[3][2],
+      moodThemeColors[4][2],
+      moodThemeColors[5][2],
+      moodThemeColors[6][2],
     ];
 
     final normalColors = [
-      colors.aPurple[1],
-      colors.aPink[1],
-      colors.aBlue[1],
-      colors.aTeal[1],
-      colors.aMint[1],
-      colors.aGreen[1],
-      colors.aYellow[1],
+      moodThemeColors[0][1],
+      moodThemeColors[1][1],
+      moodThemeColors[2][1],
+      moodThemeColors[3][1],
+      moodThemeColors[4][1],
+      moodThemeColors[5][1],
+      moodThemeColors[6][1],
     ];
 
     final accentColors = [
-      colors.aPurple[0],
-      colors.aPink[0],
-      colors.aBlue[0],
-      colors.aTeal[0],
-      colors.aMint[0],
-      colors.aGreen[0],
-      colors.aYellow[0],
+      moodThemeColors[0][0],
+      moodThemeColors[1][0],
+      moodThemeColors[2][0],
+      moodThemeColors[3][0],
+      moodThemeColors[4][0],
+      moodThemeColors[5][0],
+      moodThemeColors[6][0],
     ];
 
     // Helper to lerp between two indices in the color lists

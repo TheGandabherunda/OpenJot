@@ -81,7 +81,7 @@ class HomeController extends GetxController {
     svg.cache.putIfAbsent(moodLoader.cacheKey(null), () => moodLoader.loadBytes(null));
 
     // Pre-rasterize mood icons for buttery smooth scrolling
-    _rasterizeMoodIcons();
+    rasterizeMoodIcons();
   }
 
   void loadSettings() {
@@ -89,27 +89,31 @@ class HomeController extends GetxController {
     hideInsightsStats.value = _hiveService.hideInsightsStats;
   }
 
-  Future<void> _rasterizeMoodIcons() async {
+  Future<void> rasterizeMoodIcons() async {
+    await MoodHelper.init();
+
+    for (int i = 0; i < AppConstants.moods.length; i++) {
+      await reRasterizeMood(i);
+    }
+  }
+
+  Future<void> reRasterizeMood(int moodIndex) async {
     // 3x scale for high-density displays (22w * 3 = 66 pixels)
     const double targetSizeSmall = 66.0;
     // 3x scale for the large selector (160w * 3 = 480 pixels)
     const double targetSizeLarge = 480.0;
 
-    await MoodHelper.init();
+    try {
+      final loader = SvgStringLoader(MoodHelper.getMoodSvgString(moodIndex));
+      final pictureInfo = await vg.loadPicture(loader, null);
 
-    for (int i = 0; i < AppConstants.moods.length; i++) {
-      try {
-        final loader = SvgStringLoader(MoodHelper.getMoodSvgString(i));
-        final pictureInfo = await vg.loadPicture(loader, null);
+      // Rasterize Small
+      moodImages[moodIndex] = await _renderToImage(pictureInfo, targetSizeSmall);
 
-        // Rasterize Small
-        moodImages[i] = await _renderToImage(pictureInfo, targetSizeSmall);
-        
-        // Rasterize Large
-        moodImagesLarge[i] = await _renderToImage(pictureInfo, targetSizeLarge);
-      } catch (e) {
-        // Failed to rasterize mood icon $i
-      }
+      // Rasterize Large
+      moodImagesLarge[moodIndex] = await _renderToImage(pictureInfo, targetSizeLarge);
+    } catch (e) {
+      // Failed to rasterize mood icon $moodIndex
     }
   }
 

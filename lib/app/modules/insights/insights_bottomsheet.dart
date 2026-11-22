@@ -655,17 +655,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
   }
 
   Widget _buildMoodCell(int moodIndex, AppThemeColors colors) {
-    final accentColors = [
-      colors.aPurple[0],
-      colors.aPink[0],
-      colors.aBlue[0],
-      colors.aTeal[0],
-      colors.aMint[0],
-      colors.aGreen[0],
-      colors.aYellow[0],
-    ];
-
-    final bgColor = accentColors[moodIndex.clamp(0, 6)].withOpacity(0.6);
+    final bgColor = MoodHelper.getAccentColor(moodIndex).withOpacity(0.6);
 
     return Container(
       decoration: BoxDecoration(
@@ -1200,16 +1190,7 @@ class _MoodGraphState extends State<MoodGraph> {
     final timeStr = DateFormat('h:mm a').format(DateTime(2024, 1, 1, hour, minute));
     final moodLabel = AppConstants.moods[item.moodIndex.clamp(0, 6)]['label'];
 
-    final accentColors = [
-      colors.aPurple[1],
-      colors.aPink[1],
-      colors.aBlue[1],
-      colors.aTeal[1],
-      colors.aMint[1],
-      colors.aGreen[1],
-      colors.aYellow[1],
-    ];
-    final accentColor = accentColors[item.moodIndex.clamp(0, 6)];
+    final accentColor = MoodHelper.getAccentColor(item.moodIndex);
 
     _overlayEntry = OverlayEntry(
       builder: (context) => Stack(
@@ -1453,15 +1434,7 @@ class _MoodGraphPainter extends CustomPainter {
     final dotPaint = Paint()..style = PaintingStyle.fill;
     for (int i = 0; i < points.length; i++) {
       final moodIndex = data[i].moodIndex.clamp(0, 6);
-      final accentColor = [
-        colors.aPurple[1],
-        colors.aPink[1],
-        colors.aBlue[1],
-        colors.aTeal[1],
-        colors.aMint[1],
-        colors.aGreen[1],
-        colors.aYellow[1],
-      ][moodIndex];
+      final accentColor = MoodHelper.getAccentColor(moodIndex);
 
       final isTouched = i == touchedIndex;
       final radius = isTouched ? 6.r : 4.r;

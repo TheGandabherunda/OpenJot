@@ -19,6 +19,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../../utils/custom_toast.dart';
+import '../../utils/mood_helper.dart';
 import '../constants.dart';
 import '../hive/hive_adapters.dart';
 
@@ -340,6 +341,34 @@ class HiveService extends GetxService {
       settingsBox.get(AppConstants.hideInsightsStatsKey, defaultValue: false);
   Future<void> setHideInsightsStats(bool value) =>
       settingsBox.put(AppConstants.hideInsightsStatsKey, value);
+
+  // --- Custom Mood Palettes (Preserved across backups/restores) ---
+  static const String customMoodPalettesKey = 'custom_mood_palettes';
+
+  Map<int, Map<String, String>>? get customMoodPalettes {
+    final raw = settingsBox.get(customMoodPalettesKey);
+    if (raw == null) return null;
+    try {
+      final map = <int, Map<String, String>>{};
+      (raw as Map).forEach((key, val) {
+        final intKey = key is int ? key : int.tryParse(key.toString());
+        if (intKey != null && val is Map) {
+          map[intKey] = val.map((k, v) => MapEntry(k.toString(), v.toString()));
+        }
+      });
+      return map;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> setCustomMoodPalettes(Map<int, Map<String, String>> palettes) async {
+    await settingsBox.put(customMoodPalettesKey, palettes);
+  }
+
+  Future<void> clearCustomMoodPalettes() async {
+    await settingsBox.delete(customMoodPalettesKey);
+  }
 
   // --- Journals Box Methods ---
   Future<void> addJournalEntry(JournalEntry entry) =>
@@ -733,6 +762,12 @@ class HiveService extends GetxService {
       // Force reload UI
       if (Get.isRegistered<HomeController>()) {
         await Get.find<HomeController>().loadJournalEntries();
+      }
+
+      // Reload custom mood colors from restored settings
+      await MoodHelper.reloadFromSettings();
+      if (Get.isRegistered<HomeController>()) {
+        await Get.find<HomeController>().rasterizeMoodIcons();
       }
 
       CustomToast.showToast(AppConstants.restoreSuccess);

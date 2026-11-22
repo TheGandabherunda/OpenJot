@@ -64,6 +64,14 @@ class AppConstants {
   static const String audioTrack = "Audio track";
   static const String emptyDuration = "--:--";
 
+  static const String moodColors = "Mood Colors";
+  static const String customizeMoodColors = "Customize Mood Colors";
+  static const String reset = "Reset";
+  static const String resetMoodColors = "Reset to Default";
+  static const String resetMoodColorsConfirm = "Reset all mood colors to default?";
+  static const String paletteThemes = "Palette Themes";
+  static const String customColor = "Custom Color";
+
   static const String moodSvgPath = 'assets/mood.svg';
 
   static const List<Map<String, String>> moods = [

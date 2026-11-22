@@ -11,6 +11,8 @@ import 'package:open_jot/app/modules/settings/terms_and_conditions_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/theme.dart';
+import '../../utils/mood_helper.dart';
+import 'mood_colors_bottomsheet.dart';
 import 'reminders_bottomsheet.dart';
 import 'exclude_entries_bottomsheet.dart';
 
@@ -806,6 +808,46 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                       textColor: textColor,
                       trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 18),
                       onTap: _showThemeSelectionBottomSheet,
+                      showDivider: true,
+                    ),
+                    _buildListTile(
+                      title: AppConstants.moodColors,
+                      icon: Icons.palette_rounded,
+                      appThemeColors: appThemeColors,
+                      backgroundColor: tileBackgroundColor,
+                      textColor: textColor,
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: List.generate(
+                              MoodHelper.palettes.length,
+                              (i) => Container(
+                                margin: EdgeInsets.only(right: 3.w),
+                                width: 8.w,
+                                height: 8.w,
+                                decoration: BoxDecoration(
+                                  color: MoodHelper.getAccentColor(i),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 6.w),
+                          const Icon(Icons.arrow_forward_ios_rounded, size: 18),
+                        ],
+                      ),
+                      onTap: () {
+                        showCupertinoModalBottomSheet(
+                          context: context,
+                          expand: false,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) => const MoodColorsBottomSheet(),
+                        ).then((_) {
+                          if (mounted) setState(() {});
+                        });
+                      },
                       showDivider: true,
                     ),
                     _buildListTile(
