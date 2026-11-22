@@ -14,7 +14,7 @@ import 'package:open_jot/app/modules/read_journal/read_journal_bottom_sheet.dart
 import 'package:open_jot/app/modules/search/search_view.dart';
 import 'package:open_jot/app/modules/settings/settings_bottomsheet.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
-import 'package:progressive_blur/progressive_blur.dart';
+import 'package:scroll_edge_blur/scroll_edge_blur.dart';
 
 import '../../core/constants.dart';
 import '../../core/services/shared_services.dart';
@@ -846,18 +846,9 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                 ),
               ];
             },
-            body: ProgressiveBlurWidget(
-              sigma: 25.0,
-              linearGradientBlur: const LinearGradientBlur(
-                values: [0, 0, 1],
-                stops: [0.0, 0.9, 1.0],
-                start: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-              tintColor: appThemeColors.grey7.withOpacity(0.15),
-              child: Builder(
-                  key: _bodyKey,
-                  builder: (innerContext) {
+            body: Builder(
+                key: _bodyKey,
+                builder: (innerContext) {
                     return Obx(() {
                       if (entries.isEmpty) {
                         return Center(
@@ -1044,7 +1035,6 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
               ),
             ),
           ),
-        ),
         Positioned(
           left: 0,
           right: 0,
@@ -1106,6 +1096,17 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                 ),
               );
             },
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 120.h,
+          child: const EdgeBlur(
+            edge: BlurEdge.bottom,
+            sigma: 16,
+            curve: Curves.easeIn,
           ),
         ),
         Positioned(

@@ -28,7 +28,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
       'flutter_svg',
       'vector_graphics',
       'modal_bottom_sheet',
-      'progressive_blur',
+      'scroll_edge_blur',
       'shimmer',
       'smooth_corner',
 

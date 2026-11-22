@@ -26,8 +26,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart' hide LatLng;
 import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
-import 'package:progressive_blur/progressive_blur.dart';
 import 'package:record/record.dart';
+import 'package:scroll_edge_blur/scroll_edge_blur.dart';
 import 'package:shimmer/shimmer.dart';
 
 class WriteJournalToolbarContent extends StatefulWidget {
@@ -579,30 +579,15 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
         ],
       );
     } else {
-      final isDark = Theme.of(context).brightness == Brightness.dark;
-
-      // SLIVER REFACTOR: Combines the headers, media grids, loaders, and empty states
-      // entirely into a single CustomScrollView with a ProgressiveBlurWidget to match home screen.
       content = Stack(
         children: [
-          ProgressiveBlurWidget(
-            sigma: 25.0,
-            linearGradientBlur: const LinearGradientBlur(
-              values: [0, 0, 1],
-              stops: [0.0, 0.9, 1.0],
-              start: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-            tintColor: widget.isPitchBlack
-                ? (isDark ? Colors.black : Colors.white).withOpacity(0.15)
-                : colors.grey5.withOpacity(0.15),
-            child: NotificationListener<ScrollNotification>(
-              onNotification: (notification) {
-                return true;
-              },
-              child: CustomScrollView(
-                controller: widget.scrollController,
-                slivers: [
+          NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              return true;
+            },
+            child: CustomScrollView(
+              controller: widget.scrollController,
+              slivers: [
                   // 1. Fixed height headers (Segmented Control & Album Chips)
                   SliverToBoxAdapter(
                     child: Column(
@@ -719,6 +704,16 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
                   ),
                 ],
               ),
+            ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 60.h,
+            child: const EdgeBlur(
+              edge: BlurEdge.bottom,
+              sigma: 14,
+              curve: Curves.easeIn,
             ),
           ),
           Positioned(

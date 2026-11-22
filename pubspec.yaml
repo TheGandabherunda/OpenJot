@@ -33,7 +33,7 @@ dependencies:
   flutter_svg: ^2.2.0
   vector_graphics: ^1.1.11
   modal_bottom_sheet: ^3.0.0
-  progressive_blur: ^0.0.2
+  scroll_edge_blur: ^0.1.1
   shimmer: ^3.0.0
   smooth_corner: ^1.1.1
 
