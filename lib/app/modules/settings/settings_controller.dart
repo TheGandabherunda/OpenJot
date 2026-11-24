@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -6,6 +7,8 @@ import 'package:open_jot/app/core/services/app_lock_service.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/services/daily_you_migration_service.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:file_picker/file_picker.dart';
 
@@ -320,15 +323,23 @@ class SettingsScreenController extends GetxController {
   Future<void> importFromDailyYou() async {
     final appColors = AppTheme.colorsOf(Get.context!);
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final file = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: ['zip'],
         dialogTitle: AppConstants.selectDailyYouBackup,
       );
 
-      if (result == null || result.files.single.path == null) return;
+      if (file == null) return;
 
-      final zipPath = result.files.single.path!;
+      String zipPath;
+      if (file.path != null) {
+        zipPath = file.path!;
+      } else {
+        final tempDir = await getTemporaryDirectory();
+        final tempFile = File(p.join(tempDir.path, file.name.isNotEmpty ? file.name : 'daily_you_backup.zip'));
+        await tempFile.writeAsBytes(await file.readAsBytes());
+        zipPath = tempFile.path;
+      }
 
       // Show loading dialog
       Get.dialog(

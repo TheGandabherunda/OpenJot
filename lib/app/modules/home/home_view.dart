@@ -1,6 +1,7 @@
-
+import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -36,10 +37,10 @@ class HomeView extends GetView<HomeController> {
     final SystemUiOverlayStyle systemUiOverlayStyle = SystemUiOverlayStyle(
       statusBarColor: appThemeColors.grey7,
       statusBarIconBrightness:
-      brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+          brightness == Brightness.dark ? Brightness.light : Brightness.dark,
       systemNavigationBarColor: appThemeColors.grey7,
       systemNavigationBarIconBrightness:
-      brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+          brightness == Brightness.dark ? Brightness.light : Brightness.dark,
     );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -68,22 +69,25 @@ class _HomeScreenStack extends StatefulWidget {
 
 class _HomeScreenStackState extends State<_HomeScreenStack>
     with TickerProviderStateMixin {
-  static final DateFormat _monthYearFormat = DateFormat('MMM, yyyy');
   static final DateFormat _monthFormat = DateFormat('MMMM');
+  static final DateFormat _tileDateFormat = DateFormat('dd,MMM');
 
   final _shareService = ShareService();
-  double _lastOffset = 0.0;
-  int _topEntryIndex = 0;
   final ScrollController _scrollController = ScrollController();
-
-  late final ValueNotifier<String?> _currentMonthYearNotifier;
-  late final ValueNotifier<bool> _showChipNotifier;
-  late AnimationController _slideAnimationController;
-  late Animation<Offset> _slideAnimation;
-  late Animation<double> _opacityAnimation;
-  late Animation<double> _scaleAnimation;
+  final GlobalKey _listKey = GlobalKey();
   final GlobalKey _menuKey = GlobalKey();
-  final GlobalKey _bodyKey = GlobalKey();
+
+  late final ValueNotifier<double> _appBarOffsetNotifier;
+  late final ValueNotifier<bool> _isScrubbing;
+  late final ValueNotifier<double> _scrollProgress;
+  late final ValueNotifier<DateTime?> _scrubDate;
+  late final AnimationController _scrubFadeController;
+  late final AnimationController _scrollFadeController;
+
+  Timer? _scrollFadeTimer;
+  double _startProgress = 0.0;
+  double _startPointerY = 0.0;
+  bool _dateUpdateScheduled = false;
 
   @override
   void initState() {
@@ -107,45 +111,122 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       });
     };
 
-    _currentMonthYearNotifier = ValueNotifier<String?>(null);
-    _showChipNotifier = ValueNotifier<bool>(false);
-    _slideAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 500),
-      reverseDuration: const Duration(milliseconds: 700),
+    _appBarOffsetNotifier = ValueNotifier<double>(0.0);
+    _isScrubbing = ValueNotifier<bool>(false);
+    _scrollProgress = ValueNotifier<double>(0.0);
+
+    final initialEntries = widget.controller.journalEntries;
+    _scrubDate = ValueNotifier<DateTime?>(
+      initialEntries.isNotEmpty ? initialEntries.first.createdAt : null,
+    );
+
+    _scrubFadeController = AnimationController(
+      duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0.0, -1.2),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _slideAnimationController,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeOutCubic,
-    ));
-    _opacityAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _slideAnimationController,
-      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
-      reverseCurve: const Interval(0.0, 0.8, curve: Curves.easeOut),
-    ));
-    _scaleAnimation = Tween<double>(
-      begin: 0.85,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _slideAnimationController,
-      curve: Curves.easeOutBack,
-      reverseCurve: Curves.easeOutQuart,
-    ));
+    _scrollFadeController = AnimationController(
+      duration: const Duration(milliseconds: 60),
+      reverseDuration: const Duration(milliseconds: 300),
+      vsync: this,
+      value: 0.0,
+    );
+
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+
+    final double offset = _scrollController.offset;
+    final double maxScroll = _scrollController.position.maxScrollExtent;
+
+    _appBarOffsetNotifier.value = offset;
+
+    if (!_isScrubbing.value) {
+      if (maxScroll > 0) {
+        _scrollProgress.value = (offset / maxScroll).clamp(0.0, 1.0);
+      } else {
+        _scrollProgress.value = 0.0;
+      }
+
+      _scrollFadeController.value = 1.0;
+      _startFadeTimer();
+
+      _scheduleDateUpdate();
+    }
+  }
+
+  void _scheduleDateUpdate() {
+    if (_dateUpdateScheduled) return;
+    _dateUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _dateUpdateScheduled = false;
+      if (mounted) {
+        _updateDateFromVisibleTiles();
+      }
+    });
+  }
+
+  void _updateDateFromVisibleTiles() {
+    final entries = widget.controller.journalEntries;
+    if (entries.isEmpty) return;
+
+    final renderSliver = _listKey.currentContext?.findRenderObject()
+        as RenderSliverMultiBoxAdaptor?;
+    if (renderSliver == null || renderSliver.firstChild == null) return;
+
+    final screenHeight = MediaQuery.of(context).size.height;
+    final statsHeight =
+        widget.controller.hideHomeStats.value ? 0.0 : 44.h;
+    final trackTop = 102.h + statsHeight + 20.h;
+    final bottomBound = 116.h;
+    final trackHeight =
+        (screenHeight - trackTop - bottomBound).clamp(80.0, 3000.0);
+    final pillY =
+        trackTop + (_scrollProgress.value * (trackHeight - 8.h)) + 4.h;
+
+    RenderBox? child = renderSliver.firstChild;
+    RenderBox? matchingChild;
+
+    while (child != null) {
+      final offset = child.localToGlobal(Offset.zero);
+      final top = offset.dy;
+      final bottom = top + child.size.height;
+
+      if (pillY >= top && pillY < bottom) {
+        matchingChild = child;
+        break;
+      }
+      if (pillY < top && matchingChild == null) {
+        matchingChild = child;
+        break;
+      }
+      matchingChild = child;
+      child = renderSliver.childAfter(child);
+    }
+
+    if (matchingChild != null) {
+      final int idx = renderSliver.indexOf(matchingChild);
+      if (idx >= 0 && idx < entries.length) {
+        final dt = entries[idx].createdAt;
+        if (_scrubDate.value != dt) {
+          _scrubDate.value = dt;
+        }
+      }
+    }
   }
 
   @override
   void dispose() {
     _shareService.dispose();
-    _currentMonthYearNotifier.dispose();
-    _showChipNotifier.dispose();
-    _slideAnimationController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollFadeTimer?.cancel();
+    _appBarOffsetNotifier.dispose();
+    _isScrubbing.dispose();
+    _scrollProgress.dispose();
+    _scrubDate.dispose();
+    _scrubFadeController.dispose();
+    _scrollFadeController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -175,7 +256,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
   void _showPopupMenu(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
     final RenderBox renderBox =
-    _menuKey.currentContext!.findRenderObject() as RenderBox;
+        _menuKey.currentContext!.findRenderObject() as RenderBox;
     final position = renderBox.localToGlobal(Offset.zero);
 
     showMenu<String>(
@@ -195,7 +276,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         TappablePopupMenuEntry(
           onTap: () => _showSortSubmenu(context, position, renderBox),
           child: Obx(
-                () => Row(
+            () => Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
@@ -206,11 +287,14 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(AppConstants.sortBy,
-                            style: TextStyle(
-                                color: appThemeColors.grey10,
-                                fontFamily: AppConstants.font,
-                                letterSpacing: -0.2)),
+                        Text(
+                          AppConstants.sortBy,
+                          style: TextStyle(
+                            color: appThemeColors.grey10,
+                            fontFamily: AppConstants.font,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
                         SizedBox(
                           width: 68.w,
                           child: Text(
@@ -241,11 +325,14 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
             children: [
               Icon(Icons.bookmark_outline_rounded, color: appThemeColors.grey10),
               SizedBox(width: 8.w),
-              Text(AppConstants.bookmark,
-                  style: TextStyle(
-                      color: appThemeColors.grey10,
-                      fontFamily: AppConstants.font,
-                      letterSpacing: -0.2)),
+              Text(
+                AppConstants.bookmark,
+                style: TextStyle(
+                  color: appThemeColors.grey10,
+                  fontFamily: AppConstants.font,
+                  letterSpacing: -0.2,
+                ),
+              ),
             ],
           ),
         ),
@@ -256,11 +343,14 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
             children: [
               Icon(Icons.edit_document, color: appThemeColors.grey10),
               SizedBox(width: 8.w),
-              Text(AppConstants.drafts,
-                  style: TextStyle(
-                      color: appThemeColors.grey10,
-                      fontFamily: AppConstants.font,
-                      letterSpacing: -0.2)),
+              Text(
+                AppConstants.drafts,
+                style: TextStyle(
+                  color: appThemeColors.grey10,
+                  fontFamily: AppConstants.font,
+                  letterSpacing: -0.2,
+                ),
+              ),
             ],
           ),
         ),
@@ -271,11 +361,14 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
             children: [
               Icon(Icons.insights_outlined, color: appThemeColors.grey10),
               SizedBox(width: 8.w),
-              Text(AppConstants.insights,
-                  style: TextStyle(
-                      color: appThemeColors.grey10,
-                      fontFamily: AppConstants.font,
-                      letterSpacing: -0.2)),
+              Text(
+                AppConstants.insights,
+                style: TextStyle(
+                  color: appThemeColors.grey10,
+                  fontFamily: AppConstants.font,
+                  letterSpacing: -0.2,
+                ),
+              ),
             ],
           ),
         ),
@@ -287,11 +380,14 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
               Icon(Icons.self_improvement_rounded,
                   color: appThemeColors.grey10),
               SizedBox(width: 8.w),
-              Text(AppConstants.reflections,
-                  style: TextStyle(
-                      color: appThemeColors.grey10,
-                      fontFamily: AppConstants.font,
-                      letterSpacing: -0.2)),
+              Text(
+                AppConstants.reflections,
+                style: TextStyle(
+                  color: appThemeColors.grey10,
+                  fontFamily: AppConstants.font,
+                  letterSpacing: -0.2,
+                ),
+              ),
             ],
           ),
         ),
@@ -302,11 +398,14 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
             children: [
               Icon(Icons.settings_outlined, color: appThemeColors.grey10),
               SizedBox(width: 8.w),
-              Text(AppConstants.settings,
-                  style: TextStyle(
-                      color: appThemeColors.grey10,
-                      fontFamily: AppConstants.font,
-                      letterSpacing: -0.2)),
+              Text(
+                AppConstants.settings,
+                style: TextStyle(
+                  color: appThemeColors.grey10,
+                  fontFamily: AppConstants.font,
+                  letterSpacing: -0.2,
+                ),
+              ),
             ],
           ),
         ),
@@ -347,77 +446,94 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       items: [
         PopupMenuItem(
           value: 'time',
-          child: Text(AppConstants.entryTime,
-              style: TextStyle(
-                  color: appThemeColors.grey10,
-                  fontFamily: AppConstants.font,
-                  letterSpacing: -0.2)),
+          child: Text(
+            AppConstants.entryTime,
+            style: TextStyle(
+              color: appThemeColors.grey10,
+              fontFamily: AppConstants.font,
+              letterSpacing: -0.2,
+            ),
+          ),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'bookmark',
-          child: Text(AppConstants.bookmarkFirst,
-              style: TextStyle(
-                  color: appThemeColors.grey10,
-                  fontFamily: AppConstants.font,
-                  letterSpacing: -0.2)),
+          child: Text(
+            AppConstants.bookmarkFirst,
+            style: TextStyle(
+              color: appThemeColors.grey10,
+              fontFamily: AppConstants.font,
+              letterSpacing: -0.2,
+            ),
+          ),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'reflection',
-          child: Text(AppConstants.reflectionFirst,
-              style: TextStyle(
-                  color: appThemeColors.grey10,
-                  fontFamily: AppConstants.font,
-                  letterSpacing: -0.2)),
+          child: Text(
+            AppConstants.reflectionFirst,
+            style: TextStyle(
+              color: appThemeColors.grey10,
+              fontFamily: AppConstants.font,
+              letterSpacing: -0.2,
+            ),
+          ),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'media',
-          child: Text(AppConstants.withMediaFirst,
-              style: TextStyle(
-                  color: appThemeColors.grey10,
-                  fontFamily: AppConstants.font,
-                  letterSpacing: -0.2)),
+          child: Text(
+            AppConstants.withMediaFirst,
+            style: TextStyle(
+              color: appThemeColors.grey10,
+              fontFamily: AppConstants.font,
+              letterSpacing: -0.2,
+            ),
+          ),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'text',
-          child: Text(AppConstants.textOnlyFirst,
-              style: TextStyle(
-                  color: appThemeColors.grey10,
-                  fontFamily: AppConstants.font,
-                  letterSpacing: -0.2)),
+          child: Text(
+            AppConstants.textOnlyFirst,
+            style: TextStyle(
+              color: appThemeColors.grey10,
+              fontFamily: AppConstants.font,
+              letterSpacing: -0.2,
+            ),
+          ),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'location',
-          child: Text(AppConstants.withLocationFirst,
-              style: TextStyle(
-                  color: appThemeColors.grey10,
-                  fontFamily: AppConstants.font,
-                  letterSpacing: -0.2)),
+          child: Text(
+            AppConstants.withLocationFirst,
+            style: TextStyle(
+              color: appThemeColors.grey10,
+              fontFamily: AppConstants.font,
+              letterSpacing: -0.2,
+            ),
+          ),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'mood',
-          child: Text(AppConstants.withMoodFirst,
-              style: TextStyle(
-                  color: appThemeColors.grey10,
-                  fontFamily: AppConstants.font,
-                  letterSpacing: -0.2)),
+          child: Text(
+            AppConstants.withMoodFirst,
+            style: TextStyle(
+              color: appThemeColors.grey10,
+              fontFamily: AppConstants.font,
+              letterSpacing: -0.2,
+            ),
+          ),
         ),
       ],
     ).then((sortValue) {
       if (sortValue != null) {
         Navigator.of(context).pop();
-        _handleSortSelection(sortValue);
+        widget.controller.sortEntries(sortValue);
       }
     });
-  }
-
-  void _handleSortSelection(String sortType) {
-    widget.controller.sortEntries(sortType);
   }
 
   void _handleInsights() {
@@ -425,11 +541,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       context: context,
       expand: true,
       backgroundColor: Colors.transparent,
-      builder: (modalContext) {
-        return const SafeArea(
-          child: InsightsBottomSheet(),
-        );
-      },
+      builder: (modalContext) => const SafeArea(child: InsightsBottomSheet()),
     );
   }
 
@@ -438,11 +550,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       context: context,
       expand: true,
       backgroundColor: Colors.transparent,
-      builder: (modalContext) {
-        return const SafeArea(
-          child: ReflectionBottomSheet(),
-        );
-      },
+      builder: (modalContext) => const SafeArea(child: ReflectionBottomSheet()),
     );
   }
 
@@ -451,11 +559,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       context: context,
       expand: true,
       backgroundColor: Colors.transparent,
-      builder: (modalContext) {
-        return const SafeArea(
-          child: SettingsBottomSheet(),
-        );
-      },
+      builder: (modalContext) => const SafeArea(child: SettingsBottomSheet()),
     );
   }
 
@@ -472,22 +576,21 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     }
 
     if (targetIndex != -1) {
-      ScrollController? innerCtrl;
-      if (_bodyKey.currentContext != null) {
-        innerCtrl = PrimaryScrollController.of(_bodyKey.currentContext!);
-      }
+      if (!_scrollController.hasClients) return;
 
-      if (innerCtrl == null || !innerCtrl.hasClients) return;
-
-      final statsHeight = widget.controller.hideHomeStats.value ? 0.0 : (36.h + (36.sp * 1.2));
-      double targetOffset = statsHeight + 16.h;
+      final statsHeight =
+          widget.controller.hideHomeStats.value ? 0.0 : (44.h + 20.h);
+      double targetOffset = 58.h + statsHeight;
 
       for (int i = 0; i < targetIndex; i++) {
         final entry = entries[i];
         final prevEntry = i > 0 ? entries[i - 1] : null;
 
-        bool showYearDivider = prevEntry == null || entry.createdAt.year != prevEntry.createdAt.year;
-        bool showMonthDivider = prevEntry == null || entry.createdAt.month != prevEntry.createdAt.month || entry.createdAt.year != prevEntry.createdAt.year;
+        bool showYearDivider = prevEntry == null ||
+            entry.createdAt.year != prevEntry.createdAt.year;
+        bool showMonthDivider = prevEntry == null ||
+            entry.createdAt.month != prevEntry.createdAt.month ||
+            entry.createdAt.year != prevEntry.createdAt.year;
 
         if (showYearDivider) {
           targetOffset += 20.h + (28.sp * 1.2);
@@ -497,9 +600,10 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         }
 
         double tileHeight = 46.h;
-
-        final hasMedia = entry.galleryImages.isNotEmpty || entry.cameraPhotos.isNotEmpty;
-        final hasAudio = entry.galleryAudios.isNotEmpty || entry.recordings.isNotEmpty;
+        final hasMedia =
+            entry.galleryImages.isNotEmpty || entry.cameraPhotos.isNotEmpty;
+        final hasAudio =
+            entry.galleryAudios.isNotEmpty || entry.recordings.isNotEmpty;
         final plainText = entry.content.toPlainText().trim();
         final hasText = plainText.isNotEmpty;
 
@@ -524,15 +628,11 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         targetOffset += 32.h;
       }
 
-      if (targetOffset > innerCtrl.position.maxScrollExtent) {
-        double jumpTarget = targetOffset > 400 ? targetOffset - 400 : targetOffset;
-        innerCtrl.jumpTo(jumpTarget);
-        await Future.delayed(const Duration(milliseconds: 50));
-        if (!mounted || !innerCtrl.hasClients) return;
-      }
+      final double maxScroll = _scrollController.position.maxScrollExtent;
+      final double clampedTarget = targetOffset.clamp(0.0, maxScroll);
 
-      innerCtrl.animateTo(
-        targetOffset,
+      await _scrollController.animateTo(
+        clampedTarget,
         duration: const Duration(milliseconds: 500),
         curve: Curves.easeInOutCubic,
       );
@@ -548,13 +648,9 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     int initialMonth = DateTime.now().month;
     int initialYear = DateTime.now().year;
 
-    if (_currentMonthYearNotifier.value != null) {
-      try {
-        final dt =
-        _monthYearFormat.parse(_currentMonthYearNotifier.value!);
-        initialMonth = dt.month;
-        initialYear = dt.year;
-      } catch (_) {}
+    if (_scrubDate.value != null) {
+      initialMonth = _scrubDate.value!.month;
+      initialYear = _scrubDate.value!.year;
     }
 
     final years = entries.map((e) => e.createdAt.year).toSet().toList();
@@ -599,12 +695,16 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                     },
                     children: AppConstants.months
                         .map((m) => Center(
-                                child: Text(m,
-                                    style: TextStyle(
-                                        color: appThemeColors.grey10,
-                                        fontFamily: AppConstants.font,
-                                        fontSize: 18.sp,
-                                        letterSpacing: -0.2))))
+                              child: Text(
+                                m,
+                                style: TextStyle(
+                                  color: appThemeColors.grey10,
+                                  fontFamily: AppConstants.font,
+                                  fontSize: 18.sp,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ))
                         .toList(),
                   ),
                 ),
@@ -620,12 +720,16 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                     },
                     children: years
                         .map((y) => Center(
-                                child: Text(y.toString(),
-                                    style: TextStyle(
-                                        color: appThemeColors.grey10,
-                                        fontFamily: AppConstants.font,
-                                        fontSize: 18.sp,
-                                        letterSpacing: -0.2))))
+                              child: Text(
+                                y.toString(),
+                                style: TextStyle(
+                                  color: appThemeColors.grey10,
+                                  fontFamily: AppConstants.font,
+                                  fontSize: 18.sp,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ))
                         .toList(),
                   ),
                 ),
@@ -666,32 +770,63 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     );
   }
 
-  void _onScroll(double offset, int totalEntries, List entries) {
-    if (entries.isEmpty) {
-      if (_showChipNotifier.value) {
-        _showChipNotifier.value = false;
-        _slideAnimationController.reverse();
+  void _startFadeTimer() {
+    _scrollFadeTimer?.cancel();
+    _scrollFadeTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted && !_isScrubbing.value) {
+        _scrollFadeController.reverse();
       }
-      return;
-    }
+    });
+  }
 
-    // [OPTIMIZED] Use a simpler estimate for index to avoid heavy math during every scroll tick.
-    final index = (offset / 150.h).floor().clamp(0, totalEntries - 1);
-    if (_topEntryIndex != index) {
-      _topEntryIndex = index;
-      final dt = entries[index].createdAt;
-      _currentMonthYearNotifier.value = _monthYearFormat.format(dt);
-    }
+  void _onScrubStart(double globalY) {
+    _startProgress = _scrollProgress.value;
+    _startPointerY = globalY;
 
-    final threshold = widget.controller.hideHomeStats.value ? 40.h : 100.h;
-    bool shouldShow = offset > threshold;
+    _isScrubbing.value = true;
+    _scrubFadeController.forward();
+    _scrollFadeTimer?.cancel();
+    _scrollFadeController.value = 1.0;
+    HapticFeedback.selectionClick();
+  }
 
-    if (_showChipNotifier.value != shouldShow) {
-      _showChipNotifier.value = shouldShow;
-      if (shouldShow) {
-        _slideAnimationController.forward();
-      } else {
-        _slideAnimationController.reverse();
+  void _onScrubUpdate(double globalY, double trackHeight) {
+    final double circleSize = 42.w;
+    final double effectiveTrackHeight =
+        (trackHeight - circleSize).clamp(1.0, 3000.0);
+
+    final double deltaY = globalY - _startPointerY;
+    final double progress =
+        (_startProgress + (deltaY / effectiveTrackHeight)).clamp(0.0, 1.0);
+    _scrollProgress.value = progress;
+
+    _applyScrollProgress(progress);
+  }
+
+  void _onScrubEnd() {
+    _isScrubbing.value = false;
+    _scrubFadeController.reverse();
+    _startFadeTimer();
+    _scheduleDateUpdate();
+  }
+
+  void _applyScrollProgress(double progress) {
+    if (!_scrollController.hasClients) return;
+    final double maxScroll = _scrollController.position.maxScrollExtent;
+    if (maxScroll <= 0) return;
+
+    final double clampedProgress = progress.clamp(0.0, 1.0);
+    _scrollController.jumpTo(clampedProgress * maxScroll);
+
+    final entries = widget.controller.journalEntries;
+    if (entries.isNotEmpty) {
+      final int targetIndex = (clampedProgress * (entries.length - 1))
+          .round()
+          .clamp(0, entries.length - 1);
+      final dt = entries[targetIndex].createdAt;
+      if (_scrubDate.value != dt) {
+        _scrubDate.value = dt;
+        HapticFeedback.selectionClick();
       }
     }
   }
@@ -741,413 +876,664 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
   @override
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
-    final entries = widget.controller.journalEntries;
 
     return RepaintBoundary(
       child: Stack(
         children: [
-        NotificationListener<ScrollNotification>(
-          onNotification: (notification) {
-            if (notification.depth != 1) return false;
-
-            if (notification is ScrollUpdateNotification ||
-                notification is ScrollMetricsNotification) {
-              final offset = notification.metrics.pixels;
-              if ((offset - _lastOffset).abs() > 20.0 || offset == 0.0) {
-                _lastOffset = offset;
-                _onScroll(offset, entries.length, entries);
+          NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (!_isScrubbing.value) {
+                if (notification is ScrollStartNotification ||
+                    notification is UserScrollNotification ||
+                    notification is ScrollUpdateNotification) {
+                  _scrollFadeController.value = 1.0;
+                  _startFadeTimer();
+                }
               }
-            }
-            return false;
-          },
-          child: NestedScrollView(
-            controller: _scrollController,
-            headerSliverBuilder:
-                (BuildContext context, bool innerBoxIsScrolled) {
-              return <Widget>[
-                SliverAppBar(
-                  backgroundColor: Colors.transparent,
-                  surfaceTintColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  expandedHeight: 80.h,
-                  floating: false,
-                  pinned: true,
-                  flexibleSpace: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      // [RESTORED & OPTIMIZED] Restored the background with a more efficient implementation.
-                      // Using a simple Container with color instead of BackdropFilter to ensure visibility
-                      // while maximizing scrolling performance.
-                      Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: appThemeColors.grey7.withOpacity(0.9),
+              return false;
+            },
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+              SliverAppBar(
+                forceMaterialTransparency: true,
+                backgroundColor: Colors.transparent,
+                surfaceTintColor: Colors.transparent,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                expandedHeight: 102.h,
+                toolbarHeight: 44.h,
+                floating: false,
+                pinned: true,
+              ),
+              Obx(() {
+                if (widget.controller.hideHomeStats.value) {
+                  return const SliverToBoxAdapter(child: SizedBox.shrink());
+                }
+                return SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: _buildStatItem(
+                            AppConstants.entriesThisYear,
+                            widget.controller.totalEntriesThisYear.toString(),
+                            Icons.web_stories,
                           ),
                         ),
-                      ),
-                      FlexibleSpaceBar(
-                        titlePadding: EdgeInsets.only(left: 16.w, right: 16.w, bottom: 16.h),
-                        expandedTitleScale: 28.sp / 24.sp,
-                        title: Row(
+                        Container(
+                          width: 1.w,
+                          height: 44.h,
+                          color: appThemeColors.grey5,
+                        ),
+                        Expanded(
+                          child: _buildStatItem(
+                            AppConstants.wordsWritten,
+                            widget.controller.totalWordsWritten.toString(),
+                            Icons.format_quote_rounded,
+                          ),
+                        ),
+                        Container(
+                          width: 1.w,
+                          height: 44.h,
+                          color: appThemeColors.grey5,
+                        ),
+                        Expanded(
+                          child: _buildStatItem(
+                            AppConstants.daysJournaled,
+                            widget.controller.daysJournaled.toString(),
+                            Icons.calendar_today_rounded,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+              Obx(() {
+                final entries = widget.controller.journalEntries;
+                if (entries.isEmpty) {
+                  return SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16.0.w),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Expanded(
-                              child: Text(
-                                AppConstants.appTitle,
-                                style: TextStyle(
-                                  fontFamily: AppConstants.font,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 24.sp,
-                                  color: appThemeColors.grey10,
-                                  letterSpacing: -0.2,
-                                ),
-                              ),
+                            SvgPicture.asset(
+                              'assets/app_icon.svg',
+                              height: 48.sp,
                             ),
-                            GestureDetector(
-                              onTap: () => Get.to(() => const SearchView()),
-                              child: Container(
-                                width: 36.w,
-                                height: 36.w,
-                                decoration: BoxDecoration(
-                                  color: appThemeColors.grey6,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.search,
-                                  size: 24.sp,
-                                  color: appThemeColors.grey1,
-                                ),
+                            SizedBox(height: 24.h),
+                            Text(
+                              AppConstants.jotYourThoughts,
+                              style: TextStyle(
+                                fontFamily: AppConstants.font,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 20.sp,
+                                height: 1.2.sp,
+                                color: appThemeColors.grey1,
+                                letterSpacing: -0.2,
                               ),
+                              textAlign: TextAlign.center,
                             ),
-                            SizedBox(width: 8.w),
-                            GestureDetector(
-                              key: _menuKey,
-                              onTap: () => _showPopupMenu(context),
-                              child: Container(
-                                width: 36.w,
-                                height: 36.w,
-                                decoration: BoxDecoration(
-                                  color: appThemeColors.grey6,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.more_horiz_rounded,
-                                  size: 24.sp,
-                                  color: appThemeColors.grey1,
-                                ),
+                            Text(
+                              AppConstants.tapToCreateJournal,
+                              style: TextStyle(
+                                fontFamily: AppConstants.font,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 14.sp,
+                                height: 1.2.sp,
+                                color: appThemeColors.grey2,
+                                letterSpacing: -0.2,
                               ),
+                              textAlign: TextAlign.center,
                             ),
                           ],
                         ),
                       ),
-                    ],
+                    ),
+                  );
+                }
+
+                return SliverPadding(
+                  padding: EdgeInsets.only(
+                    left: 16.w,
+                    right: 16.w,
+                    top: 20.h,
+                    bottom: 140.h,
                   ),
-                ),
-              ];
-            },
-            body: Builder(
-                key: _bodyKey,
-                builder: (innerContext) {
-                    return Obx(() {
-                      if (entries.isEmpty) {
-                        return Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(16.0.w),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                SvgPicture.asset('assets/app_icon.svg',
-                                    height: 48.sp),
-                                SizedBox(height: 24.h),
-                                Text(
-                                  AppConstants.jotYourThoughts,
-                                  style: TextStyle(
-                                    fontFamily: AppConstants.font,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 20.sp,
-                                    height: 1.2.sp,
-                                    color: appThemeColors.grey1,
-                                    letterSpacing: -0.2,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                Text(
-                                  AppConstants.tapToCreateJournal,
-                                  style: TextStyle(
-                                    fontFamily: AppConstants.font,
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 14.sp,
-                                    height: 1.2.sp,
-                                    color: appThemeColors.grey2,
-                                    letterSpacing: -0.2,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      } else {
-                        return CustomScrollView(
-                          slivers: [
-                            Obx(() {
-                              if (widget.controller.hideHomeStats.value) {
-                                return const SliverToBoxAdapter(
-                                    child: SizedBox.shrink());
-                              }
-                              return SliverToBoxAdapter(
-                                child: Padding(
-                                  padding: EdgeInsets.fromLTRB(
-                                      16.w, 16.h, 16.w, 16.h),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      Expanded(
-                                          child: _buildStatItem(
-                                              AppConstants.entriesThisYear,
-                                              widget.controller
-                                                  .totalEntriesThisYear
-                                                  .toString(),
-                                              Icons.web_stories)),
-                                      Container(
-                                        width: 1.w,
-                                        height: 44.h,
-                                        color: appThemeColors.grey5,
-                                      ),
-                                      Expanded(
-                                          child: _buildStatItem(
-                                              AppConstants.wordsWritten,
-                                              widget.controller
-                                                  .totalWordsWritten
-                                                  .toString(),
-                                              Icons.format_quote_rounded)),
-                                      Container(
-                                        width: 1.w,
-                                        height: 44.h,
-                                        color: appThemeColors.grey5,
-                                      ),
-                                      Expanded(
-                                          child: _buildStatItem(
-                                              AppConstants.daysJournaled,
-                                              widget.controller.daysJournaled
-                                                  .toString(),
-                                              Icons.calendar_today_rounded)),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            }),
-                            SliverPadding(
-                              padding: EdgeInsets.only(
-                                left: 16.w,
-                                right: 16.w,
-                                top: 16.h,
-                                bottom: 140.h,
-                              ),
-                              sliver: SliverMainAxisGroup(
-                                slivers: [
-                                  SliverList(
-                                    delegate: SliverChildBuilderDelegate(
-                                          (context, index) {
-                                        final entry = entries[index];
-                                        final prevEntry = index > 0 ? entries[index - 1] : null;
+                  sliver: SliverList(
+                    key: _listKey,
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final entry = entries[index];
+                        final prevEntry =
+                            index > 0 ? entries[index - 1] : null;
 
-                                        bool showYearDivider = prevEntry == null ||
-                                            entry.createdAt.year != prevEntry.createdAt.year;
-                                        bool showMonthDivider = prevEntry == null ||
-                                            entry.createdAt.month != prevEntry.createdAt.month ||
-                                            entry.createdAt.year != prevEntry.createdAt.year;
+                        bool showYearDivider = prevEntry == null ||
+                            entry.createdAt.year != prevEntry.createdAt.year;
+                        bool showMonthDivider = prevEntry == null ||
+                            entry.createdAt.month !=
+                                prevEntry.createdAt.month ||
+                            entry.createdAt.year != prevEntry.createdAt.year;
 
-                                        return Padding(
-                                          padding: EdgeInsets.only(bottom: 32.h),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              if (showYearDivider) ...[
-                                                Padding(
-                                                  padding:
-                                                  EdgeInsets.only(bottom: 12.h, top: 8.h),
-                                                  child: Text(
-                                                    entry.createdAt.year.toString(),
-                                                    style: TextStyle(
-                                                      fontFamily: AppConstants.font,
-                                                      fontWeight: FontWeight.bold,
-                                                      fontSize: 28.sp,
-                                                      color: appThemeColors.grey10,
-                                                      letterSpacing: -0.5,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                              if (showMonthDivider) ...[
-                                                Padding(
-                                                  padding: EdgeInsets.only(
-                                                      bottom: 16.h,
-                                                      top: showYearDivider ? 0 : 8.h),
-                                                  child: Text(
-                                                    _monthFormat.format(entry.createdAt),
-                                                    style: TextStyle(
-                                                      fontFamily: AppConstants.font,
-                                                      fontWeight: FontWeight.w600,
-                                                      fontSize: 18.sp,
-                                                      color: appThemeColors.grey2,
-                                                      letterSpacing: -0.2,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                              JournalTile(
-                                                entry: entry,
-                                                onTap: () {
-                                                  showCupertinoModalBottomSheet(
-                                                    context: context,
-                                                    expand: true,
-                                                    backgroundColor: Colors.transparent,
-                                                    builder: (modalContext) {
-                                                      return SafeArea(
-                                                        child: ReadJournalBottomSheet(
-                                                            entry: entry),
-                                                      );
-                                                    },
-                                                  );
-                                                },
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      },
-                                      childCount: entries.isEmpty ? 0 : entries.length,
-                                      addAutomaticKeepAlives: false,
-                                      addRepaintBoundaries: true,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        );
-                      }
-                    });
-                  }
-              ),
-            ),
-          ),
-        Positioned(
-          left: 0,
-          right: 0,
-          top: 64.h,
-          child: AnimatedBuilder(
-            animation: _slideAnimationController,
-            builder: (context, child) {
-              return SlideTransition(
-                position: _slideAnimation,
-                child: ScaleTransition(
-                  scale: _scaleAnimation,
-                  child: FadeTransition(
-                    opacity: _opacityAnimation,
-                    child: Center(
-                      child: ValueListenableBuilder<bool>(
-                        valueListenable: _showChipNotifier,
-                        builder: (context, showChip, _) {
-                          return ValueListenableBuilder<String?>(
-                            valueListenable: _currentMonthYearNotifier,
-                            builder: (context, currentMonthYear, _) {
-                              return (showChip && currentMonthYear != null)
-                                  ? GestureDetector(
-                                onTap: _showMonthYearPicker,
-                                child: Container(
-                                  padding: EdgeInsets.symmetric(
-                                      horizontal: 9.w, vertical: 5.h),
-                                  decoration: BoxDecoration(
-                                    color: appThemeColors.grey5,
-                                    borderRadius:
-                                    BorderRadius.circular(6.r),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black
-                                            .withOpacity(0.12),
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
+                        return Padding(
+                          padding: EdgeInsets.only(bottom: 32.h),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (showYearDivider) ...[
+                                Padding(
+                                  padding: EdgeInsets.only(
+                                    bottom: 12.h,
+                                    top: index == 0 ? 0 : 8.h,
                                   ),
                                   child: Text(
-                                    currentMonthYear,
+                                    entry.createdAt.year.toString(),
+                                    style: TextStyle(
+                                      fontFamily: AppConstants.font,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 28.sp,
+                                      color: appThemeColors.grey10,
+                                      letterSpacing: -0.5,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              if (showMonthDivider) ...[
+                                Padding(
+                                  padding: EdgeInsets.only(
+                                    bottom: 16.h,
+                                    top: showYearDivider
+                                        ? 0
+                                        : (index == 0 ? 0 : 8.h),
+                                  ),
+                                  child: Text(
+                                    _monthFormat.format(entry.createdAt),
                                     style: TextStyle(
                                       fontFamily: AppConstants.font,
                                       fontWeight: FontWeight.w600,
-                                      height: 1.2.sp,
-                                      fontSize: 14.sp,
-                                      color: appThemeColors.grey10,
+                                      fontSize: 18.sp,
+                                      color: appThemeColors.grey2,
                                       letterSpacing: -0.2,
                                     ),
                                   ),
                                 ),
-                              )
-                                  : const SizedBox.shrink();
-                            },
-                          );
-                        },
+                              ],
+                              JournalTile(
+                                entry: entry,
+                                onTap: () {
+                                  showCupertinoModalBottomSheet(
+                                    context: context,
+                                    expand: true,
+                                    backgroundColor: Colors.transparent,
+                                    builder: (modalContext) {
+                                      return SafeArea(
+                                        child: ReadJournalBottomSheet(
+                                            entry: entry),
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      childCount: entries.length,
+                      addAutomaticKeepAlives: false,
+                      addRepaintBoundaries: true,
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            height: 102.h,
+            child: IgnorePointer(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const EdgeBlur(
+                    edge: BlurEdge.top,
+                    sigma: 16,
+                    curve: Curves.easeIn,
+                  ),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          appThemeColors.grey7,
+                          appThemeColors.grey7.withOpacity(0.85),
+                          appThemeColors.grey7.withOpacity(0.55),
+                          appThemeColors.grey7.withOpacity(0.28),
+                          appThemeColors.grey7.withOpacity(0.10),
+                          appThemeColors.grey7.withOpacity(0.02),
+                          appThemeColors.grey7.withOpacity(0.0),
+                          appThemeColors.grey7.withOpacity(0.0),
+                        ],
+                        stops: const [
+                          0.0,
+                          0.12,
+                          0.26,
+                          0.38,
+                          0.48,
+                          0.56,
+                          0.62,
+                          1.0
+                        ],
                       ),
                     ),
                   ),
-                ),
-              );
-            },
+                ],
+              ),
+            ),
           ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: 120.h,
-          child: const EdgeBlur(
-            edge: BlurEdge.bottom,
-            sigma: 16,
-            curve: Curves.easeIn,
-          ),
-        ),
-        Positioned(
-          bottom: 40.h,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: Builder(
-              builder: (BuildContext innerContext) {
-                return CustomIconButton(
-                  iconSize: 40,
-                  iconPadding: EdgeInsets.all(14.w),
-                  icon: Icons.add,
-                  color: appThemeColors.primary,
-                  iconColor: appThemeColors.onPrimary,
-                  onPressed: () {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      showCupertinoModalBottomSheet(
-                        context: innerContext,
-                        expand: true,
-                        backgroundColor: null,
-                        bounce: true,
-                        animationCurve: Curves.easeOutCubic,
-                        duration: const Duration(milliseconds: 400),
-                        builder: (BuildContext modalContext) {
-                          return const SafeArea(
-                            child: WriteJournalBottomSheet(),
-                          );
-                        },
-                      );
-                    });
-                  },
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: ValueListenableBuilder<double>(
+              valueListenable: _appBarOffsetNotifier,
+              builder: (context, offset, _) {
+                final double maxExtent = 102.h;
+                final double minExtent = 44.h;
+                final double delta = maxExtent - minExtent;
+                final double t = (offset / delta).clamp(0.0, 1.0);
+                final double currentHeight = maxExtent - (delta * t);
+                final double topPadding = 42.h * (1.0 - t);
+                final double bottomPadding = 20.h - (12.h * t);
+                final double fontSize = 28.sp - (4.sp * t);
+                final double buttonSize = 40.w - (4.w * t);
+                final double iconSize = 24.sp - (2.sp * t);
+
+                return Container(
+                  height: currentHeight,
+                  padding: EdgeInsets.only(
+                    left: 16.w,
+                    right: 16.w,
+                    top: topPadding,
+                    bottom: bottomPadding,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          AppConstants.appTitle,
+                          style: TextStyle(
+                            fontFamily: AppConstants.font,
+                            fontWeight: FontWeight.bold,
+                            fontSize: fontSize,
+                            color: appThemeColors.grey10,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => Get.to(() => const SearchView()),
+                        child: Container(
+                          width: buttonSize,
+                          height: buttonSize,
+                          decoration: BoxDecoration(
+                            color: appThemeColors.grey6,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.search,
+                            size: iconSize,
+                            color: appThemeColors.grey1,
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 8.w),
+                      GestureDetector(
+                        key: _menuKey,
+                        onTap: () => _showPopupMenu(context),
+                        child: Container(
+                          width: buttonSize,
+                          height: buttonSize,
+                          decoration: BoxDecoration(
+                            color: appThemeColors.grey6,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.more_horiz_rounded,
+                            size: iconSize,
+                            color: appThemeColors.grey1,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 );
               },
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 180.h,
+            child: IgnorePointer(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const EdgeBlur(
+                    edge: BlurEdge.bottom,
+                    sigma: 16,
+                    curve: Curves.easeIn,
+                  ),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          appThemeColors.grey7,
+                          appThemeColors.grey7.withOpacity(0.85),
+                          appThemeColors.grey7.withOpacity(0.55),
+                          appThemeColors.grey7.withOpacity(0.28),
+                          appThemeColors.grey7.withOpacity(0.10),
+                          appThemeColors.grey7.withOpacity(0.02),
+                          appThemeColors.grey7.withOpacity(0.0),
+                          appThemeColors.grey7.withOpacity(0.0),
+                        ],
+                        stops: const [
+                          0.0,
+                          0.12,
+                          0.26,
+                          0.38,
+                          0.48,
+                          0.56,
+                          0.62,
+                          1.0
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 40.h,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Builder(
+                builder: (BuildContext innerContext) {
+                  return CustomIconButton(
+                    iconSize: 40,
+                    iconPadding: EdgeInsets.all(14.w),
+                    icon: Icons.add,
+                    color: appThemeColors.primary,
+                    iconColor: appThemeColors.onPrimary,
+                    onPressed: () {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        showCupertinoModalBottomSheet(
+                          context: innerContext,
+                          expand: true,
+                          backgroundColor: null,
+                          bounce: true,
+                          animationCurve: Curves.easeOutCubic,
+                          duration: const Duration(milliseconds: 400),
+                          builder: (BuildContext modalContext) {
+                            return const SafeArea(
+                              child: WriteJournalBottomSheet(),
+                            );
+                          },
+                        );
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedBuilder(
+                animation: _scrubFadeController,
+                builder: (context, _) {
+                  final val = _scrubFadeController.value;
+                  if (val == 0.0) return const SizedBox.shrink();
+                  return Container(
+                    color: Colors.black.withOpacity(0.55 * val),
+                  );
+                },
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedBuilder(
+                animation: _scrubFadeController,
+                builder: (context, _) {
+                  final val = _scrubFadeController.value;
+                  if (val == 0.0) return const SizedBox.shrink();
+                  return Opacity(
+                    opacity: val,
+                    child: Center(
+                      child: ValueListenableBuilder<DateTime?>(
+                        valueListenable: _scrubDate,
+                        builder: (context, date, _) {
+                          if (date == null) return const SizedBox.shrink();
+                          final monthStr = DateFormat('MMMM').format(date);
+                          final yearStr = DateFormat('yyyy').format(date);
+
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Text(
+                                monthStr,
+                                style: TextStyle(
+                                  fontFamily: AppConstants.font,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 44.sp,
+                                  color: Colors.white,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                              SizedBox(height: 4.h),
+                              Text(
+                                yearStr,
+                                style: TextStyle(
+                                  fontFamily: AppConstants.font,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 20.sp,
+                                  color: Colors.white.withOpacity(0.85),
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          Obx(() {
+            if (widget.controller.journalEntries.isEmpty) {
+              return const SizedBox.shrink();
+            }
+
+            final screenHeight = MediaQuery.of(context).size.height;
+            final double statsHeight =
+                widget.controller.hideHomeStats.value ? 0.0 : 44.h;
+            final double trackTop = 102.h + statsHeight + 20.h;
+            final double bottomBound = 116.h;
+            final double trackHeight =
+                (screenHeight - trackTop - bottomBound).clamp(80.0, 3000.0);
+
+            return Positioned(
+              right: 0,
+              top: trackTop,
+              width: 48.w,
+              height: trackHeight,
+              child: AnimatedBuilder(
+                animation: _scrollFadeController,
+                builder: (context, _) {
+                  final fadeVal = _scrollFadeController.value;
+                  return ValueListenableBuilder<bool>(
+                    valueListenable: _isScrubbing,
+                    builder: (context, isScrubbing, _) {
+                      final double opacity = isScrubbing ? 1.0 : fadeVal;
+                      if (opacity == 0.0) return const SizedBox.shrink();
+
+                      return ValueListenableBuilder<double>(
+                        valueListenable: _scrollProgress,
+                        builder: (context, progress, _) {
+                          final double normalHeight = 8.h;
+                          final double circleSize = 42.w;
+                          final double effectiveTrackHeight =
+                              (trackHeight - circleSize).clamp(1.0, 3000.0);
+                          final double thumbCenterY =
+                              (circleSize / 2) + (progress * effectiveTrackHeight);
+                          final double currentThumbHeight =
+                              isScrubbing ? circleSize : normalHeight;
+                          final double thumbTop =
+                              thumbCenterY - (currentThumbHeight / 2);
+                          const double touchPaddingY = 16.0;
+                          final double badgeHeight = 20.h;
+                          final double badgeTop = thumbTop - badgeHeight - 4.h;
+
+                          return Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              if (!isScrubbing)
+                                ValueListenableBuilder<DateTime?>(
+                                  valueListenable: _scrubDate,
+                                  builder: (context, date, _) {
+                                    if (date == null) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    final String formattedDate =
+                                        DateFormat('dd,MMM').format(date);
+
+                                    return Positioned(
+                                      right: 3.w,
+                                      width: 36.w,
+                                      height: badgeHeight,
+                                      top: badgeTop,
+                                      child: IgnorePointer(
+                                        child: Opacity(
+                                          opacity: opacity,
+                                          child: Container(
+                                            width: 36.w,
+                                            height: badgeHeight,
+                                            alignment: Alignment.center,
+                                            decoration: BoxDecoration(
+                                              color: appThemeColors.primary,
+                                              borderRadius:
+                                                  BorderRadius.circular(6.r),
+                                            ),
+                                            child: Text(
+                                              formattedDate,
+                                              maxLines: 1,
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                fontFamily: AppConstants.font,
+                                                fontSize: 8.5.sp,
+                                                fontWeight: FontWeight.bold,
+                                                color: appThemeColors.onPrimary,
+                                                letterSpacing: -0.3,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              Positioned(
+                                right: 0,
+                                top: thumbTop - touchPaddingY.h,
+                                width: 48.w,
+                                height: currentThumbHeight + (touchPaddingY.h * 2),
+                                child: Listener(
+                                  behavior: HitTestBehavior.opaque,
+                                  onPointerDown: (event) {
+                                    _onScrubStart(event.position.dy);
+                                  },
+                                  onPointerMove: (event) {
+                                    if (_isScrubbing.value) {
+                                      _onScrubUpdate(
+                                        event.position.dy,
+                                        trackHeight,
+                                      );
+                                    }
+                                  },
+                                  onPointerUp: (event) {
+                                    if (_isScrubbing.value) {
+                                      _onScrubEnd();
+                                    }
+                                  },
+                                  onPointerCancel: (event) {
+                                    if (_isScrubbing.value) {
+                                      _onScrubEnd();
+                                    }
+                                  },
+                                  child: Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Padding(
+                                      padding: EdgeInsets.only(right: 3.w),
+                                      child: Opacity(
+                                        opacity: opacity,
+                                        child: AnimatedContainer(
+                                          duration:
+                                              const Duration(milliseconds: 180),
+                                          curve: Curves.easeOutCubic,
+                                          width:
+                                              isScrubbing ? circleSize : 36.w,
+                                          height: currentThumbHeight,
+                                          decoration: BoxDecoration(
+                                            color: appThemeColors.primary,
+                                            shape: BoxShape.rectangle,
+                                            borderRadius:
+                                                BorderRadius.circular(
+                                              isScrubbing
+                                                  ? (circleSize / 2)
+                                                  : 100.r,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
 }
 
 class TappablePopupMenuEntry extends PopupMenuEntry<Never> {

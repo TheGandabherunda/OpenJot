@@ -22,6 +22,7 @@ import 'package:open_jot/app/core/widgets/location_map_view.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/media_preview/media_preview_bottom_sheet.dart';
 import 'package:open_jot/app/utils/mood_helper.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart' hide LatLng;
@@ -402,14 +403,25 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
         assetType = AssetType.other;
     }
 
-    final result = await FilePicker.platform.pickFiles(
+    final files = await FilePicker.pickFiles(
       type: type,
-      allowMultiple: true,
     );
 
-    if (result != null && result.paths.isNotEmpty) {
-      final paths = result.paths.whereType<String>().toList();
-      widget.onFilesPicked?.call(paths, assetType);
+    if (files.isNotEmpty) {
+      final paths = <String>[];
+      for (final f in files) {
+        if (f.path != null) {
+          paths.add(f.path!);
+        } else {
+          final tempDir = await getTemporaryDirectory();
+          final tempFile = File(p.join(tempDir.path, f.name));
+          await tempFile.writeAsBytes(await f.readAsBytes());
+          paths.add(tempFile.path);
+        }
+      }
+      if (paths.isNotEmpty) {
+        widget.onFilesPicked?.call(paths, assetType);
+      }
     }
   }
 

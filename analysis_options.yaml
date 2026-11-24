@@ -5,6 +5,13 @@ analyzer:
     - packages/**
     - scripts/**
     - test/**
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
   errors:
     deprecated_member_use: ignore
     constant_identifier_names: ignore

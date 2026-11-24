@@ -595,15 +595,13 @@ class HiveService extends GetxService {
       final zipFile = File(zipPath);
       final zipBytes = await zipFile.readAsBytes();
 
-      final String? selectedPath = await FilePicker.platform.saveFile(
+      final selectedUri = await FilePicker.saveFile(
         dialogTitle: AppConstants.selectBackupFolder,
         fileName: backupFileName,
-        type: FileType.custom,
-        allowedExtensions: ['zip'],
         bytes: zipBytes,
       );
 
-      if (selectedPath == null) {
+      if (selectedUri == null) {
         return false;
       }
 
@@ -632,13 +630,20 @@ class HiveService extends GetxService {
 
     Directory? tempDir;
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final file = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: ['zip'],
       );
-      if (result == null || result.files.single.path == null) return false;
+      if (file == null) return false;
 
-      final zipFile = File(result.files.single.path!);
+      File zipFile;
+      if (file.path != null) {
+        zipFile = File(file.path!);
+      } else {
+        final tempZipPath = p.join((await getTemporaryDirectory()).path, file.name.isNotEmpty ? file.name : 'temp_restore.zip');
+        zipFile = File(tempZipPath);
+        await zipFile.writeAsBytes(await file.readAsBytes());
+      }
       final appDocDir = await getApplicationDocumentsDirectory();
 
       tempDir = Directory(p.join((await getTemporaryDirectory()).path, 'restore_temp'));
