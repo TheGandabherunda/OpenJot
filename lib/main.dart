@@ -13,15 +13,15 @@ import 'package:open_jot/app/core/services/app_lock_service.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/services/notification_service.dart';
 import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/core/widgets/progressive_edge_blur.dart';
 import 'package:open_jot/app/routes/app_pages.dart';
 import 'package:open_jot/app/utils/mood_helper.dart';
-import 'package:scroll_edge_blur/scroll_edge_blur.dart';
 import 'package:timezone/data/latest_all.dart' as tz; // Updated to latest_all to support all global timezones
 import 'package:timezone/timezone.dart' as tz;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await EdgeBlur.precache();
+  await ProgressiveEdgeBlur.precache();
 
   tz.initializeTimeZones();
   try {
@@ -57,11 +57,15 @@ void main() async {
 
   Get.lazyPut(AppLockService.new);
 
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
-    systemNavigationBarColor: Colors.black,
+    systemNavigationBarColor: Colors.transparent,
     systemNavigationBarIconBrightness: Brightness.light,
+    systemNavigationBarDividerColor: Colors.transparent,
+    systemStatusBarContrastEnforced: false,
+    systemNavigationBarContrastEnforced: false,
   ));
 
   final hiveService = Get.find<HiveService>();

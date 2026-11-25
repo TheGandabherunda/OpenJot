@@ -331,48 +331,43 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
 
     final sheetBackgroundColor = isPitchBlack
         ? (isDark ? Colors.black : Colors.white)
-        : appThemeColors.grey5;
+        : appThemeColors.grey6;
 
     showCupertinoModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       expand: true,
-      builder: (context) => Material(
-        color: Colors.transparent,
-        child: Container(
-          padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 20.w),
-          decoration: BoxDecoration(
-            color: sheetBackgroundColor,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(20.r),
-              topRight: Radius.circular(20.r),
+      builder: (context) => SafeArea(
+        child: Scaffold(
+          backgroundColor: sheetBackgroundColor,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            surfaceTintColor: Colors.transparent,
+            centerTitle: true,
+            leading: IconButton(
+              icon: Icon(
+                Icons.close_rounded,
+                color: appThemeColors.grey10,
+              ),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            title: Text(
+              AppConstants.importFromAnotherApp,
+              style: TextStyle(
+                color: appThemeColors.grey10,
+                fontWeight: FontWeight.bold,
+                fontFamily: AppConstants.font,
+                letterSpacing: -0.2,
+              ),
             ),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              // Handle bar
-              Container(
-                width: 40.w,
-                height: 4.h,
-                margin: EdgeInsets.only(bottom: 20.h),
-                decoration: BoxDecoration(
-                  color: appThemeColors.grey3,
-                  borderRadius: BorderRadius.circular(2.r),
-                ),
-              ),
-              Text(
-                AppConstants.importFromAnotherApp,
-                style: TextStyle(
-                  fontSize: 18.sp,
-                  letterSpacing: -0.2,
-                  color: appThemeColors.grey10,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: AppConstants.font,
-                ),
-              ),
-              SizedBox(height: 24.h),
-              GridView.count(
+          body: Padding(
+            padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 20.w),
+            child: Column(
+              children: <Widget>[
+                GridView.count(
                 shrinkWrap: true,
                 crossAxisCount: 3,
                 mainAxisSpacing: 16.h,
@@ -426,6 +421,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -660,9 +656,10 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                         if (hasPermission) {
                           showCupertinoModalBottomSheet(
                             context: context,
-                            expand: false,
+                            expand: true,
                             backgroundColor: Colors.transparent,
-                            builder: (context) => const RemindersBottomSheet(),
+                            builder: (context) =>
+                                const SafeArea(child: RemindersBottomSheet()),
                           );
                         }
                       },
@@ -841,9 +838,10 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                       onTap: () {
                         showCupertinoModalBottomSheet(
                           context: context,
-                          expand: false,
+                          expand: true,
                           backgroundColor: Colors.transparent,
-                          builder: (context) => const MoodColorsBottomSheet(),
+                          builder: (context) =>
+                              const SafeArea(child: MoodColorsBottomSheet()),
                         ).then((_) {
                           if (mounted) setState(() {});
                         });

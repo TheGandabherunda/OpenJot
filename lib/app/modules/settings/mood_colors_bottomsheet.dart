@@ -228,6 +228,26 @@ class _MoodColorsBottomSheetState extends State<MoodColorsBottomSheet> {
     );
   }
 
+  Future<void> _handleClose() async {
+    if (!_hasUnsavedChanges) {
+      Navigator.pop(context);
+      return;
+    }
+    final shouldPop = await _showUnsavedChangesDialog();
+    if (shouldPop && mounted) {
+      Navigator.pop(context);
+    }
+  }
+
+  Future<void> _saveAndClose() async {
+    _isSaving = true;
+    HapticFeedback.mediumImpact();
+    await MoodHelper.saveAllPalettes(_draftPalettes);
+    if (mounted) {
+      Navigator.pop(context);
+    }
+  }
+
   bool _isColorSelected(Color swatchColor, Color currentAccent, int moodIndex) {
     if (swatchColor.value == currentAccent.value) return true;
     final defaultAccent = MoodHelper.defaultPalettes[moodIndex].accentColor;
@@ -326,91 +346,66 @@ class _MoodColorsBottomSheetState extends State<MoodColorsBottomSheet> {
         if (!_hasUnsavedChanges) return true;
         return _showUnsavedChangesDialog();
       },
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          height: MediaQuery.of(context).size.height * 0.62,
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(20.r),
-              topRight: Radius.circular(20.r),
+      child: Scaffold(
+        backgroundColor: backgroundColor,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
+          centerTitle: true,
+          leading: IconButton(
+            icon: Icon(
+              Icons.close_rounded,
+              color: textColor,
+            ),
+            onPressed: _handleClose,
+          ),
+          title: Text(
+            AppConstants.moodColors,
+            style: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.bold,
+              fontFamily: AppConstants.font,
+              letterSpacing: -0.2,
             ),
           ),
-          child: Column(
-            children: [
-              // Drag Handle
-              Container(
-                margin: EdgeInsets.only(top: 10.h, bottom: 4.h),
-                width: 36.w,
-                height: 4.h,
-                decoration: BoxDecoration(
-                  color: colors.grey4,
-                  borderRadius: BorderRadius.circular(2.r),
+          actions: [
+            IconButton(
+              icon: Icon(
+                Icons.refresh_rounded,
+                color: colors.grey2,
+              ),
+              tooltip: AppConstants.reset,
+              onPressed: () => _confirmReset(context, colors),
+            ),
+            TextButton(
+              onPressed: _saveAndClose,
+              child: Text(
+                AppConstants.save,
+                style: TextStyle(
+                  color: colors.primary,
+                  fontFamily: AppConstants.font,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16.sp,
                 ),
               ),
-
-              // Top Bar with Reset on left, title in center, Save on right
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            ),
+          ],
+        ),
+        body: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 20.h),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: (constraints.maxHeight - 40.h).clamp(0.0, double.infinity),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: () => _confirmReset(context, colors),
-                      child: Text(
-                        AppConstants.reset,
-                        style: TextStyle(
-                          color: colors.grey3,
-                          fontSize: 16.sp,
-                          fontFamily: AppConstants.font,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      AppConstants.moodColors,
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 17.sp,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: AppConstants.font,
-                        letterSpacing: -0.4,
-                      ),
-                    ),
-                    CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: () async {
-                        _isSaving = true;
-                        HapticFeedback.mediumImpact();
-                        await MoodHelper.saveAllPalettes(_draftPalettes);
-                        Navigator.pop(context);
-                      },
-                      child: Text(
-                        AppConstants.save,
-                        style: TextStyle(
-                          color: colors.primary,
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: AppConstants.font,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Divider(color: colors.grey4.withOpacity(0.4), height: 1),
-
-              // Scrollable Content
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-                  child: Column(
-                    children: [
                       // --- 1. Minimal Centered Preview (Mood SVG + Mood Label only) ---
-                      SizedBox(height: 6.h),
                       Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -561,15 +556,13 @@ class _MoodColorsBottomSheetState extends State<MoodColorsBottomSheet> {
                           ],
                         ),
                       ),
-                      SizedBox(height: 20.h),
                     ],
                   ),
                 ),
               ),
-            ],
+            ),
           ),
         ),
-      ),
-    );
+      );
   }
 }

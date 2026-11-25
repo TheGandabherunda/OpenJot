@@ -27,8 +27,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart' hide LatLng;
 import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
+import 'package:open_jot/app/core/widgets/progressive_edge_blur.dart';
 import 'package:record/record.dart';
-import 'package:scroll_edge_blur/scroll_edge_blur.dart';
 import 'package:shimmer/shimmer.dart';
 
 class WriteJournalToolbarContent extends StatefulWidget {
@@ -722,9 +722,9 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
             right: 0,
             bottom: 0,
             height: 60.h,
-            child: const EdgeBlur(
-              edge: BlurEdge.bottom,
-              sigma: 14,
+            child: const ProgressiveEdgeBlur(
+              edge: ProgressiveBlurEdge.bottom,
+              sigma: 12,
               curve: Curves.easeIn,
             ),
           ),

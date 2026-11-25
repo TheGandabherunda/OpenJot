@@ -87,6 +87,9 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  shaders:
+    - assets/shaders/progressive_edge_blur.frag
+
   assets:
     - assets/app_icon.svg
     - assets/mood.svg

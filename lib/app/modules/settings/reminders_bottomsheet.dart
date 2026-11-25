@@ -71,72 +71,47 @@ class RemindersBottomSheet extends StatelessWidget {
       );
     }
 
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20.r),
-            topRight: Radius.circular(20.r),
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        centerTitle: true,
+        leading: IconButton(
+          icon: Icon(
+            Icons.close_rounded,
+            color: textColor,
+          ),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          AppConstants.reminders,
+          style: TextStyle(
+            color: textColor,
+            fontWeight: FontWeight.bold,
+            fontFamily: AppConstants.font,
+            letterSpacing: -0.2,
           ),
         ),
-        child: Column(
-          children: [
-            // Handle
-            Container(
-              margin: EdgeInsets.only(top: 12.h, bottom: 8.h),
-              width: 40.w,
-              height: 4.h,
-              decoration: BoxDecoration(
-                color: appThemeColors.grey4,
-                borderRadius: BorderRadius.circular(2.r),
-              ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              Icons.add_rounded,
+              color: appThemeColors.primary,
             ),
-            // Header
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    AppConstants.reminders,
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 20.sp,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: AppConstants.font,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    onPressed: () async {
-                      final picked = await _showTimePicker();
-                      if (picked != null) {
-                        controller.addReminder(picked);
-                      }
-                    },
-                    child: Container(
-                      padding: EdgeInsets.all(8.w),
-                      decoration: BoxDecoration(
-                        color: appThemeColors.primary.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.add,
-                        color: appThemeColors.primary,
-                        size: 24.sp,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 20.h),
+            onPressed: () async {
+              final picked = await _showTimePicker();
+              if (picked != null) {
+                controller.addReminder(picked);
+              }
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 20.h),
                 child: Obx(() {
                   if (controller.reminderTimes.isEmpty) {
                     return Center(
@@ -207,10 +182,6 @@ class RemindersBottomSheet extends StatelessWidget {
                     ),
                   );
                 }),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

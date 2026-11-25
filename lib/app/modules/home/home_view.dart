@@ -15,13 +15,13 @@ import 'package:open_jot/app/modules/read_journal/read_journal_bottom_sheet.dart
 import 'package:open_jot/app/modules/search/search_view.dart';
 import 'package:open_jot/app/modules/settings/settings_bottomsheet.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
-import 'package:scroll_edge_blur/scroll_edge_blur.dart';
 
 import '../../core/constants.dart';
 import '../../core/services/shared_services.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/custom_icon_button.dart';
 import '../../core/widgets/journal_tile.dart';
+import '../../core/widgets/progressive_edge_blur.dart';
 import '../reflection/reflection_bottom_sheet.dart';
 import '../../utils/custom_toast.dart';
 import 'home_controller.dart';
@@ -35,12 +35,17 @@ class HomeView extends GetView<HomeController> {
     final Brightness brightness = Theme.of(context).brightness;
 
     final SystemUiOverlayStyle systemUiOverlayStyle = SystemUiOverlayStyle(
-      statusBarColor: appThemeColors.grey7,
+      statusBarColor: Colors.transparent,
+      statusBarBrightness:
+          brightness == Brightness.dark ? Brightness.dark : Brightness.light,
       statusBarIconBrightness:
           brightness == Brightness.dark ? Brightness.light : Brightness.dark,
-      systemNavigationBarColor: appThemeColors.grey7,
+      systemNavigationBarColor: Colors.transparent,
       systemNavigationBarIconBrightness:
           brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemStatusBarContrastEnforced: false,
+      systemNavigationBarContrastEnforced: false,
     );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -48,15 +53,16 @@ class HomeView extends GetView<HomeController> {
       child: CupertinoScaffold(
         body: Scaffold(
           backgroundColor: appThemeColors.grey7,
-          body: SafeArea(
-            top: true,
-            child: _HomeScreenStack(controller: controller),
-          ),
+          resizeToAvoidBottomInset: false,
+          body: _HomeScreenStack(controller: controller),
         ),
       ),
     );
   }
 }
+
+
+
 
 class _HomeScreenStack extends StatefulWidget {
   final HomeController controller;
@@ -81,12 +87,15 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
   late final ValueNotifier<bool> _isScrubbing;
   late final ValueNotifier<double> _scrollProgress;
   late final ValueNotifier<DateTime?> _scrubDate;
+  final ValueNotifier<bool> _isMenuOpen = ValueNotifier<bool>(false);
   late final AnimationController _scrubFadeController;
   late final AnimationController _scrollFadeController;
 
   Timer? _scrollFadeTimer;
   double _startProgress = 0.0;
   double _startPointerY = 0.0;
+  double _lastScrollOffset = 0.0;
+  double _lastMaxScroll = 0.0;
   bool _dateUpdateScheduled = false;
 
   @override
@@ -125,13 +134,45 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       vsync: this,
     );
     _scrollFadeController = AnimationController(
-      duration: const Duration(milliseconds: 60),
-      reverseDuration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 120),
+      reverseDuration: const Duration(milliseconds: 280),
       vsync: this,
       value: 0.0,
     );
 
     _scrollController.addListener(_onScroll);
+  }
+
+  void _showScrollIndicator() {
+    if (_scrollFadeController.status != AnimationStatus.forward &&
+        _scrollFadeController.value < 1.0) {
+      _scrollFadeController.forward();
+    }
+    _startFadeTimer();
+  }
+
+  /// Computes continuous, monotonic progress in `[0.0, 1.0]` so lazy sliver
+  /// `maxScrollExtent` re-estimations during scroll never cause backward jerks.
+  double _computeSmoothProgress(double offset, double maxScroll) {
+    if (maxScroll <= 0.0 || offset <= 0.0) return 0.0;
+    if (offset >= maxScroll) return 1.0;
+    if (_lastMaxScroll <= 0.0) {
+      return (offset / maxScroll).clamp(0.0, 1.0);
+    }
+
+    final double prev = _scrollProgress.value;
+    if (offset > _lastScrollOffset) {
+      final double denom = maxScroll - _lastScrollOffset;
+      if (denom <= 1.0) return 1.0;
+      final double delta = offset - _lastScrollOffset;
+      return (prev + (delta / denom) * (1.0 - prev)).clamp(prev, 1.0);
+    }
+    if (offset < _lastScrollOffset) {
+      if (_lastScrollOffset <= 1.0) return 0.0;
+      final double delta = _lastScrollOffset - offset;
+      return (prev - (delta / _lastScrollOffset) * prev).clamp(0.0, prev);
+    }
+    return prev;
   }
 
   void _onScroll() {
@@ -143,15 +184,11 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     _appBarOffsetNotifier.value = offset;
 
     if (!_isScrubbing.value) {
-      if (maxScroll > 0) {
-        _scrollProgress.value = (offset / maxScroll).clamp(0.0, 1.0);
-      } else {
-        _scrollProgress.value = 0.0;
-      }
+      _scrollProgress.value = _computeSmoothProgress(offset, maxScroll);
+      _lastScrollOffset = offset.clamp(0.0, maxScroll > 0 ? maxScroll : 0.0);
+      _lastMaxScroll = maxScroll;
 
-      _scrollFadeController.value = 1.0;
-      _startFadeTimer();
-
+      _showScrollIndicator();
       _scheduleDateUpdate();
     }
   }
@@ -167,6 +204,24 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     });
   }
 
+  ({double trackTop, double trackHeight}) _scrollTrackMetrics(
+    BuildContext context,
+  ) {
+    final mediaQuery = MediaQuery.of(context);
+    final screenHeight = mediaQuery.size.height;
+    final topInset = mediaQuery.padding.top;
+    final bottomInset = mediaQuery.padding.bottom;
+    final statsHeight = widget.controller.hideHomeStats.value ? 0.0 : 48.h;
+    final trackTop = 124.h + topInset + statsHeight + 28.h;
+    final bottomBound = 116.h + bottomInset;
+    final trackHeight =
+        (screenHeight - trackTop - bottomBound).clamp(80.0, 3000.0);
+    return (
+      trackTop: trackTop,
+      trackHeight: trackHeight,
+    );
+  }
+
   void _updateDateFromVisibleTiles() {
     final entries = widget.controller.journalEntries;
     if (entries.isEmpty) return;
@@ -175,13 +230,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         as RenderSliverMultiBoxAdaptor?;
     if (renderSliver == null || renderSliver.firstChild == null) return;
 
-    final screenHeight = MediaQuery.of(context).size.height;
-    final statsHeight =
-        widget.controller.hideHomeStats.value ? 0.0 : 44.h;
-    final trackTop = 102.h + statsHeight + 20.h;
-    final bottomBound = 116.h;
-    final trackHeight =
-        (screenHeight - trackTop - bottomBound).clamp(80.0, 3000.0);
+    final (:trackTop, :trackHeight) = _scrollTrackMetrics(context);
     final pillY =
         trackTop + (_scrollProgress.value * (trackHeight - 8.h)) + 4.h;
 
@@ -225,6 +274,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     _isScrubbing.dispose();
     _scrollProgress.dispose();
     _scrubDate.dispose();
+    _isMenuOpen.dispose();
     _scrubFadeController.dispose();
     _scrollFadeController.dispose();
     _scrollController.dispose();
@@ -253,11 +303,35 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     );
   }
 
+  Widget _buildPopupMenuRow({
+    required String label,
+    required IconData icon,
+    required AppThemeColors colors,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: colors.grey10,
+            fontFamily: AppConstants.font,
+            letterSpacing: -0.2,
+          ),
+        ),
+        SizedBox(width: 8.w),
+        Icon(icon, color: colors.grey10),
+      ],
+    );
+  }
+
   void _showPopupMenu(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
     final RenderBox renderBox =
         _menuKey.currentContext!.findRenderObject() as RenderBox;
     final position = renderBox.localToGlobal(Offset.zero);
+
+    _isMenuOpen.value = true;
 
     showMenu<String>(
       context: context,
@@ -281,7 +355,10 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
               children: [
                 Row(
                   children: [
-                    Icon(Icons.sort, color: appThemeColors.grey10),
+                    Icon(
+                      Icons.keyboard_arrow_left_rounded,
+                      color: appThemeColors.grey10,
+                    ),
                     SizedBox(width: 8.w),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -312,8 +389,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                     ),
                   ],
                 ),
-                Icon(Icons.keyboard_arrow_right_rounded,
-                    color: appThemeColors.grey10),
+                Icon(Icons.sort, color: appThemeColors.grey10),
               ],
             ),
           ),
@@ -321,92 +397,46 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'bookmarks',
-          child: Row(
-            children: [
-              Icon(Icons.bookmark_outline_rounded, color: appThemeColors.grey10),
-              SizedBox(width: 8.w),
-              Text(
-                AppConstants.bookmark,
-                style: TextStyle(
-                  color: appThemeColors.grey10,
-                  fontFamily: AppConstants.font,
-                  letterSpacing: -0.2,
-                ),
-              ),
-            ],
+          child: _buildPopupMenuRow(
+            label: AppConstants.bookmark,
+            icon: Icons.bookmark_outline_rounded,
+            colors: appThemeColors,
           ),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'drafts',
-          child: Row(
-            children: [
-              Icon(Icons.edit_document, color: appThemeColors.grey10),
-              SizedBox(width: 8.w),
-              Text(
-                AppConstants.drafts,
-                style: TextStyle(
-                  color: appThemeColors.grey10,
-                  fontFamily: AppConstants.font,
-                  letterSpacing: -0.2,
-                ),
-              ),
-            ],
+          child: _buildPopupMenuRow(
+            label: AppConstants.drafts,
+            icon: Icons.edit_document,
+            colors: appThemeColors,
           ),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'insights',
-          child: Row(
-            children: [
-              Icon(Icons.insights_outlined, color: appThemeColors.grey10),
-              SizedBox(width: 8.w),
-              Text(
-                AppConstants.insights,
-                style: TextStyle(
-                  color: appThemeColors.grey10,
-                  fontFamily: AppConstants.font,
-                  letterSpacing: -0.2,
-                ),
-              ),
-            ],
+          child: _buildPopupMenuRow(
+            label: AppConstants.insights,
+            icon: Icons.insights_outlined,
+            colors: appThemeColors,
           ),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'reflections',
-          child: Row(
-            children: [
-              Icon(Icons.self_improvement_rounded,
-                  color: appThemeColors.grey10),
-              SizedBox(width: 8.w),
-              Text(
-                AppConstants.reflections,
-                style: TextStyle(
-                  color: appThemeColors.grey10,
-                  fontFamily: AppConstants.font,
-                  letterSpacing: -0.2,
-                ),
-              ),
-            ],
+          child: _buildPopupMenuRow(
+            label: AppConstants.reflections,
+            icon: Icons.self_improvement_rounded,
+            colors: appThemeColors,
           ),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'settings',
-          child: Row(
-            children: [
-              Icon(Icons.settings_outlined, color: appThemeColors.grey10),
-              SizedBox(width: 8.w),
-              Text(
-                AppConstants.settings,
-                style: TextStyle(
-                  color: appThemeColors.grey10,
-                  fontFamily: AppConstants.font,
-                  letterSpacing: -0.2,
-                ),
-              ),
-            ],
+          child: _buildPopupMenuRow(
+            label: AppConstants.settings,
+            icon: Icons.settings_outlined,
+            colors: appThemeColors,
           ),
         ),
       ],
@@ -421,6 +451,10 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         _handleReflections();
       } else if (value == 'settings') {
         _handleSettings();
+      }
+    }).whenComplete(() {
+      if (mounted) {
+        _isMenuOpen.value = false;
       }
     });
   }
@@ -579,8 +613,8 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       if (!_scrollController.hasClients) return;
 
       final statsHeight =
-          widget.controller.hideHomeStats.value ? 0.0 : (44.h + 20.h);
-      double targetOffset = 58.h + statsHeight;
+          widget.controller.hideHomeStats.value ? 0.0 : (48.h + 20.h);
+      double targetOffset = 80.h + statsHeight;
 
       for (int i = 0; i < targetIndex; i++) {
         final entry = entries[i];
@@ -816,7 +850,10 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     if (maxScroll <= 0) return;
 
     final double clampedProgress = progress.clamp(0.0, 1.0);
-    _scrollController.jumpTo(clampedProgress * maxScroll);
+    final double targetOffset = clampedProgress * maxScroll;
+    _lastScrollOffset = targetOffset;
+    _lastMaxScroll = maxScroll;
+    _scrollController.jumpTo(targetOffset);
 
     final entries = widget.controller.journalEntries;
     if (entries.isNotEmpty) {
@@ -876,6 +913,11 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
   @override
   Widget build(BuildContext context) {
     final appThemeColors = AppTheme.colorsOf(context);
+    final mediaQuery = MediaQuery.of(context);
+    final double topInset = mediaQuery.padding.top;
+    final double bottomInset = mediaQuery.padding.bottom;
+    final double topBlurHeight = 96.h + topInset;
+    final double bottomBlurHeight = 112.h + bottomInset;
 
     return RepaintBoundary(
       child: Stack(
@@ -886,24 +928,44 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                 if (notification is ScrollStartNotification ||
                     notification is UserScrollNotification ||
                     notification is ScrollUpdateNotification) {
-                  _scrollFadeController.value = 1.0;
-                  _startFadeTimer();
+                  _showScrollIndicator();
                 }
               }
               return false;
             },
             child: CustomScrollView(
               controller: _scrollController,
+              cacheExtent: 600.0,
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
               SliverAppBar(
+                systemOverlayStyle: SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  statusBarBrightness:
+                      Theme.of(context).brightness == Brightness.dark
+                          ? Brightness.dark
+                          : Brightness.light,
+                  statusBarIconBrightness:
+                      Theme.of(context).brightness == Brightness.dark
+                          ? Brightness.light
+                          : Brightness.dark,
+                  systemNavigationBarColor: Colors.transparent,
+                  systemNavigationBarIconBrightness:
+                      Theme.of(context).brightness == Brightness.dark
+                          ? Brightness.light
+                          : Brightness.dark,
+                  systemNavigationBarDividerColor: Colors.transparent,
+                  systemStatusBarContrastEnforced: false,
+                  systemNavigationBarContrastEnforced: false,
+                ),
                 forceMaterialTransparency: true,
                 backgroundColor: Colors.transparent,
                 surfaceTintColor: Colors.transparent,
                 elevation: 0,
                 scrolledUnderElevation: 0,
-                expandedHeight: 102.h,
-                toolbarHeight: 44.h,
+                // SliverAppBar (primary: true) already adds topInset internally.
+                expandedHeight: 124.h,
+                toolbarHeight: 48.h,
                 floating: false,
                 pinned: true,
               ),
@@ -960,7 +1022,12 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                     hasScrollBody: false,
                     child: Center(
                       child: Padding(
-                        padding: EdgeInsets.all(16.0.w),
+                        padding: EdgeInsets.fromLTRB(
+                          16.w,
+                          0,
+                          16.w,
+                          112.h + bottomInset,
+                        ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.center,
@@ -1006,7 +1073,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                     left: 16.w,
                     right: 16.w,
                     top: 20.h,
-                    bottom: 140.h,
+                    bottom: 140.h + bottomInset,
                   ),
                   sliver: SliverList(
                     key: _listKey,
@@ -1100,45 +1167,13 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
             left: 0,
             right: 0,
             top: 0,
-            height: 102.h,
+            height: topBlurHeight,
             child: IgnorePointer(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  const EdgeBlur(
-                    edge: BlurEdge.top,
-                    sigma: 16,
-                    curve: Curves.easeIn,
-                  ),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          appThemeColors.grey7,
-                          appThemeColors.grey7.withOpacity(0.85),
-                          appThemeColors.grey7.withOpacity(0.55),
-                          appThemeColors.grey7.withOpacity(0.28),
-                          appThemeColors.grey7.withOpacity(0.10),
-                          appThemeColors.grey7.withOpacity(0.02),
-                          appThemeColors.grey7.withOpacity(0.0),
-                          appThemeColors.grey7.withOpacity(0.0),
-                        ],
-                        stops: const [
-                          0.0,
-                          0.12,
-                          0.26,
-                          0.38,
-                          0.48,
-                          0.56,
-                          0.62,
-                          1.0
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+              child: ProgressiveEdgeBlur(
+                edge: ProgressiveBlurEdge.top,
+                sigma: 12,
+                curve: Curves.easeIn,
+                tint: appThemeColors.grey7.withValues(alpha: 0.28),
               ),
             ),
           ),
@@ -1149,31 +1184,34 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
             child: ValueListenableBuilder<double>(
               valueListenable: _appBarOffsetNotifier,
               builder: (context, offset, _) {
-                final double maxExtent = 102.h;
-                final double minExtent = 44.h;
+                final double maxExtent = 124.h;
+                final double minExtent = 48.h;
                 final double delta = maxExtent - minExtent;
                 final double t = (offset / delta).clamp(0.0, 1.0);
                 final double currentHeight = maxExtent - (delta * t);
-                final double topPadding = 42.h * (1.0 - t);
-                final double bottomPadding = 20.h - (12.h * t);
+                final double topPadding = 57.h * (1.0 - t);
+                final double bottomPadding = 21.h - (15.h * t);
                 final double fontSize = 28.sp - (4.sp * t);
-                final double buttonSize = 40.w - (4.w * t);
-                final double iconSize = 24.sp - (2.sp * t);
+                final double buttonSize = 44.w - (4.w * t);
+                final double iconSize = 23.sp - (2.sp * t);
+                final outerRadius = Radius.circular(buttonSize / 2);
+                final innerRadius = Radius.circular(8.r);
 
                 return Container(
-                  height: currentHeight,
+                  height: currentHeight + topInset,
                   padding: EdgeInsets.only(
                     left: 16.w,
                     right: 16.w,
-                    top: topPadding,
+                    top: topInset + topPadding,
                     bottom: bottomPadding,
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(
-                        child: Text(
-                          AppConstants.appTitle,
+                        child: AnimatedDefaultTextStyle(
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOutCubic,
                           style: TextStyle(
                             fontFamily: AppConstants.font,
                             fontWeight: FontWeight.bold,
@@ -1181,41 +1219,45 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                             color: appThemeColors.grey10,
                             letterSpacing: -0.2,
                           ),
+                          child: const Text(AppConstants.appTitle),
                         ),
                       ),
-                      GestureDetector(
+                      _buildHeaderActionButton(
+                        context: context,
+                        icon: Icons.search_rounded,
+                        iconSize: iconSize,
+                        size: buttonSize,
+                        borderRadius: BorderRadius.only(
+                          topLeft: outerRadius,
+                          bottomLeft: outerRadius,
+                          topRight: innerRadius,
+                          bottomRight: innerRadius,
+                        ),
                         onTap: () => Get.to(() => const SearchView()),
-                        child: Container(
-                          width: buttonSize,
-                          height: buttonSize,
-                          decoration: BoxDecoration(
-                            color: appThemeColors.grey6,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.search,
-                            size: iconSize,
-                            color: appThemeColors.grey1,
-                          ),
-                        ),
                       ),
-                      SizedBox(width: 8.w),
-                      GestureDetector(
-                        key: _menuKey,
-                        onTap: () => _showPopupMenu(context),
-                        child: Container(
-                          width: buttonSize,
-                          height: buttonSize,
-                          decoration: BoxDecoration(
-                            color: appThemeColors.grey6,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.more_horiz_rounded,
-                            size: iconSize,
-                            color: appThemeColors.grey1,
-                          ),
-                        ),
+                      SizedBox(width: 3.w),
+                      ValueListenableBuilder<bool>(
+                        valueListenable: _isMenuOpen,
+                        builder: (context, isMenuOpen, _) {
+                          return _buildHeaderActionButton(
+                            context: context,
+                            buttonKey: _menuKey,
+                            icon: isMenuOpen
+                                ? Icons.close_rounded
+                                : Icons.more_horiz_rounded,
+                            iconSize: iconSize,
+                            size: buttonSize,
+                            borderRadius: isMenuOpen
+                                ? BorderRadius.circular(buttonSize / 2)
+                                : BorderRadius.only(
+                                    topLeft: innerRadius,
+                                    bottomLeft: innerRadius,
+                                    topRight: outerRadius,
+                                    bottomRight: outerRadius,
+                                  ),
+                            onTap: () => _showPopupMenu(context),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -1227,50 +1269,18 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
             left: 0,
             right: 0,
             bottom: 0,
-            height: 180.h,
+            height: bottomBlurHeight,
             child: IgnorePointer(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  const EdgeBlur(
-                    edge: BlurEdge.bottom,
-                    sigma: 16,
-                    curve: Curves.easeIn,
-                  ),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                        colors: [
-                          appThemeColors.grey7,
-                          appThemeColors.grey7.withOpacity(0.85),
-                          appThemeColors.grey7.withOpacity(0.55),
-                          appThemeColors.grey7.withOpacity(0.28),
-                          appThemeColors.grey7.withOpacity(0.10),
-                          appThemeColors.grey7.withOpacity(0.02),
-                          appThemeColors.grey7.withOpacity(0.0),
-                          appThemeColors.grey7.withOpacity(0.0),
-                        ],
-                        stops: const [
-                          0.0,
-                          0.12,
-                          0.26,
-                          0.38,
-                          0.48,
-                          0.56,
-                          0.62,
-                          1.0
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+              child: ProgressiveEdgeBlur(
+                edge: ProgressiveBlurEdge.bottom,
+                sigma: 12,
+                curve: Curves.easeIn,
+                tint: appThemeColors.grey7.withValues(alpha: 0.28),
               ),
             ),
           ),
           Positioned(
-            bottom: 40.h,
+            bottom: 40.h + bottomInset,
             left: 0,
             right: 0,
             child: Center(
@@ -1375,13 +1385,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
               return const SizedBox.shrink();
             }
 
-            final screenHeight = MediaQuery.of(context).size.height;
-            final double statsHeight =
-                widget.controller.hideHomeStats.value ? 0.0 : 44.h;
-            final double trackTop = 102.h + statsHeight + 20.h;
-            final double bottomBound = 116.h;
-            final double trackHeight =
-                (screenHeight - trackTop - bottomBound).clamp(80.0, 3000.0);
+            final (:trackTop, :trackHeight) = _scrollTrackMetrics(context);
 
             return Positioned(
               right: 0,
@@ -1426,7 +1430,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                       return const SizedBox.shrink();
                                     }
                                     final String formattedDate =
-                                        DateFormat('dd,MMM').format(date);
+                                        _tileDateFormat.format(date);
 
                                     return Positioned(
                                       right: 3.w,
@@ -1465,9 +1469,11 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                 ),
                               Positioned(
                                 right: 0,
-                                top: thumbTop - touchPaddingY.h,
+                                top: thumbCenterY -
+                                    (circleSize / 2) -
+                                    touchPaddingY.h,
                                 width: 48.w,
-                                height: currentThumbHeight + (touchPaddingY.h * 2),
+                                height: circleSize + (touchPaddingY.h * 2),
                                 child: Listener(
                                   behavior: HitTestBehavior.opaque,
                                   onPointerDown: (event) {
@@ -1534,7 +1540,50 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       ),
     );
   }
+
+  Widget _buildHeaderActionButton({
+    required BuildContext context,
+    Key? buttonKey,
+    required IconData icon,
+    required double iconSize,
+    required double size,
+    required BorderRadius borderRadius,
+    required VoidCallback onTap,
+  }) {
+    final appThemeColors = AppTheme.colorsOf(context);
+
+    return GestureDetector(
+      key: buttonKey,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: appThemeColors.grey6,
+          borderRadius: borderRadius,
+        ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          transitionBuilder: (child, animation) => ScaleTransition(
+            scale: animation,
+            child: FadeTransition(opacity: animation, child: child),
+          ),
+          child: Icon(
+            icon,
+            key: ValueKey<IconData>(icon),
+            size: iconSize,
+            color: appThemeColors.grey10.withValues(alpha: 0.9),
+          ),
+        ),
+      ),
+    );
+  }
 }
+
+
+
 
 class TappablePopupMenuEntry extends PopupMenuEntry<Never> {
   const TappablePopupMenuEntry({
@@ -1572,3 +1621,5 @@ class _TappablePopupMenuEntryState extends State<TappablePopupMenuEntry> {
     );
   }
 }
+
+

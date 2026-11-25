@@ -233,8 +233,9 @@ class _ExcludeEntriesBottomSheetState extends State<ExcludeEntriesBottomSheet> {
             systemNavigationBarColor: appThemeColors.grey7,
             systemNavigationBarIconBrightness: iconBrightness,
           ),
-          backgroundColor: appThemeColors.grey7,
+          backgroundColor: Colors.transparent,
           elevation: 0,
+          scrolledUnderElevation: 0,
           title: Text(
             AppConstants.excludeEntries,
             style: TextStyle(
@@ -248,7 +249,7 @@ class _ExcludeEntriesBottomSheetState extends State<ExcludeEntriesBottomSheet> {
           surfaceTintColor: Colors.transparent,
           iconTheme: IconThemeData(color: appThemeColors.grey1),
           leading: IconButton(
-            icon: Icon(Icons.close, color: appThemeColors.grey10),
+            icon: Icon(Icons.close_rounded, color: appThemeColors.grey10),
             onPressed: _handleClose, // Triggers confirmation dialog logic
           ),
           actions: [
