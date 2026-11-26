@@ -1,8 +1,13 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart' as crypto;
+import 'package:cryptography/dart.dart' as crypto_dart;
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart';
 import 'package:hive/hive.dart';
 import 'package:pointycastle/export.dart';
 
@@ -110,14 +115,18 @@ class AesGcmHiveCipher implements HiveCipher {
 /// Cryptographic primitives for Master Password KDF, DEK wrapping,
 /// and `.openjot` AES-256-GCM encrypted backup archives.
 ///
-/// Uses `cryptography` / `cryptography_flutter` for hardware-accelerated
-/// AES-256-GCM and PBKDF2-HMAC-SHA256 on Android and iOS.
+/// On Android, heavy KDF and streaming file encrypt/decrypt run on a background
+/// Kotlin thread via [MethodChannel] (`openjot/native_crypto`). On other platforms
+/// and in tests, pure-Dart implementations execute inside [Isolate.run].
 class CryptoService {
   static const int keyLengthBytes = 32;
   static const int saltLengthBytes = 16;
   static const int nonceLengthBytes = 12;
   static const int tagLengthBytes = 16;
   static const int defaultPbkdf2Iterations = 210000;
+
+  static const MethodChannel _nativeChannel =
+      MethodChannel('openjot/native_crypto');
 
   /// Magic header for encrypted OpenJot backups: `OJENC01\0` (8 bytes).
   static final Uint8List backupMagicHeader = Uint8List.fromList([
@@ -133,6 +142,8 @@ class CryptoService {
 
   static const int _backupHeaderLength = 8 + 16 + 4; // magic + salt + iterations
 
+  static bool get _useAndroidNativeChannel => !kIsWeb && Platform.isAndroid;
+
   static Uint8List randomBytes(int length) {
     final rng = Random.secure();
     final bytes = Uint8List(length);
@@ -144,55 +155,85 @@ class CryptoService {
 
   static Uint8List generateDek() => randomBytes(keyLengthBytes);
 
-  /// Derives a 256-bit key from [password] and [salt] using PBKDF2-HMAC-SHA256
-  /// via platform-accelerated `Cryptography.instance` when available.
+  static Future<Uint8List> _deriveKeyDartIsolate(
+    String password,
+    Uint8List salt,
+    int iterations,
+  ) {
+    final saltCopy = Uint8List.fromList(salt);
+    return Isolate.run(() async {
+      final pbkdf2 = crypto_dart.DartPbkdf2(
+        macAlgorithm: crypto.Hmac.sha256(),
+        iterations: iterations,
+        bits: keyLengthBytes * 8,
+      );
+      final secretKey = await pbkdf2.deriveKeyFromPassword(
+        password: password,
+        nonce: saltCopy,
+      );
+      return Uint8List.fromList(await secretKey.extractBytes());
+    });
+  }
+
+  /// Derives a 256-bit key from [password] and [salt] off the UI thread.
   static Future<Uint8List> deriveKey({
     required String password,
     required Uint8List salt,
     int iterations = defaultPbkdf2Iterations,
   }) async {
-    final pbkdf2 = crypto.Cryptography.instance.pbkdf2(
-      macAlgorithm: crypto.Hmac.sha256(),
-      iterations: iterations,
-      bits: keyLengthBytes * 8,
-    );
-    final secretKey = await pbkdf2.deriveKeyFromPassword(
-      password: password,
-      nonce: salt,
-    );
-    return Uint8List.fromList(await secretKey.extractBytes());
+    if (_useAndroidNativeChannel) {
+      try {
+        final result = await _nativeChannel.invokeMethod<Uint8List>(
+          'pbkdf2',
+          {
+            'password': password,
+            'salt': salt,
+            'iterations': iterations,
+            'bits': keyLengthBytes * 8,
+          },
+        );
+        if (result != null) return result;
+      } on MissingPluginException {
+        // Fallback when running headless unit tests on Android environment.
+      }
+    }
+    return _deriveKeyDartIsolate(password, salt, iterations);
   }
 
-  /// Encrypts [plaintext] using AES-256-GCM.
+  /// Encrypts [plaintext] using AES-256-GCM inside a background isolate.
   /// Output format: `[12-byte nonce][ciphertext][16-byte GCM tag]`.
   static Future<Uint8List> aesGcmEncryptBytes({
     required Uint8List key,
     required Uint8List plaintext,
     Uint8List? aad,
-  }) async {
+  }) {
     if (key.length != keyLengthBytes) {
       throw ArgumentError('AES-256-GCM requires a $keyLengthBytes-byte key.');
     }
-    final aesGcm = crypto.Cryptography.instance.aesGcm(
-      secretKeyLength: keyLengthBytes,
-      nonceLength: nonceLengthBytes,
-    );
-    final secretBox = await aesGcm.encrypt(
-      plaintext,
-      secretKey: crypto.SecretKey(key),
-      nonce: randomBytes(nonceLengthBytes),
-      aad: aad ?? const [],
-    );
-    return secretBox.concatenation();
+    final keyCopy = Uint8List.fromList(key);
+    final plaintextCopy = Uint8List.fromList(plaintext);
+    final aadCopy = aad != null ? Uint8List.fromList(aad) : const <int>[];
+    final nonce = randomBytes(nonceLengthBytes);
+
+    return Isolate.run(() async {
+      final aesGcm = crypto_dart.DartAesGcm.with256bits();
+      final secretBox = await aesGcm.encrypt(
+        plaintextCopy,
+        secretKey: crypto.SecretKey(keyCopy),
+        nonce: nonce,
+        aad: aadCopy,
+      );
+      return secretBox.concatenation();
+    });
   }
 
-  /// Decrypts bytes produced by [aesGcmEncryptBytes].
+  /// Decrypts bytes produced by [aesGcmEncryptBytes] inside a background isolate.
   /// Throws [InvalidCipherTextException] if the key/AAD/ciphertext is invalid.
   static Future<Uint8List> aesGcmDecryptBytes({
     required Uint8List key,
     required Uint8List encrypted,
     Uint8List? aad,
-  }) async {
+  }) {
     if (key.length != keyLengthBytes) {
       throw ArgumentError('AES-256-GCM requires a $keyLengthBytes-byte key.');
     }
@@ -203,27 +244,29 @@ class CryptoService {
       );
     }
 
-    final aesGcm = crypto.Cryptography.instance.aesGcm(
-      secretKeyLength: keyLengthBytes,
-      nonceLength: nonceLengthBytes,
-    );
-    final secretBox = crypto.SecretBox.fromConcatenation(
-      encrypted,
-      nonceLength: nonceLengthBytes,
-      macLength: tagLengthBytes,
-      copy: false,
-    );
+    final keyCopy = Uint8List.fromList(key);
+    final encryptedCopy = Uint8List.fromList(encrypted);
+    final aadCopy = aad != null ? Uint8List.fromList(aad) : const <int>[];
 
-    try {
-      final clear = await aesGcm.decrypt(
-        secretBox,
-        secretKey: crypto.SecretKey(key),
-        aad: aad ?? const [],
+    return Isolate.run(() async {
+      final aesGcm = crypto_dart.DartAesGcm.with256bits();
+      final secretBox = crypto.SecretBox.fromConcatenation(
+        encryptedCopy,
+        nonceLength: nonceLengthBytes,
+        macLength: tagLengthBytes,
+        copy: false,
       );
-      return clear is Uint8List ? clear : Uint8List.fromList(clear);
-    } on crypto.SecretBoxAuthenticationError catch (e) {
-      throw InvalidCipherTextException(e.toString());
-    }
+      try {
+        final clear = await aesGcm.decrypt(
+          secretBox,
+          secretKey: crypto.SecretKey(keyCopy),
+          aad: aadCopy,
+        );
+        return clear is Uint8List ? clear : Uint8List.fromList(clear);
+      } on crypto.SecretBoxAuthenticationError catch (e) {
+        throw InvalidCipherTextException(e.toString());
+      }
+    });
   }
 
   /// Derives a KEK from [password] and wraps [dek] using AES-256-GCM.
@@ -281,15 +324,93 @@ class CryptoService {
     }
   }
 
-  /// Checks whether [bytes] begins with the `.openjot` encrypted backup header.
-  static bool isEncryptedBackupBytes(Uint8List bytes) {
-    if (bytes.length < _backupHeaderLength + nonceLengthBytes + tagLengthBytes) {
-      return false;
-    }
+  /// Checks whether [bytes] starts with the 8-byte `.openjot` magic header.
+  static bool isEncryptedHeaderPrefix(Uint8List bytes) {
+    if (bytes.length < backupMagicHeader.length) return false;
     for (var i = 0; i < backupMagicHeader.length; i++) {
       if (bytes[i] != backupMagicHeader[i]) return false;
     }
     return true;
+  }
+
+  /// Checks whether [bytes] begins with the `.openjot` encrypted backup header
+  /// and is large enough to contain KDF params, nonce, and GCM tag.
+  static bool isEncryptedBackupBytes(Uint8List bytes) {
+    if (bytes.length < _backupHeaderLength + nonceLengthBytes + tagLengthBytes) {
+      return false;
+    }
+    return isEncryptedHeaderPrefix(bytes);
+  }
+
+  /// Encrypts a `.zip` file on disk directly into `.openjot` at [outPath] off the UI thread.
+  static Future<void> encryptBackupFile({
+    required String zipPath,
+    required String outPath,
+    required String password,
+    int iterations = defaultPbkdf2Iterations,
+  }) async {
+    if (_useAndroidNativeChannel) {
+      try {
+        await _nativeChannel.invokeMethod<void>(
+          'encryptBackupFile',
+          {
+            'zipPath': zipPath,
+            'outPath': outPath,
+            'password': password,
+            'iterations': iterations,
+          },
+        );
+        return;
+      } on MissingPluginException {
+        // Fallback when running unit tests without Android Activity.
+      }
+    }
+
+    final zipBytes = await File(zipPath).readAsBytes();
+    final encBytes = await encryptBackupBytes(
+      zipBytes: zipBytes,
+      password: password,
+      iterations: iterations,
+    );
+    await File(outPath).writeAsBytes(encBytes, flush: true);
+  }
+
+  /// Decrypts an `.openjot` file at [encPath] directly to `.zip` at [outZipPath]
+  /// off the UI thread. Throws [InvalidCipherTextException] on wrong password.
+  static Future<void> decryptBackupFile({
+    required String encPath,
+    required String outZipPath,
+    required String password,
+  }) async {
+    if (_useAndroidNativeChannel) {
+      try {
+        await _nativeChannel.invokeMethod<void>(
+          'decryptBackupFile',
+          {
+            'encPath': encPath,
+            'outZipPath': outZipPath,
+            'password': password,
+          },
+        );
+        return;
+      } on PlatformException catch (e) {
+        if (e.code == 'INCORRECT_PASSWORD') {
+          throw InvalidCipherTextException(
+            e.message ?? 'Incorrect backup password.',
+          );
+        }
+        rethrow;
+      } on MissingPluginException {
+        // Fallback when running unit tests without Android Activity.
+      }
+    }
+
+    final encBytes = await File(encPath).readAsBytes();
+    final zipBytes = await decryptBackupBytes(
+      encryptedFileBytes: encBytes,
+      password: password,
+    );
+    await File(outZipPath).writeAsBytes(zipBytes, flush: true);
   }
 
   /// Encrypts a `.zip` backup archive into the `.openjot` binary format.

@@ -129,7 +129,12 @@ void main() {
         password: 'BackupPassword#42',
         iterations: 5000,
       );
+      expect(CryptoService.isEncryptedHeaderPrefix(enc), isTrue);
       expect(CryptoService.isEncryptedBackupBytes(enc), isTrue);
+      expect(
+        CryptoService.isEncryptedHeaderPrefix(Uint8List.fromList([0x50, 0x4B, 0x03, 0x04])),
+        isFalse,
+      );
 
       final dec = await CryptoService.decryptBackupBytes(
         encryptedFileBytes: enc,

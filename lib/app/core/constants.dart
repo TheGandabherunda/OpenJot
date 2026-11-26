@@ -390,8 +390,11 @@ class AppConstants {
       "Unencrypted archive compatible with all versions";
   static const String takingBackup = "Taking backup...";
   static const String encryptingBackup = "Encrypting backup...";
+  static const String savingBackup = "Saving backup...";
+  static const String preparingBackup = "Preparing backup...";
   static const String decryptingBackup = "Decrypting backup...";
   static const String restoringBackup = "Restoring backup...";
+  static const String importingBackup = "Importing entries...";
   static const String backupEncodingFailed = "Failed to encode the backup file.";
   static const String backupCreatedSuccess = "Backup created successfully!";
   static const String backupFailed = "Failed to create backup: %s";

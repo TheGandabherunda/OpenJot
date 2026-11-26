@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:archive/archive.dart';
 import 'package:archive/archive_io.dart';
@@ -790,6 +791,30 @@ class HiveService extends GetxService {
     return false;
   }
 
+  static Future<void> _runCreateZipInIsolate(
+    String targetZipPath,
+    List<(String, String)> archiveItems,
+  ) {
+    return Isolate.run(() {
+      final encoder = ZipFileEncoder();
+      encoder.create(targetZipPath);
+      for (final item in archiveItems) {
+        final file = File(item.$1);
+        if (file.existsSync()) {
+          encoder.addFile(file, item.$2);
+        }
+      }
+      encoder.close();
+    });
+  }
+
+  static Future<void> _runExtractZipInIsolate(
+    String zipPath,
+    String destPath,
+  ) {
+    return Isolate.run(() => extractFileToDisk(zipPath, destPath));
+  }
+
   static const Set<String> _nonPortableSettingKeys = {
     AppConstants.appLockEnabledKey,
     AppConstants.appLockPinKey,
@@ -867,6 +892,7 @@ class HiveService extends GetxService {
     }
 
     String? zipPath;
+    String? encryptedBackupPath;
     Directory? appDocDir;
     try {
       onStatusUpdate?.call(AppConstants.takingBackup);
@@ -887,24 +913,29 @@ class HiveService extends GetxService {
       debugPrint("Starting memory-safe backup process to: $zipPath");
       onProgress?.call(0.0);
 
-      // 1. Initialize memory-safe ZipFileEncoder (Streams direct to disk!)
-      final encoder = ZipFileEncoder();
-      encoder.create(zipPath);
+      // 1. Collect files to archive (compression runs off the UI isolate)
+      final filesToArchive = <({String sourcePath, String archivePath})>[];
+      final seenArchivePaths = <String>{};
+      void queueArchiveFile(String sourcePath, String archivePath) {
+        if (seenArchivePaths.add(archivePath)) {
+          filesToArchive.add((sourcePath: sourcePath, archivePath: archivePath));
+        }
+      }
 
       // 2. Add portable Hive database files (unencrypted inside container so
       //    backups restore on any device; whole archive is AES-256-GCM wrapped
       //    when encryptionPassword is set)
       final portableJournalsFile = await _createPortableJournalsBoxFile(appDocDir);
       if (portableJournalsFile != null) {
-        encoder.addFile(
-          portableJournalsFile,
+        queueArchiveFile(
+          portableJournalsFile.path,
           '${AppConstants.journalsBoxName}${AppConstants.hiveExtension}',
         );
       }
       final portableSettingsFile = await _createPortableSettingsBoxFile(appDocDir);
       if (portableSettingsFile != null) {
-        encoder.addFile(
-          portableSettingsFile,
+        queueArchiveFile(
+          portableSettingsFile.path,
           '${AppConstants.settingsBoxName}${AppConstants.hiveExtension}',
         );
       }
@@ -959,8 +990,8 @@ class HiveService extends GetxService {
                 ? basename
                 : '${entry.id}-$basename';
 
-            // Stream file directly into Zip
-            encoder.addFile(sourceFile, 'media/$backupMediaName');
+            // Queue file for off-isolate zip compression
+            queueArchiveFile(sourceFile.path, 'media/$backupMediaName');
 
             if (waveformBars != null && waveformBars.isNotEmpty) {
               waveformsManifest[backupMediaName] = waveformBars;
@@ -1036,25 +1067,32 @@ class HiveService extends GetxService {
       final manifestJson = jsonEncode(rootManifest);
       final manifestFile = File(p.join(tempDir.path, 'media_manifest.json'));
       await manifestFile.writeAsString(manifestJson);
-      encoder.addFile(manifestFile, 'media_manifest.json');
+      queueArchiveFile(manifestFile.path, 'media_manifest.json');
 
-      // 5. Close encoder to finalize zip
-      encoder.close();
+      // 5. Build zip archive in a background isolate so UI spinner stays smooth
+      final targetZipPath = zipPath;
+      final archiveItems = filesToArchive
+          .map<(String, String)>((e) => (e.sourcePath, e.archivePath))
+          .toList();
+      await _runCreateZipInIsolate(targetZipPath, archiveItems);
 
-      // 6. Export using file_picker (optionally AES-256-GCM encrypting the zip)
-      final zipFile = File(zipPath);
-      final zipBytes = await zipFile.readAsBytes();
+      // 6. Export using file_picker (optionally AES-256-GCM encrypting the zip on disk off the UI thread)
       final Uint8List outputBytes;
       if (isEncryptedExport) {
         onStatusUpdate?.call(AppConstants.encryptingBackup);
-        outputBytes = await CryptoService.encryptBackupBytes(
-          zipBytes: zipBytes,
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        encryptedBackupPath = p.join((await getTemporaryDirectory()).path, exportFileName);
+        await CryptoService.encryptBackupFile(
+          zipPath: zipPath,
+          outPath: encryptedBackupPath,
           password: encryptionPassword,
         );
+        outputBytes = await File(encryptedBackupPath).readAsBytes();
       } else {
-        outputBytes = zipBytes;
+        outputBytes = await File(zipPath).readAsBytes();
       }
 
+      onStatusUpdate?.call(AppConstants.savingBackup);
       final selectedUri = await FilePicker.saveFile(
         dialogTitle: AppConstants.selectBackupFolder,
         fileName: exportFileName,
@@ -1082,12 +1120,17 @@ class HiveService extends GetxService {
         final f = File(zipPath);
         if (await f.exists()) await f.delete();
       }
+      if (encryptedBackupPath != null) {
+        final f = File(encryptedBackupPath);
+        if (await f.exists()) await f.delete();
+      }
     }
   }
 
   Future<bool> restoreData({
-    Future<String?> Function()? onRequestBackupPassword,
+    Future<String?> Function({String? initialError})? onRequestBackupPassword,
     void Function(double progress)? onProgress,
+    void Function(bool isLoading, String status)? onLoadingStateChanged,
   }) async {
     final bool permissionsGranted = await _requestPermissions();
     if (!permissionsGranted) {
@@ -1106,6 +1149,9 @@ class HiveService extends GetxService {
         type: FileType.any,
       );
       if (file == null) return false;
+
+      onLoadingStateChanged?.call(true, AppConstants.preparingBackup);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
 
       File selectedFile;
       if (file.path != null) {
@@ -1126,37 +1172,57 @@ class HiveService extends GetxService {
 
       onProgress?.call(0.05);
 
-      final pickedBytes = await selectedFile.readAsBytes();
+      // Peek only the file header first so standard .zip restores stream
+      // straight from disk without loading the entire archive into RAM.
+      final raf = await selectedFile.open();
+      late final Uint8List headerBytes;
+      try {
+        headerBytes = await raf.read(40);
+      } finally {
+        await raf.close();
+      }
       File zipToExtract;
 
-      if (CryptoService.isEncryptedBackupBytes(pickedBytes)) {
+      if (CryptoService.isEncryptedHeaderPrefix(headerBytes)) {
         if (onRequestBackupPassword == null) {
           CustomToast.showToast(AppConstants.encryptedBackupPasswordRequired);
           return false;
         }
-        Uint8List? decryptedZipBytes;
-        while (decryptedZipBytes == null) {
-          final password = await onRequestBackupPassword();
+        final decryptedPath = p.join(
+          (await getTemporaryDirectory()).path,
+          'restore_decrypted.zip',
+        );
+        decryptedZipFile = File(decryptedPath);
+        var decryptedOk = false;
+        String? passwordError;
+        while (!decryptedOk) {
+          onLoadingStateChanged?.call(false, '');
+          final password =
+              await onRequestBackupPassword(initialError: passwordError);
           if (password == null || password.isEmpty) {
             return false;
           }
+          onLoadingStateChanged?.call(true, AppConstants.decryptingBackup);
+          await Future<void>.delayed(const Duration(milliseconds: 50));
           try {
-            decryptedZipBytes = await CryptoService.decryptBackupBytes(
-              encryptedFileBytes: pickedBytes,
+            await CryptoService.decryptBackupFile(
+              encPath: selectedFile.path,
+              outZipPath: decryptedPath,
               password: password,
             );
+            decryptedOk = true;
           } on InvalidCipherTextException {
-            CustomToast.showToast(AppConstants.incorrectBackupPassword);
+            passwordError = AppConstants.incorrectBackupPassword;
           }
         }
-        decryptedZipFile = File(
-          p.join((await getTemporaryDirectory()).path, 'restore_decrypted.zip'),
-        );
-        await decryptedZipFile.writeAsBytes(decryptedZipBytes, flush: true);
+        onLoadingStateChanged?.call(true, AppConstants.restoringBackup);
+        await Future<void>.delayed(const Duration(milliseconds: 50));
         zipToExtract = decryptedZipFile;
-      } else if (pickedBytes.length >= 2 &&
-          pickedBytes[0] == 0x50 &&
-          pickedBytes[1] == 0x4B) {
+      } else if (headerBytes.length >= 2 &&
+          headerBytes[0] == 0x50 &&
+          headerBytes[1] == 0x4B) {
+        onLoadingStateChanged?.call(true, AppConstants.restoringBackup);
+        await Future<void>.delayed(const Duration(milliseconds: 50));
         zipToExtract = selectedFile;
       } else {
         CustomToast.showToast(AppConstants.invalidBackupFile);
@@ -1178,8 +1244,8 @@ class HiveService extends GetxService {
         };
       }
 
-      // MEMORY SAFE: Extracts directly to disk instead of filling up device RAM
-      await extractFileToDisk(zipToExtract.path, tempDir.path);
+      // Extract zip in a background isolate so spinner animates smoothly
+      await _runExtractZipInIsolate(zipToExtract.path, tempDir.path);
       onProgress?.call(0.3);
 
       // Close Hive before replacing files
@@ -1336,6 +1402,9 @@ class HiveService extends GetxService {
 
           processedEntries++;
           onProgress?.call(0.4 + (0.6 * (processedEntries / totalEntries))); // Progress from 40% to 100%
+          if (processedEntries % 5 == 0) {
+            await Future<void>.delayed(Duration.zero);
+          }
         }
       }
 
@@ -1392,6 +1461,7 @@ class HiveService extends GetxService {
       CustomToast.showToast(AppConstants.restoreFailed.replaceFirst('%s', e.toString()));
       return false;
     } finally {
+      onLoadingStateChanged?.call(false, '');
       preservedDek?.fillRange(0, preservedDek.length, 0);
       if (decryptedZipFile != null && await decryptedZipFile.exists()) {
         await decryptedZipFile.delete();

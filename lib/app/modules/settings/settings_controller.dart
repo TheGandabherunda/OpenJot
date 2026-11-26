@@ -345,6 +345,70 @@ class SettingsScreenController extends GetxController {
     }
   }
 
+  final _loadingStatus = AppConstants.takingBackup.obs;
+
+  void _setLoadingOverlay(bool visible, [String status = '']) {
+    if (status.isNotEmpty) {
+      _loadingStatus.value = status;
+    }
+    if (visible) {
+      if (Get.isDialogOpen ?? false) return;
+      final appColors = AppTheme.colorsOf(Get.context!);
+      final isDark = Theme.of(Get.context!).brightness == Brightness.dark;
+      final dialogBg = pitchBlack.value
+          ? (isDark ? Colors.black : Colors.white)
+          : appColors.grey6;
+
+      Get.dialog(
+        PopScope(
+          canPop: false,
+          child: Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+                decoration: BoxDecoration(
+                  color: dialogBg,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Obx(
+                  () => Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CupertinoActivityIndicator(
+                        radius: 15,
+                        color: appColors.primary,
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        _loadingStatus.value,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: AppConstants.font,
+                          color: appColors.grey10,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        barrierDismissible: false,
+      );
+    } else {
+      if (Get.isDialogOpen ?? false) {
+        Get.back();
+      }
+    }
+  }
+
   Future<void> backup() async {
     final option = await _showBottomSheetWithKeyboardPush<BackupExportOption>(
       const BackupOptionsBottomSheet(),
@@ -361,65 +425,14 @@ class SettingsScreenController extends GetxController {
       if (backupPassword == null || backupPassword.isEmpty) return;
     }
 
-    final statusText = AppConstants.takingBackup.obs;
-    final appColors = AppTheme.colorsOf(Get.context!);
-    final isDark = Theme.of(Get.context!).brightness == Brightness.dark;
-    final dialogBg = pitchBlack.value
-        ? (isDark ? Colors.black : Colors.white)
-        : appColors.grey6;
-
-    Get.dialog(
-      PopScope(
-        canPop: false,
-        child: Center(
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 40),
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-              decoration: BoxDecoration(
-                color: dialogBg,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Obx(
-                () => Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CupertinoActivityIndicator(
-                      radius: 15,
-                      color: appColors.primary,
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      statusText.value,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: AppConstants.font,
-                        color: appColors.grey10,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-      barrierDismissible: false,
-    );
-
+    _setLoadingOverlay(true, AppConstants.takingBackup);
     try {
       await _hiveService.backupData(
         encryptionPassword: backupPassword,
-        onStatusUpdate: (s) => statusText.value = s,
+        onStatusUpdate: (s) => _setLoadingOverlay(true, s),
       );
     } finally {
-      if (Get.isDialogOpen ?? false) {
-        Get.back();
-      }
+      _setLoadingOverlay(false);
     }
   }
 
@@ -455,10 +468,12 @@ class SettingsScreenController extends GetxController {
             onPressed: () async {
               Navigator.of(context).pop();
               final bool success = await _hiveService.restoreData(
-                onRequestBackupPassword: () async {
+                onLoadingStateChanged: _setLoadingOverlay,
+                onRequestBackupPassword: ({String? initialError}) async {
                   return _showBottomSheetWithKeyboardPush<String>(
-                    const MasterPasswordBottomSheet(
+                    MasterPasswordBottomSheet(
                       mode: MasterPasswordSheetMode.enterBackupPassword,
+                      initialError: initialError,
                     ),
                   );
                 },
@@ -491,6 +506,9 @@ class SettingsScreenController extends GetxController {
 
       if (file == null) return;
 
+      _setLoadingOverlay(true, AppConstants.importingBackup);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
       String zipPath;
       if (file.path != null) {
         zipPath = file.path!;
@@ -501,20 +519,15 @@ class SettingsScreenController extends GetxController {
         zipPath = tempFile.path;
       }
 
-      // Show loading dialog
-      Get.dialog(
-        const Center(child: CircularProgressIndicator()),
-        barrierDismissible: false,
-      );
-
       final importedCount = await _migrationService.importFromDailyYou(
         zipPath,
         onStatusUpdate: (status) {
           debugPrint("Migration status: $status");
+          _setLoadingOverlay(true, status);
         },
       );
 
-      Get.back(); // Close loading dialog
+      _setLoadingOverlay(false);
 
       if (importedCount > 0) {
         CustomToast.showToast(
@@ -533,7 +546,7 @@ class SettingsScreenController extends GetxController {
         );
       }
     } catch (e) {
-      if (Get.isOverlaysOpen) Get.back();
+      _setLoadingOverlay(false);
       CustomToast.showToast(
         AppConstants.importFailed.replaceFirst('%s', e.toString()),
         backgroundColor: appColors.grey10,

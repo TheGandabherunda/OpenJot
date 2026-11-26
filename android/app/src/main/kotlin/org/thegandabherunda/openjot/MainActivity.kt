@@ -7,6 +7,7 @@ import android.location.Location
 import android.location.LocationManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
 import android.os.Looper
 import android.webkit.MimeTypeMap
 import androidx.core.app.ActivityCompat
@@ -16,13 +17,26 @@ import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.nio.ByteBuffer
+import java.security.SecureRandom
 import java.util.UUID
+import java.util.concurrent.Executors
+import javax.crypto.AEADBadTagException
+import javax.crypto.Cipher
+import javax.crypto.SecretKeyFactory
+import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.PBEKeySpec
+import javax.crypto.spec.SecretKeySpec
 
 class MainActivity : FlutterFragmentActivity() {
     private val LOCATION_CHANNEL = "foss_location"
     private val SHARE_CHANNEL = "app.channel.shared.data"
+    private val CRYPTO_CHANNEL = "openjot/native_crypto"
     private val REQUEST_CODE = 1001
+    private val cryptoExecutor = Executors.newSingleThreadExecutor()
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var pendingResult: MethodChannel.Result? = null
     private var initialSharedData: Map<String, Any?>? = null
     private lateinit var shareChannel: MethodChannel
@@ -193,6 +207,175 @@ class MainActivity : FlutterFragmentActivity() {
                 }
                 else -> result.notImplemented()
             }
+        }
+
+        // Background Native Crypto Channel (AES-256-GCM + PBKDF2-HMAC-SHA256)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CRYPTO_CHANNEL).setMethodCallHandler { call, result ->
+            cryptoExecutor.execute {
+                try {
+                    when (call.method) {
+                        "pbkdf2" -> {
+                            val password = call.argument<String>("password")!!
+                            val salt = call.argument<ByteArray>("salt")!!
+                            val iterations = call.argument<Int>("iterations")!!
+                            val bits = call.argument<Int>("bits")!!
+                            val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+                            val spec = PBEKeySpec(password.toCharArray(), salt, iterations, bits)
+                            val encoded = factory.generateSecret(spec).encoded
+                            mainHandler.post { result.success(encoded) }
+                        }
+
+                        "encryptBackupFile" -> {
+                            val zipPath = call.argument<String>("zipPath")!!
+                            val outPath = call.argument<String>("outPath")!!
+                            val password = call.argument<String>("password")!!
+                            val iterations = call.argument<Int>("iterations")!!
+                            encryptBackupFileNative(zipPath, outPath, password, iterations)
+                            mainHandler.post { result.success(null) }
+                        }
+
+                        "decryptBackupFile" -> {
+                            val encPath = call.argument<String>("encPath")!!
+                            val outZipPath = call.argument<String>("outZipPath")!!
+                            val password = call.argument<String>("password")!!
+                            decryptBackupFileNative(encPath, outZipPath, password)
+                            mainHandler.post { result.success(null) }
+                        }
+
+                        else -> mainHandler.post { result.notImplemented() }
+                    }
+                } catch (e: AEADBadTagException) {
+                    mainHandler.post { result.error("INCORRECT_PASSWORD", e.message, null) }
+                } catch (e: Exception) {
+                    mainHandler.post { result.error("CRYPTO_ERROR", e.message ?: e.toString(), null) }
+                }
+            }
+        }
+    }
+
+    private fun deriveAes256Key(password: String, salt: ByteArray, iterations: Int): ByteArray {
+        val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+        val spec = PBEKeySpec(password.toCharArray(), salt, iterations, 256)
+        return factory.generateSecret(spec).encoded
+    }
+
+    private fun encryptBackupFileNative(
+        zipPath: String,
+        outPath: String,
+        password: String,
+        iterations: Int,
+    ) {
+        val rng = SecureRandom()
+        val salt = ByteArray(16).also { rng.nextBytes(it) }
+        val nonce = ByteArray(12).also { rng.nextBytes(it) }
+        val header = ByteArray(28)
+        val magic = byteArrayOf(0x4F, 0x4A, 0x45, 0x4E, 0x43, 0x30, 0x31, 0x00)
+        System.arraycopy(magic, 0, header, 0, 8)
+        System.arraycopy(salt, 0, header, 8, 16)
+        ByteBuffer.wrap(header, 24, 4).putInt(iterations)
+
+        val keyBytes = deriveAes256Key(password, salt, iterations)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(
+            Cipher.ENCRYPT_MODE,
+            SecretKeySpec(keyBytes, "AES"),
+            GCMParameterSpec(128, nonce),
+        )
+        cipher.updateAAD(header)
+
+        val outFile = File(outPath)
+        try {
+            FileInputStream(zipPath).use { input ->
+                FileOutputStream(outFile).use { output ->
+                    output.write(header)
+                    output.write(nonce)
+                    val buffer = ByteArray(65536)
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read == -1) break
+                        val chunk = cipher.update(buffer, 0, read)
+                        if (chunk != null && chunk.isNotEmpty()) {
+                            output.write(chunk)
+                        }
+                    }
+                    val finalBytes = cipher.doFinal()
+                    if (finalBytes != null && finalBytes.isNotEmpty()) {
+                        output.write(finalBytes)
+                    }
+                    output.fd.sync()
+                }
+            }
+        } catch (e: Exception) {
+            if (outFile.exists()) outFile.delete()
+            throw e
+        } finally {
+            keyBytes.fill(0)
+        }
+    }
+
+    private fun decryptBackupFileNative(
+        encPath: String,
+        outZipPath: String,
+        password: String,
+    ) {
+        val encFile = File(encPath)
+        val fileLen = encFile.length()
+        if (fileLen < 28L + 12L + 16L) {
+            throw IllegalArgumentException("Encrypted backup file is too small.")
+        }
+
+        val outFile = File(outZipPath)
+        var keyBytes: ByteArray? = null
+        try {
+            FileInputStream(encFile).use { input ->
+                val header = ByteArray(28)
+                val nonce = ByteArray(12)
+                if (input.read(header) != 28 || input.read(nonce) != 12) {
+                    throw IllegalArgumentException("Failed to read encrypted backup header.")
+                }
+                val magic = byteArrayOf(0x4F, 0x4A, 0x45, 0x4E, 0x43, 0x30, 0x31, 0x00)
+                for (i in 0 until 8) {
+                    if (header[i] != magic[i]) {
+                        throw IllegalArgumentException("Invalid OpenJot encrypted backup header.")
+                    }
+                }
+                val salt = header.copyOfRange(8, 24)
+                val iterations = ByteBuffer.wrap(header, 24, 4).int
+                if (iterations < 1000 || iterations > 10000000) {
+                    throw IllegalArgumentException("Unsupported KDF iteration count.")
+                }
+
+                keyBytes = deriveAes256Key(password, salt, iterations)
+                val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+                cipher.init(
+                    Cipher.DECRYPT_MODE,
+                    SecretKeySpec(keyBytes, "AES"),
+                    GCMParameterSpec(128, nonce),
+                )
+                cipher.updateAAD(header)
+
+                FileOutputStream(outFile).use { output ->
+                    val buffer = ByteArray(65536)
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read == -1) break
+                        val chunk = cipher.update(buffer, 0, read)
+                        if (chunk != null && chunk.isNotEmpty()) {
+                            output.write(chunk)
+                        }
+                    }
+                    val finalBytes = cipher.doFinal()
+                    if (finalBytes != null && finalBytes.isNotEmpty()) {
+                        output.write(finalBytes)
+                    }
+                    output.fd.sync()
+                }
+            }
+        } catch (e: Exception) {
+            if (outFile.exists()) outFile.delete()
+            throw e
+        } finally {
+            keyBytes?.fill(0)
         }
     }
 
