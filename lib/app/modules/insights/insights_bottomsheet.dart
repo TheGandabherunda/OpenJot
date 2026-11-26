@@ -102,8 +102,8 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
             AppConstants.insights,
             style: TextStyle(
               color: appThemeColors.grey10,
-              fontWeight: FontWeight.bold,
-              fontSize: 18.sp,
+              fontWeight: FontWeight.w600,
+              fontSize: 17.sp,
               fontFamily: AppConstants.font,
               letterSpacing: -0.2,
             ),
@@ -734,8 +734,8 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
             title,
             style: TextStyle(
               color: appThemeColors.grey10,
-              fontWeight: FontWeight.bold,
-              fontSize: 18.sp,
+              fontWeight: FontWeight.w600,
+              fontSize: 17.sp,
               fontFamily: AppConstants.font,
               letterSpacing: -0.2,
             ),

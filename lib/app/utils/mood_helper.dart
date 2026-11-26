@@ -664,4 +664,37 @@ class MoodHelper {
       ],
     ),
   ];
+
+  /// Builds the radial wash gradient matching the mood selector sheet so mood
+  /// cards across tiles, modals, and previews share the exact same backdrop.
+  static BoxDecoration buildMoodWashDecoration(
+    Color accent,
+    Color normal,
+    Color bg, {
+    required bool isDark,
+    Alignment center = const Alignment(0, -0.15),
+    BorderRadiusGeometry? borderRadius,
+  }) {
+    final outerColor = isDark
+        ? Color.lerp(normal, bg, 0.4)!
+        : Color.lerp(bg, normal, 0.08)!;
+    final brightTarget = Color.lerp(accent, const Color(0xFFFFFFFF), 0.5)!;
+    final centerColor = isDark
+        ? Color.lerp(outerColor, brightTarget, 0.65)!
+        : Color.lerp(outerColor, const Color(0xFFFFFFFF), 0.9)!;
+
+    return BoxDecoration(
+      borderRadius: borderRadius,
+      gradient: RadialGradient(
+        colors: [
+          centerColor,
+          Color.lerp(centerColor, outerColor, 0.4)!,
+          outerColor,
+        ],
+        stops: const [0.0, 0.4, 1.0],
+        radius: 1.3,
+        center: center,
+      ),
+    );
+  }
 }

@@ -90,7 +90,8 @@ class RemindersBottomSheet extends StatelessWidget {
           AppConstants.reminders,
           style: TextStyle(
             color: textColor,
-            fontWeight: FontWeight.bold,
+            fontSize: 17.sp,
+            fontWeight: FontWeight.w600,
             fontFamily: AppConstants.font,
             letterSpacing: -0.2,
           ),

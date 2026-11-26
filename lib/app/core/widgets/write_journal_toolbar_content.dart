@@ -562,7 +562,7 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
         onMaximizeToggled: widget.onMapMaximizeToggled,
       );
     } else if (widget.selectedToolbarIcon == Icons.sentiment_satisfied_rounded) {
-      content = _MoodSelectorView(
+      content = MoodSelectorView(
         scrollController: widget.scrollController,
         onMoodChanged: widget.onMoodChanged,
         initialMoodIndex: widget.selectedMoodIndex,
@@ -1669,8 +1669,9 @@ class AudioRecorderViewState extends State<AudioRecorderView>
   }
 }
 
-class _MoodSelectorView extends StatefulWidget {
-  const _MoodSelectorView({
+class MoodSelectorView extends StatefulWidget {
+  const MoodSelectorView({
+    super.key,
     required this.scrollController,
     this.onMoodChanged,
     this.initialMoodIndex,
@@ -1683,10 +1684,10 @@ class _MoodSelectorView extends StatefulWidget {
   final bool isPitchBlack;
 
   @override
-  State<_MoodSelectorView> createState() => _MoodSelectorViewState();
+  State<MoodSelectorView> createState() => MoodSelectorViewState();
 }
 
-class _MoodSelectorViewState extends State<_MoodSelectorView>
+class MoodSelectorViewState extends State<MoodSelectorView>
     with TickerProviderStateMixin {
   late int _currentMoodIndex;
   late double _lastSliderValue;
@@ -1770,33 +1771,17 @@ class _MoodSelectorViewState extends State<_MoodSelectorView>
     final Color currentNormal = lerpMoodColor(normalColors, floorIndex, ceilIndex, t);
     final Color currentBg = lerpMoodColor(backgroundColors, floorIndex, ceilIndex, t);
 
-    // Refined Gradient calculation
-    final Color outerColor = isDark
-        ? Color.lerp(currentNormal, currentBg, 0.4)!
-        : Color.lerp(currentBg, currentNormal, 0.08)!;
-
-    final Color brightTarget = Color.lerp(currentAccent, Colors.white, 0.5)!;
-    final Color centerColor = isDark
-        ? Color.lerp(outerColor, brightTarget, 0.65)!
-        : Color.lerp(outerColor, Colors.white, 0.9)!;
-
     final Color inactiveColor = isDark
         ? currentAccent.withOpacity(0.1)
         : currentAccent.withOpacity(0.12);
 
     final decoration = widget.isPitchBlack
         ? BoxDecoration(color: isDark ? Colors.black : Colors.white)
-        : BoxDecoration(
-            gradient: RadialGradient(
-              colors: [
-                centerColor,
-                Color.lerp(centerColor, outerColor, 0.4)!,
-                outerColor,
-              ],
-              stops: const [0.0, 0.4, 1.0],
-              radius: 1.3,
-              center: const Alignment(0, -0.15),
-            ),
+        : MoodHelper.buildMoodWashDecoration(
+            currentAccent,
+            currentNormal,
+            currentBg,
+            isDark: isDark,
           );
 
     return AnimatedContainer(

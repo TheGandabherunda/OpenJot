@@ -5,37 +5,75 @@ import 'dart:ui' as ui;
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 import 'package:get_thumbnail_video/video_thumbnail.dart';
 import 'package:open_jot/app/core/constants.dart';
+import 'package:open_jot/app/modules/home/home_controller.dart';
+import 'package:open_jot/app/utils/custom_toast.dart';
+import 'package:open_jot/app/utils/foss_location.dart';
+import 'package:open_jot/app/utils/mood_helper.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/models/journal_entry.dart';
 import '../../core/theme.dart';
 
-/// A helper class to unify different media types for the previewer.
+enum MediaPreviewKind { image, video, audio, location, mood }
+
+/// A helper class to unify different media and card types for the previewer.
 class MediaItem {
-  final dynamic asset; // Can be AssetEntity or CapturedPhoto
+  final dynamic asset; // AssetEntity, CapturedPhoto, SelectedLocation, or int
   final AssetType type;
   final String id;
+  final MediaPreviewKind kind;
 
-  MediaItem({required this.asset, required this.type, required this.id});
+  MediaItem({
+    required this.asset,
+    required this.type,
+    required this.id,
+    MediaPreviewKind? kind,
+  }) : kind = kind ?? _kindFromAssetType(type);
+
+  MediaItem.location(SelectedLocation location)
+      : asset = location,
+        type = AssetType.other,
+        id = 'location',
+        kind = MediaPreviewKind.location;
+
+  MediaItem.mood(int moodIndex)
+      : asset = moodIndex,
+        type = AssetType.other,
+        id = 'mood',
+        kind = MediaPreviewKind.mood;
+
+  static MediaPreviewKind _kindFromAssetType(AssetType assetType) {
+    if (assetType == AssetType.video) return MediaPreviewKind.video;
+    if (assetType == AssetType.audio) return MediaPreviewKind.audio;
+    return MediaPreviewKind.image;
+  }
 }
 
-/// A full-screen bottom sheet to preview images and videos with an ambient gradient background.
+/// A full-screen bottom sheet to preview media, locations, and moods with an ambient gradient background.
 class MediaPreviewBottomSheet extends StatefulWidget {
   final List<MediaItem> mediaItems;
   final int initialIndex;
   final Function(MediaItem)? onRemove;
+  final Future<SelectedLocation?> Function(SelectedLocation current)?
+      onEditLocation;
+  final Future<int?> Function(int currentMoodIndex)? onEditMood;
 
   const MediaPreviewBottomSheet({
     super.key,
     required this.mediaItems,
     this.initialIndex = 0,
     this.onRemove,
+    this.onEditLocation,
+    this.onEditMood,
   });
 
   @override
@@ -101,7 +139,7 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
     if (index < 0 || index >= _editableMediaItems.length) return;
 
     final item = _editableMediaItems[index];
-    if (item.type == AssetType.image) {
+    if (item.kind == MediaPreviewKind.image) {
       ImageProvider? imageProvider;
       try {
         if (item.asset is AssetEntity) {
@@ -143,8 +181,40 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
 
       final item = _editableMediaItems[index];
 
+      if (item.kind == MediaPreviewKind.mood) {
+        final moodIdx =
+            (item.asset as int).clamp(0, AppConstants.moods.length - 1);
+        final appColors = AppTheme.colorsOf(context);
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final moodColors =
+            MoodHelper.getMoodThemeColors(moodIdx, appColors, isDark);
+        final colors = [moodColors[1], moodColors[2]];
+        _colorCache[index] = colors;
+        if (mounted && index == _currentIndex) {
+          setState(() {
+            _vibrantColor = colors[0];
+            _dominantColor = colors[1];
+          });
+        }
+        _processingIndexes.remove(index);
+        return;
+      }
+
+      if (item.kind == MediaPreviewKind.location) {
+        const locationColors = [Color(0xFF4F7EA8), Color(0xFF1F3549)];
+        _colorCache[index] = locationColors;
+        if (mounted && index == _currentIndex) {
+          setState(() {
+            _vibrantColor = locationColors[0];
+            _dominantColor = locationColors[1];
+          });
+        }
+        _processingIndexes.remove(index);
+        return;
+      }
+
       // Handle audio files differently to avoid thumbnail generation errors
-      if (item.type == AssetType.audio) {
+      if (item.kind == MediaPreviewKind.audio) {
         final audioColors = [Colors.deepPurple.shade900, Colors.black87];
         _colorCache[index] = audioColors;
         if (mounted && index == _currentIndex) {
@@ -309,33 +379,83 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
                         ),
                       ),
                     ),
-                    if (widget.onRemove != null)
+                    if (_canEditCurrentItem() || widget.onRemove != null)
                       Positioned(
                         top: 10.h,
                         right: 10.w,
-                        child: IconButton(
-                          icon: const Icon(Icons.delete_outline_rounded,
-                              color: Colors.red, size: 28),
-                          onPressed: () {
-                            final currentItem = _editableMediaItems[_currentIndex];
-                            widget.onRemove!(currentItem);
-                            setState(() {
-                              _editableMediaItems.removeAt(_currentIndex);
-                              if (_editableMediaItems.isEmpty) {
-                                Navigator.of(context).pop();
-                              } else {
-                                if (_currentIndex >= _editableMediaItems.length) {
-                                  _currentIndex = _editableMediaItems.length - 1;
-                                }
-                                _colorCache.clear(); // Clear so colors readjust if shifted
-                                _updateBackgroundColor(_currentIndex);
-                              }
-                            });
-                          },
-                          style: ButtonStyle(
-                            backgroundColor: WidgetStateProperty.all(
-                                Colors.black.withOpacity(0.3)),
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_canEditCurrentItem())
+                              GestureDetector(
+                                onTap: _handleEditCurrentItem,
+                                child: Container(
+                                  height: 44.w,
+                                  padding:
+                                      EdgeInsets.symmetric(horizontal: 14.w),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.35),
+                                    borderRadius: BorderRadius.circular(22.w),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.edit_rounded,
+                                        color: Colors.white,
+                                        size: 18.sp,
+                                      ),
+                                      SizedBox(width: 6.w),
+                                      Text(
+                                        AppConstants.edit,
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 15.sp,
+                                          fontWeight: FontWeight.w600,
+                                          fontFamily: AppConstants.font,
+                                          decoration: TextDecoration.none,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            if (_canEditCurrentItem() &&
+                                widget.onRemove != null)
+                              SizedBox(width: 8.w),
+                            if (widget.onRemove != null)
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: Colors.red,
+                                  size: 28,
+                                ),
+                                onPressed: () {
+                                  final currentItem =
+                                      _editableMediaItems[_currentIndex];
+                                  widget.onRemove!(currentItem);
+                                  setState(() {
+                                    _editableMediaItems
+                                        .removeAt(_currentIndex);
+                                    if (_editableMediaItems.isEmpty) {
+                                      Navigator.of(context).pop();
+                                    } else {
+                                      if (_currentIndex >=
+                                          _editableMediaItems.length) {
+                                        _currentIndex =
+                                            _editableMediaItems.length - 1;
+                                      }
+                                      _colorCache.clear();
+                                      _updateBackgroundColor(_currentIndex);
+                                    }
+                                  });
+                                },
+                                style: ButtonStyle(
+                                  backgroundColor: WidgetStateProperty.all(
+                                      Colors.black.withOpacity(0.3)),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     if (_editableMediaItems.length > 1)
@@ -351,19 +471,63 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
     );
   }
 
+  bool _canEditCurrentItem() {
+    if (_editableMediaItems.isEmpty) return false;
+    final item = _editableMediaItems[_currentIndex];
+    if (item.kind == MediaPreviewKind.location) {
+      return widget.onEditLocation != null;
+    }
+    if (item.kind == MediaPreviewKind.mood) {
+      return widget.onEditMood != null;
+    }
+    return false;
+  }
+
+  Future<void> _handleEditCurrentItem() async {
+    if (_editableMediaItems.isEmpty) return;
+    final index = _currentIndex;
+    final item = _editableMediaItems[index];
+
+    if (item.kind == MediaPreviewKind.location &&
+        widget.onEditLocation != null) {
+      final updated =
+          await widget.onEditLocation!(item.asset as SelectedLocation);
+      if (updated != null && mounted) {
+        setState(() {
+          _editableMediaItems[index] = MediaItem.location(updated);
+        });
+      }
+    } else if (item.kind == MediaPreviewKind.mood &&
+        widget.onEditMood != null) {
+      final updated = await widget.onEditMood!(item.asset as int);
+      if (updated != null && mounted) {
+        setState(() {
+          _editableMediaItems[index] = MediaItem.mood(updated);
+          _colorCache.remove(index);
+        });
+        unawaited(_updateBackgroundColor(index));
+      }
+    }
+  }
+
   Widget _buildMediaContent(MediaItem item, int index) {
-    if (item.type == AssetType.video) {
-      return VideoPlayerItem(
-        item: item,
-        isActive: index == _currentIndex,
-      );
-    } else if (item.type == AssetType.audio) {
-      return AudioPlayerItem(
-        item: item,
-        isActive: index == _currentIndex,
-      );
-    } else {
-      return _buildImageItem(item);
+    switch (item.kind) {
+      case MediaPreviewKind.video:
+        return VideoPlayerItem(
+          item: item,
+          isActive: index == _currentIndex,
+        );
+      case MediaPreviewKind.audio:
+        return AudioPlayerItem(
+          item: item,
+          isActive: index == _currentIndex,
+        );
+      case MediaPreviewKind.location:
+        return _LocationPreviewItem(location: item.asset as SelectedLocation);
+      case MediaPreviewKind.mood:
+        return _MoodPreviewItem(moodIndex: item.asset as int);
+      case MediaPreviewKind.image:
+        return _buildImageItem(item);
     }
   }
 
@@ -822,6 +986,271 @@ class AudioPlayerItemState extends State<AudioPlayerItem> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LocationPreviewItem extends StatefulWidget {
+  final SelectedLocation location;
+
+  const _LocationPreviewItem({required this.location});
+
+  @override
+  State<_LocationPreviewItem> createState() => _LocationPreviewItemState();
+}
+
+class _LocationPreviewItemState extends State<_LocationPreviewItem> {
+  final MapController _mapController = MapController();
+  String? _placeName;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPlaceName();
+  }
+
+  @override
+  void didUpdateWidget(covariant _LocationPreviewItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.location.coordinates != widget.location.coordinates) {
+      _loadPlaceName();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _mapController.move(widget.location.coordinates, 17);
+        }
+      });
+    }
+  }
+
+  void _loadPlaceName() {
+    final target = widget.location.coordinates;
+    _placeName = FossLocation.getCachedPlaceName(target);
+    if (_placeName == null) {
+      unawaited(FossLocation.getPlaceName(target).then((resolved) {
+        if (!mounted ||
+            resolved == null ||
+            widget.location.coordinates != target) {
+          return;
+        }
+        setState(() {
+          _placeName = resolved;
+        });
+      }));
+    }
+  }
+
+  Future<void> _openInMaps() async {
+    final uri = Uri.parse(widget.location.link);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else if (mounted) {
+      CustomToast.showToast(
+        AppConstants.couldNotOpenMap,
+        backgroundColor: Colors.black87,
+        textColor: Colors.white,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
+    final coords = widget.location.coordinates;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxCardHeight = constraints.maxHeight * 0.58;
+        final cardSize = constraints.maxWidth < maxCardHeight
+            ? constraints.maxWidth
+            : maxCardHeight;
+        final textTop = (constraints.maxHeight + cardSize) / 2 + 18.h;
+
+        return Stack(
+          children: [
+            Center(
+              child: SizedBox(
+                width: cardSize,
+                height: cardSize,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20.r),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      FlutterMap(
+                        mapController: _mapController,
+                        options: MapOptions(
+                          initialCenter: coords,
+                          initialZoom: 17,
+                          minZoom: 4,
+                          maxZoom: 19,
+                          interactionOptions: const InteractionOptions(
+                            flags: InteractiveFlag.pinchZoom |
+                                InteractiveFlag.doubleTapZoom,
+                          ),
+                        ),
+                        children: [
+                          TileLayer(
+                            urlTemplate:
+                                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            userAgentPackageName:
+                                'org.thegandabherunda.openjot',
+                          ),
+                          MarkerLayer(
+                            markers: [
+                              Marker(
+                                width: 48.w,
+                                height: 48.w,
+                                point: coords,
+                                child: Icon(
+                                  Icons.location_pin,
+                                  color: colors.aOrange[1],
+                                  size: 42.sp,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      Positioned(
+                        right: 14.w,
+                        bottom: 14.h,
+                        child: GestureDetector(
+                          onTap: _openInMaps,
+                          child: Container(
+                            width: 48.w,
+                            height: 48.w,
+                            decoration: BoxDecoration(
+                              color: const Color(0xCC1C1C1E),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.22),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.arrow_outward_rounded,
+                              color: Colors.white,
+                              size: 24.sp,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: textTop,
+              left: 12.w,
+              right: 12.w,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _placeName ?? 'Pinned Location',
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 17.sp,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: AppConstants.font,
+                      height: 1.2,
+                      letterSpacing: -0.2,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    '${coords.latitude.toStringAsFixed(4)}, ${coords.longitude.toStringAsFixed(4)}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.72),
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w500,
+                      fontFamily: AppConstants.font,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MoodPreviewItem extends StatelessWidget {
+  final int moodIndex;
+
+  const _MoodPreviewItem({required this.moodIndex});
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = AppTheme.colorsOf(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final safeIdx = moodIndex.clamp(0, AppConstants.moods.length - 1);
+    final moodColors = MoodHelper.getMoodThemeColors(safeIdx, appColors, isDark);
+    final label = AppConstants.moods[safeIdx]['label'] ?? '';
+    final homeController = Get.find<HomeController>();
+
+    return AspectRatio(
+      aspectRatio: 1.0,
+      child: Container(
+        decoration: MoodHelper.buildMoodWashDecoration(
+          moodColors[0],
+          moodColors[1],
+          moodColors[2],
+          isDark: isDark,
+          borderRadius: BorderRadius.circular(22.r),
+        ),
+        padding: EdgeInsets.all(24.w),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Obx(() {
+                final rasterized = homeController.moodImagesLarge[safeIdx] ??
+                    homeController.moodImages[safeIdx];
+                if (rasterized != null) {
+                  return RawImage(
+                    image: rasterized,
+                    width: 150.w,
+                    height: 150.w,
+                    filterQuality: ui.FilterQuality.high,
+                  );
+                }
+                return MoodHelper.buildMoodSvg(
+                  safeIdx,
+                  width: 150.w,
+                  height: 150.w,
+                );
+              }),
+              if (label.isNotEmpty) ...[
+                SizedBox(height: 16.h),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: moodColors[0],
+                    fontSize: 22.sp,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: AppConstants.font,
+                    letterSpacing: -0.3,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

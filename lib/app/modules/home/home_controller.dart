@@ -196,8 +196,11 @@ class HomeController extends GetxController {
         updatedEntry.cameraPhotos.isEmpty &&
         updatedEntry.galleryAudios.isEmpty &&
         updatedEntry.recordings.isEmpty;
+    final hasMetadata = updatedEntry.location != null ||
+        updatedEntry.moodIndex != null ||
+        updatedEntry.tags.isNotEmpty;
 
-    if (isTextEmpty && isMediaEmpty && !updatedEntry.isDraft) {
+    if (isTextEmpty && isMediaEmpty && !hasMetadata && !updatedEntry.isDraft) {
       journalEntries.removeWhere((e) => e.id == updatedEntry.id);
       draftEntries.removeWhere((e) => e.id == updatedEntry.id);
     } else {

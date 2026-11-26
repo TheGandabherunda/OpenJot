@@ -380,8 +380,10 @@ class HiveService extends GetxService {
         entry.cameraPhotos.isEmpty &&
         entry.galleryAudios.isEmpty &&
         entry.recordings.isEmpty;
+    final hasMetadata =
+        entry.location != null || entry.moodIndex != null || entry.tags.isNotEmpty;
 
-    if (isTextEmpty && isMediaEmpty) {
+    if (isTextEmpty && isMediaEmpty && !hasMetadata) {
       await deleteJournalEntry(entry.id);
     } else {
       await journalsBox.put(entry.id, entry);

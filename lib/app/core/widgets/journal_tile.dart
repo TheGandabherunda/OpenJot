@@ -15,7 +15,6 @@ import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
 import 'package:open_jot/app/utils/custom_toast.dart';
-import 'package:open_jot/app/utils/mood_helper.dart';
 import 'package:open_jot/app/utils/pdf_generator.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -26,6 +25,7 @@ import '../services/hive_service.dart';
 import '../constants.dart';
 import '../models/journal_entry.dart';
 import '../theme.dart';
+import 'journal_card_grid.dart';
 
 class JournalTile extends StatefulWidget {
   final JournalEntry entry;
@@ -371,6 +371,8 @@ class _JournalTileContent extends StatelessWidget {
     final appThemeColors = AppTheme.colorsOf(context);
     final hasMedia = entry.galleryImages.isNotEmpty ||
         entry.cameraPhotos.isNotEmpty;
+    final hasTopCard =
+        hasMedia || entry.moodIndex != null || entry.location != null;
     final hasAudio = entry.galleryAudios.isNotEmpty ||
         entry.recordings.isNotEmpty;
     final tileColor = backgroundColor ?? appThemeColors.grey6;
@@ -393,7 +395,7 @@ class _JournalTileContent extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (hasMedia)
+                if (hasTopCard)
                   Padding(
                     padding: EdgeInsets.fromLTRB(0.w, 0.h, 0.w,
                         (plainText.isNotEmpty || hasAudio) ? 8.h : 0.h),
@@ -408,7 +410,7 @@ class _JournalTileContent extends StatelessWidget {
                 if (plainText.isNotEmpty)
                   Padding(
                     padding: EdgeInsets.fromLTRB(10.w,
-                        (hasMedia || hasAudio) ? 2.h : 12.h, 10.w, 8.h),
+                        (hasTopCard || hasAudio) ? 2.h : 12.h, 10.w, 8.h),
                     child: Directionality(
                       textDirection: entry.useRtl
                           ? ui.TextDirection.rtl
@@ -490,109 +492,13 @@ class _JournalTileContent extends StatelessWidget {
   Widget _buildMediaPreview(BuildContext context, JournalEntry entry) {
     final allMedia = [
       ...entry.galleryImages,
-      ...entry.cameraPhotos
+      ...entry.cameraPhotos,
     ];
-    if (allMedia.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final double spacing = 2.w;
-    final appThemeColors = AppTheme.colorsOf(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final overlayColor =
-    (isDark ? appThemeColors.grey7 : appThemeColors.grey10)
-        .withOpacity(0.6);
-    final onOverlayColor =
-    isDark ? appThemeColors.grey10 : appThemeColors.grey7;
-
-    Widget buildMediaContainer(dynamic media, {Widget? overlay}) {
-      return Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: appThemeColors.grey3, width: 1.w),
-          borderRadius: BorderRadius.circular(14.r),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(14.r),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              MediaThumbnail(media: media),
-              if (overlay != null) overlay,
-            ],
-          ),
-        ),
-      );
-    }
-
-    Widget content;
-    if (allMedia.length == 1) {
-      content = SizedBox(
-        height: 250.h,
-        width: double.infinity,
-        child: buildMediaContainer(allMedia[0]),
-      );
-    } else if (allMedia.length == 2) {
-      content = SizedBox(
-        height: 250.h,
-        child: Row(
-          children: [
-            Expanded(child: buildMediaContainer(allMedia[0])),
-            SizedBox(width: spacing),
-            Expanded(child: buildMediaContainer(allMedia[1])),
-          ],
-        ),
-      );
-    } else {
-      Widget? thirdImageOverlay;
-      if (allMedia.length > 3) {
-        thirdImageOverlay = ClipRRect(
-          borderRadius: BorderRadius.circular(14.r),
-          child: Container(
-            color: overlayColor,
-            child: Center(
-              child: Text(
-                '+${allMedia.length - 3}',
-                style: TextStyle(
-                    color: onOverlayColor,
-                    fontSize: 32.sp,
-                    fontFamily: AppConstants.font,
-                    fontWeight: FontWeight.w500,
-                    decoration: TextDecoration.none,
-                    letterSpacing: -0.2),
-              ),
-            ),
-          ),
-        );
-      }
-
-      content = SizedBox(
-        height: 250.h,
-        child: Row(
-          children: [
-            AspectRatio(
-              aspectRatio: 1.0,
-              child: buildMediaContainer(allMedia[0]),
-            ),
-            SizedBox(width: spacing),
-            Expanded(
-              child: Column(
-                children: [
-                  Expanded(child: buildMediaContainer(allMedia[1])),
-                  SizedBox(height: spacing),
-                  Expanded(
-                    child: buildMediaContainer(
-                      allMedia[2],
-                      overlay: thirdImageOverlay,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    return content;
+    return JournalCardGrid(
+      mediaItems: allMedia,
+      location: entry.location,
+      moodIndex: entry.moodIndex,
+    );
   }
 
   Widget _buildAudioPreviews(BuildContext context, JournalEntry entry) {
@@ -724,6 +630,8 @@ class _JournalTileContent extends StatelessWidget {
   }
 
   Widget _buildFooter(AppThemeColors appThemeColors, BuildContext context) {
+    final hasFooterBadges =
+        entry.isReflection || entry.isDraft || entry.isBookmarked;
     return Padding(
         padding: EdgeInsets.fromLTRB(10.w, 4.h, 10.w, 8.h),
         // [FIXED] Removed highly expensive `IntrinsicHeight` which causes heavy speculative layout thrashing per tile.
@@ -744,92 +652,74 @@ class _JournalTileContent extends StatelessWidget {
                   ),
                 ),
                 // [FIXED] Replaced `VerticalDivider` (which requires IntrinsicHeight) with a fixed Container.
-                Container(
-                  width: 1.w,
-                  height: 16.h,
-                  color: dividerColor ?? appThemeColors.grey5,
-                  margin: EdgeInsets.symmetric(horizontal: 8.w),
-                ),
-                Row(
-                  children: [
-                    if (entry.isReflection)
-                      Container(
-                        margin: EdgeInsets.only(
-                            right: entry.moodIndex != null || entry.isDraft ? 8.w : 0),
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 8.w, vertical: 2.h),
-                        decoration: BoxDecoration(
-                          color: reflectionBackground ??
-                              appThemeColors.grey5,
-                          borderRadius: BorderRadius.circular(24.r),
-                        ),
-                        child: Text(
-                          AppConstants.reflection,
-                          style: TextStyle(
-                            color: appThemeColors.grey10,
-                            fontSize: 12.sp,
-                            fontFamily: AppConstants.font,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: -0.2,
+                if (hasFooterBadges) ...[
+                  Container(
+                    width: 1.w,
+                    height: 16.h,
+                    color: dividerColor ?? appThemeColors.grey5,
+                    margin: EdgeInsets.symmetric(horizontal: 8.w),
+                  ),
+                  Row(
+                    children: [
+                      if (entry.isReflection)
+                        Container(
+                          margin: EdgeInsets.only(
+                            right: entry.isDraft ? 8.w : 0,
+                          ),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 8.w, vertical: 2.h),
+                          decoration: BoxDecoration(
+                            color: reflectionBackground ??
+                                appThemeColors.grey5,
+                            borderRadius: BorderRadius.circular(24.r),
+                          ),
+                          child: Text(
+                            AppConstants.reflection,
+                            style: TextStyle(
+                              color: appThemeColors.grey10,
+                              fontSize: 12.sp,
+                              fontFamily: AppConstants.font,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: -0.2,
+                            ),
                           ),
                         ),
-                      ),
-                    if (entry.isDraft)
-                      Container(
-                        margin: EdgeInsets.only(
-                            right: entry.moodIndex != null ? 8.w : 0),
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 8.w, vertical: 2.h),
-                        decoration: BoxDecoration(
-                          color: reflectionBackground ??
-                              appThemeColors.grey5,
-                          borderRadius: BorderRadius.circular(24.r),
-                        ),
-                        child: Text(
-                          AppConstants.draft,
-                          style: TextStyle(
-                            color: appThemeColors.grey10,
-                            fontSize: 12.sp,
-                            fontFamily: AppConstants.font,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: -0.2,
+                      if (entry.isDraft)
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 8.w, vertical: 2.h),
+                          decoration: BoxDecoration(
+                            color: reflectionBackground ??
+                                appThemeColors.grey5,
+                            borderRadius: BorderRadius.circular(24.r),
+                          ),
+                          child: Text(
+                            AppConstants.draft,
+                            style: TextStyle(
+                              color: appThemeColors.grey10,
+                              fontSize: 12.sp,
+                              fontFamily: AppConstants.font,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: -0.2,
+                            ),
                           ),
                         ),
-                      ),
-                    if (entry.moodIndex != null)
-                      Obx(() {
-                        final rasterizedImage = homeController.moodImages[entry.moodIndex!];
-                        if (rasterizedImage != null) {
-                          return RawImage(
-                            image: rasterizedImage,
-                            width: 22.w,
-                            height: 22.h,
-                            filterQuality: ui.FilterQuality.high,
-                          );
-                        }
-                        return RepaintBoundary(
-                          child: MoodHelper.buildMoodSvg(
-                            entry.moodIndex!,
-                            width: 22.w,
-                            height: 22.h,
-                          ),
-                        );
-                      }),
-                    if (entry.isBookmarked)
-                      Padding(
-                        padding: EdgeInsets.only(
-                            left: entry.moodIndex != null ||
-                                entry.isReflection || entry.isDraft
+                      if (entry.isBookmarked)
+                        Padding(
+                          padding: EdgeInsets.only(
+                            left: entry.isReflection || entry.isDraft
                                 ? 8.w
-                                : 0),
-                        child: Icon(
-                          Icons.bookmark_rounded,
-                          color: appThemeColors.grey2,
-                          size: 22.w,
+                                : 0,
+                          ),
+                          child: Icon(
+                            Icons.bookmark_rounded,
+                            color: appThemeColors.grey2,
+                            size: 22.w,
+                          ),
                         ),
-                      ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
               ],
             ),
             if (showMenuIcon)

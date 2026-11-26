@@ -240,8 +240,9 @@ class _ExcludeEntriesBottomSheetState extends State<ExcludeEntriesBottomSheet> {
             AppConstants.excludeEntries,
             style: TextStyle(
               color: appThemeColors.grey10,
+              fontSize: 17.sp,
               fontFamily: AppConstants.font,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
               letterSpacing: -0.2,
             ),
           ),

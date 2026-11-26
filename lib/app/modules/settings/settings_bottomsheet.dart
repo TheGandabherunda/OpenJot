@@ -357,7 +357,8 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
               AppConstants.importFromAnotherApp,
               style: TextStyle(
                 color: appThemeColors.grey10,
-                fontWeight: FontWeight.bold,
+                fontSize: 17.sp,
+                fontWeight: FontWeight.w600,
                 fontFamily: AppConstants.font,
                 letterSpacing: -0.2,
               ),
@@ -591,7 +592,8 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
               AppConstants.settings,
               style: TextStyle(
                 color: appThemeColors.grey10,
-                fontWeight: FontWeight.bold,
+                fontSize: 17.sp,
+                fontWeight: FontWeight.w600,
                 fontFamily: AppConstants.font,
                 letterSpacing: -0.2,
               ),

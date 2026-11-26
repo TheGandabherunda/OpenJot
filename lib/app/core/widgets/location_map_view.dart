@@ -235,10 +235,17 @@ class _LocationMapViewState extends State<LocationMapView>
 
     if (lat != null && lon != null) {
       final location = LatLng(lat, lon);
+      final resolvedName = result['name']?.toString().trim() ??
+          result['display_name']?.toString().split(',').take(2).join(', ') ??
+          '';
+      if (resolvedName.isNotEmpty) {
+        FossLocation.cachePlaceName(location, resolvedName);
+      }
       setState(() {
         _selectedLocation = location;
         _searchResults = [];
-        _searchController.text = result['name'] ?? result['display_name']?.split(',').first ?? '';
+        _searchController.text =
+            result['name'] ?? result['display_name']?.split(',').first ?? '';
       });
       _moveToLocation(location, 16);
       FocusScope.of(context).unfocus();

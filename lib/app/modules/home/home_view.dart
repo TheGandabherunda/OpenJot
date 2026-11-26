@@ -14,6 +14,7 @@ import 'package:open_jot/app/modules/insights/insights_bottomsheet.dart';
 import 'package:open_jot/app/modules/read_journal/read_journal_bottom_sheet.dart';
 import 'package:open_jot/app/modules/search/search_view.dart';
 import 'package:open_jot/app/modules/settings/settings_bottomsheet.dart';
+import 'package:open_jot/app/modules/write_journal/quick_entry_bottom_sheet.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
 
 import '../../core/constants.dart';
@@ -1134,6 +1135,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                 ),
                               ],
                               JournalTile(
+                                key: ValueKey(entry.id),
                                 entry: entry,
                                 onTap: () {
                                   showCupertinoModalBottomSheet(
@@ -1303,7 +1305,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                           duration: const Duration(milliseconds: 400),
                           builder: (BuildContext modalContext) {
                             return const SafeArea(
-                              child: WriteJournalBottomSheet(),
+                              child: QuickEntryBottomSheet(),
                             );
                           },
                         );
