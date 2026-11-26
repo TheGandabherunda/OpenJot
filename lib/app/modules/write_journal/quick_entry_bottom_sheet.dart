@@ -86,6 +86,10 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
   final List<RecordedAudio> _previewRecordings = [];
   int _currentPage = 0;
 
+  late final String _currentEntryId;
+  bool _isSavedOrDiscarded = false;
+  bool _didAutoSaveDraft = false;
+
   late final AnimationController _sheetAnimController;
   late final CurvedAnimation _sheetSlideCurve;
   bool _isDraggableSheetActive = false;
@@ -100,6 +104,7 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
   @override
   void initState() {
     super.initState();
+    _currentEntryId = const Uuid().v4();
     WidgetsBinding.instance.addObserver(this);
     _sheetAnimController = AnimationController(
       vsync: this,
@@ -128,6 +133,15 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
     if (state == AppLifecycleState.resumed && _pendingLocationResume) {
       _pendingLocationResume = false;
       unawaited(_resumeLocationFlow());
+    }
+
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      if (!_isSavedOrDiscarded && !_pendingLocationResume && _hasAnyItem) {
+        _saveEntry(isDraft: true);
+        _didAutoSaveDraft = true;
+      }
     }
   }
 
@@ -241,45 +255,104 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
 
   Future<bool> _confirmDiscardIfNeeded() async {
     if (!_hasUnsavedSelections) return true;
-    final colors = AppTheme.colorsOf(context);
-    final discard = await showCupertinoDialog<bool>(
-      context: context,
-      builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text(
-          AppConstants.discardChanges,
-          style: TextStyle(fontFamily: AppConstants.font),
-        ),
-        content: const Padding(
-          padding: EdgeInsets.only(top: 6),
-          child: Text(
-            'Discard the selected items for this entry?',
+
+    // Empty custom-date-only changes cannot be persisted as a draft; ask discard/cancel.
+    if (!_hasAnyItem) {
+      final colors = AppTheme.colorsOf(context);
+      final discard = await showCupertinoDialog<bool>(
+        context: context,
+        builder: (dialogContext) => CupertinoAlertDialog(
+          title: const Text(
+            AppConstants.discardChanges,
             style: TextStyle(fontFamily: AppConstants.font),
           ),
-        ),
-        actions: [
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            onPressed: () => Navigator.pop(dialogContext, false),
+          content: const Padding(
+            padding: EdgeInsets.only(top: 6),
             child: Text(
-              AppConstants.cancel,
-              style: TextStyle(
-                fontFamily: AppConstants.font,
-                color: colors.grey10,
-              ),
-            ),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text(
-              AppConstants.discard,
+              'Discard the selected date/time for this entry?',
               style: TextStyle(fontFamily: AppConstants.font),
             ),
+          ),
+          actions: [
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(
+                AppConstants.cancel,
+                style: TextStyle(
+                  fontFamily: AppConstants.font,
+                  color: colors.grey10,
+                ),
+              ),
+            ),
+            CupertinoDialogAction(
+              isDestructiveAction: true,
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text(
+                AppConstants.discard,
+                style: TextStyle(fontFamily: AppConstants.font),
+              ),
+            ),
+          ],
+        ),
+      );
+      return discard ?? false;
+    }
+
+    final action = await showCupertinoDialog<String>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: const Text(AppConstants.unsavedChanges),
+        content: const Text(AppConstants.unsavedChangesMessage),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(dialogContext, 'discard'),
+            isDestructiveAction: true,
+            child: const Text(AppConstants.discardChanges),
+          ),
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(dialogContext, 'draft'),
+            isDefaultAction: true,
+            child: const Text(AppConstants.saveAsDraft),
+          ),
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(dialogContext, 'cancel'),
+            child: const Text(AppConstants.cancel),
           ),
         ],
       ),
     );
-    return discard ?? false;
+
+    if (action == 'discard') {
+      _isSavedOrDiscarded = true;
+      if (_didAutoSaveDraft) {
+        _homeController.deleteJournalEntry(_currentEntryId);
+      }
+      return true;
+    } else if (action == 'draft') {
+      _isSavedOrDiscarded = true;
+      _saveEntry(isDraft: true);
+      CustomToast.showToast(AppConstants.draftSaved);
+      return true;
+    }
+
+    return false;
+  }
+
+  void _saveEntry({required bool isDraft}) {
+    final entry = JournalEntry(
+      id: _currentEntryId,
+      content: quill.Document(),
+      createdAt: _selectedDate,
+      moodIndex: _selectedMoodIndex,
+      location: _selectedLocation,
+      galleryImages: List.from(_previewImages),
+      cameraPhotos: List.from(_previewPhotos),
+      galleryAudios: List.from(_previewAudios),
+      recordings: List.from(_previewRecordings),
+      isDraft: isDraft,
+    );
+    _homeController.addJournalEntry(entry);
   }
 
   Future<void> _handleClose() async {
@@ -518,6 +591,10 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
 
   void _startWriting() {
     HapticFeedback.lightImpact();
+    _isSavedOrDiscarded = true;
+    if (_didAutoSaveDraft) {
+      _homeController.deleteJournalEntry(_currentEntryId);
+    }
     final navigator = Navigator.of(context);
     final rootContext = navigator.context;
     navigator.pop();
@@ -556,18 +633,8 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
     }
 
     HapticFeedback.mediumImpact();
-    final entry = JournalEntry(
-      id: const Uuid().v4(),
-      content: quill.Document(),
-      createdAt: _selectedDate,
-      moodIndex: _selectedMoodIndex,
-      location: _selectedLocation,
-      galleryImages: List.from(_previewImages),
-      cameraPhotos: List.from(_previewPhotos),
-      galleryAudios: List.from(_previewAudios),
-      recordings: List.from(_previewRecordings),
-    );
-    _homeController.addJournalEntry(entry);
+    _isSavedOrDiscarded = true;
+    _saveEntry(isDraft: false);
     Navigator.of(context).pop();
   }
 
