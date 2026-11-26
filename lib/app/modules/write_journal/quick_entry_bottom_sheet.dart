@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:camera/camera.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
@@ -17,6 +16,7 @@ import 'package:open_jot/app/core/models/journal_entry.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/services/permission_service.dart';
 import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/core/widgets/app_alert_dialog.dart';
 import 'package:open_jot/app/core/widgets/custom_datetime_picker.dart';
 import 'package:open_jot/app/core/widgets/journal_audio_card.dart';
 import 'package:open_jot/app/core/widgets/journal_tile.dart';
@@ -258,69 +258,45 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
 
     // Empty custom-date-only changes cannot be persisted as a draft; ask discard/cancel.
     if (!_hasAnyItem) {
-      final colors = AppTheme.colorsOf(context);
-      final discard = await showCupertinoDialog<bool>(
+      final discard = await showAppAlertDialog<bool>(
         context: context,
-        builder: (dialogContext) => CupertinoAlertDialog(
-          title: const Text(
-            AppConstants.discardChanges,
-            style: TextStyle(fontFamily: AppConstants.font),
+        title: AppConstants.discardChanges,
+        message: 'Discard the selected date/time for this entry?',
+        actionsBuilder: (dialogContext) => [
+          AppAlertAction(
+            label: AppConstants.cancel,
+            onPressed: () => Navigator.pop(dialogContext, false),
           ),
-          content: const Padding(
-            padding: EdgeInsets.only(top: 6),
-            child: Text(
-              'Discard the selected date/time for this entry?',
-              style: TextStyle(fontFamily: AppConstants.font),
-            ),
+          AppAlertAction(
+            label: AppConstants.discard,
+            isDestructive: true,
+            onPressed: () => Navigator.pop(dialogContext, true),
           ),
-          actions: [
-            CupertinoDialogAction(
-              isDefaultAction: true,
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: Text(
-                AppConstants.cancel,
-                style: TextStyle(
-                  fontFamily: AppConstants.font,
-                  color: colors.grey10,
-                ),
-              ),
-            ),
-            CupertinoDialogAction(
-              isDestructiveAction: true,
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text(
-                AppConstants.discard,
-                style: TextStyle(fontFamily: AppConstants.font),
-              ),
-            ),
-          ],
-        ),
+        ],
       );
       return discard ?? false;
     }
 
-    final action = await showCupertinoDialog<String>(
+    final action = await showAppAlertDialog<String>(
       context: context,
-      builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text(AppConstants.unsavedChanges),
-        content: const Text(AppConstants.unsavedChangesMessage),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(dialogContext, 'discard'),
-            isDestructiveAction: true,
-            child: const Text(AppConstants.discardChanges),
-          ),
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(dialogContext, 'draft'),
-            isDefaultAction: true,
-            child: const Text(AppConstants.saveAsDraft),
-          ),
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(dialogContext, 'cancel'),
-            child: const Text(AppConstants.cancel),
-          ),
-        ],
-      ),
+      title: AppConstants.unsavedChanges,
+      message: AppConstants.unsavedChangesMessage,
+      actionsBuilder: (dialogContext) => [
+        AppAlertAction(
+          label: AppConstants.saveAsDraft,
+          isDefault: true,
+          onPressed: () => Navigator.pop(dialogContext, 'draft'),
+        ),
+        AppAlertAction(
+          label: AppConstants.discardChanges,
+          isDestructive: true,
+          onPressed: () => Navigator.pop(dialogContext, 'discard'),
+        ),
+        AppAlertAction(
+          label: AppConstants.cancel,
+          onPressed: () => Navigator.pop(dialogContext, 'cancel'),
+        ),
+      ],
     );
 
     if (action == 'discard') {
@@ -508,24 +484,21 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
   }
 
   Future<bool> _showSheetDiscardDialog() async {
-    final result = await showCupertinoDialog<bool>(
+    final result = await showAppAlertDialog<bool>(
       context: context,
-      builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text(AppConstants.discardSelectionsTitle),
-        content: const Text(AppConstants.discardSelectionsMessage),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            isDefaultAction: true,
-            child: const Text(AppConstants.cancel),
-          ),
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            isDestructiveAction: true,
-            child: const Text(AppConstants.discard),
-          ),
-        ],
-      ),
+      title: AppConstants.discardSelectionsTitle,
+      message: AppConstants.discardSelectionsMessage,
+      actionsBuilder: (dialogContext) => [
+        AppAlertAction(
+          label: AppConstants.cancel,
+          onPressed: () => Navigator.pop(dialogContext, false),
+        ),
+        AppAlertAction(
+          label: AppConstants.discard,
+          isDestructive: true,
+          onPressed: () => Navigator.pop(dialogContext, true),
+        ),
+      ],
     );
     return result == true;
   }

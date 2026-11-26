@@ -5,7 +5,6 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:camera/camera.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_quill/quill_delta.dart' as quill;
@@ -19,6 +18,7 @@ import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/models/journal_entry.dart';
 import 'package:open_jot/app/core/services/permission_service.dart';
 import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/core/widgets/app_alert_dialog.dart';
 import 'package:open_jot/app/core/widgets/custom_button.dart';
 import 'package:open_jot/app/core/widgets/custom_datetime_picker.dart';
 import 'package:open_jot/app/core/widgets/journal_card_grid.dart';
@@ -934,24 +934,21 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   }
 
   Future<bool> _showDiscardDialog() async {
-    final result = await showCupertinoDialog<bool>(
+    final result = await showAppAlertDialog<bool>(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text(AppConstants.discardSelectionsTitle),
-        content: const Text(AppConstants.discardSelectionsMessage),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(context, false),
-            isDefaultAction: true,
-            child: const Text(AppConstants.cancel),
-          ),
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(context, true),
-            isDestructiveAction: true,
-            child: const Text(AppConstants.discard),
-          ),
-        ],
-      ),
+      title: AppConstants.discardSelectionsTitle,
+      message: AppConstants.discardSelectionsMessage,
+      actionsBuilder: (dialogContext) => [
+        AppAlertAction(
+          label: AppConstants.cancel,
+          onPressed: () => Navigator.pop(dialogContext, false),
+        ),
+        AppAlertAction(
+          label: AppConstants.discard,
+          isDestructive: true,
+          onPressed: () => Navigator.pop(dialogContext, true),
+        ),
+      ],
     );
     return result == true;
   }
@@ -1708,57 +1705,86 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
 
   void _showTagInputDialog(AppThemeColors appThemeColors) {
     _tagController.clear();
-    showCupertinoDialog(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isPitchBlack = Get.find<HiveService>().pitchBlack;
+    final fieldBg = isPitchBlack
+        ? (isDark
+            ? Colors.white.withValues(alpha: 0.08)
+            : Colors.black.withValues(alpha: 0.05))
+        : appThemeColors.grey5;
+
+    showAppAlertDialog<void>(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text(AppConstants.addTags),
-        content: Padding(
-          padding: EdgeInsets.only(top: 10.h),
-          child: Row(
-            children: [
-              Text(
-                '#',
-                style: TextStyle(
-                  color: appThemeColors.grey1,
-                  fontSize: 20.sp,
-                  fontFamily: AppConstants.font,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(width: 8.w),
-              Expanded(
-                child: CupertinoTextField(
-                  controller: _tagController,
-                  placeholder: AppConstants.tagPlaceholder.replaceAll('#', ''),
-                  autofocus: true,
-                  style: TextStyle(color: appThemeColors.grey10, fontFamily: AppConstants.font),
-                  decoration: BoxDecoration(
-                    color: appThemeColors.grey6,
-                    borderRadius: BorderRadius.circular(8.r),
-                  ),
-                  onSubmitted: (value) {
-                    _addTag(value);
-                    Navigator.pop(context);
-                  },
-                ),
-              ),
-            ],
-          ),
+      title: AppConstants.addTags,
+      content: Container(
+        height: 48.h,
+        padding: EdgeInsets.symmetric(horizontal: 16.w),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: fieldBg,
+          borderRadius: BorderRadius.circular(24.r),
         ),
-        actions: [
-          CupertinoDialogAction(
-            child: const Text(AppConstants.cancel),
-            onPressed: () => Navigator.pop(context),
-          ),
-          CupertinoDialogAction(
-            child: const Text(AppConstants.add),
-            onPressed: () {
-              _addTag(_tagController.text);
-              Navigator.pop(context);
-            },
-          ),
-        ],
+        child: Row(
+          children: [
+            Text(
+              '#',
+              style: TextStyle(
+                color: appThemeColors.grey1,
+                fontSize: 18.sp,
+                fontFamily: AppConstants.font,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(width: 8.w),
+            Expanded(
+              child: TextField(
+                controller: _tagController,
+                autofocus: true,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (value) {
+                  _addTag(value);
+                  Navigator.of(context, rootNavigator: true).pop();
+                },
+                style: TextStyle(
+                  color: appThemeColors.grey10,
+                  fontFamily: AppConstants.font,
+                  fontSize: 15.5.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+                cursorColor: appThemeColors.primary,
+                decoration: InputDecoration(
+                  hintText: AppConstants.tagPlaceholder.replaceAll('#', ''),
+                  hintStyle: TextStyle(
+                    color: appThemeColors.grey2,
+                    fontFamily: AppConstants.font,
+                    fontSize: 15.sp,
+                  ),
+                  filled: false,
+                  isDense: true,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
+      actionsBuilder: (dialogContext) => [
+        AppAlertAction(
+          label: AppConstants.cancel,
+          onPressed: () => Navigator.pop(dialogContext),
+        ),
+        AppAlertAction(
+          label: AppConstants.add,
+          isDefault: true,
+          onPressed: () {
+            _addTag(_tagController.text);
+            Navigator.pop(dialogContext);
+          },
+        ),
+      ],
     );
   }
 
@@ -2097,28 +2123,26 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     }
 
     // Show Dialog for physical back button
-    final action = await showCupertinoDialog<String>(
+    final action = await showAppAlertDialog<String>(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text(AppConstants.unsavedChanges),
-        content: const Text(AppConstants.unsavedChangesMessage),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(context, 'discard'),
-            isDestructiveAction: true,
-            child: const Text(AppConstants.discardChanges),
-          ),
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(context, 'draft'),
-            isDefaultAction: true,
-            child: const Text(AppConstants.saveAsDraft),
-          ),
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(context, 'cancel'),
-            child: const Text(AppConstants.cancel),
-          ),
-        ],
-      ),
+      title: AppConstants.unsavedChanges,
+      message: AppConstants.unsavedChangesMessage,
+      actionsBuilder: (dialogContext) => [
+        AppAlertAction(
+          label: AppConstants.saveAsDraft,
+          isDefault: true,
+          onPressed: () => Navigator.pop(dialogContext, 'draft'),
+        ),
+        AppAlertAction(
+          label: AppConstants.discardChanges,
+          isDestructive: true,
+          onPressed: () => Navigator.pop(dialogContext, 'discard'),
+        ),
+        AppAlertAction(
+          label: AppConstants.cancel,
+          onPressed: () => Navigator.pop(dialogContext, 'cancel'),
+        ),
+      ],
     );
 
     if (action == 'discard') {

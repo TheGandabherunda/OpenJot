@@ -20,6 +20,7 @@ import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.da
 import '../../core/constants.dart';
 import '../../core/services/shared_services.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/app_alert_dialog.dart';
 import '../../core/widgets/custom_icon_button.dart';
 import '../../core/widgets/journal_tile.dart';
 import '../../core/widgets/progressive_edge_blur.dart';
@@ -701,113 +702,85 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       initialYear = years.first;
     }
 
-    showCupertinoDialog(
+    final appThemeColors = AppTheme.colorsOf(context);
+    int tempMonth = initialMonth;
+    int tempYear = initialYear;
+
+    showAppAlertDialog<void>(
       context: context,
       barrierDismissible: true,
-      builder: (context) {
-        final appThemeColors = AppTheme.colorsOf(context);
-        int tempMonth = initialMonth;
-        int tempYear = initialYear;
-
-        return CupertinoAlertDialog(
-          title: Text(
-            AppConstants.selectMonthAndYear,
-            style: TextStyle(
-              color: appThemeColors.grey10,
-              fontFamily: AppConstants.font,
-              fontWeight: FontWeight.bold,
-              fontSize: 17.sp,
-              letterSpacing: -0.4,
-            ),
-          ),
-          content: SizedBox(
-            height: 200.h,
-            child: Row(
-              children: [
-                Expanded(
-                  child: CupertinoPicker(
-                    itemExtent: 44.h,
-                    magnification: 1.1,
-                    useMagnifier: true,
-                    scrollController: FixedExtentScrollController(
-                        initialItem: initialMonth - 1),
-                    onSelectedItemChanged: (index) {
-                      tempMonth = index + 1;
-                    },
-                    children: AppConstants.months
-                        .map((m) => Center(
-                              child: Text(
-                                m,
-                                style: TextStyle(
-                                  color: appThemeColors.grey10,
-                                  fontFamily: AppConstants.font,
-                                  fontSize: 18.sp,
-                                  letterSpacing: -0.2,
-                                ),
-                              ),
-                            ))
-                        .toList(),
-                  ),
-                ),
-                Expanded(
-                  child: CupertinoPicker(
-                    itemExtent: 44.h,
-                    magnification: 1.1,
-                    useMagnifier: true,
-                    scrollController: FixedExtentScrollController(
-                        initialItem: years.indexOf(initialYear)),
-                    onSelectedItemChanged: (index) {
-                      tempYear = years[index];
-                    },
-                    children: years
-                        .map((y) => Center(
-                              child: Text(
-                                y.toString(),
-                                style: TextStyle(
-                                  color: appThemeColors.grey10,
-                                  fontFamily: AppConstants.font,
-                                  fontSize: 18.sp,
-                                  letterSpacing: -0.2,
-                                ),
-                              ),
-                            ))
-                        .toList(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                AppConstants.cancel,
-                style: TextStyle(
-                  color: appThemeColors.grey2,
-                  fontFamily: AppConstants.font,
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w500,
-                ),
+      title: AppConstants.selectMonthAndYear,
+      content: SizedBox(
+        height: 200.h,
+        child: Row(
+          children: [
+            Expanded(
+              child: CupertinoPicker(
+                itemExtent: 44.h,
+                magnification: 1.1,
+                useMagnifier: true,
+                scrollController:
+                    FixedExtentScrollController(initialItem: initialMonth - 1),
+                onSelectedItemChanged: (index) {
+                  tempMonth = index + 1;
+                },
+                children: AppConstants.months
+                    .map((m) => Center(
+                          child: Text(
+                            m,
+                            style: TextStyle(
+                              color: appThemeColors.grey10,
+                              fontFamily: AppConstants.font,
+                              fontSize: 18.sp,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                        ))
+                    .toList(),
               ),
             ),
-            CupertinoDialogAction(
-              onPressed: () {
-                Navigator.pop(context);
-                _scrollToMonthYear(tempMonth, tempYear);
-              },
-              child: Text(
-                AppConstants.done,
-                style: TextStyle(
-                  color: appThemeColors.primary,
-                  fontFamily: AppConstants.font,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16.sp,
-                ),
+            Expanded(
+              child: CupertinoPicker(
+                itemExtent: 44.h,
+                magnification: 1.1,
+                useMagnifier: true,
+                scrollController: FixedExtentScrollController(
+                    initialItem: years.indexOf(initialYear)),
+                onSelectedItemChanged: (index) {
+                  tempYear = years[index];
+                },
+                children: years
+                    .map((y) => Center(
+                          child: Text(
+                            y.toString(),
+                            style: TextStyle(
+                              color: appThemeColors.grey10,
+                              fontFamily: AppConstants.font,
+                              fontSize: 18.sp,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                        ))
+                    .toList(),
               ),
             ),
           ],
-        );
-      },
+        ),
+      ),
+      actionsBuilder: (dialogContext) => [
+        AppAlertAction(
+          label: AppConstants.cancel,
+          onPressed: () => Navigator.pop(dialogContext),
+        ),
+        AppAlertAction(
+          label: AppConstants.done,
+          isDefault: true,
+          onPressed: () {
+            Navigator.pop(dialogContext);
+            _scrollToMonthYear(tempMonth, tempYear);
+          },
+        ),
+      ],
     );
   }
 

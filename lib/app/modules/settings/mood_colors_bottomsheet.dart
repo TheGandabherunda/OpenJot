@@ -1,5 +1,4 @@
 import 'dart:ui' as ui;
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -7,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/core/widgets/app_alert_dialog.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/settings/settings_controller.dart';
 import 'package:open_jot/app/utils/mood_helper.dart';
@@ -124,46 +124,27 @@ class _MoodColorsBottomSheetState extends State<MoodColorsBottomSheet> {
   }
 
   Future<bool> _showUnsavedChangesDialog() async {
-    final result = await showCupertinoDialog<String>(
+    final result = await showAppAlertDialog<String>(
       context: context,
-      builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text(
-          AppConstants.unsavedChanges,
-          style: TextStyle(fontFamily: AppConstants.font),
+      title: AppConstants.unsavedChanges,
+      message:
+          "You have unsaved mood color changes. Would you like to save them before closing?",
+      actionsBuilder: (dialogContext) => [
+        AppAlertAction(
+          label: AppConstants.save,
+          isDefault: true,
+          onPressed: () => Navigator.pop(dialogContext, 'save'),
         ),
-        content: const Padding(
-          padding: EdgeInsets.only(top: 8.0),
-          child: Text(
-            "You have unsaved mood color changes. Would you like to save them before closing?",
-            style: TextStyle(fontFamily: AppConstants.font),
-          ),
+        AppAlertAction(
+          label: AppConstants.discard,
+          isDestructive: true,
+          onPressed: () => Navigator.pop(dialogContext, 'discard'),
         ),
-        actions: [
-          CupertinoDialogAction(
-            child: const Text(
-              AppConstants.cancel,
-              style: TextStyle(fontFamily: AppConstants.font),
-            ),
-            onPressed: () => Navigator.pop(dialogContext, 'cancel'),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            child: const Text(
-              AppConstants.discard,
-              style: TextStyle(fontFamily: AppConstants.font),
-            ),
-            onPressed: () => Navigator.pop(dialogContext, 'discard'),
-          ),
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            child: const Text(
-              AppConstants.save,
-              style: TextStyle(fontFamily: AppConstants.font),
-            ),
-            onPressed: () => Navigator.pop(dialogContext, 'save'),
-          ),
-        ],
-      ),
+        AppAlertAction(
+          label: AppConstants.cancel,
+          onPressed: () => Navigator.pop(dialogContext, 'cancel'),
+        ),
+      ],
     );
 
     if (result == 'save') {
@@ -179,52 +160,31 @@ class _MoodColorsBottomSheetState extends State<MoodColorsBottomSheet> {
   }
 
   void _confirmReset(BuildContext context, AppThemeColors colors) {
-    showCupertinoDialog(
+    showAppAlertDialog<void>(
       context: context,
-      builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text(
-          AppConstants.resetMoodColors,
-          style: TextStyle(fontFamily: AppConstants.font),
+      title: AppConstants.resetMoodColors,
+      message: AppConstants.resetMoodColorsConfirm,
+      actionsBuilder: (dialogContext) => [
+        AppAlertAction(
+          label: AppConstants.cancel,
+          onPressed: () => Navigator.pop(dialogContext),
         ),
-        content: const Padding(
-          padding: EdgeInsets.only(top: 8.0),
-          child: Text(
-            AppConstants.resetMoodColorsConfirm,
-            style: TextStyle(fontFamily: AppConstants.font),
-          ),
+        AppAlertAction(
+          label: AppConstants.reset,
+          isDestructive: true,
+          onPressed: () {
+            Navigator.pop(dialogContext);
+            HapticFeedback.mediumImpact();
+            setState(() {
+              _draftPalettes =
+                  List<MoodPalette>.from(MoodHelper.defaultPalettes);
+            });
+            for (int i = 0; i < 7; i++) {
+              _reRasterizeDraftMood(i, MoodHelper.defaultPalettes[i]);
+            }
+          },
         ),
-        actions: [
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            child: Text(
-              AppConstants.cancel,
-              style: TextStyle(
-                fontFamily: AppConstants.font,
-                color: colors.grey10,
-              ),
-            ),
-            onPressed: () => Navigator.pop(dialogContext),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            child: const Text(
-              AppConstants.reset,
-              style: TextStyle(fontFamily: AppConstants.font),
-            ),
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              HapticFeedback.mediumImpact();
-              setState(() {
-                _draftPalettes =
-                    List<MoodPalette>.from(MoodHelper.defaultPalettes);
-              });
-              for (int i = 0; i < 7; i++) {
-                _reRasterizeDraftMood(i, MoodHelper.defaultPalettes[i]);
-              }
-            },
-          ),
-        ],
-      ),
+      ],
     );
   }
 

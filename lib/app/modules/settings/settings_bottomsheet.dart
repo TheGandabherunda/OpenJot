@@ -11,6 +11,7 @@ import 'package:open_jot/app/modules/settings/terms_and_conditions_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets/app_alert_dialog.dart';
 import '../../utils/mood_helper.dart';
 import 'mood_colors_bottomsheet.dart';
 import 'reminders_bottomsheet.dart';
@@ -173,47 +174,79 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
 
   void _showCustomDaysDialog() {
     final appThemeColors = AppTheme.colorsOf(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isPitchBlack = controller.pitchBlack.value;
+    final fieldBg = isPitchBlack
+        ? (isDark
+            ? Colors.white.withValues(alpha: 0.08)
+            : Colors.black.withValues(alpha: 0.05))
+        : appThemeColors.grey5;
     final textController = TextEditingController();
 
-    showCupertinoDialog(
-        context: context,
-        builder: (context) {
-          return CupertinoAlertDialog(
-            title: const Text(AppConstants.enterCustomDays),
-            content: Padding(
-              padding: EdgeInsets.only(top: 8.h),
-              child: CupertinoTextField(
-                controller: textController,
-                keyboardType: TextInputType.number,
-                placeholder: AppConstants.customDaysExample,
-                style: TextStyle(
-                    color: appThemeColors.grey10, fontFamily: AppConstants.font),
-                padding: EdgeInsets.all(12.w),
-                decoration: BoxDecoration(
-                  color: appThemeColors.grey6,
-                  borderRadius: BorderRadius.circular(8.r),
-                ),
-              ),
+    showAppAlertDialog<void>(
+      context: context,
+      title: AppConstants.enterCustomDays,
+      content: Container(
+        height: 48.h,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: fieldBg,
+          borderRadius: BorderRadius.circular(24.r),
+        ),
+        child: TextField(
+          controller: textController,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) {
+            final val = int.tryParse(textController.text.trim());
+            if (val != null && val > 0) {
+              controller.setAutoDeleteDrafts(val);
+            }
+            Navigator.of(context, rootNavigator: true).pop();
+          },
+          style: TextStyle(
+            color: appThemeColors.grey10,
+            fontFamily: AppConstants.font,
+            fontSize: 15.5.sp,
+            fontWeight: FontWeight.w500,
+          ),
+          cursorColor: appThemeColors.primary,
+          decoration: InputDecoration(
+            hintText: AppConstants.customDaysExample,
+            hintStyle: TextStyle(
+              color: appThemeColors.grey2,
+              fontFamily: AppConstants.font,
+              fontSize: 15.sp,
             ),
-            actions: [
-              CupertinoDialogAction(
-                child: const Text(AppConstants.cancel),
-                onPressed: () => Navigator.pop(context),
-              ),
-              CupertinoDialogAction(
-                isDefaultAction: true,
-                child: const Text(AppConstants.save),
-                onPressed: () {
-                  final val = int.tryParse(textController.text.trim());
-                  if (val != null && val > 0) {
-                    controller.setAutoDeleteDrafts(val);
-                  }
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          );
-        });
+            filled: false,
+            isDense: true,
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            contentPadding:
+                EdgeInsets.symmetric(horizontal: 18.w, vertical: 12.h),
+          ),
+        ),
+      ),
+      actionsBuilder: (dialogContext) => [
+        AppAlertAction(
+          label: AppConstants.cancel,
+          onPressed: () => Navigator.pop(dialogContext),
+        ),
+        AppAlertAction(
+          label: AppConstants.save,
+          isDefault: true,
+          onPressed: () {
+            final val = int.tryParse(textController.text.trim());
+            if (val != null && val > 0) {
+              controller.setAutoDeleteDrafts(val);
+            }
+            Navigator.pop(dialogContext);
+          },
+        ),
+      ],
+    );
   }
 
   void _showHideStatsOptions() {
@@ -223,57 +256,52 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
 
     final tileBackgroundColor = isPitchBlack
         ? (isDark
-        ? Colors.white.withOpacity(0.05)
-        : Colors.black.withOpacity(0.03))
+            ? Colors.white.withValues(alpha: 0.08)
+            : Colors.black.withValues(alpha: 0.04))
         : appThemeColors.grey5;
 
-    showCupertinoDialog(
+    showAppAlertDialog<void>(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: Text(AppConstants.hideStats,
-            style: TextStyle(
-                fontFamily: AppConstants.font, color: appThemeColors.grey10)),
-        content: Padding(
-          padding: EdgeInsets.only(top: 12.h),
-          child: Material(
-            color: Colors.transparent,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Obx(
-                      () => _buildDialogTile(
-                    label: AppConstants.hideHomeStats,
-                    value: controller.hideHomeStats.value,
-                    onChanged: controller.toggleHideHomeStats,
-                    appThemeColors: appThemeColors,
-                    backgroundColor: tileBackgroundColor,
-                    showDivider: true,
-                  ),
+      title: AppConstants.hideStats,
+      content: ClipRRect(
+        borderRadius: BorderRadius.circular(16.r),
+        child: Container(
+          color: tileBackgroundColor,
+          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 4.h),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Obx(
+                () => _buildDialogTile(
+                  label: AppConstants.hideHomeStats,
+                  value: controller.hideHomeStats.value,
+                  onChanged: controller.toggleHideHomeStats,
+                  appThemeColors: appThemeColors,
+                  backgroundColor: tileBackgroundColor,
+                  showDivider: true,
                 ),
-                Obx(
-                      () => _buildDialogTile(
-                    label: AppConstants.hideInsightsStats,
-                    value: controller.hideInsightsStats.value,
-                    onChanged: controller.toggleHideInsightsStats,
-                    appThemeColors: appThemeColors,
-                    backgroundColor: tileBackgroundColor,
-                    showDivider: false,
-                  ),
+              ),
+              Obx(
+                () => _buildDialogTile(
+                  label: AppConstants.hideInsightsStats,
+                  value: controller.hideInsightsStats.value,
+                  onChanged: controller.toggleHideInsightsStats,
+                  appThemeColors: appThemeColors,
+                  backgroundColor: tileBackgroundColor,
+                  showDivider: false,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-        actions: [
-          CupertinoDialogAction(
-            child: Text(AppConstants.done,
-                style: TextStyle(
-                    fontFamily: AppConstants.font,
-                    color: appThemeColors.primary)),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ],
       ),
+      actionsBuilder: (dialogContext) => [
+        AppAlertAction(
+          label: AppConstants.done,
+          isDefault: true,
+          onPressed: () => Navigator.pop(dialogContext),
+        ),
+      ],
     );
   }
 

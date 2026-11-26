@@ -14,6 +14,7 @@ import 'package:file_picker/file_picker.dart';
 
 import '../../core/services/notification_service.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/app_alert_dialog.dart';
 import '../../utils/custom_toast.dart';
 import '../app_lock/master_password_bottomsheet.dart';
 import '../app_lock/set_pin_bottomsheet.dart';
@@ -450,48 +451,45 @@ class SettingsScreenController extends GetxController {
   }
 
   Future<void> restore() async {
-    await showCupertinoDialog(
+    await showAppAlertDialog<void>(
       context: Get.context!,
-      builder: (BuildContext context) => CupertinoAlertDialog(
-        title: const Text(AppConstants.confirmRestoreTitle),
-        content: const Text(AppConstants.confirmRestoreMessage),
-        actions: <CupertinoDialogAction>[
-          CupertinoDialogAction(
-            child: const Text(AppConstants.cancel),
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            child: const Text(AppConstants.restoreButton),
-            onPressed: () async {
-              Navigator.of(context).pop();
-              final bool success = await _hiveService.restoreData(
-                onLoadingStateChanged: _setLoadingOverlay,
-                onRequestBackupPassword: ({String? initialError}) async {
-                  return _showBottomSheetWithKeyboardPush<String>(
-                    MasterPasswordBottomSheet(
-                      mode: MasterPasswordSheetMode.enterBackupPassword,
-                      initialError: initialError,
-                    ),
-                  );
-                },
-              );
+      title: AppConstants.confirmRestoreTitle,
+      message: AppConstants.confirmRestoreMessage,
+      actionsBuilder: (dialogContext) => [
+        AppAlertAction(
+          label: AppConstants.cancel,
+          onPressed: () => Navigator.of(dialogContext).pop(),
+        ),
+        AppAlertAction(
+          label: AppConstants.restoreButton,
+          isDefault: true,
+          isDestructive: true,
+          onPressed: () async {
+            Navigator.of(dialogContext).pop();
+            final bool success = await _hiveService.restoreData(
+              onLoadingStateChanged: _setLoadingOverlay,
+              onRequestBackupPassword: ({String? initialError}) async {
+                return _showBottomSheetWithKeyboardPush<String>(
+                  MasterPasswordBottomSheet(
+                    mode: MasterPasswordSheetMode.enterBackupPassword,
+                    initialError: initialError,
+                  ),
+                );
+              },
+            );
 
-              if (success) {
-                _loadSettings();
-                changeTheme(theme.value);
+            if (success) {
+              _loadSettings();
+              changeTheme(theme.value);
 
-                if (Get.isRegistered<HomeController>()) {
-                  Get.delete<HomeController>(force: true);
-                }
-                Get.put(HomeController());
+              if (Get.isRegistered<HomeController>()) {
+                Get.delete<HomeController>(force: true);
               }
-            },
-          )
-        ],
-      ),
+              Get.put(HomeController());
+            }
+          },
+        ),
+      ],
     );
   }
 

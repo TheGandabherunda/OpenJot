@@ -16,6 +16,7 @@ import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/services/permission_service.dart';
 import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/core/widgets/app_alert_dialog.dart';
 import 'package:open_jot/app/core/widgets/audio_spectrum_waveform.dart';
 import 'package:open_jot/app/core/widgets/camera_view.dart';
 import 'package:open_jot/app/core/widgets/custom_button.dart';
@@ -1485,28 +1486,24 @@ class AudioRecorderViewState extends State<AudioRecorderView> {
 
   void discardRecording({bool showDialog = true}) {
     if (showDialog) {
-      unawaited(showCupertinoDialog<void>(
+      unawaited(showAppAlertDialog<void>(
         context: context,
-        builder: (BuildContext dialogContext) => CupertinoAlertDialog(
-          title: const Text(AppConstants.deleteRecordingTitle),
-          content: const Text(AppConstants.deleteRecordingMessage),
-          actions: <CupertinoDialogAction>[
-            CupertinoDialogAction(
-              child: const Text(AppConstants.cancel),
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-            ),
-            CupertinoDialogAction(
-              isDestructiveAction: true,
-              child: const Text(AppConstants.discard),
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                _performDiscard();
-              },
-            ),
-          ],
-        ),
+        title: AppConstants.deleteRecordingTitle,
+        message: AppConstants.deleteRecordingMessage,
+        actionsBuilder: (dialogContext) => [
+          AppAlertAction(
+            label: AppConstants.cancel,
+            onPressed: () => Navigator.pop(dialogContext),
+          ),
+          AppAlertAction(
+            label: AppConstants.discard,
+            isDestructive: true,
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              _performDiscard();
+            },
+          ),
+        ],
       ));
     } else {
       _performDiscard();

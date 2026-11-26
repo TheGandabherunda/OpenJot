@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -8,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/core/widgets/app_alert_dialog.dart';
 import 'package:open_jot/app/core/widgets/journal_tile.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 
@@ -74,23 +74,22 @@ class _ExcludeEntriesBottomSheetState extends State<ExcludeEntriesBottomSheet> {
   }
 
   Future<bool> _showUnsavedChangesDialog() async {
-    final result = await showCupertinoDialog<bool>(
+    final result = await showAppAlertDialog<bool>(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text(AppConstants.unsavedChanges),
-        content: const Text("You have unsaved changes. Are you sure you want to discard them and exit?"),
-        actions: [
-          CupertinoDialogAction(
-            child: const Text(AppConstants.cancel),
-            onPressed: () => Navigator.pop(context, false),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            child: const Text(AppConstants.discard),
-            onPressed: () => Navigator.pop(context, true),
-          ),
-        ],
-      ),
+      title: AppConstants.unsavedChanges,
+      message:
+          "You have unsaved changes. Are you sure you want to discard them and exit?",
+      actionsBuilder: (dialogContext) => [
+        AppAlertAction(
+          label: AppConstants.cancel,
+          onPressed: () => Navigator.pop(dialogContext, false),
+        ),
+        AppAlertAction(
+          label: AppConstants.discard,
+          isDestructive: true,
+          onPressed: () => Navigator.pop(dialogContext, true),
+        ),
+      ],
     );
     return result ?? false;
   }

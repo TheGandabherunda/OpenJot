@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:image/image.dart' as img; // Left safely for compilation compatibility
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -12,6 +11,7 @@ import 'package:get/get.dart';
 import 'package:get_thumbnail_video/video_thumbnail.dart';
 import 'package:intl/intl.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
+import 'package:open_jot/app/core/widgets/app_alert_dialog.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
 import 'package:open_jot/app/utils/custom_toast.dart';
@@ -140,37 +140,25 @@ class _JournalTileState extends State<JournalTile> {
   }
 
   void _onDeletePressed() {
-    showCupertinoDialog(
+    showAppAlertDialog<void>(
       context: context,
-      builder: (BuildContext ctx) {
-        return CupertinoAlertDialog(
-          title: const Text(
-            AppConstants.pleaseConfirm,
-          ),
-          content: const Text(
-            AppConstants.confirmDeleteJournalEntry,
-          ),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-              },
-              isDefaultAction: false,
-              isDestructiveAction: false,
-              child: const Text(AppConstants.cancel),
-            ),
-            CupertinoDialogAction(
-              onPressed: () {
-                Get.find<HomeController>().deleteJournalEntry(widget.entry.id);
-                Navigator.of(ctx).pop();
-              },
-              isDefaultAction: true,
-              isDestructiveAction: true,
-              child: const Text(AppConstants.delete),
-            ),
-          ],
-        );
-      },
+      title: AppConstants.pleaseConfirm,
+      message: AppConstants.confirmDeleteJournalEntry,
+      actionsBuilder: (dialogContext) => [
+        AppAlertAction(
+          label: AppConstants.cancel,
+          onPressed: () => Navigator.pop(dialogContext),
+        ),
+        AppAlertAction(
+          label: AppConstants.delete,
+          isDefault: true,
+          isDestructive: true,
+          onPressed: () {
+            Get.find<HomeController>().deleteJournalEntry(widget.entry.id);
+            Navigator.pop(dialogContext);
+          },
+        ),
+      ],
     );
   }
 
