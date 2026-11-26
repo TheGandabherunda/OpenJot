@@ -207,6 +207,9 @@ class NotificationService {
 
     try {
       final hiveService = Get.find<HiveService>();
+      if (!hiveService.isJournalsBoxOpen) {
+        return;
+      }
       if (!hiveService.onThisDay) {
         if (kDebugMode) {
           print("[NotificationService] 'On This Day' is disabled. Skipping check.");

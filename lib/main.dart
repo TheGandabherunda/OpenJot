@@ -70,7 +70,7 @@ void main() async {
 
   final hiveService = Get.find<HiveService>();
   String initialRoute;
-  if (hiveService.appLockEnabled) {
+  if (hiveService.shouldShowAppLock) {
     initialRoute = AppPages.APP_LOCK;
   } else if (hiveService.isFirstLaunch) {
     initialRoute = AppPages.INITIAL;

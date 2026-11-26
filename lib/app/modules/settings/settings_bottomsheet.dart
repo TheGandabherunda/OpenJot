@@ -532,6 +532,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     required dynamic appThemeColors,
     required Color backgroundColor,
     required Color textColor,
+    String? subtitle,
     Widget? trailing,
     VoidCallback? onTap,
     bool showDivider = true,
@@ -557,6 +558,16 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                   fontWeight: FontWeight.w500,
                   letterSpacing: -0.2,
                   fontFamily: AppConstants.font)),
+          subtitle: subtitle != null
+              ? Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: appThemeColors.grey2,
+                    fontSize: 12.5.sp,
+                    fontFamily: AppConstants.font,
+                  ),
+                )
+              : null,
           trailing: trailing,
           onTap: onTap,
         ),
@@ -699,30 +710,71 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                       onTap: _showAutoDeleteOptions,
                     ),
                     _buildListTile(
-                      title: AppConstants.appLock,
-                      icon: Icons.lock_rounded,
+                      title: AppConstants.databaseEncryption,
+                      subtitle: AppConstants.databaseEncryptionDesc,
+                      icon: Icons.enhanced_encryption_rounded,
                       appThemeColors: appThemeColors,
                       backgroundColor: tileBackgroundColor,
                       textColor: textColor,
-                      showDivider: controller.appLock.value,
+                      showDivider: true,
                       trailing: Switch(
-                        value: controller.appLock.value,
-                        onChanged: (bool value) {
-                          controller.toggleAppLock(value);
-                        },
+                        value: controller.dbEncryption.value,
+                        onChanged: controller.toggleDatabaseEncryption,
                         activeColor: appThemeColors.primary,
                       ),
                     ),
-                    if (controller.appLock.value)
+                    if (controller.dbEncryption.value) ...[
                       _buildListTile(
-                        title: AppConstants.changePin,
+                        title: AppConstants.changeMasterPassword,
                         icon: Icons.password_rounded,
                         appThemeColors: appThemeColors,
                         backgroundColor: tileBackgroundColor,
                         textColor: textColor,
-                        onTap: controller.changePin,
-                        showDivider: false,
+                        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                        onTap: controller.changeMasterPassword,
+                        showDivider: controller.canUseBiometrics.value,
                       ),
+                      if (controller.canUseBiometrics.value)
+                        _buildListTile(
+                          title: AppConstants.biometricUnlock,
+                          icon: Icons.fingerprint_rounded,
+                          appThemeColors: appThemeColors,
+                          backgroundColor: tileBackgroundColor,
+                          textColor: textColor,
+                          showDivider: false,
+                          trailing: Switch(
+                            value: controller.biometricUnlock.value,
+                            onChanged: controller.toggleBiometricUnlock,
+                            activeColor: appThemeColors.primary,
+                          ),
+                        ),
+                    ] else ...[
+                      _buildListTile(
+                        title: AppConstants.appLock,
+                        icon: Icons.lock_rounded,
+                        appThemeColors: appThemeColors,
+                        backgroundColor: tileBackgroundColor,
+                        textColor: textColor,
+                        showDivider: controller.appLock.value,
+                        trailing: Switch(
+                          value: controller.appLock.value,
+                          onChanged: (bool value) {
+                            controller.toggleAppLock(value);
+                          },
+                          activeColor: appThemeColors.primary,
+                        ),
+                      ),
+                      if (controller.appLock.value)
+                        _buildListTile(
+                          title: AppConstants.changePin,
+                          icon: Icons.password_rounded,
+                          appThemeColors: appThemeColors,
+                          backgroundColor: tileBackgroundColor,
+                          textColor: textColor,
+                          onTap: controller.changePin,
+                          showDivider: false,
+                        ),
+                    ],
                   ],
                 ),
               ),

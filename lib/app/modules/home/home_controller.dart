@@ -1,8 +1,10 @@
 import 'dart:ui' as ui;
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/utils/mood_helper.dart';
 
@@ -13,6 +15,7 @@ class HomeController extends GetxController {
   final _hiveService = Get.find<HiveService>();
   final journalEntries = <JournalEntry>[].obs;
   final draftEntries = <JournalEntry>[].obs;
+  ValueListenable<Box<JournalEntry>>? _journalListenable;
 
   final audioPlayer = AudioPlayer();
   final plainTextCache = <String, String>{}.obs;
@@ -58,8 +61,9 @@ class HomeController extends GetxController {
   void onInit() {
     super.onInit();
     loadSettings();
-    _hiveService.getJournalEntriesNotifier().addListener(loadJournalEntries);
-    loadJournalEntries();
+    if (_hiveService.isJournalsBoxOpen) {
+      attachJournalListener();
+    }
 
     // Listen to audio player state changes globally
     audioPlayer.onPlayerStateChanged.listen((state) {
@@ -133,7 +137,9 @@ class HomeController extends GetxController {
 
   @override
   void onClose() {
-    _hiveService.getJournalEntriesNotifier().removeListener(loadJournalEntries);
+    try {
+      _journalListenable?.removeListener(loadJournalEntries);
+    } catch (_) {}
     audioPlayer.dispose();
     super.onClose();
   }
@@ -356,5 +362,17 @@ class HomeController extends GetxController {
       final date = entry.createdAt;
       return DateTime(date.year, date.month, date.day);
     }).toSet();
+  }
+
+  /// Attaches reactive UI listener to the currently open journals box.
+  /// Called after initial launch, unlock, database encryption migration, or restore.
+  void attachJournalListener() {
+    if (!_hiveService.isJournalsBoxOpen) return;
+    try {
+      _journalListenable?.removeListener(loadJournalEntries);
+    } catch (_) {}
+    _journalListenable = _hiveService.getJournalEntriesNotifier();
+    _journalListenable!.addListener(loadJournalEntries);
+    loadJournalEntries();
   }
 }

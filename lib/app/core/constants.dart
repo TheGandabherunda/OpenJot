@@ -331,6 +331,12 @@ class AppConstants {
   static const String reminderSchemaVersionKey = 'reminder_schema_version';
   static const String appLockEnabledKey = 'appLockEnabled';
   static const String appLockPinKey = 'appLockPin';
+  static const String dbEncryptionEnabledKey = 'dbEncryptionEnabled';
+  static const String encryptionKdfSaltKey = 'encryptionKdfSalt';
+  static const String encryptionKdfIterationsKey = 'encryptionKdfIterations';
+  static const String encryptionWrappedDekKey = 'encryptionWrappedDek';
+  static const String encryptionBiometricEnabledKey =
+      'encryptionBiometricEnabled';
   static const String hideHomeStatsKey = 'hideHomeStats';
   static const String hideInsightsStatsKey = 'hideInsightsStats';
   static const String storagePermissionsRequired =
@@ -350,6 +356,42 @@ class AppConstants {
   static const String mediaManifestFileName = '/media_manifest.json';
   static const String backupFileNamePrefix = 'OpenJot-Backup-';
   static const String backupFileExtension = '.zip';
+  static const String encryptedBackupFileNamePrefix = 'OpenJot-Encrypted-';
+  static const String encryptedBackupFileExtension = '.openjot';
+
+  // Database Encryption & Encrypted Backup Strings
+  static const String databaseEncryption = "Database Encryption";
+  static const String databaseEncryptionDesc = "AES-256-GCM local encryption";
+  static const String changeMasterPassword = "Change Master Password";
+  static const String biometricUnlock = "Biometric Unlock";
+  static const String enterMasterPassword = "Enter Master Password";
+  static const String enterMasterPasswordHint =
+      "Enter your master password to decrypt your journal.";
+  static const String unlockButton = "Unlock";
+  static const String unlockWithBiometrics = "Unlock with Biometrics";
+  static const String incorrectMasterPassword =
+      "Incorrect master password. Please try again.";
+  static const String databaseEncryptedSuccess =
+      "Journal database encrypted with AES-256-GCM.";
+  static const String databaseDecryptedSuccess =
+      "Journal database decrypted and app lock turned off.";
+  static const String masterPasswordChangedSuccess =
+      "Master password updated successfully.";
+  static const String encryptedBackupPasswordRequired =
+      "A password is required to open an encrypted backup.";
+  static const String incorrectBackupPassword = "Incorrect backup password.";
+  static const String invalidBackupFile =
+      "Selected file is not a valid OpenJot backup.";
+  static const String encryptedBackup = "Encrypted Backup (.openjot)";
+  static const String encryptedBackupDesc =
+      "Protected with AES-256-GCM and a backup password";
+  static const String standardBackup = "Standard Backup (.zip)";
+  static const String standardBackupDesc =
+      "Unencrypted archive compatible with all versions";
+  static const String takingBackup = "Taking backup...";
+  static const String encryptingBackup = "Encrypting backup...";
+  static const String decryptingBackup = "Decrypting backup...";
+  static const String restoringBackup = "Restoring backup...";
   static const String backupEncodingFailed = "Failed to encode the backup file.";
   static const String backupCreatedSuccess = "Backup created successfully!";
   static const String backupFailed = "Failed to create backup: %s";

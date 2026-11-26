@@ -15,6 +15,7 @@ import 'package:file_picker/file_picker.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/theme.dart';
 import '../../utils/custom_toast.dart';
+import '../app_lock/master_password_bottomsheet.dart';
 import '../app_lock/set_pin_bottomsheet.dart';
 import '../app_lock/verify_pin_bottomsheet.dart';
 
@@ -30,6 +31,9 @@ class SettingsScreenController extends GetxController {
   var theme = AppConstants.themeSystem.obs;
   var pitchBlack = false.obs;
   var appLock = false.obs;
+  var dbEncryption = false.obs;
+  var biometricUnlock = false.obs;
+  var canUseBiometrics = false.obs;
   var autoDeleteDraftsDays = 7.obs;
   var hideHomeStats = false.obs;
   var hideInsightsStats = false.obs;
@@ -38,6 +42,11 @@ class SettingsScreenController extends GetxController {
   void onInit() {
     super.onInit();
     _loadSettings();
+    _refreshBiometricAvailability();
+  }
+
+  Future<void> _refreshBiometricAvailability() async {
+    canUseBiometrics.value = await _appLockService.isBiometricAvailable();
   }
 
   void _loadSettings() {
@@ -48,6 +57,8 @@ class SettingsScreenController extends GetxController {
     theme.value = _hiveService.theme;
     pitchBlack.value = _hiveService.pitchBlack;
     appLock.value = _hiveService.appLockEnabled;
+    dbEncryption.value = _hiveService.dbEncryptionEnabled;
+    biometricUnlock.value = _hiveService.encryptionBiometricEnabled;
     hideHomeStats.value = _hiveService.hideHomeStats;
     hideInsightsStats.value = _hiveService.hideInsightsStats;
   }
@@ -267,8 +278,149 @@ class SettingsScreenController extends GetxController {
     }
   }
 
+  Future<T?> _showBottomSheetWithKeyboardPush<T>(Widget child) {
+    return showModalBottomSheet<T>(
+      context: Get.context!,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => child,
+    );
+  }
+
+  Future<void> toggleDatabaseEncryption(bool enable) async {
+    final appColors = AppTheme.colorsOf(Get.context!);
+    final result = await _showBottomSheetWithKeyboardPush<bool>(
+      MasterPasswordBottomSheet(
+        mode: enable
+            ? MasterPasswordSheetMode.enableEncryption
+            : MasterPasswordSheetMode.disableEncryption,
+        canUseBiometrics: canUseBiometrics.value,
+      ),
+    );
+
+    if (result == true) {
+      _loadSettings();
+      CustomToast.showToast(
+        enable
+            ? AppConstants.databaseEncryptedSuccess
+            : AppConstants.databaseDecryptedSuccess,
+        backgroundColor: appColors.grey10,
+        textColor: appColors.grey8,
+      );
+    }
+  }
+
+  Future<void> changeMasterPassword() async {
+    final appColors = AppTheme.colorsOf(Get.context!);
+    final result = await _showBottomSheetWithKeyboardPush<bool>(
+      const MasterPasswordBottomSheet(
+        mode: MasterPasswordSheetMode.changePassword,
+      ),
+    );
+
+    if (result == true) {
+      CustomToast.showToast(
+        AppConstants.masterPasswordChangedSuccess,
+        backgroundColor: appColors.grey10,
+        textColor: appColors.grey8,
+      );
+    }
+  }
+
+  Future<void> toggleBiometricUnlock(bool enable) async {
+    if (!enable) {
+      await _appLockService.setBiometricUnlockForEncryptedDb(enabled: false);
+      biometricUnlock.value = false;
+      return;
+    }
+
+    final result = await _showBottomSheetWithKeyboardPush<bool>(
+      const MasterPasswordBottomSheet(
+        mode: MasterPasswordSheetMode.verifyForBiometrics,
+      ),
+    );
+    if (result == true) {
+      biometricUnlock.value = true;
+    }
+  }
+
   Future<void> backup() async {
-    await _hiveService.backupData();
+    final option = await _showBottomSheetWithKeyboardPush<BackupExportOption>(
+      const BackupOptionsBottomSheet(),
+    );
+    if (option == null) return;
+
+    String? backupPassword;
+    if (option == BackupExportOption.encrypted) {
+      backupPassword = await _showBottomSheetWithKeyboardPush<String>(
+        const MasterPasswordBottomSheet(
+          mode: MasterPasswordSheetMode.createBackupPassword,
+        ),
+      );
+      if (backupPassword == null || backupPassword.isEmpty) return;
+    }
+
+    final statusText = AppConstants.takingBackup.obs;
+    final appColors = AppTheme.colorsOf(Get.context!);
+    final isDark = Theme.of(Get.context!).brightness == Brightness.dark;
+    final dialogBg = pitchBlack.value
+        ? (isDark ? Colors.black : Colors.white)
+        : appColors.grey6;
+
+    Get.dialog(
+      PopScope(
+        canPop: false,
+        child: Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 40),
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+              decoration: BoxDecoration(
+                color: dialogBg,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Obx(
+                () => Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CupertinoActivityIndicator(
+                      radius: 15,
+                      color: appColors.primary,
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      statusText.value,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: AppConstants.font,
+                        color: appColors.grey10,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+      barrierDismissible: false,
+    );
+
+    try {
+      await _hiveService.backupData(
+        encryptionPassword: backupPassword,
+        onStatusUpdate: (s) => statusText.value = s,
+      );
+    } finally {
+      if (Get.isDialogOpen ?? false) {
+        Get.back();
+      }
+    }
   }
 
   Future<void> launchURL(String url) async {
@@ -302,7 +454,15 @@ class SettingsScreenController extends GetxController {
             child: const Text(AppConstants.restoreButton),
             onPressed: () async {
               Navigator.of(context).pop();
-              final bool success = await _hiveService.restoreData();
+              final bool success = await _hiveService.restoreData(
+                onRequestBackupPassword: () async {
+                  return _showBottomSheetWithKeyboardPush<String>(
+                    const MasterPasswordBottomSheet(
+                      mode: MasterPasswordSheetMode.enterBackupPassword,
+                    ),
+                  );
+                },
+              );
 
               if (success) {
                 _loadSettings();

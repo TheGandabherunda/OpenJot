@@ -12,11 +12,13 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:open_jot/app/core/models/journal_entry.dart';
+import 'package:open_jot/app/core/services/crypto_service.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:pointycastle/api.dart' show InvalidCipherTextException;
 
 import '../../utils/custom_toast.dart';
 import '../../utils/mood_helper.dart';
@@ -25,36 +27,246 @@ import '../hive/hive_adapters.dart';
 
 class HiveService extends GetxService {
   late Box<dynamic> settingsBox;
-  late Box<JournalEntry> journalsBox;
+  Box<JournalEntry>? _journalsBox;
+  Uint8List? _activeDek;
 
   bool _adaptersRegistered = false;
+
+  bool get isJournalsBoxOpen => _journalsBox != null && _journalsBox!.isOpen;
+  bool get hasActiveDek => _activeDek != null;
+
+  Box<JournalEntry> get journalsBox {
+    final box = _journalsBox;
+    if (box == null || !box.isOpen) {
+      throw StateError('Journals database is locked.');
+    }
+    return box;
+  }
 
   Future<HiveService> init({bool runGC = true}) async {
     final appDocumentDir = await getApplicationDocumentsDirectory();
     Hive.init(appDocumentDir.path);
     _registerAdapters();
     settingsBox = await Hive.openBox(AppConstants.settingsBoxName);
-    journalsBox = await Hive.openBox<JournalEntry>(AppConstants.journalsBoxName);
-
-    // Run this first to ensure all media paths are correctly linked to the current device session
-    // This fixes absolute paths changing after app updates, backup restores, or iOS app restarts.
-    await _sanitizeMediaPathsIfNeeded(appDocumentDir);
-
-    // --- Data Migration: Mood Evolution ---
-    await _migrateMoods();
-
-    // --- Data Migration: Multiple Reminders ---
     await _migrateReminders();
 
-    // --- Data Migration: Differentiate Music vs Voice Recordings ---
-    await _migrateAudioKinds();
-
-    // Run Garbage Collection quietly in the background to free up storage
-    if (runGC) {
-      unawaited(cleanUpOrphanedMedia());
+    if (!dbEncryptionEnabled) {
+      _journalsBox = await Hive.openBox<JournalEntry>(AppConstants.journalsBoxName);
+      await _runPostOpenJournalSetup(appDocumentDir, runGC: runGC);
     }
 
     return this;
+  }
+
+  Future<void> _runPostOpenJournalSetup(
+    Directory appDocumentDir, {
+    bool runGC = true,
+  }) async {
+    await _sanitizeMediaPathsIfNeeded(appDocumentDir);
+    await _migrateMoods();
+    await _migrateAudioKinds();
+    if (runGC) {
+      unawaited(cleanUpOrphanedMedia());
+    }
+  }
+
+  void _setActiveDek(Uint8List dek) {
+    _clearActiveDek();
+    _activeDek = Uint8List.fromList(dek);
+  }
+
+  void _clearActiveDek() {
+    if (_activeDek != null) {
+      _activeDek!.fillRange(0, _activeDek!.length, 0);
+      _activeDek = null;
+    }
+  }
+
+  Future<void> unlockJournalsBox(Uint8List dek, {bool runGC = true}) async {
+    if (isJournalsBoxOpen) return;
+    final appDocumentDir = await getApplicationDocumentsDirectory();
+    _setActiveDek(dek);
+    _journalsBox = await Hive.openBox<JournalEntry>(
+      AppConstants.journalsBoxName,
+      encryptionCipher: AesGcmHiveCipher(dek),
+    );
+    await _runPostOpenJournalSetup(appDocumentDir, runGC: runGC);
+    if (Get.isRegistered<HomeController>()) {
+      Get.find<HomeController>().attachJournalListener();
+    }
+  }
+
+  Future<void> lockJournalsBox() async {
+    _clearActiveDek();
+    if (_journalsBox != null && _journalsBox!.isOpen) {
+      await _journalsBox!.close();
+    }
+    _journalsBox = null;
+  }
+
+  Future<void> _deleteBoxFilesIfPresent(
+    String dirPath,
+    String boxName, {
+    bool keepHive = false,
+  }) async {
+    if (!keepHive) {
+      final hiveFile = File(p.join(dirPath, '$boxName${AppConstants.hiveExtension}'));
+      if (await hiveFile.exists()) {
+        await hiveFile.delete();
+      }
+    }
+    final lockFile = File(p.join(dirPath, '$boxName${AppConstants.lockExtension}'));
+    if (await lockFile.exists()) {
+      await lockFile.delete();
+    }
+  }
+
+  /// Atomically rewrites `journals.hive` using a staged temporary Hive box
+  /// so an interruption never corrupts or deletes user journal entries.
+  Future<void> _rewriteJournalsBox({Uint8List? cipherKey}) async {
+    final currentBox = journalsBox;
+    final appDocDir = await getApplicationDocumentsDirectory();
+    const tempBoxName = 'journals_migration_tmp';
+    final snapshot = currentBox.toMap().map(
+          (key, value) => MapEntry(key, value.copyWith()),
+        );
+
+    await _deleteBoxFilesIfPresent(appDocDir.path, tempBoxName);
+
+    final stagingBox = await Hive.openBox<JournalEntry>(
+      tempBoxName,
+      encryptionCipher: cipherKey != null ? AesGcmHiveCipher(cipherKey) : null,
+    );
+    try {
+      if (snapshot.isNotEmpty) {
+        await stagingBox.putAll(snapshot);
+      }
+      if (stagingBox.length != snapshot.length) {
+        throw StateError(
+          'Database migration count mismatch: expected ${snapshot.length}, got ${stagingBox.length}.',
+        );
+      }
+      await stagingBox.flush();
+    } catch (_) {
+      await stagingBox.close();
+      await _deleteBoxFilesIfPresent(appDocDir.path, tempBoxName);
+      rethrow;
+    }
+    await stagingBox.close();
+
+    await currentBox.close();
+    _journalsBox = null;
+
+    await _deleteBoxFilesIfPresent(appDocDir.path, AppConstants.journalsBoxName);
+    final stagedFile = File(
+      p.join(appDocDir.path, '$tempBoxName${AppConstants.hiveExtension}'),
+    );
+    final targetFile = File(
+      p.join(appDocDir.path, '${AppConstants.journalsBoxName}${AppConstants.hiveExtension}'),
+    );
+    await stagedFile.rename(targetFile.path);
+    await _deleteBoxFilesIfPresent(appDocDir.path, tempBoxName, keepHive: true);
+
+    _journalsBox = await Hive.openBox<JournalEntry>(
+      AppConstants.journalsBoxName,
+      encryptionCipher: cipherKey != null ? AesGcmHiveCipher(cipherKey) : null,
+    );
+    if (cipherKey != null) {
+      _setActiveDek(cipherKey);
+    } else {
+      _clearActiveDek();
+    }
+    if (Get.isRegistered<HomeController>()) {
+      Get.find<HomeController>().attachJournalListener();
+    }
+  }
+
+  /// Encrypts the local journal database in-place using a fresh random 256-bit DEK
+  /// wrapped with a PBKDF2 key derived from [masterPassword]. Returns the new DEK.
+  Future<Uint8List> enableDatabaseEncryption({
+    required String masterPassword,
+    bool enableBiometrics = false,
+  }) async {
+    final dek = CryptoService.generateDek();
+    final wrapped = await CryptoService.wrapDekWithPassword(
+      dek: dek,
+      password: masterPassword,
+    );
+
+    await _rewriteJournalsBox(cipherKey: dek);
+
+    await settingsBox.put(AppConstants.dbEncryptionEnabledKey, true);
+    await settingsBox.put(AppConstants.encryptionKdfSaltKey, wrapped.saltB64);
+    await settingsBox.put(AppConstants.encryptionKdfIterationsKey, wrapped.iterations);
+    await settingsBox.put(AppConstants.encryptionWrappedDekKey, wrapped.wrappedDekB64);
+    await settingsBox.put(AppConstants.encryptionBiometricEnabledKey, enableBiometrics);
+    await settingsBox.put(AppConstants.appLockEnabledKey, true);
+    await settingsBox.delete(AppConstants.appLockPinKey);
+
+    return dek;
+  }
+
+  /// Re-wraps the existing database DEK under [newPassword] without rewriting
+  /// journal entries. Throws [InvalidCipherTextException] if [currentPassword] is wrong.
+  Future<void> changeMasterPassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final saltB64 = encryptionKdfSalt;
+    final wrappedDekB64 = encryptionWrappedDek;
+    if (!dbEncryptionEnabled || saltB64 == null || wrappedDekB64 == null) {
+      throw StateError('Database encryption is not enabled.');
+    }
+    final dek = await CryptoService.unwrapDekWithPassword(
+      password: currentPassword,
+      saltB64: saltB64,
+      wrappedDekB64: wrappedDekB64,
+      iterations: encryptionKdfIterations,
+    );
+    try {
+      final rewrapped = await CryptoService.wrapDekWithPassword(
+        dek: dek,
+        password: newPassword,
+      );
+      await settingsBox.put(AppConstants.encryptionKdfSaltKey, rewrapped.saltB64);
+      await settingsBox.put(AppConstants.encryptionKdfIterationsKey, rewrapped.iterations);
+      await settingsBox.put(AppConstants.encryptionWrappedDekKey, rewrapped.wrappedDekB64);
+    } finally {
+      dek.fillRange(0, dek.length, 0);
+    }
+  }
+
+  /// Verifies [masterPassword] and decrypts the local journal database back to
+  /// standard unencrypted Hive storage.
+  Future<void> disableDatabaseEncryption({
+    required String masterPassword,
+  }) async {
+    final saltB64 = encryptionKdfSalt;
+    final wrappedDekB64 = encryptionWrappedDek;
+    if (!dbEncryptionEnabled || saltB64 == null || wrappedDekB64 == null) {
+      return;
+    }
+    final dek = await CryptoService.unwrapDekWithPassword(
+      password: masterPassword,
+      saltB64: saltB64,
+      wrappedDekB64: wrappedDekB64,
+      iterations: encryptionKdfIterations,
+    );
+    try {
+      if (!isJournalsBoxOpen) {
+        await unlockJournalsBox(dek, runGC: false);
+      }
+      await _rewriteJournalsBox(cipherKey: null);
+      await settingsBox.put(AppConstants.dbEncryptionEnabledKey, false);
+      await settingsBox.delete(AppConstants.encryptionKdfSaltKey);
+      await settingsBox.delete(AppConstants.encryptionKdfIterationsKey);
+      await settingsBox.delete(AppConstants.encryptionWrappedDekKey);
+      await settingsBox.put(AppConstants.encryptionBiometricEnabledKey, false);
+      await settingsBox.put(AppConstants.appLockEnabledKey, false);
+      await settingsBox.delete(AppConstants.appLockPinKey);
+    } finally {
+      dek.fillRange(0, dek.length, 0);
+    }
   }
 
   Future<void> _sanitizeMediaPathsIfNeeded(Directory appDocDir) async {
@@ -418,6 +630,25 @@ class HiveService extends GetxService {
   Future<void> setAppLockPin(String pin) =>
       settingsBox.put(AppConstants.appLockPinKey, pin);
 
+  bool get dbEncryptionEnabled =>
+      settingsBox.get(AppConstants.dbEncryptionEnabledKey, defaultValue: false);
+  String? get encryptionKdfSalt =>
+      settingsBox.get(AppConstants.encryptionKdfSaltKey);
+  int get encryptionKdfIterations => settingsBox.get(
+        AppConstants.encryptionKdfIterationsKey,
+        defaultValue: CryptoService.defaultPbkdf2Iterations,
+      );
+  String? get encryptionWrappedDek =>
+      settingsBox.get(AppConstants.encryptionWrappedDekKey);
+  bool get encryptionBiometricEnabled => settingsBox.get(
+        AppConstants.encryptionBiometricEnabledKey,
+        defaultValue: false,
+      );
+  Future<void> setEncryptionBiometricEnabled(bool value) =>
+      settingsBox.put(AppConstants.encryptionBiometricEnabledKey, value);
+
+  bool get shouldShowAppLock => dbEncryptionEnabled || appLockEnabled;
+
   bool get hideHomeStats =>
       settingsBox.get(AppConstants.hideHomeStatsKey, defaultValue: false);
   Future<void> setHideHomeStats(bool value) =>
@@ -481,7 +712,8 @@ class HiveService extends GetxService {
     // Optionally call unawaited(cleanUpOrphanedMedia()) here if you want instant deletion
   }
 
-  List<JournalEntry> getAllJournalEntries() => journalsBox.values.toList();
+  List<JournalEntry> getAllJournalEntries() =>
+      isJournalsBoxOpen ? journalsBox.values.toList() : <JournalEntry>[];
   ValueListenable<Box<JournalEntry>> getJournalEntriesNotifier() =>
       journalsBox.listenable();
 
@@ -558,7 +790,76 @@ class HiveService extends GetxService {
     return false;
   }
 
-  Future<bool> backupData({void Function(double progress)? onProgress}) async {
+  static const Set<String> _nonPortableSettingKeys = {
+    AppConstants.appLockEnabledKey,
+    AppConstants.appLockPinKey,
+    AppConstants.dbEncryptionEnabledKey,
+    AppConstants.encryptionKdfSaltKey,
+    AppConstants.encryptionKdfIterationsKey,
+    AppConstants.encryptionWrappedDekKey,
+    AppConstants.encryptionBiometricEnabledKey,
+  };
+
+  Future<File?> _createPortableSettingsBoxFile(Directory appDocDir) async {
+    const tempSettingsBoxName = 'settings_backup_tmp';
+    await _deleteBoxFilesIfPresent(appDocDir.path, tempSettingsBoxName);
+    final stagingBox = await Hive.openBox<dynamic>(tempSettingsBoxName);
+    try {
+      final filtered = <dynamic, dynamic>{};
+      for (final key in settingsBox.keys) {
+        if (!_nonPortableSettingKeys.contains(key)) {
+          filtered[key] = settingsBox.get(key);
+        }
+      }
+      if (filtered.isNotEmpty) {
+        await stagingBox.putAll(filtered);
+      }
+      await stagingBox.flush();
+    } finally {
+      await stagingBox.close();
+    }
+    final file = File(
+      p.join(appDocDir.path, '$tempSettingsBoxName${AppConstants.hiveExtension}'),
+    );
+    return await file.exists() ? file : null;
+  }
+
+  Future<File?> _createPortableJournalsBoxFile(Directory appDocDir) async {
+    if (!dbEncryptionEnabled) {
+      final plainFile = File(
+        p.join(
+          appDocDir.path,
+          '${AppConstants.journalsBoxName}${AppConstants.hiveExtension}',
+        ),
+      );
+      return await plainFile.exists() ? plainFile : null;
+    }
+
+    const tempJournalsBoxName = 'journals_backup_plain_tmp';
+    await _deleteBoxFilesIfPresent(appDocDir.path, tempJournalsBoxName);
+    final stagingBox = await Hive.openBox<JournalEntry>(tempJournalsBoxName);
+    try {
+      final snapshot = journalsBox.toMap().map(
+            (key, value) => MapEntry(key, value.copyWith()),
+          );
+      if (snapshot.isNotEmpty) {
+        await stagingBox.putAll(snapshot);
+      }
+      await stagingBox.flush();
+    } finally {
+      await stagingBox.close();
+    }
+    final file = File(
+      p.join(appDocDir.path, '$tempJournalsBoxName${AppConstants.hiveExtension}'),
+    );
+    return await file.exists() ? file : null;
+  }
+
+  Future<bool> backupData({
+    String? encryptionPassword,
+    void Function(double progress)? onProgress,
+    void Function(String status)? onStatusUpdate,
+  }) async {
     final bool permissionsGranted = await _requestPermissions();
     if (!permissionsGranted) {
       CustomToast.showToast(AppConstants.storagePermissionsRequired);
@@ -566,12 +867,22 @@ class HiveService extends GetxService {
     }
 
     String? zipPath;
+    Directory? appDocDir;
     try {
-      final appDocDir = await getApplicationDocumentsDirectory();
+      onStatusUpdate?.call(AppConstants.takingBackup);
+      // Allow dialog frame to paint cleanly before synchronous/heavy zip I/O.
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      appDocDir = await getApplicationDocumentsDirectory();
       final tempDir = await getTemporaryDirectory();
 
-      final backupFileName = '${AppConstants.backupFileNamePrefix}${DateTime.now().toIso8601String().replaceAll(':', '-')}${AppConstants.backupFileExtension}';
-      zipPath = p.join(tempDir.path, backupFileName);
+      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
+      final isEncryptedExport =
+          encryptionPassword != null && encryptionPassword.isNotEmpty;
+      final zipTempName = '${AppConstants.backupFileNamePrefix}$timestamp${AppConstants.backupFileExtension}';
+      final exportFileName = isEncryptedExport
+          ? '${AppConstants.encryptedBackupFileNamePrefix}$timestamp${AppConstants.encryptedBackupFileExtension}'
+          : zipTempName;
+      zipPath = p.join(tempDir.path, zipTempName);
 
       debugPrint("Starting memory-safe backup process to: $zipPath");
       onProgress?.call(0.0);
@@ -580,12 +891,22 @@ class HiveService extends GetxService {
       final encoder = ZipFileEncoder();
       encoder.create(zipPath);
 
-      // 2. Add Hive database files
-      for (var boxName in [AppConstants.journalsBoxName, AppConstants.settingsBoxName]) {
-        final boxFile = File(p.join(appDocDir.path, '$boxName${AppConstants.hiveExtension}'));
-        if (await boxFile.exists()) {
-          encoder.addFile(boxFile, '$boxName${AppConstants.hiveExtension}');
-        }
+      // 2. Add portable Hive database files (unencrypted inside container so
+      //    backups restore on any device; whole archive is AES-256-GCM wrapped
+      //    when encryptionPassword is set)
+      final portableJournalsFile = await _createPortableJournalsBoxFile(appDocDir);
+      if (portableJournalsFile != null) {
+        encoder.addFile(
+          portableJournalsFile,
+          '${AppConstants.journalsBoxName}${AppConstants.hiveExtension}',
+        );
+      }
+      final portableSettingsFile = await _createPortableSettingsBoxFile(appDocDir);
+      if (portableSettingsFile != null) {
+        encoder.addFile(
+          portableSettingsFile,
+          '${AppConstants.settingsBoxName}${AppConstants.hiveExtension}',
+        );
       }
 
       // 3. Process media files and build manifest
@@ -625,7 +946,7 @@ class HiveService extends GetxService {
               sourceFile = File(originalPath);
               if (!await sourceFile.exists()) {
                 // Last resort fallback in case paths drifted despite sanitization
-                final fallbackFile = File(p.join(appDocDir.path, 'media', p.basename(originalPath)));
+                final fallbackFile = File(p.join(appDocDir!.path, 'media', p.basename(originalPath)));
                 if (await fallbackFile.exists()) sourceFile = fallbackFile;
               }
             }
@@ -720,14 +1041,24 @@ class HiveService extends GetxService {
       // 5. Close encoder to finalize zip
       encoder.close();
 
-      // 6. Export using file_picker
+      // 6. Export using file_picker (optionally AES-256-GCM encrypting the zip)
       final zipFile = File(zipPath);
       final zipBytes = await zipFile.readAsBytes();
+      final Uint8List outputBytes;
+      if (isEncryptedExport) {
+        onStatusUpdate?.call(AppConstants.encryptingBackup);
+        outputBytes = await CryptoService.encryptBackupBytes(
+          zipBytes: zipBytes,
+          password: encryptionPassword,
+        );
+      } else {
+        outputBytes = zipBytes;
+      }
 
       final selectedUri = await FilePicker.saveFile(
         dialogTitle: AppConstants.selectBackupFolder,
-        fileName: backupFileName,
-        bytes: zipBytes,
+        fileName: exportFileName,
+        bytes: outputBytes,
       );
 
       if (selectedUri == null) {
@@ -742,7 +1073,11 @@ class HiveService extends GetxService {
       CustomToast.showToast(AppConstants.backupFailed.replaceFirst('%s', e.toString()));
       return false;
     } finally {
-      // Guaranteed Cleanup: Ensure no massive zip files are left eating device storage
+      // Guaranteed Cleanup: Ensure no massive zip or staging files remain
+      if (appDocDir != null) {
+        await _deleteBoxFilesIfPresent(appDocDir.path, 'journals_backup_plain_tmp');
+        await _deleteBoxFilesIfPresent(appDocDir.path, 'settings_backup_tmp');
+      }
       if (zipPath != null) {
         final f = File(zipPath);
         if (await f.exists()) await f.delete();
@@ -750,7 +1085,10 @@ class HiveService extends GetxService {
     }
   }
 
-  Future<bool> restoreData({void Function(double progress)? onProgress}) async {
+  Future<bool> restoreData({
+    Future<String?> Function()? onRequestBackupPassword,
+    void Function(double progress)? onProgress,
+  }) async {
     final bool permissionsGranted = await _requestPermissions();
     if (!permissionsGranted) {
       CustomToast.showToast(AppConstants.restorePermissionsRequired);
@@ -758,35 +1096,96 @@ class HiveService extends GetxService {
     }
 
     Directory? tempDir;
+    File? decryptedZipFile;
+    Uint8List? preservedDek;
+    Map<String, dynamic>? preservedEncryptionSettings;
+    bool hiveWasClosed = false;
+
     try {
       final file = await FilePicker.pickFile(
-        type: FileType.custom,
-        allowedExtensions: ['zip'],
+        type: FileType.any,
       );
       if (file == null) return false;
 
-      File zipFile;
+      File selectedFile;
       if (file.path != null) {
-        zipFile = File(file.path!);
+        selectedFile = File(file.path!);
       } else {
-        final tempZipPath = p.join((await getTemporaryDirectory()).path, file.name.isNotEmpty ? file.name : 'temp_restore.zip');
-        zipFile = File(tempZipPath);
-        await zipFile.writeAsBytes(await file.readAsBytes());
+        final tempPickPath = p.join(
+          (await getTemporaryDirectory()).path,
+          file.name.isNotEmpty ? file.name : 'temp_restore.bin',
+        );
+        selectedFile = File(tempPickPath);
+        await selectedFile.writeAsBytes(await file.readAsBytes());
       }
-      final appDocDir = await getApplicationDocumentsDirectory();
 
+      final appDocDir = await getApplicationDocumentsDirectory();
       tempDir = Directory(p.join((await getTemporaryDirectory()).path, 'restore_temp'));
       if (await tempDir.exists()) await tempDir.delete(recursive: true);
       await tempDir.create(recursive: true);
 
+      onProgress?.call(0.05);
+
+      final pickedBytes = await selectedFile.readAsBytes();
+      File zipToExtract;
+
+      if (CryptoService.isEncryptedBackupBytes(pickedBytes)) {
+        if (onRequestBackupPassword == null) {
+          CustomToast.showToast(AppConstants.encryptedBackupPasswordRequired);
+          return false;
+        }
+        Uint8List? decryptedZipBytes;
+        while (decryptedZipBytes == null) {
+          final password = await onRequestBackupPassword();
+          if (password == null || password.isEmpty) {
+            return false;
+          }
+          try {
+            decryptedZipBytes = await CryptoService.decryptBackupBytes(
+              encryptedFileBytes: pickedBytes,
+              password: password,
+            );
+          } on InvalidCipherTextException {
+            CustomToast.showToast(AppConstants.incorrectBackupPassword);
+          }
+        }
+        decryptedZipFile = File(
+          p.join((await getTemporaryDirectory()).path, 'restore_decrypted.zip'),
+        );
+        await decryptedZipFile.writeAsBytes(decryptedZipBytes, flush: true);
+        zipToExtract = decryptedZipFile;
+      } else if (pickedBytes.length >= 2 &&
+          pickedBytes[0] == 0x50 &&
+          pickedBytes[1] == 0x4B) {
+        zipToExtract = selectedFile;
+      } else {
+        CustomToast.showToast(AppConstants.invalidBackupFile);
+        return false;
+      }
+
       onProgress?.call(0.1); // Notify starting extraction
 
+      // Preserve current device encryption configuration across restore
+      if (dbEncryptionEnabled && _activeDek != null) {
+        preservedDek = Uint8List.fromList(_activeDek!);
+        preservedEncryptionSettings = {
+          AppConstants.dbEncryptionEnabledKey: true,
+          AppConstants.encryptionKdfSaltKey: encryptionKdfSalt,
+          AppConstants.encryptionKdfIterationsKey: encryptionKdfIterations,
+          AppConstants.encryptionWrappedDekKey: encryptionWrappedDek,
+          AppConstants.encryptionBiometricEnabledKey: encryptionBiometricEnabled,
+          AppConstants.appLockEnabledKey: appLockEnabled,
+        };
+      }
+
       // MEMORY SAFE: Extracts directly to disk instead of filling up device RAM
-      await extractFileToDisk(zipFile.path, tempDir.path);
+      await extractFileToDisk(zipToExtract.path, tempDir.path);
       onProgress?.call(0.3);
 
       // Close Hive before replacing files
       await Hive.close();
+      _journalsBox = null;
+      hiveWasClosed = true;
 
       for (var boxName in [AppConstants.journalsBoxName, AppConstants.settingsBoxName]) {
         final tempBoxFile = File(p.join(tempDir.path, '$boxName${AppConstants.hiveExtension}'));
@@ -795,8 +1194,18 @@ class HiveService extends GetxService {
         }
       }
 
-      // Re-initialize Hive and open boxes (SKIP GC during restore to prevent race condition)
+      // Open settings first and clear any non-portable lock/encryption metadata
+      // that may have come from an older backup before opening restored journals.hive.
+      Hive.init(appDocDir.path);
+      _registerAdapters();
+      settingsBox = await Hive.openBox(AppConstants.settingsBoxName);
+      for (final key in _nonPortableSettingKeys) {
+        await settingsBox.delete(key);
+      }
+
+      // Re-initialize Hive unencrypted first (SKIP GC during restore to prevent race condition)
       await init(runGC: false);
+      hiveWasClosed = false;
       onProgress?.call(0.4);
 
       final persistentMediaDir = Directory(p.join(appDocDir.path, 'media'));
@@ -949,14 +1358,44 @@ class HiveService extends GetxService {
         await Get.find<HomeController>().rasterizeMoodIcons();
       }
 
+      // Re-encrypt restored database under the device's active encryption key
+      // if encryption was enabled before restoring.
+      if (preservedDek != null && preservedEncryptionSettings != null) {
+        for (final entry in preservedEncryptionSettings.entries) {
+          if (entry.value != null) {
+            await settingsBox.put(entry.key, entry.value);
+          }
+        }
+        await _rewriteJournalsBox(cipherKey: preservedDek);
+      }
+
       CustomToast.showToast(AppConstants.restoreSuccess);
       return true;
     } catch (e) {
       debugPrint("Restore failed with exception: $e");
-      await init();
+      if (hiveWasClosed) {
+        if (preservedDek != null && preservedEncryptionSettings != null) {
+          final appDocDir = await getApplicationDocumentsDirectory();
+          Hive.init(appDocDir.path);
+          _registerAdapters();
+          settingsBox = await Hive.openBox(AppConstants.settingsBoxName);
+          for (final entry in preservedEncryptionSettings.entries) {
+            if (entry.value != null) {
+              await settingsBox.put(entry.key, entry.value);
+            }
+          }
+          await unlockJournalsBox(preservedDek, runGC: false);
+        } else {
+          await init();
+        }
+      }
       CustomToast.showToast(AppConstants.restoreFailed.replaceFirst('%s', e.toString()));
       return false;
     } finally {
+      preservedDek?.fillRange(0, preservedDek.length, 0);
+      if (decryptedZipFile != null && await decryptedZipFile.exists()) {
+        await decryptedZipFile.delete();
+      }
       // Guaranteed Cleanup: Wipe extraction folder to prevent storage leaks
       if (tempDir != null && await tempDir.exists()) {
         await tempDir.delete(recursive: true);

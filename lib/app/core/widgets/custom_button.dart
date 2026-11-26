@@ -21,6 +21,7 @@ class CustomButton extends StatefulWidget {
   final double textSize;
   final double iconSize;
   final IconData? icon;
+  final bool expandWidth;
 
   const CustomButton({
     super.key,
@@ -33,6 +34,7 @@ class CustomButton extends StatefulWidget {
     required this.textPadding,
     required this.textColor,
     this.icon,
+    this.expandWidth = false,
   });
 
   @override
@@ -79,7 +81,7 @@ class _CustomButtonState extends State<CustomButton> {
         scale: _isPressed ? 0.95 : 1.0,
         duration: _animationDuration, // Use the constant duration
         curve: Curves.easeInOut,
-        child: IntrinsicWidth(
+        child: _wrapWidth(
           child: Material(
             color: Colors.transparent,
             child: Ink(
@@ -130,5 +132,12 @@ class _CustomButtonState extends State<CustomButton> {
         ),
       ),
     );
+  }
+
+  Widget _wrapWidth({required Widget child}) {
+    if (widget.expandWidth) {
+      return SizedBox(width: double.infinity, child: child);
+    }
+    return IntrinsicWidth(child: child);
   }
 }

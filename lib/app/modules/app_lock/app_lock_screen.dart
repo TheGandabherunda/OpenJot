@@ -1,12 +1,18 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/services/app_lock_service.dart';
+import 'package:open_jot/app/core/services/hive_service.dart';
+import 'package:open_jot/app/core/services/notification_service.dart';
 import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/core/widgets/custom_button.dart';
+import 'package:open_jot/app/modules/app_lock/master_password_bottomsheet.dart';
 import 'package:open_jot/app/routes/app_pages.dart';
+import 'package:smooth_corner/smooth_corner.dart';
 
 class AppLockScreen extends StatefulWidget {
   const AppLockScreen({super.key});
@@ -17,21 +23,83 @@ class AppLockScreen extends StatefulWidget {
 
 class _AppLockScreenState extends State<AppLockScreen> {
   final AppLockService _appLockService = Get.find();
+  final HiveService _hiveService = Get.find();
+  final TextEditingController _passwordController = TextEditingController();
+
   String _enteredPin = '';
   String _errorMessage = '';
+  bool _obscurePassword = true;
+  bool _isUnlocking = false;
+  bool _biometricAvailable = false;
+
+  bool get _isEncryptedDb => _hiveService.dbEncryptionEnabled;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_authenticateWithBiometrics());
+    unawaited(_initBiometrics());
+  }
+
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initBiometrics() async {
+    final available = await _appLockService.isBiometricAvailable();
+    if (!mounted) return;
+    setState(() => _biometricAvailable = available);
+
+    final shouldAutoPrompt =
+        available && (!_isEncryptedDb || _hiveService.encryptionBiometricEnabled);
+    if (shouldAutoPrompt) {
+      await _authenticateWithBiometrics();
+    }
+  }
+
+  Future<void> _completeUnlock() async {
+    if (Get.isRegistered<NotificationService>()) {
+      unawaited(Get.find<NotificationService>().checkForOnThisDayMemories());
+    }
+    final nextRoute =
+        _hiveService.isFirstLaunch ? AppPages.INITIAL : AppPages.HOME;
+    unawaited(Get.offAllNamed(nextRoute));
   }
 
   Future<void> _authenticateWithBiometrics() async {
-    if (await _appLockService.isBiometricAvailable()) {
-      final authenticated = await _appLockService.authenticate();
-      if (authenticated) {
-        unawaited(Get.offAllNamed(AppPages.HOME));
+    if (_isUnlocking) return;
+    final unlocked = await _appLockService.unlockWithBiometrics();
+    if (unlocked && mounted) {
+      await _completeUnlock();
+    }
+  }
+
+  Future<void> _unlockWithMasterPassword() async {
+    final password = _passwordController.text;
+    if (password.isEmpty || _isUnlocking) {
+      if (password.isEmpty) {
+        setState(() => _errorMessage = AppConstants.enterMasterPasswordHint);
       }
+      return;
+    }
+
+    setState(() {
+      _isUnlocking = true;
+      _errorMessage = '';
+    });
+
+    final ok = await _appLockService.unlockWithMasterPassword(password);
+    if (!mounted) return;
+
+    if (ok) {
+      _passwordController.clear();
+      await _completeUnlock();
+    } else {
+      setState(() {
+        _isUnlocking = false;
+        _errorMessage = AppConstants.incorrectMasterPassword;
+      });
     }
   }
 
@@ -62,7 +130,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
   void _verifyPin() async {
     final isValid = await _appLockService.verifyPin(_enteredPin);
     if (isValid) {
-      unawaited(Get.offAllNamed(AppPages.HOME));
+      await _completeUnlock();
     } else {
       setState(() {
         _errorMessage = AppConstants.incorrectPin;
@@ -79,68 +147,215 @@ class _AppLockScreenState extends State<AppLockScreen> {
       body: SafeArea(
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 24.w),
-          child: Column(
-            children: [
-              const Spacer(flex: 2),
-              Text(
-                AppConstants.hello,
-                style: TextStyle(
-                  fontFamily: AppConstants.font,
-                  color: appColors.grey10,
-                  fontSize: 34.sp,
-                  fontWeight: FontWeight.bold,
+          child: _isEncryptedDb
+              ? _buildMasterPasswordUnlock(appColors)
+              : _buildLegacyPinUnlock(appColors),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMasterPasswordUnlock(AppThemeColors appColors) {
+    final showBiometricButton =
+        _biometricAvailable && _hiveService.encryptionBiometricEnabled;
+
+    return Center(
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 72.w,
+                height: 72.w,
+                decoration: BoxDecoration(
+                  color: appColors.primary.withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.lock_rounded,
+                  size: 34.sp,
+                  color: appColors.primary,
                 ),
               ),
-              SizedBox(height: 12.h),
-              Text(
-                AppConstants.enterYourPin,
-                style: TextStyle(
-                  fontFamily: AppConstants.font,
-                  color: appColors.grey10,
-                  fontSize: 18.sp,
-                ),
+            ),
+            SizedBox(height: 20.h),
+            Text(
+              AppConstants.hello,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppConstants.font,
+                color: appColors.grey10,
+                fontSize: 32.sp,
+                fontWeight: FontWeight.bold,
               ),
-              SizedBox(height: 70.h),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(4, (index) {
-                  return _buildPinDot(index < _enteredPin.length);
-                }),
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              AppConstants.enterMasterPasswordHint,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppConstants.font,
+                color: appColors.grey2,
+                fontSize: 15.sp,
               ),
-              SizedBox(
-                height: 70.h,
-                child: Center(
-                  child: _errorMessage.isNotEmpty
-                      ? Text(
-                          _errorMessage,
-                          style: TextStyle(
-                            fontFamily: AppConstants.font,
-                            color: appColors.error,
-                            fontSize: 16.sp,
+            ),
+            SizedBox(height: 28.h),
+            SegmentedPasswordInput(
+              controller: _passwordController,
+              hint: AppConstants.enterMasterPassword,
+              obscure: _obscurePassword,
+              onToggleObscure: () =>
+                  setState(() => _obscurePassword = !_obscurePassword),
+              segmentBg: appColors.grey5,
+              enabled: !_isUnlocking,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _unlockWithMasterPassword(),
+              onChanged: () {
+                if (_errorMessage.isNotEmpty) {
+                  setState(() => _errorMessage = '');
+                }
+              },
+            ),
+            SizedBox(height: 12.h),
+            SizedBox(
+              height: 24.h,
+              child: _errorMessage.isNotEmpty
+                  ? Text(
+                      _errorMessage,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: AppConstants.font,
+                        color: appColors.error,
+                        fontSize: 13.5.sp,
+                      ),
+                    )
+                  : null,
+            ),
+            SizedBox(height: 10.h),
+            SizedBox(
+              width: double.infinity,
+              child: _isUnlocking
+                  ? Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 24.sp,
+                        vertical: 14.sp,
+                      ),
+                      decoration: ShapeDecoration(
+                        color: appColors.primary,
+                        shape: SmoothRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            CustomButton.defaultBorderRadius,
                           ),
-                        )
-                      : null,
+                          smoothness: 1,
+                        ),
+                      ),
+                      child: Center(
+                        child: CupertinoActivityIndicator(
+                          radius: 10,
+                          color: appColors.onPrimary,
+                        ),
+                      ),
+                    )
+                  : CustomButton(
+                      onPressed: _unlockWithMasterPassword,
+                      text: AppConstants.unlockButton,
+                      color: appColors.primary,
+                      textColor: appColors.onPrimary,
+                      expandWidth: true,
+                      textPadding: EdgeInsets.symmetric(
+                        horizontal: 24.sp,
+                        vertical: 14.sp,
+                      ),
+                    ),
+            ),
+            if (showBiometricButton) ...[
+              SizedBox(height: 16.h),
+              TextButton.icon(
+                onPressed: _isUnlocking ? null : _authenticateWithBiometrics,
+                icon: Icon(
+                  Icons.fingerprint_rounded,
+                  color: appColors.grey10,
+                  size: 22,
                 ),
-              ),
-              const Spacer(),
-              _buildKeyboard(),
-              SizedBox(height: 20.h),
-              TextButton(
-                onPressed: _authenticateWithBiometrics,
-                child: Text(
-                  AppConstants.useBiometrics,
+                label: Text(
+                  AppConstants.unlockWithBiometrics,
                   style: TextStyle(
                     fontFamily: AppConstants.font,
                     color: appColors.grey10,
-                    fontSize: 16.sp,
+                    fontSize: 15.5.sp,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
-              SizedBox(height: 40.h),
             ],
-          ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildLegacyPinUnlock(AppThemeColors appColors) {
+    return Column(
+      children: [
+        const Spacer(flex: 2),
+        Text(
+          AppConstants.hello,
+          style: TextStyle(
+            fontFamily: AppConstants.font,
+            color: appColors.grey10,
+            fontSize: 34.sp,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        SizedBox(height: 12.h),
+        Text(
+          AppConstants.enterYourPin,
+          style: TextStyle(
+            fontFamily: AppConstants.font,
+            color: appColors.grey10,
+            fontSize: 18.sp,
+          ),
+        ),
+        SizedBox(height: 70.h),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(4, (index) {
+            return _buildPinDot(index < _enteredPin.length);
+          }),
+        ),
+        SizedBox(
+          height: 70.h,
+          child: Center(
+            child: _errorMessage.isNotEmpty
+                ? Text(
+                    _errorMessage,
+                    style: TextStyle(
+                      fontFamily: AppConstants.font,
+                      color: appColors.error,
+                      fontSize: 16.sp,
+                    ),
+                  )
+                : null,
+          ),
+        ),
+        const Spacer(),
+        _buildKeyboard(),
+        SizedBox(height: 20.h),
+        TextButton(
+          onPressed: _authenticateWithBiometrics,
+          child: Text(
+            AppConstants.useBiometrics,
+            style: TextStyle(
+              fontFamily: AppConstants.font,
+              color: appColors.grey10,
+              fontSize: 16.sp,
+            ),
+          ),
+        ),
+        SizedBox(height: 40.h),
+      ],
     );
   }
 
