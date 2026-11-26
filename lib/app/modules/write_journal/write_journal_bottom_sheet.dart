@@ -20,6 +20,7 @@ import 'package:open_jot/app/core/models/journal_entry.dart';
 import 'package:open_jot/app/core/services/permission_service.dart';
 import 'package:open_jot/app/core/theme.dart';
 import 'package:open_jot/app/core/widgets/custom_button.dart';
+import 'package:open_jot/app/core/widgets/custom_datetime_picker.dart';
 import 'package:open_jot/app/core/widgets/journal_card_grid.dart';
 import 'package:open_jot/app/core/widgets/text_styling_toolbar.dart';
 import 'package:open_jot/app/core/widgets/write_journal_toolbar.dart';
@@ -83,6 +84,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   final _mainScrollController = ScrollController();
   final _textFieldKey = GlobalKey();
   final _dateMenuKey = GlobalKey();
+  final ValueNotifier<bool> _isDateMenuOpen = ValueNotifier<bool>(false);
   final _tagController = TextEditingController();
   final GlobalKey<WriteJournalToolbarContentState> _contentKey = GlobalKey();
 
@@ -419,6 +421,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     }
 
     _quillController.document.changes.listen(null);
+    _isDateMenuOpen.dispose();
     _sheetSlideCurve.dispose();
     _sheetAnimController.dispose();
     _quillController.dispose();
@@ -611,98 +614,51 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     });
   }
 
-  Future<void> _showDatePicker() async {
-    final appThemeColors = AppTheme.colorsOf(context);
-    final pickedDate = await showDatePicker(
+  Future<void> _showDatePicker() => _showCalendarPicker(openTimeAfter: true);
+
+  Future<void> _showCalendarPicker({bool openTimeAfter = false}) async {
+    final pickedDate = await showCustomDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            datePickerTheme: DatePickerThemeData(
-              backgroundColor: appThemeColors.grey6,
-              headerBackgroundColor: appThemeColors.grey5,
-              headerForegroundColor: appThemeColors.grey10,
-              surfaceTintColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16.r),
-              ),
-            ),
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              surface: appThemeColors.grey5,
-              onSurface: appThemeColors.grey10,
-              primary: appThemeColors.primary,
-              onPrimary: appThemeColors.onPrimary,
-            ),
-            dialogBackgroundColor: appThemeColors.grey5,
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: appThemeColors.primary,
-              ),
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
 
-    if (pickedDate != null) {
-      if (!mounted) return;
+    if (pickedDate == null || !mounted) return;
 
-      final pickedTime = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.fromDateTime(_selectedDate),
-        builder: (context, child) {
-          return Theme(
-            data: Theme.of(context).copyWith(
-              timePickerTheme: TimePickerThemeData(
-                backgroundColor: appThemeColors.grey6,
-                hourMinuteTextColor: appThemeColors.grey10,
-                hourMinuteColor: appThemeColors.grey4,
-                dayPeriodTextColor: appThemeColors.grey10,
-                dayPeriodColor: appThemeColors.grey4,
-                dialHandColor: appThemeColors.primary,
-                dialBackgroundColor: appThemeColors.grey5,
-                entryModeIconColor: appThemeColors.primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16.r),
-                ),
-                hourMinuteShape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8.r),
-                ),
-              ),
-              colorScheme: Theme.of(context).colorScheme.copyWith(
-                surface: appThemeColors.grey5,
-                onSurface: appThemeColors.grey10,
-                primary: appThemeColors.primary,
-                onPrimary: appThemeColors.onPrimary,
-              ),
-              textButtonTheme: TextButtonThemeData(
-                style: TextButton.styleFrom(
-                  foregroundColor: appThemeColors.primary,
-                ),
-              ),
-              dialogBackgroundColor: appThemeColors.grey6,
-            ),
-            child: child!,
-          );
-        },
+    setState(() {
+      _selectedDate = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        _selectedDate.hour,
+        _selectedDate.minute,
       );
+      _isCustomDate = true;
+    });
 
-      if (pickedTime != null) {
-        setState(() {
-          _selectedDate = DateTime(
-            pickedDate.year,
-            pickedDate.month,
-            pickedDate.day,
-            pickedTime.hour,
-            pickedTime.minute,
-          );
-          _isCustomDate = true;
-        });
-      }
+    if (openTimeAfter) {
+      await _showTimeSelector();
+    }
+  }
+
+  Future<void> _showTimeSelector() async {
+    final pickedTime = await showCustomTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_selectedDate),
+    );
+
+    if (pickedTime != null && mounted) {
+      setState(() {
+        _selectedDate = DateTime(
+          _selectedDate.year,
+          _selectedDate.month,
+          _selectedDate.day,
+          pickedTime.hour,
+          pickedTime.minute,
+        );
+        _isCustomDate = true;
+      });
     }
   }
 
@@ -1257,169 +1213,258 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         lowercasedPath.endsWith('.webm');
   }
 
-  Widget _buildHeader(AppThemeColors appThemeColors) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              _isBookmarked = !_isBookmarked;
-            });
-          },
-          child: Container(
-            width: 32.w,
-            height: 32.w,
-            decoration: const BoxDecoration(
-              color: Colors.transparent,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              _isBookmarked
-                  ? Icons.bookmark_rounded
-                  : Icons.bookmark_outline_rounded,
-              color:
-              _isBookmarked ? appThemeColors.primary : appThemeColors.grey2,
-              size: 28.w,
-            ),
-          ),
+  void _showHeaderMoreMenu(AppThemeColors appThemeColors) {
+    final renderBox =
+        _dateMenuKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final position = renderBox.localToGlobal(Offset.zero);
+    _isDateMenuOpen.value = true;
+    unawaited(
+      showMenu(
+        context: context,
+        color: appThemeColors.grey5,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.r),
         ),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 14.w),
-          child: GestureDetector(
-            onTap: () {
-              final renderBox =
-              _dateMenuKey.currentContext!.findRenderObject() as RenderBox;
-              final position = renderBox.localToGlobal(Offset.zero);
-              unawaited(
-                showMenu(
-                  context: context,
-                  color: appThemeColors.grey5,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16.r),
+        position: RelativeRect.fromLTRB(
+          position.dx + (renderBox.size.width / 2) - 100.w,
+          position.dy + renderBox.size.height + 10.h,
+          MediaQuery.of(context).size.width -
+              (position.dx + renderBox.size.width + 16.w),
+          position.dy + renderBox.size.height + 200.h,
+        ),
+        items: [
+          PopupMenuItem(
+            value: 'entry_date',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  AppConstants.todayDate,
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w400,
+                    fontFamily: AppConstants.font,
+                    color: appThemeColors.grey10,
                   ),
-                  position: RelativeRect.fromLTRB(
-                    position.dx + (renderBox.size.width / 2) - 80.w,
-                    position.dy + renderBox.size.height + 10.h,
-                    MediaQuery.of(context).size.width -
-                        (position.dx + (renderBox.size.width / 2) - 80.w),
-                    position.dy + renderBox.size.height + 200.h,
+                ),
+                Text(
+                  DateFormat('MMM d  •  h:mm a').format(DateTime.now()),
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w400,
+                    fontFamily: AppConstants.font,
+                    color: appThemeColors.grey1,
                   ),
-                  items: [
-                    PopupMenuItem(
-                      value: 'entry_date',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            AppConstants.todayDate,
-                            style: TextStyle(
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w400,
-                              fontFamily: AppConstants.font,
-                              color: appThemeColors.grey10,
-                            ),
-                          ),
-                          Text(
-                            DateFormat('MMM d  •  h:mm a')
-                                .format(DateTime.now()),
-                            style: TextStyle(
-                              fontSize: 14.sp,
-                              fontWeight: FontWeight.w400,
-                              fontFamily: AppConstants.font,
-                              color: appThemeColors.grey1,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      enabled: false,
-                      padding: EdgeInsets.zero,
-                      height: 4,
-                      child: Divider(
-                        color: appThemeColors.grey6,
-                        thickness: 1,
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'custom_date',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            AppConstants.customDate,
-                            style: TextStyle(
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w400,
-                              fontFamily: AppConstants.font,
-                              color: appThemeColors.grey10,
-                            ),
-                          ),
-                          if (_isCustomDate)
-                            Text(
-                              DateFormat('MMM d  •  h:mm a')
-                                  .format(_selectedDate),
-                              style: TextStyle(
-                                fontSize: 14.sp,
-                                color: appThemeColors.grey1,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ).then((value) {
-                  if (value == 'entry_date') {
-                    setState(() {
-                      _selectedDate = DateTime.now();
-                      _isCustomDate = false;
-                    });
-                  } else if (value == 'custom_date') {
-                    unawaited(_showDatePicker());
-                  }
-                }),
-              );
-            },
-            child: Container(
-              key: _dateMenuKey,
-              child: Row(
-                children: [
-                  SizedBox(width: 16.w),
-          Text(
-            DateFormat('MMM d  •  h:mm a').format(_selectedDate),
-            style: TextStyle(
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w500,
-              fontFamily: AppConstants.font,
-              color:
-                  appThemeColors.grey10.withAlpha((255 * 0.6).round()),
-              decoration: TextDecoration.none,
+                ),
+              ],
             ),
           ),
-                  SizedBox(width: 8.w),
-                  Icon(
-                    Icons.more_vert_rounded,
-                    color: appThemeColors.grey2,
-                    size: 28.w,
+          PopupMenuItem(
+            enabled: false,
+            padding: EdgeInsets.zero,
+            height: 4,
+            child: Divider(
+              color: appThemeColors.grey6,
+              thickness: 1,
+            ),
+          ),
+          PopupMenuItem(
+            value: 'custom_date',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  AppConstants.customDate,
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w400,
+                    fontFamily: AppConstants.font,
+                    color: appThemeColors.grey10,
+                  ),
+                ),
+                if (_isCustomDate)
+                  Text(
+                    DateFormat('MMM d  •  h:mm a').format(_selectedDate),
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      color: appThemeColors.grey1,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ).then((value) {
+        _isDateMenuOpen.value = false;
+        if (value == 'entry_date') {
+          setState(() {
+            _selectedDate = DateTime.now();
+            _isCustomDate = false;
+          });
+        } else if (value == 'custom_date') {
+          unawaited(_showDatePicker());
+        }
+      }),
+    );
+  }
+
+  Widget _buildHeaderPillSegment({
+    Key? segmentKey,
+    required AppThemeColors appThemeColors,
+    required BorderRadius borderRadius,
+    required VoidCallback onTap,
+    required Widget child,
+    EdgeInsetsGeometry? padding,
+  }) {
+    return GestureDetector(
+      key: segmentKey,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        height: 34.h,
+        padding: padding ?? EdgeInsets.symmetric(horizontal: 12.w),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: appThemeColors.grey5,
+          borderRadius: borderRadius,
+        ),
+        child: child,
+      ),
+    );
+  }
+
+  Widget _buildHeader(AppThemeColors appThemeColors) {
+    final pillTextStyle = TextStyle(
+      fontSize: 13.5.sp,
+      fontWeight: FontWeight.w600,
+      fontFamily: AppConstants.font,
+      color: appThemeColors.grey10,
+      decoration: TextDecoration.none,
+      letterSpacing: -0.2,
+    );
+
+    return SizedBox(
+      width: double.infinity,
+      height: kToolbarHeight,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _isBookmarked = !_isBookmarked;
+                });
+              },
+              child: Container(
+                width: 32.w,
+                height: 32.w,
+                decoration: const BoxDecoration(
+                  color: Colors.transparent,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _isBookmarked
+                      ? Icons.bookmark_rounded
+                      : Icons.bookmark_outline_rounded,
+                  color: _isBookmarked
+                      ? appThemeColors.primary
+                      : appThemeColors.grey2,
+                  size: 28.w,
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 56.w),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildHeaderPillSegment(
+                    appThemeColors: appThemeColors,
+                    borderRadius: const BorderRadius.horizontal(
+                      left: Radius.circular(50),
+                      right: Radius.circular(6),
+                    ),
+                    onTap: () => unawaited(_showCalendarPicker()),
+                    child: Text(
+                      DateFormat('MMM d').format(_selectedDate),
+                      style: pillTextStyle,
+                    ),
+                  ),
+                  SizedBox(width: 2.w),
+                  _buildHeaderPillSegment(
+                    appThemeColors: appThemeColors,
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => unawaited(_showTimeSelector()),
+                    child: Text(
+                      DateFormat('h:mm a').format(_selectedDate),
+                      style: pillTextStyle,
+                    ),
+                  ),
+                  SizedBox(width: 2.w),
+                  ValueListenableBuilder<bool>(
+                    valueListenable: _isDateMenuOpen,
+                    builder: (context, isMenuOpen, _) {
+                      final icon = isMenuOpen
+                          ? Icons.close_rounded
+                          : Icons.more_horiz_rounded;
+                      return _buildHeaderPillSegment(
+                        segmentKey: _dateMenuKey,
+                        appThemeColors: appThemeColors,
+                        borderRadius: isMenuOpen
+                            ? BorderRadius.circular(50)
+                            : const BorderRadius.horizontal(
+                                left: Radius.circular(6),
+                                right: Radius.circular(50),
+                              ),
+                        padding: EdgeInsets.symmetric(horizontal: 10.w),
+                        onTap: () => _showHeaderMoreMenu(appThemeColors),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 180),
+                          transitionBuilder: (child, animation) =>
+                              ScaleTransition(
+                            scale: animation,
+                            child: FadeTransition(
+                              opacity: animation,
+                              child: child,
+                            ),
+                          ),
+                          child: Icon(
+                            icon,
+                            key: ValueKey<IconData>(icon),
+                            color: appThemeColors.grey10,
+                            size: 18.sp,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
             ),
           ),
-        ),
-        CustomButton(
-          onPressed: _onDonePressed,
-          text: widget.entry != null
-              ? AppConstants.updateButton
-              : AppConstants.done,
-          color: Colors.transparent,
-          textColor: appThemeColors.grey10,
-          textSize: 16.sp,
-          textPadding: EdgeInsets.zero,
-        ),
-      ],
+          Align(
+            alignment: Alignment.centerRight,
+            child: CustomButton(
+              onPressed: _onDonePressed,
+              text: widget.entry != null
+                  ? AppConstants.updateButton
+                  : AppConstants.done,
+              color: Colors.transparent,
+              textColor: appThemeColors.grey10,
+              textSize: 16.sp,
+              textPadding: EdgeInsets.zero,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

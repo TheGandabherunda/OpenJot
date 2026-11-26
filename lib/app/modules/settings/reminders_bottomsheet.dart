@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/core/widgets/custom_datetime_picker.dart';
 import 'package:open_jot/app/modules/settings/settings_controller.dart';
 
 class RemindersBottomSheet extends StatelessWidget {
@@ -29,45 +30,11 @@ class RemindersBottomSheet extends StatelessWidget {
 
     final textColor = appThemeColors.grey10;
 
-    Future<TimeOfDay?> _showTimePicker() async {
-      return await showTimePicker(
+    Future<TimeOfDay?> _showTimePicker() {
+      return showCustomTimePicker(
         context: context,
         initialTime: const TimeOfDay(hour: 20, minute: 0),
-        builder: (context, child) {
-          return Theme(
-            data: Theme.of(context).copyWith(
-              timePickerTheme: TimePickerThemeData(
-                backgroundColor: appThemeColors.grey6,
-                hourMinuteTextColor: appThemeColors.grey10,
-                hourMinuteColor: appThemeColors.grey4,
-                dayPeriodTextColor: appThemeColors.grey10,
-                dayPeriodColor: appThemeColors.grey4,
-                dialHandColor: appThemeColors.primary,
-                dialBackgroundColor: appThemeColors.grey5,
-                entryModeIconColor: appThemeColors.primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16.r),
-                ),
-                hourMinuteShape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8.r),
-                ),
-              ),
-              colorScheme: Theme.of(context).colorScheme.copyWith(
-                surface: appThemeColors.grey5,
-                onSurface: appThemeColors.grey10,
-                primary: appThemeColors.primary,
-                onPrimary: appThemeColors.onPrimary,
-              ),
-              textButtonTheme: TextButtonThemeData(
-                style: TextButton.styleFrom(
-                  foregroundColor: appThemeColors.primary,
-                ),
-              ),
-              dialogBackgroundColor: appThemeColors.grey6,
-            ),
-            child: child!,
-          );
-        },
+        showNowButton: false,
       );
     }
 

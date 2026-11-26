@@ -17,6 +17,7 @@ import 'package:open_jot/app/core/models/journal_entry.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/services/permission_service.dart';
 import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/core/widgets/custom_datetime_picker.dart';
 import 'package:open_jot/app/core/widgets/journal_audio_card.dart';
 import 'package:open_jot/app/core/widgets/journal_tile.dart';
 import 'package:open_jot/app/core/widgets/location_card_content.dart';
@@ -213,7 +214,7 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
     return items;
   }
 
-  String _buildSummaryText() {
+  String? _buildSummaryText() {
     final parts = <String>[];
     if (_selectedLocation != null) {
       parts.add(
@@ -233,7 +234,7 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
       parts.add(AppConstants.moods[_selectedMoodIndex!]['label'] ?? 'Mood');
     }
     if (parts.isEmpty) {
-      return DateFormat('h:mm a').format(_selectedDate);
+      return null;
     }
     return parts.join('  •  ');
   }
@@ -288,91 +289,40 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
     }
   }
 
-  Future<void> _pickDateTime() async {
-    final appThemeColors = AppTheme.colorsOf(context);
-    final pickedDate = await showDatePicker(
+  Future<void> _pickDate() async {
+    final pickedDate = await showCustomDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            datePickerTheme: DatePickerThemeData(
-              backgroundColor: appThemeColors.grey6,
-              headerBackgroundColor: appThemeColors.grey5,
-              headerForegroundColor: appThemeColors.grey10,
-              surfaceTintColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16.r),
-              ),
-            ),
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              surface: appThemeColors.grey5,
-              onSurface: appThemeColors.grey10,
-              primary: appThemeColors.primary,
-              onPrimary: appThemeColors.onPrimary,
-            ),
-            dialogBackgroundColor: appThemeColors.grey5,
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: appThemeColors.primary,
-              ),
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
 
     if (pickedDate == null || !mounted) return;
 
-    final pickedTime = await showTimePicker(
+    setState(() {
+      _selectedDate = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        _selectedDate.hour,
+        _selectedDate.minute,
+      );
+      _isCustomDate = true;
+    });
+  }
+
+  Future<void> _pickTime() async {
+    final pickedTime = await showCustomTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_selectedDate),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            timePickerTheme: TimePickerThemeData(
-              backgroundColor: appThemeColors.grey6,
-              hourMinuteTextColor: appThemeColors.grey10,
-              hourMinuteColor: appThemeColors.grey4,
-              dayPeriodTextColor: appThemeColors.grey10,
-              dayPeriodColor: appThemeColors.grey4,
-              dialHandColor: appThemeColors.primary,
-              dialBackgroundColor: appThemeColors.grey5,
-              entryModeIconColor: appThemeColors.primary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16.r),
-              ),
-              hourMinuteShape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.r),
-              ),
-            ),
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              surface: appThemeColors.grey5,
-              onSurface: appThemeColors.grey10,
-              primary: appThemeColors.primary,
-              onPrimary: appThemeColors.onPrimary,
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: appThemeColors.primary,
-              ),
-            ),
-            dialogBackgroundColor: appThemeColors.grey6,
-          ),
-          child: child!,
-        );
-      },
     );
 
     if (pickedTime != null && mounted) {
       setState(() {
         _selectedDate = DateTime(
-          pickedDate.year,
-          pickedDate.month,
-          pickedDate.day,
+          _selectedDate.year,
+          _selectedDate.month,
+          _selectedDate.day,
           pickedTime.hour,
           pickedTime.minute,
         );
@@ -688,43 +638,92 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
             body: Column(
               children: [
                 Padding(
-                  padding: EdgeInsets.only(top: 8.h, bottom: 8.h),
+                  padding: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 8.h),
                   child: Column(
                     children: [
-                      GestureDetector(
-                        onTap: _pickDateTime,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              DateFormat('EEEE, MMM d').format(_selectedDate),
-                              style: TextStyle(
-                                fontFamily: AppConstants.font,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 22.sp,
-                                color: colors.grey10,
-                                letterSpacing: -0.4,
-                              ),
+                      Builder(
+                        builder: (context) {
+                          final pillBg = isPitchBlack
+                              ? (isDark
+                                  ? Colors.white.withOpacity(0.08)
+                                  : Colors.black.withOpacity(0.05))
+                              : colors.grey5;
+                          final pillStyle = TextStyle(
+                            fontFamily: AppConstants.font,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14.sp,
+                            color: colors.grey10,
+                            letterSpacing: -0.2,
+                          );
+                          return FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                GestureDetector(
+                                  onTap: () => unawaited(_pickDate()),
+                                  child: Container(
+                                    height: 36.h,
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 14.w,
+                                    ),
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: pillBg,
+                                      borderRadius:
+                                          const BorderRadius.horizontal(
+                                        left: Radius.circular(50),
+                                        right: Radius.circular(6),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      DateFormat('EEEE, MMM d')
+                                          .format(_selectedDate),
+                                      style: pillStyle,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(width: 2.w),
+                                GestureDetector(
+                                  onTap: () => unawaited(_pickTime()),
+                                  child: Container(
+                                    height: 36.h,
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 14.w,
+                                    ),
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: pillBg,
+                                      borderRadius:
+                                          const BorderRadius.horizontal(
+                                        left: Radius.circular(6),
+                                        right: Radius.circular(50),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      DateFormat('h:mm a')
+                                          .format(_selectedDate),
+                                      style: pillStyle,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            SizedBox(width: 6.w),
-                            Icon(
-                              Icons.edit_rounded,
-                              size: 16.sp,
-                              color: colors.primary,
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
-                      SizedBox(height: 6.h),
-                      Text(
-                        _buildSummaryText(),
-                        style: TextStyle(
-                          fontFamily: AppConstants.font,
-                          fontSize: 13.sp,
-                          color: colors.grey2,
-                          letterSpacing: -0.2,
+                      if (_buildSummaryText() case final summary?) ...[
+                        SizedBox(height: 8.h),
+                        Text(
+                          summary,
+                          style: TextStyle(
+                            fontFamily: AppConstants.font,
+                            fontSize: 13.sp,
+                            color: colors.grey2,
+                            letterSpacing: -0.2,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
