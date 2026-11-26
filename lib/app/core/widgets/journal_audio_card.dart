@@ -45,10 +45,10 @@ class _JournalAudioCardShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool hasMiddle = middleContent != null;
     final double iconCircleSize = compact
-        ? (hasMiddle ? 32.w : 40.w)
+        ? (hasMiddle ? 26.w : 36.w)
         : (hasMiddle ? 40.w : 52.w);
     final double iconSize = compact
-        ? (hasMiddle ? 18.sp : 22.sp)
+        ? (hasMiddle ? 14.sp : 19.sp)
         : (hasMiddle ? 22.sp : 28.sp);
 
     final iconBadge = Container(
@@ -68,8 +68,8 @@ class _JournalAudioCardShell extends StatelessWidget {
     return Container(
       decoration: decoration,
       padding: EdgeInsets.symmetric(
-        horizontal: compact ? 10.w : 14.w,
-        vertical: compact ? 12.h : 18.h,
+        horizontal: compact ? 7.w : 14.w,
+        vertical: compact ? 8.h : 18.h,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -90,7 +90,7 @@ class _JournalAudioCardShell extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               color: titleColor,
-              fontSize: compact ? 11.sp : 13.5.sp,
+              fontSize: compact ? 10.sp : 13.5.sp,
               fontWeight: FontWeight.w600,
               fontFamily: AppConstants.font,
               decoration: TextDecoration.none,
@@ -198,7 +198,7 @@ class JournalRecordingCardContent extends StatelessWidget {
     }
     levels ??= AudioSpectrumWaveform.fallbackLevelsForKey(
       filePath ?? title,
-      targetCount: compact ? 20 : 32,
+      targetCount: compact ? 16 : 32,
     );
 
     return _JournalAudioCardShell(
@@ -225,9 +225,9 @@ class JournalRecordingCardContent extends StatelessWidget {
         inactiveColor: isDark
             ? Colors.white.withOpacity(0.22)
             : inkSecondary.withOpacity(0.28),
-        barWidth: compact ? 2.2 : 2.8,
-        minBarHeight: 3.0,
-        height: compact ? 20.h : 34.h,
+        barWidth: compact ? 1.8 : 2.8,
+        minBarHeight: 2.5,
+        height: compact ? 16.h : 34.h,
       ),
     );
   }

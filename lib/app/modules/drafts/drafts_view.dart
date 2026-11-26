@@ -77,6 +77,7 @@ class DraftsView extends GetView<HomeController> {
                   backgroundColor: Colors.transparent,
                   builder: (modalContext) {
                     return SafeArea(
+                      bottom: false,
                       child: WriteJournalBottomSheet(entry: entry),
                     );
                   },

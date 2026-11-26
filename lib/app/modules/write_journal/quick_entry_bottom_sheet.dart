@@ -532,6 +532,7 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
         duration: const Duration(milliseconds: 400),
         builder: (modalContext) {
           return SafeArea(
+            bottom: false,
             child: WriteJournalBottomSheet(
               initialDate: _selectedDate,
               initialIsCustomDate: _isCustomDate,

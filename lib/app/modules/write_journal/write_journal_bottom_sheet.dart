@@ -22,6 +22,7 @@ import 'package:open_jot/app/core/theme.dart';
 import 'package:open_jot/app/core/widgets/custom_button.dart';
 import 'package:open_jot/app/core/widgets/custom_datetime_picker.dart';
 import 'package:open_jot/app/core/widgets/journal_card_grid.dart';
+import 'package:open_jot/app/core/widgets/journal_quill_styles.dart';
 import 'package:open_jot/app/core/widgets/text_styling_toolbar.dart';
 import 'package:open_jot/app/core/widgets/write_journal_toolbar.dart';
 import 'package:open_jot/app/core/widgets/write_journal_toolbar_content.dart';
@@ -542,20 +543,17 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   }
 
   void _handleTextChange(quill.DocChange docChange) {
-    if (docChange.source != quill.ChangeSource.remote || _isFormatting) {
+    if (docChange.source != quill.ChangeSource.local || _isFormatting) {
       return;
     }
     _isFormatting = true;
     Future.microtask(() async {
       try {
-        final insertedText = docChange.change
-            .toList()
-            .where((op) => op.isInsert && op.data is String)
-            .map((op) => op.data as String)
-            .join();
-        if (insertedText.isEmpty) {
-          return;
-        }
+        final ops = docChange.change.toList();
+        final hasStringInsert =
+            ops.any((op) => op.isInsert && op.data is String);
+        if (!hasStringInsert) return;
+
         final urlRegExp = RegExp(
           r'((https?://)|(www\.))\S+',
           caseSensitive: false,
@@ -568,46 +566,54 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
           r'(\+?\d{1,3}[-.\s]?)?(\(?\d{3}\)?[-.\s]?){1,2}\d{4,}',
           caseSensitive: false,
         );
-        final matches = [
-          ...urlRegExp.allMatches(insertedText),
-          ...emailRegExp.allMatches(insertedText),
-          ...phoneRegExp.allMatches(insertedText),
-        ];
-        if (matches.isEmpty) {
-          return;
-        }
-        matches.sort((a, b) => a.start.compareTo(b.start));
+
         var offset = 0;
-        docChange.change.toList().where((op) => op.isInsert).forEach((op) {
+        for (final op in ops) {
+          if (op.isRetain) {
+            offset += op.length ?? 0;
+            continue;
+          }
+          if (!op.isInsert) continue;
+
+          final opLen = op.length ?? 0;
           if (op.data is String) {
-            final opText = op.data as String;
-            for (final match in matches) {
-              if (opText.contains(match.group(0)!)) {
-                final matchStart = opText.indexOf(match.group(0)!);
-                final matchedString = match.group(0)!;
-                String link;
-                if (urlRegExp.hasMatch(matchedString)) {
-                  link = matchedString.startsWith('http')
-                      ? matchedString
-                      : 'https://$matchedString';
-                } else if (emailRegExp.hasMatch(matchedString)) {
-                  link = 'mailto:$matchedString';
-                } else if (phoneRegExp.hasMatch(matchedString)) {
-                  link = 'tel:$matchedString';
-                } else {
-                  link = matchedString;
+            final alreadyLinked =
+                op.attributes?.containsKey(quill.Attribute.link.key) == true;
+            if (!alreadyLinked) {
+              final opText = op.data as String;
+              final matches = <({int start, int length, String link})>[];
+
+              for (final m in urlRegExp.allMatches(opText)) {
+                final text = m.group(0)!;
+                final link = text.toLowerCase().startsWith('http')
+                    ? text
+                    : 'https://$text';
+                matches.add((start: m.start, length: text.length, link: link));
+              }
+              for (final m in emailRegExp.allMatches(opText)) {
+                final text = m.group(0)!;
+                matches.add(
+                    (start: m.start, length: text.length, link: 'mailto:$text'));
+              }
+              for (final m in phoneRegExp.allMatches(opText)) {
+                final text = m.group(0)!;
+                matches
+                    .add((start: m.start, length: text.length, link: 'tel:$text'));
+              }
+
+              for (final match in matches) {
+                if (mounted) {
+                  _quillController.formatText(
+                    offset + match.start,
+                    match.length,
+                    quill.LinkAttribute(match.link),
+                  );
                 }
-                final style = quill.LinkAttribute(link);
-                _quillController.formatText(
-                  offset + matchStart,
-                  matchedString.length,
-                  style,
-                );
               }
             }
           }
-          offset += op.length ?? 0;
-        });
+          offset += opLen;
+        }
       } finally {
         _isFormatting = false;
       }
@@ -1602,41 +1608,10 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
           scrollController: _editorScrollController,
           config: quill.QuillEditorConfig(
             placeholder: AppConstants.startWriting,
-            customStyles: quill.DefaultStyles(
-              placeHolder: quill.DefaultTextBlockStyle(
-                TextStyle(
-                  fontSize: 16.sp,
-                  color: appThemeColors.grey2,
-                  height: 1.5,
-                ),
-                quill.HorizontalSpacing.zero,
-                quill.VerticalSpacing.zero,
-                quill.VerticalSpacing.zero,
-                null,
-              ),
-              paragraph: quill.DefaultTextBlockStyle(
-                TextStyle(
-                  fontSize: 16.sp,
-                  color: appThemeColors.grey10,
-                  height: 1.5,
-                ),
-                quill.HorizontalSpacing.zero,
-                quill.VerticalSpacing.zero,
-                quill.VerticalSpacing.zero,
-                null,
-              ),
-              h2: quill.DefaultTextBlockStyle(
-                TextStyle(
-                  fontSize: 26.sp,
-                  color: appThemeColors.grey10,
-                  fontWeight: FontWeight.bold,
-                  height: 1.5,
-                ),
-                quill.HorizontalSpacing.zero,
-                quill.VerticalSpacing.zero,
-                quill.VerticalSpacing.zero,
-                null,
-              ),
+            customStyles: buildJournalQuillStyles(
+              context,
+              appThemeColors,
+              includePlaceholder: true,
             ),
           ),
         ),
@@ -2203,6 +2178,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
           _handleKeyboardInteraction(isKeyboardVisible);
 
           final maxSheetSize = _fullSheetFraction(screenHeight);
+          final safeBottom = MediaQuery.of(context).padding.bottom;
+          final effectiveBottom = math.max(keyboardHeight, safeBottom);
 
           final behindSheet = RepaintBoundary(
             child: Scaffold(
@@ -2222,14 +2199,14 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                     padding: EdgeInsets.only(
                       left: 2.w,
                       right: 2.w,
-                      bottom: keyboardHeight + 64.h,
+                      bottom: effectiveBottom + 64.h,
                     ),
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
                         minHeight: math.max(
                           0.0,
                           editorConstraints.maxHeight -
-                              keyboardHeight -
+                              effectiveBottom -
                               64.h,
                         ),
                       ),
@@ -2357,7 +2334,8 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                   final sheetHeight = _isDraggableSheetActive
                       ? (currentSheetSize * screenHeight) * anim
                       : 0.0;
-                  final bottomOffset = math.max(keyboardHeight, sheetHeight);
+                  final bottomOffset =
+                      math.max(safeBottom, math.max(keyboardHeight, sheetHeight));
                   final sheetGap =
                       (_isDraggableSheetActive && anim > 0.01) ? 2.0 : 0.0;
                   return Positioned(

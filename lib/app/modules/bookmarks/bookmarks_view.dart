@@ -78,6 +78,7 @@ class BookmarksView extends GetView<HomeController> {
                   backgroundColor: Colors.transparent,
                   builder: (modalContext) {
                     return SafeArea(
+                      bottom: false,
                       child: ReadJournalBottomSheet(entry: entry),
                     );
                   },

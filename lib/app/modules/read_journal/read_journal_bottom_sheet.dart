@@ -17,6 +17,7 @@ import '../../core/models/journal_entry.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/journal_card_grid.dart';
+import '../../core/widgets/journal_quill_styles.dart';
 import '../media_preview/media_preview_bottom_sheet.dart';
 import '../../core/services/hive_service.dart';
 
@@ -72,6 +73,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
       expand: true,
       backgroundColor: Colors.transparent,
       builder: (context) => SafeArea(
+        bottom: false,
         child: WriteJournalBottomSheet(entry: entryToEdit),
       ),
     );
@@ -319,19 +321,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
               autoFocus: false,
               expands: false,
               padding: EdgeInsets.zero,
-              customStyles: quill.DefaultStyles(
-                paragraph: quill.DefaultTextBlockStyle(
-                  TextStyle(
-                    fontSize: 16.sp,
-                    color: appThemeColors.grey10,
-                    height: 1.5,
-                  ),
-                  quill.HorizontalSpacing.zero,
-                  quill.VerticalSpacing.zero,
-                  quill.VerticalSpacing.zero,
-                  null,
-                ),
-              ),
+              customStyles: buildJournalQuillStyles(context, appThemeColors),
             ),
           ),
         ),

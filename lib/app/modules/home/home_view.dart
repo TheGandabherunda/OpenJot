@@ -294,6 +294,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       expand: true,
       backgroundColor: Colors.transparent,
       builder: (modalContext) => SafeArea(
+        bottom: false,
         child: WriteJournalBottomSheet(
           initialText: text,
           sharedImagePaths: photos,
@@ -576,7 +577,10 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       context: context,
       expand: true,
       backgroundColor: Colors.transparent,
-      builder: (modalContext) => const SafeArea(child: InsightsBottomSheet()),
+      builder: (modalContext) => const SafeArea(
+        bottom: false,
+        child: InsightsBottomSheet(),
+      ),
     );
   }
 
@@ -585,7 +589,10 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       context: context,
       expand: true,
       backgroundColor: Colors.transparent,
-      builder: (modalContext) => const SafeArea(child: ReflectionBottomSheet()),
+      builder: (modalContext) => const SafeArea(
+        bottom: false,
+        child: ReflectionBottomSheet(),
+      ),
     );
   }
 
@@ -594,7 +601,10 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       context: context,
       expand: true,
       backgroundColor: Colors.transparent,
-      builder: (modalContext) => const SafeArea(child: SettingsBottomSheet()),
+      builder: (modalContext) => const SafeArea(
+        bottom: false,
+        child: SettingsBottomSheet(),
+      ),
     );
   }
 
@@ -1140,6 +1150,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                     backgroundColor: Colors.transparent,
                                     builder: (modalContext) {
                                       return SafeArea(
+                                        bottom: false,
                                         child: ReadJournalBottomSheet(
                                             entry: entry),
                                       );
@@ -1301,6 +1312,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                           duration: const Duration(milliseconds: 400),
                           builder: (BuildContext modalContext) {
                             return const SafeArea(
+                              bottom: false,
                               child: QuickEntryBottomSheet(),
                             );
                           },

@@ -159,6 +159,7 @@ class _ReflectionBottomSheetState extends State<ReflectionBottomSheet> {
                         duration: const Duration(milliseconds: 400),
                         builder: (BuildContext modalContext) {
                           return SafeArea(
+                            bottom: false,
                             child: WriteJournalBottomSheet(
                               initialText: _currentPrompt,
                               isFromReflection: true,

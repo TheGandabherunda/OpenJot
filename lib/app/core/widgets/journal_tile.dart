@@ -77,6 +77,7 @@ class _JournalTileState extends State<JournalTile> {
       expand: true,
       backgroundColor: Colors.transparent,
       builder: (context) => SafeArea(
+        bottom: false,
         child: WriteJournalBottomSheet(entry: widget.entry),
       ),
     );

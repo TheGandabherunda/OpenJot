@@ -1023,6 +1023,7 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
       backgroundColor: Colors.transparent,
       builder: (modalContext) {
         return SafeArea(
+          bottom: false,
           child: ReadJournalBottomSheet(entry: entry),
         );
       },

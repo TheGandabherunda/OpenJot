@@ -41,7 +41,7 @@ class JournalMoodCardContent extends StatelessWidget {
       isDark,
     );
     final label = AppConstants.moods[moodIndex]['label'] ?? '';
-    final iconSize = compact ? 52.w : 60.w;
+    final iconSize = compact ? 44.w : 60.w;
 
     final iconWidget = Obx(() {
       final rasterized = homeController.moodImagesLarge[moodIndex] ??
@@ -105,9 +105,12 @@ class JournalMoodCardContent extends StatelessWidget {
   }
 }
 
-/// Unified Apple Journal-style card grid for media, location, and mood boxes.
-/// Renders 1 hero card, 2 side-by-side 1:1 squares, or 1 large + 2 stacked
-/// compact 1:1 squares when 3 or more cards are present.
+/// Unified Apple Journal-style card grid for media, location, mood, and audio.
+/// Every item count shares the exact same 2:1 container height:
+/// - 1 item: single full-width card
+/// - 2 items: two equal 1:1 squares
+/// - 3–4 items: left hero card + 2 stacked 1:1 right squares (+1 badge on 4)
+/// - 5+ items: left 1:1 hero square + 2x2 stacked 1:1 right squares
 class JournalCardGrid extends StatelessWidget {
   final List<dynamic> mediaItems;
   final SelectedLocation? location;
@@ -214,7 +217,7 @@ class JournalCardGrid extends StatelessWidget {
                 child: GestureDetector(
                   onTap: () => onRemoveCard!(index),
                   child: Container(
-                    padding: const EdgeInsets.all(4),
+                    padding: EdgeInsets.all(compact ? 3 : 4),
                     decoration: BoxDecoration(
                       color: overlayColor,
                       shape: BoxShape.circle,
@@ -222,7 +225,7 @@ class JournalCardGrid extends StatelessWidget {
                     child: Icon(
                       Icons.close,
                       color: onOverlayColor,
-                      size: compact ? 14.sp : 18.sp,
+                      size: compact ? 12.sp : 18.sp,
                     ),
                   ),
                 ),
@@ -238,46 +241,17 @@ class JournalCardGrid extends StatelessWidget {
       );
     }
 
-    if (totalCards == 1) {
-      return SizedBox(
-        height: mediaItems.isEmpty ? 180.h : 250.h,
-        width: double.infinity,
-        child: buildCardAt(0),
-      );
-    }
-
-    if (totalCards == 2) {
-      return Row(
-        children: [
-          Expanded(
-            child: AspectRatio(
-              aspectRatio: 1.0,
-              child: buildCardAt(0),
-            ),
-          ),
-          SizedBox(width: spacing),
-          Expanded(
-            child: AspectRatio(
-              aspectRatio: 1.0,
-              child: buildCardAt(1),
-            ),
-          ),
-        ],
-      );
-    }
-
-    Widget? thirdImageOverlay;
-    if (totalCards > 3) {
-      thirdImageOverlay = ClipRRect(
+    Widget buildCountOverlay(int extraCount, {bool compactBadge = false}) {
+      return ClipRRect(
         borderRadius: BorderRadius.circular(14.r),
         child: Container(
           color: overlayColor,
           child: Center(
             child: Text(
-              '+${totalCards - 3}',
+              '+$extraCount',
               style: TextStyle(
                 color: onOverlayColor,
-                fontSize: 32.sp,
+                fontSize: compactBadge ? 22.sp : 28.sp,
                 fontFamily: AppConstants.font,
                 fontWeight: FontWeight.w500,
                 decoration: TextDecoration.none,
@@ -289,9 +263,62 @@ class JournalCardGrid extends StatelessWidget {
       );
     }
 
-    return AspectRatio(
-      aspectRatio: 1.5,
-      child: Row(
+    Widget buildStackedColumn(
+      int topIndex,
+      int bottomIndex, {
+      Widget? bottomOverlay,
+    }) {
+      return Column(
+        children: [
+          Expanded(child: buildCardAt(topIndex, compact: true)),
+          SizedBox(height: spacing),
+          Expanded(
+            child: buildCardAt(
+              bottomIndex,
+              overlay: bottomOverlay,
+              compact: true,
+            ),
+          ),
+        ],
+      );
+    }
+
+    final Widget gridContent;
+
+    if (totalCards == 1) {
+      gridContent = buildCardAt(0);
+    } else if (totalCards == 2) {
+      gridContent = Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: buildCardAt(0)),
+          SizedBox(width: spacing),
+          Expanded(child: buildCardAt(1)),
+        ],
+      );
+    } else if (totalCards <= 4) {
+      gridContent = Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            flex: 3,
+            child: buildCardAt(0),
+          ),
+          SizedBox(width: spacing),
+          Expanded(
+            flex: 1,
+            child: buildStackedColumn(
+              1,
+              2,
+              bottomOverlay: totalCards > 3
+                  ? buildCountOverlay(totalCards - 3, compactBadge: true)
+                  : null,
+            ),
+          ),
+        ],
+      );
+    } else {
+      gridContent = Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
@@ -301,22 +328,26 @@ class JournalCardGrid extends StatelessWidget {
           SizedBox(width: spacing),
           Expanded(
             flex: 1,
-            child: Column(
-              children: [
-                Expanded(child: buildCardAt(1, compact: true)),
-                SizedBox(height: spacing),
-                Expanded(
-                  child: buildCardAt(
-                    2,
-                    overlay: thirdImageOverlay,
-                    compact: true,
-                  ),
-                ),
-              ],
+            child: buildStackedColumn(1, 2),
+          ),
+          SizedBox(width: spacing),
+          Expanded(
+            flex: 1,
+            child: buildStackedColumn(
+              3,
+              4,
+              bottomOverlay: totalCards > 5
+                  ? buildCountOverlay(totalCards - 5, compactBadge: true)
+                  : null,
             ),
           ),
         ],
-      ),
+      );
+    }
+
+    return AspectRatio(
+      aspectRatio: 2.0,
+      child: gridContent,
     );
   }
 }
@@ -339,6 +370,7 @@ Future<SelectedLocation?> showLocationPickerModal(
     expand: true,
     backgroundColor: Colors.transparent,
     builder: (modalContext) => SafeArea(
+      bottom: false,
       child: Scaffold(
         backgroundColor: sheetColor,
         appBar: AppBar(
@@ -400,6 +432,7 @@ Future<int?> showMoodPickerModal(
     expand: true,
     backgroundColor: Colors.transparent,
     builder: (modalContext) => SafeArea(
+      bottom: false,
       child: Scaffold(
         backgroundColor: sheetColor,
         appBar: AppBar(

@@ -338,6 +338,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
       backgroundColor: Colors.transparent,
       expand: true,
       builder: (context) => SafeArea(
+        bottom: false,
         child: Scaffold(
           backgroundColor: sheetBackgroundColor,
           appBar: AppBar(
@@ -660,8 +661,10 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                             context: context,
                             expand: true,
                             backgroundColor: Colors.transparent,
-                            builder: (context) =>
-                                const SafeArea(child: RemindersBottomSheet()),
+                            builder: (context) => const SafeArea(
+                              bottom: false,
+                              child: RemindersBottomSheet(),
+                            ),
                           );
                         }
                       },
@@ -758,6 +761,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                             expand: true,
                             backgroundColor: Colors.transparent,
                             builder: (context) => SafeArea(
+                              bottom: false,
                               child: ExcludeEntriesBottomSheet(
                                 initialExcludedIds:
                                 controller.excludedOnThisDayEntries,
@@ -842,8 +846,10 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                           context: context,
                           expand: true,
                           backgroundColor: Colors.transparent,
-                          builder: (context) =>
-                              const SafeArea(child: MoodColorsBottomSheet()),
+                          builder: (context) => const SafeArea(
+                            bottom: false,
+                            child: MoodColorsBottomSheet(),
+                          ),
                         ).then((_) {
                           if (mounted) setState(() {});
                         });
