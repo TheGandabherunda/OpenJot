@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:camera/camera.dart';
@@ -16,8 +17,10 @@ import 'package:open_jot/app/core/models/journal_entry.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/services/permission_service.dart';
 import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/core/widgets/journal_audio_card.dart';
 import 'package:open_jot/app/core/widgets/journal_tile.dart';
 import 'package:open_jot/app/core/widgets/location_card_content.dart';
+import 'package:open_jot/app/core/widgets/write_journal_toolbar.dart';
 import 'package:open_jot/app/core/widgets/write_journal_toolbar_content.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
@@ -53,10 +56,24 @@ class _PreviewCardItem {
   });
 }
 
-class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet> {
+class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
+    with WidgetsBindingObserver, TickerProviderStateMixin {
   final HomeController _homeController = Get.find<HomeController>();
   final PageController _pageController = PageController(viewportFraction: 0.72);
   final GlobalKey _moreMenuKey = GlobalKey();
+  final DraggableScrollableController _sheetController =
+      DraggableScrollableController();
+  final GlobalKey<WriteJournalToolbarContentState> _contentKey = GlobalKey();
+
+  static const double _toolbarReservedHeight = 96.0;
+  static const double _minFractionWithoutKeyboard = 0.2;
+  static const List<IconData> _toolbarIcons = [
+    Icons.image_rounded,
+    Icons.location_on_rounded,
+    Icons.camera_alt_rounded,
+    Icons.mic_rounded,
+    Icons.sentiment_satisfied_rounded,
+  ];
 
   DateTime _selectedDate = DateTime.now();
   bool _isCustomDate = false;
@@ -68,10 +85,71 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet> {
   final List<RecordedAudio> _previewRecordings = [];
   int _currentPage = 0;
 
+  late final AnimationController _sheetAnimController;
+  late final CurvedAnimation _sheetSlideCurve;
+  bool _isDraggableSheetActive = false;
+  bool _isClosingSheet = false;
+  IconData? _selectedToolbarIcon;
+  double? _activeSheetMinSize;
+  double? _activeSheetInitialSize;
+  double _bodyHeight = 0.0;
+  bool _isShowingDiscardDialog = false;
+  bool _pendingLocationResume = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _sheetAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 360),
+      reverseDuration: const Duration(milliseconds: 240),
+    );
+    _sheetSlideCurve = CurvedAnimation(
+      parent: _sheetAnimController,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _sheetSlideCurve.dispose();
+    _sheetAnimController.dispose();
     _pageController.dispose();
+    _sheetController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _pendingLocationResume) {
+      _pendingLocationResume = false;
+      unawaited(_resumeLocationFlow());
+    }
+  }
+
+  Future<void> _resumeLocationFlow() async {
+    final isLocationEnabled = await FossLocation.isLocationServiceEnabled();
+    if (!isLocationEnabled) return;
+    final status = await Permission.locationWhenInUse.request();
+    if (status.isGranted && mounted) {
+      unawaited(
+        _handleAttachmentTap(
+          Icons.location_on_rounded,
+          bypassSettingsCheck: true,
+        ),
+      );
+    }
+  }
+
+  double _fullSheetFraction([double? bodyHeight]) {
+    final availableHeight = bodyHeight ??
+        (_bodyHeight > 0 ? _bodyHeight : MediaQuery.of(context).size.height);
+    if (availableHeight <= 0) return 0.86;
+    return ((availableHeight - _toolbarReservedHeight.h) / availableHeight)
+        .clamp(0.55, 0.90);
   }
 
   bool get _hasAnyItem =>
@@ -110,7 +188,9 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet> {
     }
     for (final rec in _previewRecordings) {
       items.add(_PreviewCardItem(
-        type: _PreviewCardType.recording,
+        type: rec.isVoiceRecording
+            ? _PreviewCardType.recording
+            : _PreviewCardType.audio,
         payload: rec,
         onRemove: () => setState(() => _previewRecordings.remove(rec)),
       ));
@@ -301,7 +381,10 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet> {
     }
   }
 
-  Future<bool> _ensurePermissionForTool(IconData icon) async {
+  Future<bool> _ensurePermissionForTool(
+    IconData icon, {
+    bool bypassLocationSettingsCheck = false,
+  }) async {
     if (icon == Icons.image_rounded) {
       final status = await PermissionService.requestMediaPermission(0);
       return status.isGranted;
@@ -315,10 +398,13 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet> {
       return status.isGranted;
     }
     if (icon == Icons.location_on_rounded) {
-      final enabled = await FossLocation.isLocationServiceEnabled();
-      if (!enabled) {
-        await FossLocation.openLocationSettings();
-        return false;
+      if (!bypassLocationSettingsCheck) {
+        final enabled = await FossLocation.isLocationServiceEnabled();
+        if (!enabled) {
+          _pendingLocationResume = true;
+          await FossLocation.openLocationSettings();
+          return false;
+        }
       }
       final status = await Permission.locationWhenInUse.request();
       return status.isGranted;
@@ -326,247 +412,158 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet> {
     return true;
   }
 
-  Future<void> _openMediaSheet() async {
-    final hasLibrary = await _ensurePermissionForTool(Icons.image_rounded);
-    if (!hasLibrary || !mounted) return;
-    await _openToolPickerSheet(Icons.image_rounded, allowMediaSwitch: true);
-  }
-
-  Future<void> _openLocationSheet() async {
-    final granted = await _ensurePermissionForTool(Icons.location_on_rounded);
-    if (!granted || !mounted) return;
-    await _openToolPickerSheet(Icons.location_on_rounded);
-  }
-
-  Future<void> _openMoodSheet() async {
-    await _openToolPickerSheet(Icons.sentiment_satisfied_rounded);
-  }
-
-  Future<void> _openToolPickerSheet(
-    IconData initialIcon, {
-    bool allowMediaSwitch = false,
+  Future<void> _handleAttachmentTap(
+    IconData iconData, {
+    bool bypassSettingsCheck = false,
   }) async {
-    final colors = AppTheme.colorsOf(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isPitchBlack = Get.find<HiveService>().pitchBlack;
-    final sheetColor = isPitchBlack
-        ? (isDark ? Colors.black : Colors.white)
-        : colors.grey6;
+    if (_isDraggableSheetActive &&
+        !_isClosingSheet &&
+        _selectedToolbarIcon == iconData) {
+      await _handleCloseSheetRequest();
+      return;
+    }
 
-    IconData activeIcon = initialIcon;
-    final scrollController = ScrollController();
+    final granted = await _ensurePermissionForTool(
+      iconData,
+      bypassLocationSettingsCheck: bypassSettingsCheck,
+    );
+    if (!granted || !mounted) return;
 
-    await showCupertinoModalBottomSheet<void>(
-      context: context,
-      expand: true,
-      backgroundColor: Colors.transparent,
-      builder: (modalContext) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final title = _titleForTool(activeIcon);
-            return SafeArea(
-              child: Scaffold(
-                backgroundColor: sheetColor,
-                appBar: AppBar(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  surfaceTintColor: Colors.transparent,
-                  centerTitle: true,
-                  leading: IconButton(
-                    icon: Icon(Icons.close_rounded, color: colors.grey10),
-                    onPressed: () => Navigator.of(modalContext).pop(),
-                  ),
-                  title: Text(
-                    title,
-                    style: TextStyle(
-                      color: colors.grey10,
-                      fontSize: 17.sp,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: AppConstants.font,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                  actions: [
-                    if (allowMediaSwitch) ...[
-                      IconButton(
-                        icon: Icon(
-                          Icons.photo_library_rounded,
-                          color: activeIcon == Icons.image_rounded
-                              ? colors.primary
-                              : colors.grey2,
-                        ),
-                        onPressed: () async {
-                          if (await _ensurePermissionForTool(
-                              Icons.image_rounded)) {
-                            setModalState(
-                                () => activeIcon = Icons.image_rounded);
-                          }
-                        },
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          Icons.camera_alt_rounded,
-                          color: activeIcon == Icons.camera_alt_rounded
-                              ? colors.primary
-                              : colors.grey2,
-                        ),
-                        onPressed: () async {
-                          if (await _ensurePermissionForTool(
-                              Icons.camera_alt_rounded)) {
-                            setModalState(
-                                () => activeIcon = Icons.camera_alt_rounded);
-                          }
-                        },
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          Icons.mic_rounded,
-                          color: activeIcon == Icons.mic_rounded
-                              ? colors.primary
-                              : colors.grey2,
-                        ),
-                        onPressed: () async {
-                          if (await _ensurePermissionForTool(
-                              Icons.mic_rounded)) {
-                            setModalState(() => activeIcon = Icons.mic_rounded);
-                          }
-                        },
-                      ),
-                    ],
-                    if (activeIcon == Icons.sentiment_satisfied_rounded)
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _selectedMoodIndex ??= 3;
-                          });
-                          Navigator.of(modalContext).pop();
-                        },
-                        child: Text(
-                          AppConstants.done,
-                          style: TextStyle(
-                            color: colors.primary,
-                            fontFamily: AppConstants.font,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16.sp,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                body: WriteJournalToolbarContent(
-                  selectedToolbarIcon: activeIcon,
-                  scrollController: scrollController,
-                  selectedMoodIndex: _selectedMoodIndex,
-                  selectedLocation: _selectedLocation?.coordinates,
-                  isPitchBlack: isPitchBlack,
-                  onAssetsSelected: (assets) {
-                    setState(() {
-                      final imagesAndVideos = assets
-                          .where((a) =>
-                              a.type == AssetType.image ||
-                              a.type == AssetType.video)
-                          .toList();
-                      final audios =
-                          assets.where((a) => a.type == AssetType.audio).toList();
-                      final existingImageIds =
-                          _previewImages.map((e) => e.id).toSet();
-                      imagesAndVideos.removeWhere(
-                          (asset) => existingImageIds.contains(asset.id));
-                      _previewImages.addAll(imagesAndVideos);
+    if (_isDraggableSheetActive && _isClosingSheet) {
+      _openSheet(iconData);
+      return;
+    }
 
-                      final existingAudioIds =
-                          _previewAudios.map((e) => e.id).toSet();
-                      audios.removeWhere(
-                          (asset) => existingAudioIds.contains(asset.id));
-                      _previewAudios.addAll(audios);
-                    });
-                    Navigator.of(modalContext).pop();
-                  },
-                  onFilesPicked: (paths, type) {
-                    setState(() {
-                      if (type == AssetType.audio) {
-                        for (final path in paths) {
-                          _previewRecordings.add(RecordedAudio(
-                            path: path,
-                            name: p.basename(path),
-                            duration: Duration.zero,
-                            isShared: true,
-                          ));
-                        }
-                      } else {
-                        for (final path in paths) {
-                          _previewPhotos.add(CapturedPhoto(
-                            file: XFile(path),
-                            name: p.basename(path),
-                          ));
-                        }
-                      }
-                    });
-                    Navigator.of(modalContext).pop();
-                  },
-                  onPhotoTaken: (photo) {
-                    setState(() {
-                      final name = AppConstants.openJotImage.replaceFirst(
-                        '%s',
-                        (_previewPhotos.length + 1).toString(),
-                      );
-                      _previewPhotos.add(CapturedPhoto(
-                        file: photo,
-                        name: name,
-                      ));
-                    });
-                    Navigator.of(modalContext).pop();
-                  },
-                  onRecordingComplete: (path, duration) {
-                    setState(() {
-                      final name = AppConstants.openJotRecording.replaceFirst(
-                        '%s',
-                        (_previewRecordings.length + 1).toString(),
-                      );
-                      _previewRecordings.add(RecordedAudio(
-                        path: path,
-                        name: name,
-                        duration: duration,
-                      ));
-                    });
-                    Navigator.of(modalContext).pop();
-                  },
-                  onLocationSelected: (location) {
-                    setState(() {
-                      final link =
-                          'geo:${location.latitude},${location.longitude}?q=${location.latitude},${location.longitude}';
-                      _selectedLocation =
-                          SelectedLocation(coordinates: location, link: link);
-                    });
-                    unawaited(FossLocation.getPlaceName(location).then((_) {
-                      if (mounted) setState(() {});
-                    }));
-                    Navigator.of(modalContext).pop();
-                  },
-                  onMoodChanged: (index) {
-                    setState(() {
-                      _selectedMoodIndex = index;
-                    });
-                    if (index == null) {
-                      Navigator.of(modalContext).pop();
-                    }
-                  },
-                ),
-              ),
-            );
-          },
-        );
-      },
-    ).whenComplete(scrollController.dispose);
+    if (_isDraggableSheetActive && _selectedToolbarIcon != iconData) {
+      setState(() {
+        _selectedToolbarIcon = iconData;
+      });
+      return;
+    }
+
+    _openSheet(iconData);
   }
 
-  String _titleForTool(IconData icon) {
-    if (icon == Icons.camera_alt_rounded) return 'Camera';
-    if (icon == Icons.mic_rounded) return 'Record Audio';
-    if (icon == Icons.location_on_rounded) return 'Add Location';
-    if (icon == Icons.sentiment_satisfied_rounded) return 'Select Mood';
-    return 'Add Media';
+  void _openSheet(IconData iconData) {
+    if (!mounted) return;
+    final availableHeight =
+        _bodyHeight > 0 ? _bodyHeight : MediaQuery.of(context).size.height;
+    final newInitialSize = _fullSheetFraction(availableHeight);
+    final newMinSize =
+        _minFractionWithoutKeyboard.clamp(0.1, newInitialSize);
+
+    setState(() {
+      _isClosingSheet = false;
+      _selectedToolbarIcon = iconData;
+      _isDraggableSheetActive = true;
+      _activeSheetInitialSize = newInitialSize;
+      _activeSheetMinSize = newMinSize;
+    });
+
+    unawaited(_sheetAnimController.forward(from: 0.0));
+  }
+
+  Future<bool> _handleCloseSheetRequest() async {
+    if (_isShowingDiscardDialog) return false;
+
+    final contentState = _contentKey.currentState;
+    if (contentState != null && contentState.hasUnsavedContent) {
+      _isShowingDiscardDialog = true;
+      final shouldClose = await _showSheetDiscardDialog();
+      _isShowingDiscardDialog = false;
+
+      if (shouldClose) {
+        contentState.clearUnsavedContent();
+        _closeSheet();
+        return true;
+      }
+      return false;
+    } else {
+      _closeSheet();
+      return true;
+    }
+  }
+
+  Future<bool> _showSheetDiscardDialog() async {
+    final result = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: const Text(AppConstants.discardSelectionsTitle),
+        content: const Text(AppConstants.discardSelectionsMessage),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            isDefaultAction: true,
+            child: const Text(AppConstants.cancel),
+          ),
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            isDestructiveAction: true,
+            child: const Text(AppConstants.discard),
+          ),
+        ],
+      ),
+    );
+    return result == true;
+  }
+
+  void _closeSheet() {
+    if (!mounted || !_isDraggableSheetActive || _isClosingSheet) return;
+    _isClosingSheet = true;
+    _sheetAnimController.reverse().then((_) {
+      if (!mounted || !_isClosingSheet) return;
+      setState(() {
+        _isClosingSheet = false;
+        _isDraggableSheetActive = false;
+        _selectedToolbarIcon = null;
+        _activeSheetMinSize = null;
+        _activeSheetInitialSize = null;
+      });
+    });
+  }
+
+  bool _handleSheetNotification(DraggableScrollableNotification notification) {
+    if (!mounted || !_isDraggableSheetActive || _activeSheetMinSize == null) {
+      return true;
+    }
+    final minSizeForClosingCheck = _activeSheetMinSize!;
+    if (notification.extent <= minSizeForClosingCheck + 0.01) {
+      final contentState = _contentKey.currentState;
+      if (contentState != null && contentState.hasUnsavedContent) {
+        if (!_isShowingDiscardDialog) {
+          _isShowingDiscardDialog = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            if (_sheetController.isAttached &&
+                _activeSheetInitialSize != null) {
+              _sheetController.jumpTo(_activeSheetInitialSize!);
+            }
+            final shouldClose = await _showSheetDiscardDialog();
+            _isShowingDiscardDialog = false;
+            if (shouldClose) {
+              contentState.clearUnsavedContent();
+              _closeSheet();
+            }
+          });
+        } else {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_sheetController.isAttached &&
+                _activeSheetInitialSize != null) {
+              _sheetController.jumpTo(_activeSheetInitialSize!);
+            }
+          });
+        }
+      } else {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted &&
+              _isDraggableSheetActive &&
+              _sheetController.isAttached &&
+              _sheetController.size <= minSizeForClosingCheck + 0.02) {
+            _closeSheet();
+          }
+        });
+      }
+    }
+    return true;
   }
 
   void _startWriting() {
@@ -644,92 +641,422 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet> {
     }
 
     return WillPopScope(
-      onWillPop: _confirmDiscardIfNeeded,
-      child: Scaffold(
-        backgroundColor: backgroundColor,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          surfaceTintColor: Colors.transparent,
-          centerTitle: true,
-          leading: IconButton(
-            icon: Icon(Icons.close_rounded, color: colors.grey10),
-            onPressed: _handleClose,
-          ),
-          title: Text(
-            'New Entry',
-            style: TextStyle(
-              color: colors.grey10,
-              fontSize: 17.sp,
-              fontWeight: FontWeight.w600,
-              fontFamily: AppConstants.font,
-              letterSpacing: -0.2,
-            ),
-          ),
-          actions: [
-            IconButton(
-              key: _moreMenuKey,
-              icon: Icon(Icons.more_horiz_rounded, color: colors.grey10),
-              onPressed: () => _showAddOptionsMenu(context),
-            ),
-          ],
-        ),
-        body: Column(
-          children: [
-            Padding(
-              padding: EdgeInsets.only(top: 8.h, bottom: 8.h),
-              child: Column(
-                children: [
-                  GestureDetector(
-                    onTap: _pickDateTime,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          DateFormat('EEEE, MMM d').format(_selectedDate),
-                          style: TextStyle(
-                            fontFamily: AppConstants.font,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 22.sp,
-                            color: colors.grey10,
-                            letterSpacing: -0.4,
-                          ),
-                        ),
-                        SizedBox(width: 6.w),
-                        Icon(
-                          Icons.edit_rounded,
-                          size: 16.sp,
-                          color: colors.primary,
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: 6.h),
-                  Text(
-                    _buildSummaryText(),
-                    style: TextStyle(
-                      fontFamily: AppConstants.font,
-                      fontSize: 13.sp,
-                      color: colors.grey2,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                ],
+      onWillPop: () async {
+        if (_isDraggableSheetActive) {
+          await _handleCloseSheetRequest();
+          return false;
+        }
+        return _confirmDiscardIfNeeded();
+      },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final screenHeight = constraints.maxHeight;
+          _bodyHeight = screenHeight;
+          final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+          final maxSheetSize = _fullSheetFraction(screenHeight);
+
+          final behindSheet = Scaffold(
+            backgroundColor: backgroundColor,
+            appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              surfaceTintColor: Colors.transparent,
+              centerTitle: true,
+              leading: IconButton(
+                icon: Icon(Icons.close_rounded, color: colors.grey10),
+                onPressed: _handleClose,
               ),
-            ),
-            Expanded(
-              child: Center(
-                child: _buildPreviewCarousel(
-                  previewItems,
-                  colors,
-                  tileBackgroundColor,
+              title: Text(
+                'New Entry',
+                style: TextStyle(
+                  color: colors.grey10,
+                  fontSize: 17.sp,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: AppConstants.font,
+                  letterSpacing: -0.2,
                 ),
               ),
+              actions: [
+                IconButton(
+                  key: _moreMenuKey,
+                  icon: Icon(Icons.more_horiz_rounded, color: colors.grey10),
+                  onPressed: () => _showAddOptionsMenu(context),
+                ),
+              ],
             ),
-            _buildBottomActions(colors),
-          ],
+            body: Column(
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(top: 8.h, bottom: 8.h),
+                  child: Column(
+                    children: [
+                      GestureDetector(
+                        onTap: _pickDateTime,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              DateFormat('EEEE, MMM d').format(_selectedDate),
+                              style: TextStyle(
+                                fontFamily: AppConstants.font,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 22.sp,
+                                color: colors.grey10,
+                                letterSpacing: -0.4,
+                              ),
+                            ),
+                            SizedBox(width: 6.w),
+                            Icon(
+                              Icons.edit_rounded,
+                              size: 16.sp,
+                              color: colors.primary,
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 6.h),
+                      Text(
+                        _buildSummaryText(),
+                        style: TextStyle(
+                          fontFamily: AppConstants.font,
+                          fontSize: 13.sp,
+                          color: colors.grey2,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Center(
+                    child: _buildPreviewCarousel(
+                      previewItems,
+                      colors,
+                      tileBackgroundColor,
+                    ),
+                  ),
+                ),
+                _buildBottomActions(colors),
+              ],
+            ),
+          );
+
+          return Stack(
+            children: [
+              AnimatedBuilder(
+                animation: Listenable.merge([_sheetController, _sheetSlideCurve]),
+                child: behindSheet,
+                builder: (context, cachedBehindSheet) {
+                  final currentSheetSize = _sheetController.isAttached
+                      ? _sheetController.size
+                      : (_activeSheetInitialSize ?? 0.0);
+                  final pushBackProgress =
+                      _isDraggableSheetActive && maxSheetSize > 0
+                          ? ((currentSheetSize / maxSheetSize) *
+                                  _sheetSlideCurve.value)
+                              .clamp(0.0, 1.0)
+                          : 0.0;
+                  final behindScale = 1.0 - 0.06 * pushBackProgress;
+                  final behindTopOffset = 8.h * pushBackProgress;
+                  final behindRadius = 16.r * pushBackProgress;
+
+                  return Stack(
+                    children: [
+                      if (pushBackProgress > 0.01)
+                        Positioned.fill(
+                          child: ColoredBox(
+                            color: Colors.black
+                                .withOpacity(0.55 * pushBackProgress),
+                          ),
+                        ),
+                      Transform.translate(
+                        offset: Offset(0, behindTopOffset),
+                        child: Transform.scale(
+                          scale: behindScale,
+                          alignment: Alignment.topCenter,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(behindRadius),
+                            ),
+                            child: Stack(
+                              children: [
+                                cachedBehindSheet!,
+                                if (pushBackProgress > 0.01)
+                                  Positioned.fill(
+                                    child: GestureDetector(
+                                      onTap: _handleCloseSheetRequest,
+                                      child: ColoredBox(
+                                        color: Colors.black.withOpacity(
+                                            0.28 * pushBackProgress),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              if (_isDraggableSheetActive &&
+                  _activeSheetMinSize != null &&
+                  _activeSheetInitialSize != null)
+                _buildDraggableSheet(
+                  screenHeight,
+                  _activeSheetMinSize!,
+                  _activeSheetInitialSize!,
+                  keyboardHeight,
+                ),
+              if (_isDraggableSheetActive)
+                AnimatedBuilder(
+                  animation: Listenable.merge([_sheetController, _sheetSlideCurve]),
+                  builder: (context, _) {
+                    final anim = _sheetSlideCurve.value;
+                    final currentSheetSize = _sheetController.isAttached
+                        ? _sheetController.size
+                        : (_activeSheetInitialSize ?? 0.0);
+                    final sheetHeight = (currentSheetSize * screenHeight) * anim;
+                    return Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: sheetHeight + 2.0,
+                      child: Opacity(
+                        opacity: (anim / 0.25).clamp(0.0, 1.0),
+                        child: WriteJournalToolbar(
+                          toolbarIcons: _toolbarIcons,
+                          selectedToolbarIcon: _selectedToolbarIcon,
+                          isDraggableSheetActive: _isDraggableSheetActive,
+                          onToolbarItemTap: (icon) =>
+                              unawaited(_handleAttachmentTap(icon)),
+                          isRtlActive: false,
+                          onRtlToggle: () {},
+                          onCloseTap: _handleCloseSheetRequest,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDraggableSheet(
+    double screenHeight,
+    double sheetMinSize,
+    double sheetInitialSize,
+    double keyboardHeight,
+  ) {
+    return Positioned.fill(
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: AnimatedBuilder(
+          animation: _sheetSlideCurve,
+          child: NotificationListener<DraggableScrollableNotification>(
+            onNotification: _handleSheetNotification,
+            child: DraggableScrollableSheet(
+              controller: _sheetController,
+              initialChildSize: sheetInitialSize,
+              minChildSize: sheetMinSize,
+              maxChildSize: _fullSheetFraction(screenHeight),
+              snap: true,
+              snapSizes: [sheetMinSize, _fullSheetFraction(screenHeight)],
+              snapAnimationDuration: const Duration(milliseconds: 180),
+              expand: false,
+              builder: (context, scrollController) =>
+                  _buildSheetContainer(context, scrollController, keyboardHeight),
+            ),
+          ),
+          builder: (context, sheetChild) {
+            final currentSize = _sheetController.isAttached
+                ? _sheetController.size
+                : sheetInitialSize;
+            final translateY =
+                (1.0 - _sheetSlideCurve.value) * (currentSize * screenHeight);
+            return Transform.translate(
+              offset: Offset(0, translateY),
+              child: sheetChild,
+            );
+          },
         ),
+      ),
+    );
+  }
+
+  Widget _buildSheetContainer(
+    BuildContext context,
+    ScrollController scrollController,
+    double keyboardHeight,
+  ) {
+    final hiveService = Get.find<HiveService>();
+    final isPitchBlack = hiveService.pitchBlack;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetThemeColors = AppTheme.colorsOf(context);
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final isCamera = _selectedToolbarIcon == Icons.camera_alt_rounded;
+    final isMic = _selectedToolbarIcon == Icons.mic_rounded;
+
+    final totalBottomPadding = isCamera
+        ? math.max(keyboardHeight, bottomPadding > 0 ? bottomPadding : 8.h)
+        : math.max(keyboardHeight, bottomPadding > 0 ? bottomPadding + 8.h : 16.h);
+
+    final backgroundColor = isPitchBlack
+        ? (isDark ? Colors.black : Colors.white)
+        : sheetThemeColors.grey5;
+
+    final toolbarContent = RepaintBoundary(
+      child: WriteJournalToolbarContent(
+        key: _contentKey,
+        selectedToolbarIcon: _selectedToolbarIcon,
+        scrollController: scrollController,
+        selectedMoodIndex: _selectedMoodIndex,
+        selectedLocation: _selectedLocation?.coordinates,
+        isPitchBlack: isPitchBlack,
+        onAssetsSelected: (assets) {
+          setState(() {
+            final imagesAndVideos = assets
+                .where(
+                  (a) => a.type == AssetType.image || a.type == AssetType.video,
+                )
+                .toList();
+            final audios =
+                assets.where((a) => a.type == AssetType.audio).toList();
+            final existingImageIds = _previewImages.map((e) => e.id).toSet();
+            imagesAndVideos.removeWhere(
+              (asset) => existingImageIds.contains(asset.id),
+            );
+            _previewImages.addAll(imagesAndVideos);
+
+            final existingAudioIds = _previewAudios.map((e) => e.id).toSet();
+            audios.removeWhere((asset) => existingAudioIds.contains(asset.id));
+            _previewAudios.addAll(audios);
+          });
+          _closeSheet();
+        },
+        onFilesPicked: (paths, type) {
+          setState(() {
+            if (type == AssetType.audio) {
+              for (final path in paths) {
+                _previewRecordings.add(
+                  RecordedAudio(
+                    path: path,
+                    name: p.basename(path),
+                    duration: Duration.zero,
+                    isShared: true,
+                    isMusic: true,
+                  ),
+                );
+              }
+            } else {
+              for (final path in paths) {
+                _previewPhotos.add(
+                  CapturedPhoto(
+                    file: XFile(path),
+                    name: p.basename(path),
+                  ),
+                );
+              }
+            }
+          });
+          _closeSheet();
+        },
+        onPhotoTaken: (photo) {
+          setState(() {
+            final name = AppConstants.openJotImage.replaceFirst(
+              '%s',
+              (_previewPhotos.length + 1).toString(),
+            );
+            _previewPhotos.add(
+              CapturedPhoto(
+                file: photo,
+                name: name,
+              ),
+            );
+          });
+          _closeSheet();
+        },
+        onRecordingComplete: (path, duration) {
+          setState(() {
+            final name = AppConstants.openJotRecording.replaceFirst(
+              '%s',
+              (_previewRecordings.where((r) => r.isVoiceRecording).length + 1)
+                  .toString()
+                  .padLeft(2, '0'),
+            );
+            _previewRecordings.add(
+              RecordedAudio(
+                path: path,
+                name: name,
+                duration: duration,
+              ),
+            );
+          });
+          _closeSheet();
+        },
+        onLocationSelected: (location) {
+          setState(() {
+            final link =
+                'geo:${location.latitude},${location.longitude}?q=${location.latitude},${location.longitude}';
+            _selectedLocation =
+                SelectedLocation(coordinates: location, link: link);
+          });
+          unawaited(FossLocation.getPlaceName(location).then((_) {
+            if (mounted) setState(() {});
+          }));
+          _closeSheet();
+        },
+        onMoodChanged: (index) {
+          setState(() {
+            _selectedMoodIndex = index;
+          });
+        },
+      ),
+    );
+
+    final handle = Container(
+      height: 5,
+      width: 40,
+      decoration: BoxDecoration(
+        color: isPitchBlack
+            ? (isDark
+                ? Colors.white.withOpacity(0.2)
+                : Colors.black.withOpacity(0.1))
+            : sheetThemeColors.grey1,
+        borderRadius: BorderRadius.circular(10),
+      ),
+    );
+
+    return Material(
+      color: backgroundColor,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        padding: EdgeInsets.only(
+          top: isCamera ? 8.h : (isMic ? 12.h : 16.h),
+          bottom: totalBottomPadding,
+        ),
+        child: isMic
+            ? Stack(
+                children: [
+                  toolbarContent,
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: handle,
+                  ),
+                ],
+              )
+            : Column(
+                children: [
+                  handle,
+                  SizedBox(height: isCamera ? 8.h : 16.h),
+                  Expanded(child: toolbarContent),
+                ],
+              ),
       ),
     );
   }
@@ -774,11 +1101,11 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet> {
         ),
         PopupMenuDivider(height: 1, color: colors.grey6),
         PopupMenuItem(
-          value: 'date',
+          value: 'record',
           child: _buildMenuOptionRow(
             colors: colors,
-            label: 'Date',
-            icon: Icons.calendar_today_rounded,
+            label: 'Record',
+            icon: Icons.mic_rounded,
           ),
         ),
         PopupMenuDivider(height: 1, color: colors.grey6),
@@ -793,13 +1120,13 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet> {
       ],
     ).then((value) {
       if (value == 'media') {
-        unawaited(_openMediaSheet());
+        unawaited(_handleAttachmentTap(Icons.image_rounded));
       } else if (value == 'location') {
-        unawaited(_openLocationSheet());
-      } else if (value == 'date') {
-        unawaited(_pickDateTime());
+        unawaited(_handleAttachmentTap(Icons.location_on_rounded));
+      } else if (value == 'record') {
+        unawaited(_handleAttachmentTap(Icons.mic_rounded));
       } else if (value == 'mood') {
-        unawaited(_openMoodSheet());
+        unawaited(_handleAttachmentTap(Icons.sentiment_satisfied_rounded));
       }
     });
   }
@@ -892,23 +1219,26 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet> {
         content = MediaThumbnail(media: item.payload);
         break;
       case _PreviewCardType.audio:
-        final asset = item.payload as AssetEntity;
-        content = _buildIconCardContent(
-          colors: colors,
-          backgroundColor: tileBackgroundColor,
-          icon: Icons.audiotrack_rounded,
-          title: asset.title ?? 'Audio Track',
-          subtitle: _formatDuration(Duration(seconds: asset.duration)),
-        );
+        if (item.payload is AssetEntity) {
+          final asset = item.payload as AssetEntity;
+          content = JournalMusicCardContent(
+            title: asset.title ?? AppConstants.audioTrack,
+            duration: Duration(seconds: asset.duration),
+          );
+        } else {
+          final rec = item.payload as RecordedAudio;
+          content = JournalMusicCardContent(
+            title: rec.name,
+            duration: rec.duration,
+          );
+        }
         break;
       case _PreviewCardType.recording:
         final rec = item.payload as RecordedAudio;
-        content = _buildIconCardContent(
-          colors: colors,
-          backgroundColor: tileBackgroundColor,
-          icon: Icons.mic_rounded,
+        content = JournalRecordingCardContent(
           title: rec.name,
-          subtitle: _formatDuration(rec.duration),
+          duration: rec.duration,
+          filePath: rec.path,
         );
         break;
       case _PreviewCardType.location:
@@ -993,57 +1323,6 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet> {
     );
   }
 
-  Widget _buildIconCardContent({
-    required AppThemeColors colors,
-    required Color backgroundColor,
-    required IconData icon,
-    required String title,
-    required String subtitle,
-  }) {
-    return Container(
-      color: backgroundColor,
-      padding: EdgeInsets.symmetric(horizontal: 20.w),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: EdgeInsets.all(14.w),
-            decoration: BoxDecoration(
-              color: colors.grey4.withOpacity(0.5),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 28.sp, color: colors.primary),
-          ),
-          SizedBox(height: 12.h),
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: AppConstants.font,
-              fontSize: 15.sp,
-              fontWeight: FontWeight.w600,
-              color: colors.grey10,
-              letterSpacing: -0.2,
-            ),
-          ),
-          SizedBox(height: 4.h),
-          Text(
-            subtitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: AppConstants.font,
-              fontSize: 13.sp,
-              color: colors.grey2,
-              letterSpacing: -0.2,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildEmptyCarousel(AppThemeColors colors, Color tileBackgroundColor) {
     // Official Google Material Symbols Rounded `note_stack_add` icon path.
     const noteStackAddRoundedSvg =
@@ -1088,7 +1367,7 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet> {
               ),
               SizedBox(height: 6.h),
               Text(
-                'Add media, location, date, or mood from menu',
+                'Add media, location, recording, or mood from menu',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: AppConstants.font,
@@ -1160,13 +1439,5 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet> {
         ],
       ),
     );
-  }
-
-  String _formatDuration(Duration duration) {
-    if (duration == Duration.zero) return AppConstants.emptyDuration;
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-    return '$minutes:$seconds';
   }
 }

@@ -9,12 +9,14 @@ import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/models/journal_entry.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/core/widgets/journal_audio_card.dart';
 import 'package:open_jot/app/core/widgets/journal_tile.dart';
 import 'package:open_jot/app/core/widgets/location_card_content.dart';
 import 'package:open_jot/app/core/widgets/location_map_view.dart';
 import 'package:open_jot/app/core/widgets/write_journal_toolbar_content.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/utils/mood_helper.dart';
+import 'package:photo_manager/photo_manager.dart' hide LatLng;
 
 /// Renders the mood preview box used in the home feed tiles as well as the
 /// read and write bottom sheets.
@@ -110,6 +112,8 @@ class JournalCardGrid extends StatelessWidget {
   final List<dynamic> mediaItems;
   final SelectedLocation? location;
   final int? moodIndex;
+  final List<AssetEntity> galleryAudios;
+  final List<RecordedAudio> recordings;
   final ValueChanged<int>? onCardTap;
   final ValueChanged<int>? onRemoveCard;
 
@@ -118,6 +122,8 @@ class JournalCardGrid extends StatelessWidget {
     required this.mediaItems,
     this.location,
     this.moodIndex,
+    this.galleryAudios = const [],
+    this.recordings = const [],
     this.onCardTap,
     this.onRemoveCard,
   });
@@ -126,8 +132,11 @@ class JournalCardGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasLocation = location != null;
     final hasMood = moodIndex != null;
-    final int totalCards =
-        mediaItems.length + (hasLocation ? 1 : 0) + (hasMood ? 1 : 0);
+    final int totalCards = mediaItems.length +
+        (hasLocation ? 1 : 0) +
+        (hasMood ? 1 : 0) +
+        galleryAudios.length +
+        recordings.length;
 
     if (totalCards == 0) {
       return const SizedBox.shrink();
@@ -156,8 +165,36 @@ class JournalCardGrid extends StatelessWidget {
         }
         remaining--;
       }
-      return JournalMoodCardContent(
-        moodIndex: moodIndex!,
+      if (hasMood) {
+        if (remaining == 0) {
+          return JournalMoodCardContent(
+            moodIndex: moodIndex!,
+            compact: compact,
+          );
+        }
+        remaining--;
+      }
+      if (remaining < galleryAudios.length) {
+        final audio = galleryAudios[remaining];
+        return JournalMusicCardContent(
+          title: audio.title ?? AppConstants.audioTrack,
+          duration: Duration(seconds: audio.duration),
+          compact: compact,
+        );
+      }
+      remaining -= galleryAudios.length;
+      final rec = recordings[remaining];
+      if (rec.isVoiceRecording) {
+        return JournalRecordingCardContent(
+          title: rec.name,
+          duration: rec.duration,
+          filePath: rec.path,
+          compact: compact,
+        );
+      }
+      return JournalMusicCardContent(
+        title: rec.name,
+        duration: rec.duration,
         compact: compact,
       );
     }
@@ -252,39 +289,34 @@ class JournalCardGrid extends StatelessWidget {
       );
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final smallSize = (constraints.maxWidth - 2 * spacing) / 3;
-        final largeSize = smallSize * 2 + spacing;
-        return SizedBox(
-          height: largeSize,
-          child: Row(
-            children: [
-              SizedBox(
-                width: largeSize,
-                height: largeSize,
-                child: buildCardAt(0),
-              ),
-              SizedBox(width: spacing),
-              Expanded(
-                child: Column(
-                  children: [
-                    Expanded(child: buildCardAt(1, compact: true)),
-                    SizedBox(height: spacing),
-                    Expanded(
-                      child: buildCardAt(
-                        2,
-                        overlay: thirdImageOverlay,
-                        compact: true,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+    return AspectRatio(
+      aspectRatio: 1.5,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            flex: 2,
+            child: buildCardAt(0),
           ),
-        );
-      },
+          SizedBox(width: spacing),
+          Expanded(
+            flex: 1,
+            child: Column(
+              children: [
+                Expanded(child: buildCardAt(1, compact: true)),
+                SizedBox(height: spacing),
+                Expanded(
+                  child: buildCardAt(
+                    2,
+                    overlay: thirdImageOverlay,
+                    compact: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

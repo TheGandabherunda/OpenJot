@@ -18,12 +18,19 @@ class RecordedAudio {
   final Duration duration;
   @HiveField(3, defaultValue: false)
   final bool isShared;
+  @HiveField(4, defaultValue: false)
+  final bool isMusic;
+
+  /// True for voice recordings captured inside OpenJot; false for picked or
+  /// restored music/external audio tracks.
+  bool get isVoiceRecording => !isShared && !isMusic;
 
   RecordedAudio({
     required this.path,
     required this.name,
     required this.duration,
     this.isShared = false,
+    this.isMusic = false,
   });
 }
 

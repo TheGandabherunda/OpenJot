@@ -639,23 +639,19 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
             entry.galleryImages.isNotEmpty || entry.cameraPhotos.isNotEmpty;
         final hasAudio =
             entry.galleryAudios.isNotEmpty || entry.recordings.isNotEmpty;
+        final hasTopCard =
+            hasMedia || hasAudio || entry.location != null || entry.moodIndex != null;
         final plainText = entry.content.toPlainText().trim();
         final hasText = plainText.isNotEmpty;
 
-        if (hasMedia) {
-          tileHeight += 250.h;
-          if (hasText || hasAudio) tileHeight += 8.h;
-        }
-
-        if (hasAudio) {
-          tileHeight += entry.galleryAudios.length * 44.h;
-          tileHeight += entry.recordings.length * 54.h;
+        if (hasTopCard) {
+          tileHeight += hasMedia ? 250.h : 180.h;
           if (hasText) tileHeight += 8.h;
         }
 
         if (hasText) {
           int lines = (plainText.length / 38).ceil().clamp(1, 4);
-          double textPadding = (hasMedia || hasAudio) ? 10.h : 20.h;
+          double textPadding = hasTopCard ? 10.h : 20.h;
           tileHeight += textPadding + (lines * 16.sp * 1.2);
         }
 

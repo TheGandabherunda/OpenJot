@@ -20,14 +20,15 @@ class RecordedAudioAdapter extends TypeAdapter<RecordedAudio> {
       path: fields[0] as String,
       name: fields[1] as String,
       duration: fields[2] as Duration,
-      isShared: fields[3] == null ? false : fields[3] as bool,
+      isShared: fields[3] as bool? ?? false,
+      isMusic: fields[4] as bool? ?? false,
     );
   }
 
   @override
   void write(BinaryWriter writer, RecordedAudio obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(5)
       ..writeByte(0)
       ..write(obj.path)
       ..writeByte(1)
@@ -35,7 +36,9 @@ class RecordedAudioAdapter extends TypeAdapter<RecordedAudio> {
       ..writeByte(2)
       ..write(obj.duration)
       ..writeByte(3)
-      ..write(obj.isShared);
+      ..write(obj.isShared)
+      ..writeByte(4)
+      ..write(obj.isMusic);
   }
 
   @override

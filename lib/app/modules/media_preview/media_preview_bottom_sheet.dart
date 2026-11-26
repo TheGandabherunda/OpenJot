@@ -10,11 +10,15 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:get_thumbnail_video/video_thumbnail.dart';
 import 'package:open_jot/app/core/constants.dart';
+import 'package:open_jot/app/core/services/hive_service.dart';
+import 'package:open_jot/app/core/widgets/audio_spectrum_waveform.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/utils/custom_toast.dart';
 import 'package:open_jot/app/utils/foss_location.dart';
 import 'package:open_jot/app/utils/mood_helper.dart';
 import 'package:palette_generator/palette_generator.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -23,11 +27,11 @@ import 'package:video_player/video_player.dart';
 import '../../core/models/journal_entry.dart';
 import '../../core/theme.dart';
 
-enum MediaPreviewKind { image, video, audio, location, mood }
+enum MediaPreviewKind { image, video, audio, recording, location, mood }
 
 /// A helper class to unify different media and card types for the previewer.
 class MediaItem {
-  final dynamic asset; // AssetEntity, CapturedPhoto, SelectedLocation, or int
+  final dynamic asset; // AssetEntity, CapturedPhoto, RecordedAudio, SelectedLocation, or int
   final AssetType type;
   final String id;
   final MediaPreviewKind kind;
@@ -50,6 +54,14 @@ class MediaItem {
         type = AssetType.other,
         id = 'mood',
         kind = MediaPreviewKind.mood;
+
+  MediaItem.recorded(RecordedAudio rec)
+      : asset = rec,
+        type = AssetType.audio,
+        id = rec.path,
+        kind = rec.isVoiceRecording
+            ? MediaPreviewKind.recording
+            : MediaPreviewKind.audio;
 
   static MediaPreviewKind _kindFromAssetType(AssetType assetType) {
     if (assetType == AssetType.video) return MediaPreviewKind.video;
@@ -214,6 +226,22 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
       }
 
       // Handle audio files differently to avoid thumbnail generation errors
+      if (item.kind == MediaPreviewKind.recording) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final recordingColors = isDark
+            ? const [Color(0xFF1C1C24), Color(0xFF0A0A0F)]
+            : const [Color(0xFFFFFFFF), Color(0xFFF2F2F7)];
+        _colorCache[index] = recordingColors;
+        if (mounted && index == _currentIndex) {
+          setState(() {
+            _vibrantColor = recordingColors[0];
+            _dominantColor = recordingColors[1];
+          });
+        }
+        _processingIndexes.remove(index);
+        return;
+      }
+
       if (item.kind == MediaPreviewKind.audio) {
         final audioColors = [Colors.deepPurple.shade900, Colors.black87];
         _colorCache[index] = audioColors;
@@ -518,6 +546,7 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
           isActive: index == _currentIndex,
         );
       case MediaPreviewKind.audio:
+      case MediaPreviewKind.recording:
         return AudioPlayerItem(
           item: item,
           isActive: index == _currentIndex,
@@ -771,6 +800,11 @@ class AudioPlayerItemState extends State<AudioPlayerItem> {
   bool _hasError = false;
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
+  String? _sourcePath;
+  List<double>? _spectrumLevels;
+  StreamSubscription? _durationSubscription;
+  StreamSubscription? _positionSubscription;
+  StreamSubscription? _playerStateSubscription;
 
   @override
   void initState() {
@@ -793,43 +827,113 @@ class AudioPlayerItemState extends State<AudioPlayerItem> {
     }
   }
 
+  bool get _isVoiceRecording => widget.item.kind == MediaPreviewKind.recording;
+
+  Future<File?> _resolveLocalAudioFile(String rawPath) async {
+    final direct = File(rawPath);
+    if (direct.existsSync()) return direct;
+
+    try {
+      final appDocDir = await getApplicationDocumentsDirectory();
+      final basename = p.basename(rawPath);
+      final mediaCandidate = File(p.join(appDocDir.path, 'media', basename));
+      if (mediaCandidate.existsSync()) return mediaCandidate;
+
+      final rootCandidate = File(p.join(appDocDir.path, basename));
+      if (rootCandidate.existsSync()) return rootCandidate;
+
+      final mediaDir = Directory(p.join(appDocDir.path, 'media'));
+      if (mediaDir.existsSync()) {
+        for (final entity in mediaDir.listSync()) {
+          if (entity is File && p.basename(entity.path).endsWith(basename)) {
+            return entity;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Audio fallback path resolution error: $e');
+    }
+    return null;
+  }
+
   Future<void> _initPlayer() async {
     if (!mounted) return;
 
     File? file;
     try {
       if (widget.item.asset is AssetEntity) {
-        file = await (widget.item.asset as AssetEntity).file;
+        var asset = widget.item.asset as AssetEntity;
+        file = await asset.file;
+        if (file == null || !file.existsSync()) {
+          file = await asset.originFile;
+        }
+        if (file == null || !file.existsSync()) {
+          final refreshed = await AssetEntity.fromId(asset.id);
+          if (refreshed != null) {
+            asset = refreshed;
+            file = await asset.file ?? await asset.originFile;
+          }
+        }
       } else if (widget.item.asset is CapturedPhoto) {
-        file = File((widget.item.asset as CapturedPhoto).file.path);
+        final rawPath = (widget.item.asset as CapturedPhoto).file.path;
+        file = await _resolveLocalAudioFile(rawPath);
+      } else if (widget.item.asset is RecordedAudio) {
+        final rec = widget.item.asset as RecordedAudio;
+        file = await _resolveLocalAudioFile(rec.path);
+        if (_duration == Duration.zero && rec.duration > Duration.zero) {
+          _duration = rec.duration;
+        }
       }
 
       if (file == null || !file.existsSync()) {
+        debugPrint(
+          'AudioPlayerItem: file missing for id=${widget.item.id} (${widget.item.asset.runtimeType})',
+        );
         if (mounted) setState(() { _isLoading = false; _hasError = true; });
         return;
       }
 
+      _sourcePath = file.path;
+
+      if (_isVoiceRecording) {
+        List<double>? loaded;
+        if (Get.isRegistered<HiveService>()) {
+          loaded = AudioSpectrumWaveform.loadWaveform(
+            Get.find<HiveService>(),
+            file.path,
+          );
+        }
+        _spectrumLevels =
+            (loaded != null && loaded.isNotEmpty)
+                ? loaded
+                : AudioSpectrumWaveform.fallbackLevelsForKey(
+                    file.path,
+                    targetCount: 44,
+                  );
+      }
+
+      await _audioPlayer.setReleaseMode(ReleaseMode.stop);
       // Important: DeviceFileSource provides the best compatibility for local files
       await _audioPlayer.setSource(DeviceFileSource(file.path));
 
-      _audioPlayer.onDurationChanged.listen((d) {
+      _durationSubscription = _audioPlayer.onDurationChanged.listen((d) {
         if (mounted && d > Duration.zero) setState(() => _duration = d);
       });
 
-      _audioPlayer.onPositionChanged.listen((p) {
+      _positionSubscription = _audioPlayer.onPositionChanged.listen((p) {
         if (mounted) setState(() => _position = p);
       });
 
-      _audioPlayer.onPlayerStateChanged.listen((state) {
-        if (mounted) {
+      _playerStateSubscription =
+          _audioPlayer.onPlayerStateChanged.listen((state) {
+        if (!mounted) return;
+        if (state == PlayerState.completed) {
+          setState(() {
+            _isPlaying = false;
+            _position = Duration.zero;
+          });
+        } else {
           setState(() => _isPlaying = state == PlayerState.playing);
-          if (state == PlayerState.completed) {
-            setState(() {
-              _isPlaying = false;
-              _position = Duration.zero;
-            });
-            _audioPlayer.seek(Duration.zero);
-          }
         }
       });
 
@@ -848,6 +952,9 @@ class AudioPlayerItemState extends State<AudioPlayerItem> {
 
   @override
   void dispose() {
+    _durationSubscription?.cancel();
+    _positionSubscription?.cancel();
+    _playerStateSubscription?.cancel();
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -858,46 +965,184 @@ class AudioPlayerItemState extends State<AudioPlayerItem> {
     return '$minutes:$seconds';
   }
 
-  void _togglePlayPause() {
+  Future<void> _togglePlayPause() async {
     if (_isPlaying) {
-      _audioPlayer.pause();
-    } else {
-      _audioPlayer.resume();
+      await _audioPlayer.pause();
+      return;
     }
+    final path = _sourcePath;
+    if (path == null) return;
+
+    if (_audioPlayer.state == PlayerState.paused) {
+      await _audioPlayer.resume();
+    } else {
+      final seekTarget =
+          (_position > Duration.zero && _position < _duration)
+              ? _position
+              : Duration.zero;
+      await _audioPlayer.play(DeviceFileSource(path));
+      if (seekTarget > Duration.zero) {
+        await _audioPlayer.seek(seekTarget);
+      }
+    }
+  }
+
+  void _seekTo(Duration target) {
+    setState(() => _position = target);
+    unawaited(_audioPlayer.seek(target));
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color statusFgColor = _isVoiceRecording
+        ? (isDark ? Colors.white : const Color(0xFF1C1C1E))
+        : Colors.white;
+
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: Colors.white));
+      return Center(child: CircularProgressIndicator(color: statusFgColor));
     }
 
     if (_hasError) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, color: Colors.white, size: 48),
-            SizedBox(height: 8),
+            Icon(Icons.error_outline, color: statusFgColor, size: 48),
+            const SizedBox(height: 8),
             Text(
               "Could not load audio file.",
-              style: TextStyle(color: Colors.white),
+              style: TextStyle(color: statusFgColor),
             ),
           ],
         ),
       );
     }
 
-    String title = 'Audio Recording';
+    String title = _isVoiceRecording ? 'Voice Recording' : 'Audio Recording';
     if (widget.item.asset is AssetEntity) {
       title = (widget.item.asset as AssetEntity).title ?? title;
     } else if (widget.item.asset is CapturedPhoto) {
       title = (widget.item.asset as CapturedPhoto).name;
+    } else if (widget.item.asset is RecordedAudio) {
+      title = (widget.item.asset as RecordedAudio).name;
     }
 
     double maxDuration = _duration.inMilliseconds.toDouble();
     if (maxDuration <= 0) maxDuration = 1.0; // Prevent assertion error in slider
     double currentPos = _position.inMilliseconds.toDouble().clamp(0.0, maxDuration);
+
+    if (_isVoiceRecording) {
+      final Color surfaceColor =
+          isDark ? const Color(0xFF1C1C1E) : Colors.white;
+      final Color inkPrimary =
+          isDark ? Colors.white : const Color(0xFF1C1C1E);
+      final Color inkSecondary =
+          isDark ? const Color(0xFFAEAEB2) : const Color(0xFF636366);
+      final Color appleRecordRed =
+          isDark ? const Color(0xFFFF453A) : const Color(0xFFFF3B30);
+      final levels = _spectrumLevels ??
+          AudioSpectrumWaveform.fallbackLevelsForKey(title, targetCount: 44);
+
+      return Container(
+        padding: EdgeInsets.symmetric(horizontal: 24.w),
+        decoration: BoxDecoration(
+          color: surfaceColor,
+          border: isDark
+              ? Border.all(color: Colors.white.withOpacity(0.10), width: 1)
+              : null,
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 96.w,
+              height: 96.w,
+              decoration: BoxDecoration(
+                color: appleRecordRed.withOpacity(isDark ? 0.18 : 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.mic_rounded,
+                color: appleRecordRed,
+                size: 48.sp,
+              ),
+            ),
+            SizedBox(height: 24.h),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: inkPrimary,
+                fontSize: 18.sp,
+                fontWeight: FontWeight.w600,
+                fontFamily: AppConstants.font,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            SizedBox(height: 28.h),
+            AudioSpectrumWaveform(
+              levels: levels,
+              progress: maxDuration > 0
+                  ? (currentPos / maxDuration).clamp(0.0, 1.0)
+                  : 0.0,
+              activeColor: inkPrimary,
+              inactiveColor: isDark
+                  ? Colors.white.withOpacity(0.22)
+                  : inkSecondary.withOpacity(0.28),
+              playheadColor: appleRecordRed,
+              height: 84.h,
+              onSeek: (progress) {
+                _seekTo(
+                  Duration(milliseconds: (maxDuration * progress).round()),
+                );
+              },
+            ),
+            SizedBox(height: 12.h),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _formatDuration(_position),
+                  style: TextStyle(
+                    color: inkSecondary,
+                    fontSize: 12.sp,
+                    fontFamily: AppConstants.font,
+                  ),
+                ),
+                Text(
+                  _formatDuration(_duration),
+                  style: TextStyle(
+                    color: inkSecondary,
+                    fontSize: 12.sp,
+                    fontFamily: AppConstants.font,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 24.h),
+            GestureDetector(
+              onTap: _togglePlayPause,
+              child: Container(
+                width: 64.w,
+                height: 64.w,
+                decoration: BoxDecoration(
+                  color: inkPrimary,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                  size: 32.sp,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -948,7 +1193,7 @@ class AudioPlayerItemState extends State<AudioPlayerItem> {
               max: maxDuration,
               value: currentPos,
               onChanged: (value) {
-                _audioPlayer.seek(Duration(milliseconds: value.toInt()));
+                _seekTo(Duration(milliseconds: value.toInt()));
               },
             ),
           ),

@@ -11,7 +11,6 @@ import 'package:latlong2/latlong.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/theme.dart';
 import 'package:open_jot/app/utils/foss_location.dart';
-import 'package:open_jot/app/core/widgets/custom_button.dart';
 
 // Animation Helper: A custom Tween for animating between two LatLng points.
 class LatLngTween extends Tween<LatLng> {
@@ -60,8 +59,6 @@ class _LocationMapViewState extends State<LocationMapView>
 
   // Sizing variables
   bool _isMaximized = false;
-  final double _defaultMinimizedHeight = 380.0;
-  final double _defaultMaximizedHeightRatio = 0.65;
 
   late final AnimationController _animationController;
 
@@ -295,9 +292,6 @@ class _LocationMapViewState extends State<LocationMapView>
   @override
   Widget build(BuildContext context) {
     final colors = AppTheme.colorsOf(context);
-    final screenHeight = MediaQuery.of(context).size.height;
-
-    final mapHeight = _isMaximized ? (screenHeight * _defaultMaximizedHeightRatio) : _defaultMinimizedHeight.h;
 
     if (_permissionMessage != null) {
       return Center(
@@ -317,20 +311,20 @@ class _LocationMapViewState extends State<LocationMapView>
       );
     }
 
-    return Stack(
-      children: [
-        CustomScrollView(
-          controller: widget.scrollController,
-          slivers: [
-            SliverToBoxAdapter(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOutCubic,
-                height: mapHeight,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12.r),
-                  child: Stack(
-                    children: [
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Stack(
+          children: [
+            CustomScrollView(
+              controller: widget.scrollController,
+              slivers: [
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: constraints.maxHeight,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12.r),
+                      child: Stack(
+                        children: [
                       FlutterMap(
                         mapController: _mapController,
                         options: MapOptions(
@@ -519,86 +513,14 @@ class _LocationMapViewState extends State<LocationMapView>
                       ),
 
                       Positioned(
-                        top: 76.h,
+                        top: 72.h,
                         right: 12.w,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            FloatingActionButton.small(
-                              heroTag: 'maximize_map_btn',
-                              backgroundColor: colors.grey6.withOpacity(0.9),
-                              foregroundColor: colors.grey10,
-                              elevation: 2,
-                              onPressed: _toggleMaximize,
-                              child: Icon(
-                                _isMaximized ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
-                                size: 22.sp,
-                              ),
-                            ),
-                            SizedBox(height: 8.h),
-                            FloatingActionButton.small(
-                              heroTag: 'current_location_btn',
-                              backgroundColor: colors.grey6.withOpacity(0.9),
-                              foregroundColor: colors.grey10,
-                              elevation: 2,
-                              onPressed: _isLoading ? null : () => _getCurrentLocation(moveMap: true),
-                              child: _isLoading
-                                  ? SizedBox(
-                                width: 18.w,
-                                height: 18.w,
-                                child: CircularProgressIndicator(
-                                  color: colors.grey10,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                                  : Icon(
-                                _isSelectedLocationCurrentUserLocation()
-                                    ? Icons.my_location_rounded
-                                    : Icons.location_searching_rounded,
-                                size: 20.sp,
-                              ),
-                            ),
-                            SizedBox(height: 8.h),
-                            FloatingActionButton.small(
-                              heroTag: 'north_map_btn',
-                              backgroundColor: colors.grey6.withOpacity(0.9),
-                              foregroundColor: colors.grey10,
-                              elevation: 2,
-                              onPressed: () {
-                                try {
-                                  _animatedMapMove(
-                                    _mapController.camera.center,
-                                    _mapController.camera.zoom,
-                                    destRotation: 0,
-                                  );
-                                } catch (_) {
-                                  // Map not ready yet
-                                }
-                              },
-                              child: Transform.rotate(
-                                angle: () {
-                                  try {
-                                    return -(_mapController.camera.rotation * math.pi / 180);
-                                  } catch (_) {
-                                    return 0.0;
-                                  }
-                                }(),
-                                child: Icon(
-                                  Icons.explore_rounded,
-                                  size: 22.sp,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                        child: _buildMapToolColumn(colors),
                       ),
                     ],
                   ),
                 ),
               ),
-            ),
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 100),
             ),
           ],
         ),
@@ -613,20 +535,164 @@ class _LocationMapViewState extends State<LocationMapView>
             duration: const Duration(milliseconds: 400),
             opacity: _selectedLocation != null ? 1 : 0,
             child: Center(
-              child: CustomButton(
-                onPressed: _addLocation,
-                borderRadius: 60,
-                text: 'Add',
-                icon: Icons.add_location_alt_outlined,
-                iconSize: 24,
-                color: colors.grey8,
-                textColor: colors.grey10,
-                textPadding:
-                EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+              child: GestureDetector(
+                onTap: _addLocation,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      height: 44.h,
+                      padding: EdgeInsets.symmetric(horizontal: 14.w),
+                      decoration: BoxDecoration(
+                        color: colors.grey8,
+                        borderRadius: const BorderRadius.horizontal(
+                          left: Radius.circular(50),
+                          right: Radius.circular(16),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.add_location_alt_outlined,
+                        color: colors.grey10,
+                        size: 20.sp,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    Container(
+                      height: 44.h,
+                      padding: EdgeInsets.symmetric(horizontal: 20.w),
+                      decoration: BoxDecoration(
+                        color: colors.grey8,
+                        borderRadius: const BorderRadius.horizontal(
+                          left: Radius.circular(16),
+                          right: Radius.circular(50),
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          AppConstants.add,
+                          textAlign: TextAlign.center,
+                          textHeightBehavior: const TextHeightBehavior(
+                            applyHeightToFirstAscent: false,
+                            applyHeightToLastDescent: false,
+                          ),
+                          style: TextStyle(
+                            color: colors.grey10,
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: AppConstants.font,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
+      ],
+    );
+      },
+    );
+  }
+
+  Widget _buildMapToolColumn(AppThemeColors colors) {
+    final buttons = <({VoidCallback? onTap, Widget child})>[
+      if (widget.onMaximizeToggled != null)
+        (
+          onTap: _toggleMaximize,
+          child: Icon(
+            _isMaximized
+                ? Icons.fullscreen_exit_rounded
+                : Icons.fullscreen_rounded,
+            size: 21.sp,
+            color: colors.grey10,
+          ),
+        ),
+      (
+        onTap: _isLoading ? null : () => _getCurrentLocation(moveMap: true),
+        child: _isLoading
+            ? SizedBox(
+                width: 18.w,
+                height: 18.w,
+                child: CircularProgressIndicator(
+                  color: colors.grey10,
+                  strokeWidth: 2,
+                ),
+              )
+            : Icon(
+                _isSelectedLocationCurrentUserLocation()
+                    ? Icons.my_location_rounded
+                    : Icons.location_searching_rounded,
+                size: 20.sp,
+                color: _isSelectedLocationCurrentUserLocation()
+                    ? colors.primary
+                    : colors.grey10,
+              ),
+      ),
+      (
+        onTap: () {
+          try {
+            _animatedMapMove(
+              _mapController.camera.center,
+              _mapController.camera.zoom,
+              destRotation: 0,
+            );
+          } catch (_) {
+            // Map not ready yet
+          }
+        },
+        child: Transform.rotate(
+          angle: () {
+            try {
+              return -(_mapController.camera.rotation * math.pi / 180);
+            } catch (_) {
+              return 0.0;
+            }
+          }(),
+          child: Icon(
+            Icons.explore_rounded,
+            size: 21.sp,
+            color: colors.grey10,
+          ),
+        ),
+      ),
+    ];
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < buttons.length; i++)
+          Padding(
+            padding: EdgeInsets.only(bottom: i < buttons.length - 1 ? 2 : 0),
+            child: GestureDetector(
+              onTap: buttons[i].onTap,
+              child: Container(
+                width: 42.w,
+                height: 42.w,
+                decoration: BoxDecoration(
+                  color: colors.grey5,
+                  borderRadius: buttons.length == 1
+                      ? BorderRadius.circular(50)
+                      : i == 0
+                          ? const BorderRadius.vertical(
+                              top: Radius.circular(50),
+                              bottom: Radius.circular(16),
+                            )
+                          : i == buttons.length - 1
+                              ? const BorderRadius.vertical(
+                                  top: Radius.circular(16),
+                                  bottom: Radius.circular(50),
+                                )
+                              : BorderRadius.circular(6),
+                ),
+                alignment: Alignment.center,
+                child: buttons[i].child,
+              ),
+            ),
+          ),
       ],
     );
   }

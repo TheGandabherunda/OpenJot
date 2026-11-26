@@ -47,52 +47,49 @@ class TextStylingToolbar extends StatelessWidget {
 
     final styles = styleMap.keys.toList();
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  for (var i = 0; i < styles.length; i++)
-                    Padding(
-                      padding: EdgeInsets.only(
-                        right: 2, // Spacing between styling icons
-                      ),
-                      child: _buildToolbarIcon(
-                        styleMap[styles[i]]!,
-                        appThemeColors,
-                        i,
-                        _isStyleActive(styles[i]),
-                        () {
-                          if (styles[i] == 'rtl') {
-                            onRtlToggle();
-                          } else {
-                            onToolbarItemTap(styles[i]);
-                          }
-                        },
-                        false,
-                      ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (var i = 0; i < styles.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      right: 2, // Spacing between styling icons
                     ),
-                  // Added Attachment (Clip) button at the end of the styling row
-                  _buildToolbarIcon(
-                    Icons.attach_file_rounded,
-                    appThemeColors,
-                    0, // Index doesn't matter much for square icons in a scrollable list
-                    false,
-                    onPinTap,
-                    false, // Changed to false to make it square like other styling tools
+                    child: _buildToolbarIcon(
+                      styleMap[styles[i]]!,
+                      appThemeColors,
+                      i,
+                      _isStyleActive(styles[i]),
+                      () {
+                        if (styles[i] == 'rtl') {
+                          onRtlToggle();
+                        } else {
+                          onToolbarItemTap(styles[i]);
+                        }
+                      },
+                      false,
+                    ),
                   ),
-                ],
-              ),
+                // Added Attachment (Clip) button at the end of the styling row
+                _buildToolbarIcon(
+                  Icons.attach_file_rounded,
+                  appThemeColors,
+                  0, // Index doesn't matter much for square icons in a scrollable list
+                  false,
+                  onPinTap,
+                  false, // Changed to false to make it square like other styling tools
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -147,18 +144,17 @@ class TextStylingToolbar extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: isActive
-              ? appThemeColors.primary.withOpacity(0.3)
-              : appThemeColors.grey5,
+          color: isActive ? appThemeColors.primary : appThemeColors.grey5,
           shape: isPin ? BoxShape.circle : BoxShape.rectangle,
           borderRadius: borderRadius,
         ),
         child: Icon(
           icon,
-          color: isActive ? appThemeColors.primary : appThemeColors.grey1,
+          color: isActive ? appThemeColors.onPrimary : appThemeColors.grey1,
         ),
       ),
     );

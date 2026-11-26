@@ -265,7 +265,7 @@ class AppConstants {
   static const String sharedImage = "Shared Image";
   static const String sharedVideo = "Shared Video";
   static const String sharedAudio = "Shared Audio (%s)";
-  static const String openJotRecording = "OpenJot recording (%s)";
+  static const String openJotRecording = "OpenJot.rec.%s";
   static const String openJotImage = "OpenJot image (%s)";
   static const String tags = "Tags";
   static const String addTags = "Add tags";

@@ -371,10 +371,10 @@ class _JournalTileContent extends StatelessWidget {
     final appThemeColors = AppTheme.colorsOf(context);
     final hasMedia = entry.galleryImages.isNotEmpty ||
         entry.cameraPhotos.isNotEmpty;
-    final hasTopCard =
-        hasMedia || entry.moodIndex != null || entry.location != null;
     final hasAudio = entry.galleryAudios.isNotEmpty ||
         entry.recordings.isNotEmpty;
+    final hasTopCard =
+        hasMedia || entry.moodIndex != null || entry.location != null || hasAudio;
     final tileColor = backgroundColor ?? appThemeColors.grey6;
 
     return GestureDetector(
@@ -398,19 +398,13 @@ class _JournalTileContent extends StatelessWidget {
                 if (hasTopCard)
                   Padding(
                     padding: EdgeInsets.fromLTRB(0.w, 0.h, 0.w,
-                        (plainText.isNotEmpty || hasAudio) ? 8.h : 0.h),
+                        plainText.isNotEmpty ? 8.h : 0.h),
                     child: _buildMediaPreview(context, entry),
-                  ),
-                if (hasAudio)
-                  Padding(
-                    padding: EdgeInsets.only(
-                        bottom: plainText.isNotEmpty ? 8.h : 0),
-                    child: _buildAudioPreviews(context, entry),
                   ),
                 if (plainText.isNotEmpty)
                   Padding(
                     padding: EdgeInsets.fromLTRB(10.w,
-                        (hasTopCard || hasAudio) ? 2.h : 12.h, 10.w, 8.h),
+                        hasTopCard ? 2.h : 12.h, 10.w, 8.h),
                     child: Directionality(
                       textDirection: entry.useRtl
                           ? ui.TextDirection.rtl
@@ -498,134 +492,8 @@ class _JournalTileContent extends StatelessWidget {
       mediaItems: allMedia,
       location: entry.location,
       moodIndex: entry.moodIndex,
-    );
-  }
-
-  Widget _buildAudioPreviews(BuildContext context, JournalEntry entry) {
-    return Column(
-      children: [
-        _buildGalleryAudioPreview(context, entry),
-        _buildRecordingsPreview(context, entry),
-      ],
-    );
-  }
-
-  String _formatPreviewDuration(Duration duration) {
-    if (duration == Duration.zero) {
-      return AppConstants.emptyDuration;
-    }
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-    return '$minutes:$seconds';
-  }
-
-  Widget _buildGalleryAudioPreview(BuildContext context, JournalEntry entry) {
-    if (entry.galleryAudios.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    final appThemeColors = AppTheme.colorsOf(context);
-    return Column(
-      children: entry.galleryAudios.map((audio) {
-        return Padding(
-          padding: EdgeInsets.only(bottom: 4.h),
-          child: Container(
-            height: 40.h,
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(horizontal: 12.w),
-            decoration: BoxDecoration(
-              color: appThemeColors.grey5,
-              borderRadius: BorderRadius.circular(12.r),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.music_note_rounded,
-                    color: appThemeColors.grey1, size: 24.sp),
-                SizedBox(width: 8.w),
-                Expanded(
-                  child: Text(
-                    audio.title ?? AppConstants.audioTrack,
-                    style: TextStyle(
-                      color: appThemeColors.grey10,
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w600,
-                      decoration: TextDecoration.none,
-                      overflow: TextOverflow.ellipsis,
-                      fontFamily: AppConstants.font,
-                      letterSpacing: -0.2,
-                    ),
-                    maxLines: 1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildRecordingsPreview(BuildContext context, JournalEntry entry) {
-    if (entry.recordings.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    final appThemeColors = AppTheme.colorsOf(context);
-    return Column(
-      children: entry.recordings.map((recording) {
-        return Padding(
-          padding: EdgeInsets.only(bottom: 4.h),
-          child: Container(
-            height: 50.h,
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(horizontal: 12.w),
-            decoration: BoxDecoration(
-              color: appThemeColors.grey5,
-              borderRadius: BorderRadius.circular(12.r),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.music_note_rounded,
-                  color: appThemeColors.grey1,
-                  size: 28.sp,
-                ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        recording.name,
-                        style: TextStyle(
-                          color: appThemeColors.grey10,
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w600,
-                          decoration: TextDecoration.none,
-                          overflow: TextOverflow.ellipsis,
-                          fontFamily: AppConstants.font,
-                          letterSpacing: -0.2,
-                        ),
-                        maxLines: 1,
-                      ),
-                      Text(
-                        _formatPreviewDuration(recording.duration),
-                        style: TextStyle(
-                          color: appThemeColors.grey1,
-                          fontSize: 12.sp,
-                          decoration: TextDecoration.none,
-                          fontFamily: AppConstants.font,
-                          letterSpacing: -0.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
+      galleryAudios: entry.galleryAudios,
+      recordings: entry.recordings,
     );
   }
 

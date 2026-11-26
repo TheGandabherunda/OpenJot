@@ -130,14 +130,15 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
       items.add(MediaItem.mood(_currentEntry.moodIndex!));
     }
     for (final audio in _currentEntry.galleryAudios) {
-      items.add(MediaItem(asset: audio, type: AssetType.audio, id: audio.id));
+      items.add(MediaItem(
+        asset: audio,
+        type: AssetType.audio,
+        id: audio.id,
+        kind: MediaPreviewKind.audio,
+      ));
     }
     for (final rec in _currentEntry.recordings) {
-      items.add(MediaItem(
-        asset: CapturedPhoto(file: XFile(rec.path), name: rec.name),
-        type: AssetType.audio,
-        id: rec.path,
-      ));
+      items.add(MediaItem.recorded(rec));
     }
     return items;
   }
@@ -186,27 +187,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
           children: <Widget>[
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 14.w),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildImagePreview(),
-                  if ((_currentEntry.galleryImages.isNotEmpty ||
-                          _currentEntry.cameraPhotos.isNotEmpty ||
-                          _currentEntry.location != null ||
-                          _currentEntry.moodIndex != null) &&
-                      _currentEntry.galleryAudios.isNotEmpty)
-                    SizedBox(height: 2.h),
-                  _buildAudioPreview(),
-                  if ((_currentEntry.galleryImages.isNotEmpty ||
-                          _currentEntry.cameraPhotos.isNotEmpty ||
-                          _currentEntry.location != null ||
-                          _currentEntry.moodIndex != null ||
-                          _currentEntry.galleryAudios.isNotEmpty) &&
-                      _currentEntry.recordings.isNotEmpty)
-                    SizedBox(height: 2.h),
-                  _buildRecordingsPreview(),
-                ],
-              ),
+              child: _buildImagePreview(),
             ),
             if (_currentEntry.tags.isNotEmpty) ...[
               SizedBox(height: 12.h),
@@ -263,7 +244,9 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
     ];
     if (allMedia.isEmpty &&
         _currentEntry.location == null &&
-        _currentEntry.moodIndex == null) {
+        _currentEntry.moodIndex == null &&
+        _currentEntry.galleryAudios.isEmpty &&
+        _currentEntry.recordings.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -273,149 +256,10 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
         mediaItems: allMedia,
         location: _currentEntry.location,
         moodIndex: _currentEntry.moodIndex,
+        galleryAudios: _currentEntry.galleryAudios,
+        recordings: _currentEntry.recordings,
         onCardTap: _openMediaPreview,
       ),
-    );
-  }
-
-  Widget _buildAudioPreview() {
-    if (_currentEntry.galleryAudios.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    final appThemeColors = AppTheme.colorsOf(context);
-    final baseIndex = _currentEntry.galleryImages.length +
-        _currentEntry.cameraPhotos.length +
-        (_currentEntry.location != null ? 1 : 0) +
-        (_currentEntry.moodIndex != null ? 1 : 0);
-
-    return Column(
-      children: _currentEntry.galleryAudios.asMap().entries.map((entry) {
-        final index = entry.key;
-        final audio = entry.value;
-        final globalIndex = baseIndex + index;
-
-        return Padding(
-          padding: EdgeInsets.only(bottom: 4.h),
-          child: GestureDetector(
-            onTap: () => _openMediaPreview(globalIndex),
-            child: Container(
-              height: 50.h,
-              width: double.infinity,
-              padding: EdgeInsets.symmetric(horizontal: 12.w),
-              decoration: BoxDecoration(
-                color: appThemeColors.grey4,
-                borderRadius: BorderRadius.circular(12.r),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.music_note_rounded,
-                    color: appThemeColors.grey1,
-                    size: 28.sp,
-                  ),
-                  SizedBox(width: 8.w),
-                  Expanded(
-                    child: Text(
-                      audio.title ?? AppConstants.audioTrack,
-                      style: TextStyle(
-                        color: appThemeColors.grey10,
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w600,
-                        decoration: TextDecoration.none,
-                        overflow: TextOverflow.ellipsis,
-                        fontFamily: AppConstants.font,
-                      ),
-                      maxLines: 1,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  String _formatPreviewDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-    return '$minutes:$seconds';
-  }
-
-  Widget _buildRecordingsPreview() {
-    if (_currentEntry.recordings.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    final appThemeColors = AppTheme.colorsOf(context);
-    final baseIndex = _currentEntry.galleryImages.length +
-        _currentEntry.cameraPhotos.length +
-        (_currentEntry.location != null ? 1 : 0) +
-        (_currentEntry.moodIndex != null ? 1 : 0) +
-        _currentEntry.galleryAudios.length;
-
-    return Column(
-      children: _currentEntry.recordings.asMap().entries.map((entry) {
-        final index = entry.key;
-        final recording = entry.value;
-        final globalIndex = baseIndex + index;
-
-        return Padding(
-          padding: EdgeInsets.only(bottom: 4.h),
-          child: GestureDetector(
-            onTap: () => _openMediaPreview(globalIndex),
-            child: Container(
-              height: 50.h,
-              width: double.infinity,
-              padding: EdgeInsets.symmetric(horizontal: 12.w),
-              decoration: BoxDecoration(
-                color: appThemeColors.grey4,
-                borderRadius: BorderRadius.circular(12.r),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.music_note_rounded,
-                    color: appThemeColors.grey1,
-                    size: 28.sp,
-                  ),
-                  SizedBox(width: 8.w),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          recording.name,
-                          style: TextStyle(
-                            color: appThemeColors.grey10,
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.none,
-                            overflow: TextOverflow.ellipsis,
-                            fontFamily: AppConstants.font,
-                          ),
-                          maxLines: 1,
-                        ),
-                        Text(
-                          _formatPreviewDuration(recording.duration),
-                          style: TextStyle(
-                            color: appThemeColors.grey1,
-                            fontSize: 12.sp,
-                            decoration: TextDecoration.none,
-                            fontFamily: AppConstants.font,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
     );
   }
 

@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class CustomSliderWithTooltip extends StatefulWidget {
   final double min;
@@ -22,8 +23,10 @@ class CustomSliderWithTooltip extends StatefulWidget {
   final TextStyle? labelTextStyle;
   final EdgeInsets unfocusedTrackPadding;
   final EdgeInsets focusedTrackPadding;
-  final double gapWidth; // New parameter for gap width
-  final Color? dividerColor; // Optional divider color
+  final double gapWidth;
+  final Color? dividerColor;
+  final int? divisions;
+  final bool hapticOnCheckpoints;
 
   const CustomSliderWithTooltip({
     super.key,
@@ -46,8 +49,10 @@ class CustomSliderWithTooltip extends StatefulWidget {
     this.labelTextStyle,
     this.unfocusedTrackPadding = const EdgeInsets.symmetric(horizontal: 16),
     this.focusedTrackPadding = EdgeInsets.zero,
-    this.gapWidth = 12.0, // Increased default gap width to accommodate thicker divider
+    this.gapWidth = 12.0,
     this.dividerColor,
+    this.divisions,
+    this.hapticOnCheckpoints = true,
   }) : assert(initialValue >= min && initialValue <= max);
 
   @override
@@ -70,11 +75,13 @@ class _CustomSliderWithTooltipState extends State<CustomSliderWithTooltip>
   // Internal state variables
   double _currentSliderValue = 0.0;
   bool _isInteracting = false;
+  int? _lastHapticCheckpoint;
 
   @override
   void initState() {
     super.initState();
     _currentSliderValue = widget.initialValue;
+    _lastHapticCheckpoint = _checkpointForValue(widget.initialValue);
 
     _currentProgressNotifier = ValueNotifier(
         ((widget.initialValue - widget.min) / (widget.max - widget.min))
@@ -139,6 +146,16 @@ class _CustomSliderWithTooltipState extends State<CustomSliderWithTooltip>
     _trackPaddingNotifier.value = widget.focusedTrackPadding;
   }
 
+  int _checkpointForValue(double value) {
+    final divs = widget.divisions;
+    if (divs != null && divs > 0) {
+      final norm =
+          ((value - widget.min) / (widget.max - widget.min)).clamp(0.0, 1.0);
+      return (norm * divs).round();
+    }
+    return value.round();
+  }
+
   void _updateProgressFromGlobalPosition(Offset globalPosition, BoxConstraints constraints) {
     final double effectiveTrackWidth =
         constraints.maxWidth - widget.unfocusedTrackPadding.horizontal;
@@ -148,7 +165,12 @@ class _CustomSliderWithTooltipState extends State<CustomSliderWithTooltip>
     final Offset localPosition = renderBox.globalToLocal(globalPosition);
     final double adjustedDx = localPosition.dx - widget.unfocusedTrackPadding.left;
 
-    final double newProgress = (adjustedDx / effectiveTrackWidth).clamp(0.0, 1.0);
+    double newProgress = (adjustedDx / effectiveTrackWidth).clamp(0.0, 1.0);
+    final divs = widget.divisions;
+    if (divs != null && divs > 0) {
+      final int snapped = (newProgress * divs).round().clamp(0, divs);
+      newProgress = snapped / divs;
+    }
 
     _currentProgressNotifier.value = newProgress;
   }
@@ -168,6 +190,17 @@ class _CustomSliderWithTooltipState extends State<CustomSliderWithTooltip>
         lerpDouble(widget.min, widget.max, _currentProgressNotifier.value) ??
             widget.initialValue;
     if (newValue != _currentSliderValue) {
+      final newCheckpoint = _checkpointForValue(newValue);
+      final prevCheckpoint =
+          _lastHapticCheckpoint ?? _checkpointForValue(_currentSliderValue);
+      if (widget.hapticOnCheckpoints &&
+          _isInteracting &&
+          newCheckpoint != prevCheckpoint) {
+        _lastHapticCheckpoint = newCheckpoint;
+        HapticFeedback.selectionClick();
+      } else {
+        _lastHapticCheckpoint = newCheckpoint;
+      }
       setState(() {
         _currentSliderValue = newValue;
       });
@@ -318,59 +351,62 @@ class _CustomSliderWithTooltipState extends State<CustomSliderWithTooltip>
                                   return Row(
                                     children: [
                                       // Active part
-                                      Expanded(
-                                        flex: (progress * 1000).round(),
-                                        child: progress > 0
-                                            ? AnimatedContainer(
-                                          duration:
-                                          widget.animationDuration,
-                                          curve: _animationCurve,
-                                          height: currentHeight,
-                                          decoration: BoxDecoration(
-                                            color: currentActiveColor,
-                                            borderRadius:
-                                            BorderRadius.circular(
-                                                currentHeight / 2),
-                                          ),
-                                        )
-                                            : const SizedBox.shrink(),
-                                      ),
-                                      // Gap with Divider
-                                      if (progress > 0 && progress < 1)
-                                        SizedBox(
-                                          width: widget.gapWidth,
-                                          child: Center(
-                                            child: AnimatedContainer(
-                                              duration: widget.animationDuration,
-                                              curve: _animationCurve,
-                                              width: 8.0,
-                                              height: currentHeight * 2.2, // Further increased height
-                                              decoration: BoxDecoration(
-                                                color: widget.dividerColor ?? (theme.brightness == Brightness.dark ? Colors.white : Colors.black87),
-                                                borderRadius:
-                                                BorderRadius.circular(4.0),
-                                              ),
+                                      if (progress > 0)
+                                        Expanded(
+                                          flex: (progress * 1000)
+                                              .round()
+                                              .clamp(1, 1000),
+                                          child: AnimatedContainer(
+                                            duration: widget.animationDuration,
+                                            curve: _animationCurve,
+                                            height: currentHeight,
+                                            decoration: BoxDecoration(
+                                              color: currentActiveColor,
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                      currentHeight / 2),
                                             ),
                                           ),
                                         ),
-                                      // Inactive part
-                                      Expanded(
-                                        flex: ((1 - progress) * 1000).round(),
-                                        child: progress < 1
-                                            ? AnimatedContainer(
-                                          duration:
-                                          widget.animationDuration,
-                                          curve: _animationCurve,
-                                          height: currentHeight,
-                                          decoration: BoxDecoration(
-                                            color: widget.inactiveColor,
-                                            borderRadius:
-                                            BorderRadius.circular(
-                                                currentHeight / 2),
+                                      // Always show divider line (including extremes)
+                                      SizedBox(
+                                        width: widget.gapWidth,
+                                        child: Center(
+                                          child: AnimatedContainer(
+                                            duration: widget.animationDuration,
+                                            curve: _animationCurve,
+                                            width: 8.0,
+                                            height: currentHeight * 2.0,
+                                            decoration: BoxDecoration(
+                                              color: widget.dividerColor ??
+                                                  (theme.brightness ==
+                                                          Brightness.dark
+                                                      ? Colors.white
+                                                      : Colors.black87),
+                                              borderRadius:
+                                                  BorderRadius.circular(4.0),
+                                            ),
                                           ),
-                                        )
-                                            : const SizedBox.shrink(),
+                                        ),
                                       ),
+                                      // Inactive part
+                                      if (progress < 1)
+                                        Expanded(
+                                          flex: ((1 - progress) * 1000)
+                                              .round()
+                                              .clamp(1, 1000),
+                                          child: AnimatedContainer(
+                                            duration: widget.animationDuration,
+                                            curve: _animationCurve,
+                                            height: currentHeight,
+                                            decoration: BoxDecoration(
+                                              color: widget.inactiveColor,
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                      currentHeight / 2),
+                                            ),
+                                          ),
+                                        ),
                                     ],
                                   );
                                 },

@@ -46,6 +46,9 @@ class HiveService extends GetxService {
     // --- Data Migration: Multiple Reminders ---
     await _migrateReminders();
 
+    // --- Data Migration: Differentiate Music vs Voice Recordings ---
+    await _migrateAudioKinds();
+
     // Run Garbage Collection quietly in the background to free up storage
     if (runGC) {
       unawaited(cleanUpOrphanedMedia());
@@ -72,7 +75,16 @@ class HiveService extends GetxService {
       final newPhotos = <CapturedPhoto>[];
       for (final photo in entry.cameraPhotos) {
         final filename = p.basename(photo.file.path);
-        final expectedPath = p.join(persistentMediaDir.path, filename);
+        var expectedPath = p.join(persistentMediaDir.path, filename);
+        if (!await File(expectedPath).exists()) {
+          final prefixedCandidate = p.join(
+            persistentMediaDir.path,
+            filename.startsWith('${entry.id}-') ? filename : '${entry.id}-$filename',
+          );
+          if (await File(prefixedCandidate).exists()) {
+            expectedPath = prefixedCandidate;
+          }
+        }
 
         if (photo.file.path != expectedPath) {
           final oldFile = File(photo.file.path);
@@ -99,7 +111,16 @@ class HiveService extends GetxService {
       final newRecordings = <RecordedAudio>[];
       for (final rec in entry.recordings) {
         final filename = p.basename(rec.path);
-        final expectedPath = p.join(persistentMediaDir.path, filename);
+        var expectedPath = p.join(persistentMediaDir.path, filename);
+        if (!await File(expectedPath).exists()) {
+          final prefixedCandidate = p.join(
+            persistentMediaDir.path,
+            filename.startsWith('${entry.id}-') ? filename : '${entry.id}-$filename',
+          );
+          if (await File(prefixedCandidate).exists()) {
+            expectedPath = prefixedCandidate;
+          }
+        }
 
         if (rec.path != expectedPath) {
           final oldFile = File(rec.path);
@@ -116,7 +137,13 @@ class HiveService extends GetxService {
             } catch (_) {}
           }
 
-          newRecordings.add(RecordedAudio(path: expectedPath, duration: rec.duration, name: rec.name));
+          newRecordings.add(RecordedAudio(
+            path: expectedPath,
+            duration: rec.duration,
+            name: rec.name,
+            isShared: rec.isShared,
+            isMusic: rec.isMusic,
+          ));
           entryModified = true;
         } else {
           newRecordings.add(rec);
@@ -238,6 +265,65 @@ class HiveService extends GetxService {
 
     await settingsBox.put(AppConstants.reminderSchemaVersionKey, 1);
     debugPrint("Reminder migration: Completed.");
+  }
+
+  /// Differentiates external/shared audio from in-app voice recordings without
+  /// altering legacy in-app recordings for existing users.
+  Future<void> _migrateAudioKinds() async {
+    const String audioSchemaKey = 'audio_kind_schema_version';
+    if (settingsBox.get(audioSchemaKey, defaultValue: 0) >= 2) {
+      return;
+    }
+
+    for (final key in journalsBox.keys.toList()) {
+      final entry = journalsBox.get(key);
+      if (entry == null || entry.recordings.isEmpty) continue;
+
+      bool modified = false;
+      final updatedRecordings = <RecordedAudio>[];
+      for (final rec in entry.recordings) {
+        if (rec.isShared && !rec.isMusic) {
+          updatedRecordings.add(RecordedAudio(
+            path: rec.path,
+            name: rec.name,
+            duration: rec.duration,
+            isShared: rec.isShared,
+            isMusic: true,
+          ));
+          modified = true;
+        } else if (!rec.isShared && rec.isMusic) {
+          final basename = p.basename(rec.path);
+          final lowerName = rec.name.toLowerCase();
+          final isRecordingName =
+              basename.contains('OpenJot_recording_') ||
+              lowerName.contains('openjot recording') ||
+              lowerName.contains('openjot.rec');
+          if (isRecordingName) {
+            updatedRecordings.add(RecordedAudio(
+              path: rec.path,
+              name: rec.name,
+              duration: rec.duration,
+              isShared: rec.isShared,
+              isMusic: false,
+            ));
+            modified = true;
+          } else {
+            updatedRecordings.add(rec);
+          }
+        } else {
+          updatedRecordings.add(rec);
+        }
+      }
+
+      if (modified) {
+        await journalsBox.put(
+          key,
+          entry.copyWith(recordings: updatedRecordings),
+        );
+      }
+    }
+
+    await settingsBox.put(audioSchemaKey, 2);
   }
 
   void _registerAdapters() {
@@ -504,6 +590,7 @@ class HiveService extends GetxService {
 
       // 3. Process media files and build manifest
       final mediaManifest = <String, dynamic>{};
+      final waveformsManifest = <String, List<double>>{};
       final entries = journalsBox.values.toList();
       int processedEntries = 0;
       final totalEntries = entries.isEmpty ? 1 : entries.length;
@@ -517,7 +604,15 @@ class HiveService extends GetxService {
         };
 
         // Inner function with strict Error Handling to prevent plugin crashes
-        Future<void> processMediaFile(String originalPath, String type, String id, {bool isAssetEntity = false, AssetEntity? asset}) async {
+        Future<void> processMediaFile(
+          String originalPath,
+          String type,
+          String id, {
+          bool isAssetEntity = false,
+          AssetEntity? asset,
+          Map<String, String>? extraMetadata,
+          List<double>? waveformBars,
+        }) async {
           try {
             File? sourceFile;
 
@@ -546,9 +641,14 @@ class HiveService extends GetxService {
             // Stream file directly into Zip
             encoder.addFile(sourceFile, 'media/$backupMediaName');
 
+            if (waveformBars != null && waveformBars.isNotEmpty) {
+              waveformsManifest[backupMediaName] = waveformBars;
+            }
+
             entryManifest[type]!.add({
               AppConstants.idKey: id,
-              AppConstants.backupFileNameKey: backupMediaName
+              AppConstants.backupFileNameKey: backupMediaName,
+              if (extraMetadata != null) ...extraMetadata,
             });
           } catch (e) {
             debugPrint("Error processing media file $id: $e");
@@ -560,13 +660,39 @@ class HiveService extends GetxService {
           await processMediaFile(photo.file.path, AppConstants.cameraPhotosKey, photo.file.path);
         }
         for (final audio in entry.recordings) {
-          await processMediaFile(audio.path, AppConstants.recordingsKey, audio.path);
+          final wfRaw = settingsBox.get('audio_waveform_${p.basename(audio.path)}');
+          final wfBars = wfRaw is List
+              ? wfRaw.whereType<num>().map((e) => e.toDouble()).toList()
+              : null;
+          await processMediaFile(
+            audio.path,
+            AppConstants.recordingsKey,
+            audio.path,
+            extraMetadata: {
+              'name': audio.name,
+              'durationMs': audio.duration.inMilliseconds.toString(),
+              'isShared': audio.isShared ? '1' : '0',
+              'isMusic': audio.isMusic ? '1' : '0',
+            },
+            waveformBars: wfBars,
+          );
         }
         for (final asset in entry.galleryImages) {
           await processMediaFile('', AppConstants.galleryImagesKey, asset.id, isAssetEntity: true, asset: asset);
         }
         for (final asset in entry.galleryAudios) {
-          await processMediaFile('', AppConstants.galleryAudiosKey, asset.id, isAssetEntity: true, asset: asset);
+          await processMediaFile(
+            '',
+            AppConstants.galleryAudiosKey,
+            asset.id,
+            isAssetEntity: true,
+            asset: asset,
+            extraMetadata: {
+              'name': asset.title ?? AppConstants.audioTrack,
+              'durationMs': (asset.duration * 1000).toString(),
+              'isMusic': '1',
+            },
+          );
         }
 
         if (entryManifest.values.any((list) => list.isNotEmpty)) {
@@ -583,6 +709,7 @@ class HiveService extends GetxService {
         'version': '1.0.0',
         'timestamp': DateTime.now().toIso8601String(),
         'entries': mediaManifest,
+        if (waveformsManifest.isNotEmpty) 'waveforms': waveformsManifest,
       };
 
       final manifestJson = jsonEncode(rootManifest);
@@ -672,96 +799,141 @@ class HiveService extends GetxService {
       await init(runGC: false);
       onProgress?.call(0.4);
 
-      final manifestFile = File(p.join(tempDir.path, 'media_manifest.json'));
-      if (!await manifestFile.exists()) {
-        if (Get.isRegistered<HomeController>()) {
-          await Get.find<HomeController>().loadJournalEntries();
-        }
-        // Run GC now that the DB is replaced (even if no media to link)
-        unawaited(cleanUpOrphanedMedia());
-        return true;
-      }
-
-      // Version-safe manifest decoding
-      final parsedJson = jsonDecode(await manifestFile.readAsString()) as Map<String, dynamic>;
-      Map<String, dynamic> mediaManifest;
-      if (parsedJson.containsKey('version')) {
-        mediaManifest = parsedJson['entries'] as Map<String, dynamic>;
-      } else {
-        mediaManifest = parsedJson; // Fallback for v1 legacy backups
-      }
-
       final persistentMediaDir = Directory(p.join(appDocDir.path, 'media'));
       await persistentMediaDir.create(recursive: true);
 
-      int processedEntries = 0;
-      final totalEntries = journalsBox.values.isEmpty ? 1 : journalsBox.values.length;
-
-      for (final entry in journalsBox.values) {
-        if (!mediaManifest.containsKey(entry.id)) {
-          processedEntries++;
-          continue;
-        }
-
-        final entryManifest = mediaManifest[entry.id] as Map<String, dynamic>;
-        bool wasModified = false;
-
-        final newCameraPhotos = <CapturedPhoto>[];
-        final newRecordings = <RecordedAudio>[];
-
-        Future<String?> restoreFile(String backupFileName) async {
-          try {
-            final sourceFile = File(p.join(tempDir!.path, 'media', backupFileName));
-            if (!await sourceFile.exists()) return null;
-            final destPath = p.join(persistentMediaDir.path, backupFileName);
-            await sourceFile.copy(destPath);
-            return destPath;
-          } catch (e) {
-            return null;
+      final manifestFile = File(p.join(tempDir.path, 'media_manifest.json'));
+      if (!await manifestFile.exists()) {
+        await _restoreLegacyMediaWithoutManifest(
+          tempDir: tempDir,
+          persistentMediaDir: persistentMediaDir,
+          onProgress: onProgress,
+        );
+      } else {
+        // Version-safe manifest decoding
+        final parsedJson = jsonDecode(await manifestFile.readAsString()) as Map<String, dynamic>;
+        Map<String, dynamic> mediaManifest;
+        Map<String, dynamic> waveformsManifest = {};
+        if (parsedJson.containsKey('version')) {
+          mediaManifest = parsedJson['entries'] as Map<String, dynamic>;
+          if (parsedJson['waveforms'] is Map<String, dynamic>) {
+            waveformsManifest = parsedJson['waveforms'] as Map<String, dynamic>;
           }
+        } else {
+          mediaManifest = parsedJson; // Fallback for v1 legacy backups
         }
 
-        final imageLists = [AppConstants.cameraPhotosKey, AppConstants.galleryImagesKey];
-        for (var listName in imageLists) {
-          final manifestList = (entryManifest[listName] as List<dynamic>?) ?? [];
-          for (final item in manifestList) {
-            final newPath = await restoreFile(item[AppConstants.backupFileNameKey]);
-            if (newPath != null) {
-              newCameraPhotos.add(CapturedPhoto(file: XFile(newPath), name: item[AppConstants.backupFileNameKey]));
-              wasModified = true;
+        int processedEntries = 0;
+        final journalKeys = journalsBox.keys.toList();
+        final totalEntries = journalKeys.isEmpty ? 1 : journalKeys.length;
+
+        for (final key in journalKeys) {
+          final entry = journalsBox.get(key);
+          if (entry == null || !mediaManifest.containsKey(entry.id)) {
+            processedEntries++;
+            continue;
+          }
+
+          final entryManifest = mediaManifest[entry.id] as Map<String, dynamic>;
+          bool wasModified = false;
+
+          final newCameraPhotos = <CapturedPhoto>[];
+          final newRecordings = <RecordedAudio>[];
+
+          Future<String?> restoreFile(String backupFileName) async {
+            try {
+              var sourceFile = File(p.join(tempDir!.path, 'media', backupFileName));
+              if (!await sourceFile.exists()) {
+                final fallbackSource = File(p.join(tempDir!.path, 'media', p.basename(backupFileName)));
+                if (await fallbackSource.exists()) {
+                  sourceFile = fallbackSource;
+                } else {
+                  return null;
+                }
+              }
+              final destPath = p.join(persistentMediaDir.path, p.basename(backupFileName));
+              await sourceFile.copy(destPath);
+              final wf = waveformsManifest[backupFileName];
+              if (wf is List) {
+                await settingsBox.put(
+                  'audio_waveform_${p.basename(destPath)}',
+                  wf.whereType<num>().map((e) => e.toDouble()).toList(),
+                );
+              }
+              return destPath;
+            } catch (e) {
+              return null;
             }
           }
-        }
 
-        final audioLists = [AppConstants.recordingsKey, AppConstants.galleryAudiosKey];
-        for (var listName in audioLists) {
-          final manifestList = (entryManifest[listName] as List<dynamic>?) ?? [];
-          for (final item in manifestList) {
-            final newPath = await restoreFile(item[AppConstants.backupFileNameKey]);
-            if (newPath != null) {
-              final originalAudio = entry.recordings.firstWhereOrNull((r) => r.path == item[AppConstants.idKey]);
-              newRecordings.add(RecordedAudio(
+          final imageLists = [AppConstants.cameraPhotosKey, AppConstants.galleryImagesKey];
+          for (var listName in imageLists) {
+            final manifestList = (entryManifest[listName] as List<dynamic>?) ?? [];
+            for (final item in manifestList) {
+              final newPath = await restoreFile(item[AppConstants.backupFileNameKey]);
+              if (newPath != null) {
+                newCameraPhotos.add(CapturedPhoto(file: XFile(newPath), name: item[AppConstants.backupFileNameKey]));
+                wasModified = true;
+              }
+            }
+          }
+
+          final audioLists = [AppConstants.recordingsKey, AppConstants.galleryAudiosKey];
+          for (var listName in audioLists) {
+            final manifestList = (entryManifest[listName] as List<dynamic>?) ?? [];
+            for (final item in manifestList) {
+              final backupName = item[AppConstants.backupFileNameKey] as String;
+              final newPath = await restoreFile(backupName);
+              if (newPath != null) {
+                final itemId = item[AppConstants.idKey]?.toString() ?? '';
+                final originalAudio = entry.recordings.firstWhereOrNull(
+                  (r) => r.path == itemId || p.basename(r.path) == p.basename(itemId),
+                );
+                final isFromGalleryList = listName == AppConstants.galleryAudiosKey;
+                final parsedDurationMs = int.tryParse(item['durationMs']?.toString() ?? '');
+                final hasExplicitMusicFlag = item.containsKey('isMusic');
+                final bool isMusicItem = isFromGalleryList ||
+                    (hasExplicitMusicFlag
+                        ? item['isMusic'] == '1'
+                        : (originalAudio?.isMusic ?? false));
+                final bool isSharedItem =
+                    item['isShared'] == '1' || (originalAudio?.isShared ?? false);
+                final String displayName =
+                    (item['name'] as String?) ?? originalAudio?.name ?? backupName;
+
+                newRecordings.add(RecordedAudio(
                   path: newPath,
-                  duration: originalAudio?.duration ?? Duration.zero,
-                  name: item[AppConstants.backupFileNameKey]));
-              wasModified = true;
+                  duration: parsedDurationMs != null
+                      ? Duration(milliseconds: parsedDurationMs)
+                      : (originalAudio?.duration ?? Duration.zero),
+                  name: displayName,
+                  isShared: isSharedItem,
+                  isMusic: isMusicItem,
+                ));
+                wasModified = true;
+              }
             }
           }
-        }
 
-        if (wasModified) {
-          final updatedEntry = entry.copyWith(
-            cameraPhotos: newCameraPhotos,
-            recordings: newRecordings,
-            galleryImages: [], // Clear device-dependent assets since they were extracted locally
-            galleryAudios: [],
-          );
-          await journalsBox.put(entry.id, updatedEntry);
-        }
+          if (wasModified) {
+            final updatedEntry = entry.copyWith(
+              cameraPhotos: newCameraPhotos,
+              recordings: newRecordings,
+              galleryImages: [], // Clear device-dependent assets since they were extracted locally
+              galleryAudios: [],
+            );
+            await journalsBox.put(key, updatedEntry);
+          }
 
-        processedEntries++;
-        onProgress?.call(0.4 + (0.6 * (processedEntries / totalEntries))); // Progress from 40% to 100%
+          processedEntries++;
+          onProgress?.call(0.4 + (0.6 * (processedEntries / totalEntries))); // Progress from 40% to 100%
+        }
       }
+
+      // Re-run audio differentiation migration on restored database in case it
+      // came from an older backup before the flag existed.
+      await settingsBox.delete('audio_kind_schema_version');
+      await _migrateAudioKinds();
 
       // Now that all entries are updated with new local media paths, safe to run GC
       unawaited(cleanUpOrphanedMedia());
@@ -789,6 +961,203 @@ class HiveService extends GetxService {
       if (tempDir != null && await tempDir.exists()) {
         await tempDir.delete(recursive: true);
       }
+    }
+  }
+
+  static const Set<String> _legacyImageExtensions = {
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.webp',
+    '.heic',
+    '.heif',
+    '.gif',
+    '.bmp',
+    '.dng',
+  };
+
+  static const Set<String> _legacyAudioExtensions = {
+    '.m4a',
+    '.mp3',
+    '.wav',
+    '.aac',
+    '.opus',
+    '.ogg',
+    '.flac',
+    '.amr',
+    '.3gp',
+    '.wma',
+    '.caf',
+  };
+
+  /// Restores media from legacy backups that include `media/` files without
+  /// a `media_manifest.json` index, matching both explicit paths and prefixed
+  /// `<entryId>-<filename>` archives.
+  Future<void> _restoreLegacyMediaWithoutManifest({
+    required Directory tempDir,
+    required Directory persistentMediaDir,
+    void Function(double progress)? onProgress,
+  }) async {
+    final backupMediaDir = Directory(p.join(tempDir.path, 'media'));
+    final backupFiles = <File>[];
+
+    if (await backupMediaDir.exists()) {
+      for (final entity in backupMediaDir.listSync(recursive: true)) {
+        if (entity is File) backupFiles.add(entity);
+      }
+    }
+
+    // Also include any loose media files placed directly in tempDir root.
+    for (final entity in tempDir.listSync()) {
+      if (entity is File) {
+        final ext = p.extension(entity.path).toLowerCase();
+        if (_legacyImageExtensions.contains(ext) ||
+            _legacyAudioExtensions.contains(ext)) {
+          backupFiles.add(entity);
+        }
+      }
+    }
+
+    if (backupFiles.isEmpty) {
+      onProgress?.call(1.0);
+      return;
+    }
+
+    final consumedPaths = <String>{};
+    final journalKeys = journalsBox.keys.toList();
+    final totalEntries = journalKeys.isEmpty ? 1 : journalKeys.length;
+    int processedEntries = 0;
+
+    for (final key in journalKeys) {
+      final entry = journalsBox.get(key);
+      if (entry == null) {
+        processedEntries++;
+        continue;
+      }
+
+      final prefix = '${entry.id}-';
+      final prefixedForEntry = backupFiles
+          .where((f) => p.basename(f.path).startsWith(prefix))
+          .toList();
+
+      String stripEntryPrefix(String filename) =>
+          filename.startsWith(prefix) ? filename.substring(prefix.length) : filename;
+
+      File? takeMatch(String candidatePathOrName) {
+        final target = p.basename(candidatePathOrName);
+        if (target.isEmpty) return null;
+
+        for (final file in prefixedForEntry) {
+          if (consumedPaths.contains(file.path)) continue;
+          final base = p.basename(file.path);
+          if (base == target || stripEntryPrefix(base) == target) {
+            consumedPaths.add(file.path);
+            return file;
+          }
+        }
+
+        for (final file in backupFiles) {
+          if (consumedPaths.contains(file.path)) continue;
+          final base = p.basename(file.path);
+          if (base == target || base.endsWith('-$target')) {
+            consumedPaths.add(file.path);
+            return file;
+          }
+        }
+        return null;
+      }
+
+      Future<String> copyIntoMedia(File sourceFile) async {
+        final destName = p.basename(sourceFile.path);
+        final destPath = p.join(persistentMediaDir.path, destName);
+        await sourceFile.copy(destPath);
+        return destPath;
+      }
+
+      bool wasModified = false;
+      final newCameraPhotos = <CapturedPhoto>[];
+      for (final photo in entry.cameraPhotos) {
+        final matched =
+            takeMatch(photo.file.path) ?? takeMatch(photo.name);
+        if (matched != null) {
+          final destPath = await copyIntoMedia(matched);
+          final stripped = stripEntryPrefix(p.basename(matched.path));
+          newCameraPhotos.add(CapturedPhoto(
+            file: XFile(destPath),
+            name: photo.name.isNotEmpty ? photo.name : stripped,
+          ));
+          wasModified = true;
+        } else {
+          newCameraPhotos.add(photo);
+        }
+      }
+
+      final newRecordings = <RecordedAudio>[];
+      for (final rec in entry.recordings) {
+        final matched = takeMatch(rec.path) ?? takeMatch(rec.name);
+        if (matched != null) {
+          final destPath = await copyIntoMedia(matched);
+          newRecordings.add(RecordedAudio(
+            path: destPath,
+            duration: rec.duration,
+            name: rec.name,
+            isShared: rec.isShared,
+            isMusic: rec.isMusic,
+          ));
+          wasModified = true;
+        } else {
+          newRecordings.add(rec);
+        }
+      }
+
+      // Recover any remaining `<entryId>-*` files (e.g. archived gallery photos/audios)
+      bool recoveredGalleryImages = false;
+      bool recoveredGalleryAudios = false;
+      for (final file in prefixedForEntry) {
+        if (consumedPaths.contains(file.path)) continue;
+        final base = p.basename(file.path);
+        final stripped = stripEntryPrefix(base);
+        final ext = p.extension(stripped).toLowerCase();
+
+        if (_legacyImageExtensions.contains(ext)) {
+          consumedPaths.add(file.path);
+          final destPath = await copyIntoMedia(file);
+          newCameraPhotos.add(CapturedPhoto(
+            file: XFile(destPath),
+            name: stripped,
+          ));
+          recoveredGalleryImages = true;
+          wasModified = true;
+        } else if (_legacyAudioExtensions.contains(ext)) {
+          consumedPaths.add(file.path);
+          final destPath = await copyIntoMedia(file);
+          final isVoiceRecording = stripped.startsWith('OpenJot_recording_');
+          newRecordings.add(RecordedAudio(
+            path: destPath,
+            duration: Duration.zero,
+            name: stripped,
+            isShared: !isVoiceRecording,
+            isMusic: !isVoiceRecording,
+          ));
+          recoveredGalleryAudios = true;
+          wasModified = true;
+        }
+      }
+
+      if (wasModified) {
+        await journalsBox.put(
+          key,
+          entry.copyWith(
+            cameraPhotos: newCameraPhotos,
+            recordings: newRecordings,
+            galleryImages: recoveredGalleryImages ? [] : entry.galleryImages,
+            galleryAudios: recoveredGalleryAudios ? [] : entry.galleryAudios,
+          ),
+        );
+      }
+
+      processedEntries++;
+      onProgress?.call(0.4 + (0.6 * (processedEntries / totalEntries)));
     }
   }
 

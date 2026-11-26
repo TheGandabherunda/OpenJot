@@ -97,62 +97,77 @@ class _CameraViewState extends State<CameraView> {
     }
 
     if (_capturedImage == null) {
-      // This is the definitive fix for the camera preview.
-      final cameraPreviewWidget = FittedBox(
-        fit: BoxFit.cover,
-        child: SizedBox(
-          width: controller.value.previewSize!.height,
-          height: controller.value.previewSize!.width,
-          child: CameraPreview(controller),
-        ),
-      );
-
-      return Stack(
-        alignment: Alignment.center,
-        children: [
-          ListView(
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          return CustomScrollView(
             controller: widget.scrollController,
-            padding: EdgeInsets.zero,
-            children: [
-              SizedBox(
-                height: 440.h,
-                width: double.infinity,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12.r),
-                  child: cameraPreviewWidget,
-                ),
-              ),
-              // Add space at the bottom so the capture button doesn't hide the view
-              SizedBox(height: 100.h),
-            ],
-          ),
-          Positioned(
-            bottom: 16.h,
-            child: GestureDetector(
-              onTap: _takePicture,
-              child: Container(
-                width: 70.w,
-                height: 70.w,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.transparent,
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.9),
-                    width: 5,
+            slivers: [
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: constraints.maxHeight,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4.w),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16.r),
+                      child: ColoredBox(
+                        color: Colors.black,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Center(
+                              child: CameraPreview(controller),
+                            ),
+                            Positioned(
+                              bottom: 20.h,
+                              child: GestureDetector(
+                                onTap: _takePicture,
+                                child: Container(
+                                  width: 68.w,
+                                  height: 68.w,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.transparent,
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.92),
+                                      width: 4.5,
+                                    ),
+                                  ),
+                                  padding: EdgeInsets.all(4.w),
+                                  child: const DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       );
     } else {
-      return ListView(
-        controller: widget.scrollController,
-        padding: EdgeInsets.zero,
-        children: [
-          _buildPreview(colors),
-        ],
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          return CustomScrollView(
+            controller: widget.scrollController,
+            slivers: [
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: constraints.maxHeight,
+                  child: _buildPreview(colors),
+                ),
+              ),
+            ],
+          );
+        },
       );
     }
   }
@@ -160,20 +175,26 @@ class _CameraViewState extends State<CameraView> {
   Widget _buildPreview(AppThemeColors colors) {
     return Column(
       children: [
-        SizedBox(
-          height: 440.h, // Fixed height for the preview image
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12.r),
-            child: Image.file(
-              File(_capturedImage!.path),
-              fit: BoxFit.cover,
-              width: double.infinity,
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4.w),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16.r),
+              child: ColoredBox(
+                color: Colors.black,
+                child: Center(
+                  child: Image.file(
+                    File(_capturedImage!.path),
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
             ),
           ),
         ),
-        SizedBox(height: 16.h),
+        SizedBox(height: 12.h),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          padding: EdgeInsets.symmetric(horizontal: 12.w),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -184,10 +205,10 @@ class _CameraViewState extends State<CameraView> {
                   color: colors.grey3,
                   textColor: colors.grey10,
                   textPadding:
-                  EdgeInsets.symmetric(horizontal: 32.w, vertical: 12.h),
+                      EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
                 ),
               ),
-              SizedBox(width: 16.w),
+              SizedBox(width: 12.w),
               Expanded(
                 child: CustomButton(
                   onPressed: _addPicture,
@@ -195,13 +216,13 @@ class _CameraViewState extends State<CameraView> {
                   color: Theme.of(context).primaryColor,
                   textColor: colors.grey8,
                   textPadding:
-                  EdgeInsets.symmetric(horizontal: 32.w, vertical: 12.h),
+                      EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
                 ),
               ),
             ],
           ),
         ),
-        SizedBox(height: 16.h),
+        SizedBox(height: 8.h),
       ],
     );
   }

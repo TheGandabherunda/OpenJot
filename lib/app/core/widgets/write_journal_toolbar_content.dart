@@ -13,8 +13,10 @@ import 'package:get/get.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/core/constants.dart';
+import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/services/permission_service.dart';
 import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/core/widgets/audio_spectrum_waveform.dart';
 import 'package:open_jot/app/core/widgets/camera_view.dart';
 import 'package:open_jot/app/core/widgets/custom_button.dart';
 import 'package:open_jot/app/core/widgets/custom_slider.dart';
@@ -87,7 +89,9 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
   void initState() {
     super.initState();
     widget.scrollController.addListener(_onScroll);
-    unawaited(_requestPermission());
+    if (widget.selectedToolbarIcon == Icons.image_rounded) {
+      unawaited(_requestPermission());
+    }
   }
 
   @override
@@ -96,6 +100,12 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
     if (widget.scrollController != oldWidget.scrollController) {
       oldWidget.scrollController.removeListener(_onScroll);
       widget.scrollController.addListener(_onScroll);
+    }
+    if (widget.selectedToolbarIcon == Icons.image_rounded &&
+        oldWidget.selectedToolbarIcon != Icons.image_rounded &&
+        _groupedAssets.isEmpty &&
+        !_isLoading) {
+      unawaited(_requestPermission());
     }
   }
 
@@ -358,21 +368,29 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(6.r),
-                  child: Image(
-                    image: AssetEntityImageProvider(
-                      lastAsset,
-                      isOriginal: false,
-                      thumbnailSize: const ThumbnailSize.square(300),
-                      thumbnailFormat: ThumbnailFormat.jpeg,
-                    ),
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Icon(
-                      lastAsset.type == AssetType.audio
-                          ? Icons.audiotrack
-                          : Icons.image,
-                      color: colors.grey1,
-                    ),
-                  ),
+                  child: lastAsset.type == AssetType.audio
+                      ? Container(
+                          color: Colors.deepPurple.shade800,
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.music_note_rounded,
+                            color: Colors.white,
+                            size: 22.sp,
+                          ),
+                        )
+                      : Image(
+                          image: AssetEntityImageProvider(
+                            lastAsset,
+                            isOriginal: false,
+                            thumbnailSize: const ThumbnailSize.square(300),
+                            thumbnailFormat: ThumbnailFormat.jpeg,
+                          ),
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Icon(
+                            Icons.image,
+                            color: colors.grey1,
+                          ),
+                        ),
                 ),
               ),
             ),
@@ -408,15 +426,28 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
     );
 
     if (files.isNotEmpty) {
+      final appDocDir = await getApplicationDocumentsDirectory();
+      final mediaDir = Directory(p.join(appDocDir.path, 'media'));
+      if (!await mediaDir.exists()) {
+        await mediaDir.create(recursive: true);
+      }
       final paths = <String>[];
       for (final f in files) {
+        final targetName = f.name.isNotEmpty
+            ? '${DateTime.now().millisecondsSinceEpoch}_${p.basename(f.name)}'
+            : '${DateTime.now().millisecondsSinceEpoch}_picked';
+        final persistentFile = File(p.join(mediaDir.path, targetName));
         if (f.path != null) {
-          paths.add(f.path!);
+          final picked = File(f.path!);
+          if (await picked.exists()) {
+            await picked.copy(persistentFile.path);
+            paths.add(persistentFile.path);
+          } else {
+            paths.add(f.path!);
+          }
         } else {
-          final tempDir = await getTemporaryDirectory();
-          final tempFile = File(p.join(tempDir.path, f.name));
-          await tempFile.writeAsBytes(await f.readAsBytes());
-          paths.add(tempFile.path);
+          await persistentFile.writeAsBytes(await f.readAsBytes());
+          paths.add(persistentFile.path);
         }
       }
       if (paths.isNotEmpty) {
@@ -426,107 +457,114 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
   }
 
   Widget _buildAlbumChips(AppThemeColors colors) {
-    return SizedBox(
-      height: 36.h,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(horizontal: 16.w),
-        itemCount: _albums.length + 2,
-        itemBuilder: (context, index) {
-          if (index == 0) {
+    return RepaintBoundary(
+      child: SizedBox(
+        height: 36.h,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          cacheExtent: 320.0,
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          itemCount: _albums.length + 2,
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              return Padding(
+                padding: EdgeInsets.only(right: 8.w),
+                child: GestureDetector(
+                  onTap: _pickFiles,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 16.w),
+                    decoration: BoxDecoration(
+                      color: colors.grey4,
+                      borderRadius: BorderRadius.circular(20.r),
+                      border: Border.all(color: colors.grey3, width: 1),
+                    ),
+                    alignment: Alignment.center,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.folder_open_rounded,
+                          size: 18.sp,
+                          color: colors.grey10,
+                        ),
+                        SizedBox(width: 6.w),
+                        Text(
+                          AppConstants.browse,
+                          style: TextStyle(
+                            color: colors.grey10,
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w500,
+                            decoration: TextDecoration.none,
+                            fontFamily: AppConstants.font,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            if (index == 1) {
+              return Padding(
+                padding: EdgeInsets.only(right: 8.w),
+                child: Icon(
+                  Icons.more_vert_rounded,
+                  size: 20.sp,
+                  color: colors.grey2,
+                ),
+              );
+            }
+
+            final album = _albums[index - 2];
+            final isSelected = album == _selectedAlbum;
+
+            // Provide a friendly name for the album
+            String albumName = album.isAll ? AppConstants.all : album.name;
+            if (albumName.isEmpty) albumName = AppConstants.folder;
+
             return Padding(
               padding: EdgeInsets.only(right: 8.w),
               child: GestureDetector(
-                onTap: _pickFiles,
+                onTap: () {
+                  if (!isSelected) {
+                    setState(() {
+                      _selectedAlbum = album;
+                    });
+                    _fetchMedia(loadMore: false);
+                  }
+                },
                 child: Container(
                   padding: EdgeInsets.symmetric(horizontal: 16.w),
                   decoration: BoxDecoration(
-                    color: colors.grey4,
+                    color: isSelected
+                        ? Theme.of(context).primaryColor
+                        : colors.grey4,
                     borderRadius: BorderRadius.circular(20.r),
-                    border: Border.all(color: colors.grey3, width: 1),
+                    border: Border.all(
+                      color: isSelected
+                          ? Theme.of(context).primaryColor
+                          : colors.grey3,
+                      width: 1,
+                    ),
                   ),
                   alignment: Alignment.center,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.folder_open_rounded,
-                        size: 18.sp,
-                        color: colors.grey10,
-                      ),
-                      SizedBox(width: 6.w),
-                      Text(
-                        AppConstants.browse,
-                        style: TextStyle(
-                          color: colors.grey10,
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.w500,
-                          decoration: TextDecoration.none,
-                          fontFamily: AppConstants.font,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    albumName,
+                    style: TextStyle(
+                      color: isSelected ? colors.grey8 : colors.grey10,
+                      fontSize: 13.sp,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w400,
+                      decoration: TextDecoration.none,
+                      fontFamily: AppConstants.font,
+                    ),
                   ),
                 ),
               ),
             );
-          }
-
-          if (index == 1) {
-            return Padding(
-              padding: EdgeInsets.only(right: 8.w),
-              child: Icon(
-                Icons.more_vert_rounded,
-                size: 20.sp,
-                color: colors.grey2,
-              ),
-            );
-          }
-
-          final album = _albums[index - 2];
-          final isSelected = album == _selectedAlbum;
-
-          // Provide a friendly name for the album
-          String albumName = album.isAll ? AppConstants.all : album.name;
-          if (albumName.isEmpty) albumName = AppConstants.folder;
-
-          return Padding(
-            padding: EdgeInsets.only(right: 8.w),
-            child: GestureDetector(
-              onTap: () {
-                if (!isSelected) {
-                  setState(() {
-                    _selectedAlbum = album;
-                  });
-                  _fetchMedia(loadMore: false);
-                }
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: EdgeInsets.symmetric(horizontal: 16.w),
-                decoration: BoxDecoration(
-                  color: isSelected ? Theme.of(context).primaryColor : colors.grey4,
-                  borderRadius: BorderRadius.circular(20.r),
-                  border: Border.all(
-                    color: isSelected ? Theme.of(context).primaryColor : colors.grey3,
-                    width: 1,
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  albumName,
-                  style: TextStyle(
-                    color: isSelected ? colors.grey8 : colors.grey10,
-                    fontSize: 13.sp,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    decoration: TextDecoration.none,
-                    fontFamily: AppConstants.font,
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
+          },
+        ),
       ),
     );
   }
@@ -591,132 +629,127 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
         ],
       );
     } else {
-      content = Stack(
+      content = Column(
         children: [
-          NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              return true;
-            },
-            child: CustomScrollView(
-              controller: widget.scrollController,
-              slivers: [
-                  // 1. Fixed height headers (Segmented Control & Album Chips)
-                  SliverToBoxAdapter(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: double.infinity,
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16.w),
-                            child: CupertinoSlidingSegmentedControl<int>(
-                              backgroundColor: colors.grey3,
-                              thumbColor: colors.grey5,
-                              children: {
-                                0: Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 8.h),
-                                  child: Text(
-                                    AppConstants.photos,
-                                    style: TextStyle(
-                                      color: colors.grey10,
-                                      decoration: TextDecoration.none,
-                                      fontSize: 14.sp,
-                                      fontFamily: AppConstants.font,
-                                    ),
-                                  ),
-                                ),
-                                1: Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 8.h),
-                                  child: Text(
-                                    AppConstants.videos,
-                                    style: TextStyle(
-                                      color: colors.grey10,
-                                      decoration: TextDecoration.none,
-                                      fontSize: 14.sp,
-                                      fontFamily: AppConstants.font,
-                                    ),
-                                  ),
-                                ),
-                                2: Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 8.h),
-                                  child: Text(
-                                    AppConstants.audio,
-                                    style: TextStyle(
-                                      color: colors.grey10,
-                                      decoration: TextDecoration.none,
-                                      fontSize: 14.sp,
-                                      fontFamily: AppConstants.font,
-                                    ),
-                                  ),
-                                ),
-                              },
-                              onValueChanged: (int? value) {
-                                if (value != null) {
-                                  setState(() {
-                                    _selectedSegment = value;
-                                    _selectedAssets.clear();
-                                    _albums.clear();
-                                    _selectedAlbum = null;
-                                  });
-                                  unawaited(_requestPermission());
-                                }
-                              },
-                              groupValue: _selectedSegment,
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: 16.h),
-                        if (!_isLoading && _permissionStatus?.isGranted == true) ...[
-                          _buildAlbumChips(colors),
-                          SizedBox(height: 12.h),
-                        ],
-                      ],
-                    ),
-                  ),
-
-                  // 2. Dynamic Content States
-                  if (_isLoading)
-                    _buildSkeletonSliver(colors)
-                  else if (_permissionStatus == null)
-                    const SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  else if (!_permissionStatus!.isGranted)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: _buildPermissionDenied(colors),
-                    )
-                  else if (_groupedAssets.isEmpty)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(
-                        child: Text(
-                          AppConstants.noMediaFound.replaceFirst(
-                              '%s', _getTabName(_selectedSegment).toLowerCase()),
-                          style: TextStyle(
-                            color: colors.grey10,
-                            decoration: TextDecoration.none,
-                            fontFamily: AppConstants.font,
-                          ),
-                        ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            child: SizedBox(
+              width: double.infinity,
+              child: CupertinoSlidingSegmentedControl<int>(
+                backgroundColor: colors.grey3,
+                thumbColor: colors.grey5,
+                children: {
+                  0: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8.h),
+                    child: Text(
+                      AppConstants.photos,
+                      style: TextStyle(
+                        color: colors.grey10,
+                        decoration: TextDecoration.none,
+                        fontSize: 14.sp,
+                        fontFamily: AppConstants.font,
                       ),
-                    )
-                  else
-                    ..._buildMediaSlivers(colors),
-
-                  // 3. Pagination Loader / Bottom Padding
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.only(top: 16.h, bottom: 80.h),
-                      child: _isLoadingMore
-                          ? const Center(child: CircularProgressIndicator())
-                          : const SizedBox.shrink(),
                     ),
                   ),
-                ],
+                  1: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8.h),
+                    child: Text(
+                      AppConstants.videos,
+                      style: TextStyle(
+                        color: colors.grey10,
+                        decoration: TextDecoration.none,
+                        fontSize: 14.sp,
+                        fontFamily: AppConstants.font,
+                      ),
+                    ),
+                  ),
+                  2: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8.h),
+                    child: Text(
+                      AppConstants.audio,
+                      style: TextStyle(
+                        color: colors.grey10,
+                        decoration: TextDecoration.none,
+                        fontSize: 14.sp,
+                        fontFamily: AppConstants.font,
+                      ),
+                    ),
+                  ),
+                },
+                onValueChanged: (int? value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedSegment = value;
+                      _selectedAssets.clear();
+                      _albums.clear();
+                      _selectedAlbum = null;
+                    });
+                    unawaited(_requestPermission());
+                  }
+                },
+                groupValue: _selectedSegment,
               ),
             ),
+          ),
+          SizedBox(height: 16.h),
+          if (!_isLoading && _permissionStatus?.isGranted == true) ...[
+            _buildAlbumChips(colors),
+            SizedBox(height: 12.h),
+          ],
+          Expanded(
+            child: RepaintBoundary(
+              child: Stack(
+                children: [
+                  NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    return true;
+                  },
+                  child: CustomScrollView(
+                    controller: widget.scrollController,
+                    slivers: [
+                      if (_isLoading)
+                        _buildSkeletonSliver(colors)
+                      else if (_permissionStatus == null)
+                        const SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (!_permissionStatus!.isGranted)
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: _buildPermissionDenied(colors),
+                        )
+                      else if (_groupedAssets.isEmpty)
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Center(
+                            child: Text(
+                              AppConstants.noMediaFound.replaceFirst(
+                                  '%s',
+                                  _getTabName(_selectedSegment).toLowerCase()),
+                              style: TextStyle(
+                                color: colors.grey10,
+                                decoration: TextDecoration.none,
+                                fontFamily: AppConstants.font,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        ..._buildMediaSlivers(colors),
+
+                      // 3. Pagination Loader / Bottom Padding
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.only(top: 16.h, bottom: 80.h),
+                          child: _isLoadingMore
+                              ? const Center(child: CircularProgressIndicator())
+                              : const SizedBox.shrink(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
           Positioned(
             left: 0,
             right: 0,
@@ -759,69 +792,103 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
                                 _selectedAssets.clear();
                               });
                             },
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 24.w,
-                                vertical: 14.h,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).primaryColor,
-                                borderRadius: BorderRadius.circular(60.r),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Theme.of(context)
-                                        .primaryColor
-                                        .withOpacity(0.3),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    AppConstants.add,
-                                    style: TextStyle(
-                                      color: colors.grey8,
-                                      fontSize: 16.sp,
-                                      fontWeight: FontWeight.w600,
-                                      fontFamily: AppConstants.font,
-                                      decoration: TextDecoration.none,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  height: 44.h,
+                                  padding:
+                                      EdgeInsets.symmetric(horizontal: 20.w),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).primaryColor,
+                                    borderRadius:
+                                        const BorderRadius.horizontal(
+                                      left: Radius.circular(50),
+                                      right: Radius.circular(16),
                                     ),
                                   ),
-                                  SizedBox(width: 12.w),
-                                  Container(
-                                    constraints: BoxConstraints(
-                                      minWidth: 26.w,
-                                      minHeight: 26.w,
-                                    ),
-                                    padding: EdgeInsets.symmetric(horizontal: 6.w),
-                                    decoration: BoxDecoration(
-                                      color: colors.error, // Red notification badge
-                                      borderRadius: BorderRadius.circular(13.w),
-                                    ),
-                                    alignment: Alignment.center,
+                                  child: Center(
                                     child: Text(
-                                      '${_selectedAssets.length}',
+                                      AppConstants.add,
+                                      textAlign: TextAlign.center,
+                                      textHeightBehavior:
+                                          const TextHeightBehavior(
+                                        applyHeightToFirstAscent: false,
+                                        applyHeightToLastDescent: false,
+                                      ),
                                       style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14.sp,
-                                        fontWeight: FontWeight.bold,
+                                        color: colors.grey8,
+                                        fontSize: 18.sp,
+                                        fontWeight: FontWeight.w600,
                                         fontFamily: AppConstants.font,
-                                        height: 1.0,
                                         decoration: TextDecoration.none,
                                       ),
                                     ),
                                   ),
-                                ],
-                              ),
+                                ),
+                                const SizedBox(width: 2),
+                                Container(
+                                  height: 44.h,
+                                  constraints: BoxConstraints(minWidth: 44.h),
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 10.w),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).primaryColor,
+                                    borderRadius:
+                                        const BorderRadius.horizontal(
+                                      left: Radius.circular(16),
+                                      right: Radius.circular(50),
+                                    ),
+                                  ),
+                                  child: Center(
+                                    widthFactor: 1.0,
+                                    child: Container(
+                                      constraints: BoxConstraints(
+                                        minWidth: 26.w,
+                                        minHeight: 26.w,
+                                      ),
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 6.w,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: colors.error,
+                                        borderRadius: BorderRadius.circular(13.w),
+                                      ),
+                                      child: Center(
+                                        widthFactor: 1.0,
+                                        heightFactor: 1.0,
+                                        child: Text(
+                                          '${_selectedAssets.length}',
+                                          textAlign: TextAlign.center,
+                                          textHeightBehavior:
+                                              const TextHeightBehavior(
+                                            applyHeightToFirstAscent: false,
+                                            applyHeightToLastDescent: false,
+                                          ),
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14.sp,
+                                            fontWeight: FontWeight.bold,
+                                            fontFamily: AppConstants.font,
+                                            decoration: TextDecoration.none,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
+                          SizedBox(width: 68.w),
                         ],
                       ),
                     )
                   : const SizedBox.shrink(key: ValueKey('empty_button')),
+            ),
+          ),
+        ],
+              ),
             ),
           ),
         ],
@@ -1186,8 +1253,11 @@ class AudioRecorderView extends StatefulWidget {
   State<AudioRecorderView> createState() => AudioRecorderViewState();
 }
 
-class AudioRecorderViewState extends State<AudioRecorderView>
-    with TickerProviderStateMixin {
+class AudioRecorderViewState extends State<AudioRecorderView> {
+  static const int _liveBarCount = 32;
+  static const int _playbackBarCount = 44;
+  static const Color _appleRecordRed = Color(0xFFFF3B30);
+
   final AudioRecorder _audioRecorder = AudioRecorder();
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isRecording = false;
@@ -1196,24 +1266,35 @@ class AudioRecorderViewState extends State<AudioRecorderView>
   bool _isPlayingPreview = false;
   String? _recordingPath;
   Duration _recordingDuration = Duration.zero;
-  Duration _playbackPosition = Duration.zero; // New variable to track playback time
+  Duration _playbackPosition = Duration.zero;
   Timer? _timer;
+  Timer? _amplitudeTimer;
   StreamSubscription? _playerStateSubscription;
-  StreamSubscription? _positionSubscription; // New subscription for audio player position
-  late final AnimationController _animationController;
+  StreamSubscription? _positionSubscription;
+  StreamSubscription? _durationSubscription;
+  List<double> _liveEqualizerLevels = List<double>.filled(_liveBarCount, 0.06);
+  final List<double> _recordedAmplitudes = [];
+  List<double> _playbackSpectrumBars = List<double>.filled(_playbackBarCount, 0.08);
 
-  bool get hasUnsavedRecording => _isRecording || _isPaused || (_isStopped && _recordingPath != null);
+  bool get hasUnsavedRecording =>
+      _isRecording || _isPaused || (_isStopped && _recordingPath != null);
 
   @override
   void initState() {
     super.initState();
     _playerStateSubscription =
         _audioPlayer.onPlayerStateChanged.listen((state) {
-          if (mounted && state == PlayerState.completed) {
-            setState(() {
-              _isPlayingPreview = false;
-              _playbackPosition = Duration.zero; // Reset to 0 when playback ends
-            });
+          if (mounted) {
+            if (state == PlayerState.completed) {
+              setState(() {
+                _isPlayingPreview = false;
+                _playbackPosition = Duration.zero;
+              });
+            } else {
+              setState(() {
+                _isPlayingPreview = state == PlayerState.playing;
+              });
+            }
           }
         });
 
@@ -1225,58 +1306,59 @@ class AudioRecorderViewState extends State<AudioRecorderView>
       }
     });
 
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    );
+    _durationSubscription = _audioPlayer.onDurationChanged.listen((duration) {
+      if (mounted && duration > Duration.zero) {
+        setState(() {
+          _recordingDuration = duration;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _amplitudeTimer?.cancel();
     _audioRecorder.dispose();
     _audioPlayer.dispose();
     _playerStateSubscription?.cancel();
     _positionSubscription?.cancel();
-    _animationController.dispose();
+    _durationSubscription?.cancel();
     super.dispose();
   }
 
   String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    final totalSeconds = duration.inSeconds.clamp(0, 359999);
+    final minutes = totalSeconds ~/ 60;
+    final seconds = (totalSeconds % 60).toString().padLeft(2, '0');
     return '$minutes:$seconds';
   }
 
-  Future<void> _toggleRecording() async {
-    if (_isRecording && !_isPaused) {
-      await _pauseRecording();
-    } else if (_isRecording && _isPaused) {
-      await _resumeRecording();
-    } else {
-      await _startRecording();
-    }
-  }
-
-  Future<void> _handleRecordPressStart() async {
-    if (_isRecording && _isPaused) {
-      await _resumeRecording();
-    } else if (!_isRecording) {
-      await _startRecording();
-    }
-  }
-
-  Future<void> _handleRecordPressEnd() async {
-    if (_isRecording && !_isPaused) {
-      await _pauseRecording();
-    }
+  void _startAmplitudeSampling() {
+    _amplitudeTimer?.cancel();
+    _amplitudeTimer =
+        Timer.periodic(const Duration(milliseconds: 65), (_) async {
+      if (!mounted || !_isRecording || _isPaused) return;
+      try {
+        final amp = await _audioRecorder.getAmplitude();
+        final level = AudioSpectrumWaveform.normalizeDb(amp.current);
+        if (!mounted || !_isRecording || _isPaused) return;
+        setState(() {
+          _recordedAmplitudes.add(level);
+          _liveEqualizerLevels = [
+            ..._liveEqualizerLevels.sublist(1),
+            level.clamp(0.06, 1.0),
+          ];
+        });
+      } catch (_) {
+        // Ignore transient recorder amplitude read errors during state switches.
+      }
+    });
   }
 
   Future<void> _startRecording() async {
     final hasPermission = await _audioRecorder.hasPermission();
     if (!hasPermission) {
-      // Handle permission denial
       return;
     }
 
@@ -1285,72 +1367,113 @@ class AudioRecorderViewState extends State<AudioRecorderView>
     if (!await mediaDir.exists()) {
       await mediaDir.create(recursive: true);
     }
-    final path = '${mediaDir.path}/OpenJot_recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
+    final path =
+        '${mediaDir.path}/OpenJot_recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
 
     await _audioRecorder.start(const RecordConfig(), path: path);
     setState(() {
       _isRecording = true;
       _isPaused = false;
       _isStopped = false;
+      _recordingPath = path;
       _recordingDuration = Duration.zero;
       _playbackPosition = Duration.zero;
+      _recordedAmplitudes.clear();
+      _liveEqualizerLevels = List<double>.filled(_liveBarCount, 0.06);
+      _playbackSpectrumBars = List<double>.filled(_playbackBarCount, 0.08);
     });
-    unawaited(_animationController.repeat());
     _startTimer();
+    _startAmplitudeSampling();
   }
 
   Future<void> _pauseRecording() async {
     _timer?.cancel();
+    _amplitudeTimer?.cancel();
     await _audioRecorder.pause();
-    setState(() {
-      _isPaused = true;
-    });
-    _animationController.stop();
+    if (mounted) {
+      setState(() {
+        _isPaused = true;
+      });
+    }
   }
 
   Future<void> _resumeRecording() async {
     await _audioRecorder.resume();
-    setState(() {
-      _isPaused = false;
-    });
-    unawaited(_animationController.repeat());
+    if (mounted) {
+      setState(() {
+        _isPaused = false;
+      });
+    }
     _startTimer();
+    _startAmplitudeSampling();
   }
 
   Future<void> _stopRecording() async {
     _timer?.cancel();
-    _animationController.reset();
+    _amplitudeTimer?.cancel();
     final path = await _audioRecorder.stop();
+    final downsampled = AudioSpectrumWaveform.downsampleLevels(
+      _recordedAmplitudes,
+      targetCount: _playbackBarCount,
+    );
+    if (path != null && Get.isRegistered<HiveService>()) {
+      AudioSpectrumWaveform.saveWaveform(
+        Get.find<HiveService>(),
+        path,
+        downsampled,
+      );
+    }
     setState(() {
       _isRecording = false;
       _isPaused = false;
       _isStopped = true;
       _recordingPath = path;
       _playbackPosition = Duration.zero;
+      _playbackSpectrumBars = downsampled;
     });
   }
 
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (Timer t) {
-      setState(() {
-        _recordingDuration += const Duration(seconds: 1);
-      });
+      if (mounted) {
+        setState(() {
+          _recordingDuration += const Duration(seconds: 1);
+        });
+      }
     });
   }
 
-  void _togglePreview() {
+  Future<void> _togglePreview() async {
     if (_isPlayingPreview) {
-      unawaited(_audioPlayer.pause());
-      setState(() {
-        _isPlayingPreview = false;
-      });
+      await _audioPlayer.pause();
+      if (mounted) {
+        setState(() {
+          _isPlayingPreview = false;
+        });
+      }
     } else if (_recordingPath != null) {
-      unawaited(_audioPlayer.play(DeviceFileSource(_recordingPath!)));
-      setState(() {
-        _isPlayingPreview = true;
-      });
+      await _audioPlayer.play(DeviceFileSource(_recordingPath!));
+      if (_playbackPosition > Duration.zero &&
+          _playbackPosition < _recordingDuration) {
+        await _audioPlayer.seek(_playbackPosition);
+      }
+      if (mounted) {
+        setState(() {
+          _isPlayingPreview = true;
+        });
+      }
     }
+  }
+
+  void _seekToProgress(double progress) {
+    if (_recordingDuration <= Duration.zero) return;
+    final targetMs = (_recordingDuration.inMilliseconds * progress).round();
+    final target = Duration(milliseconds: targetMs);
+    setState(() {
+      _playbackPosition = target;
+    });
+    unawaited(_audioPlayer.seek(target));
   }
 
   void _addRecording() {
@@ -1392,7 +1515,7 @@ class AudioRecorderViewState extends State<AudioRecorderView>
 
   void _performDiscard() {
     _timer?.cancel();
-    _animationController.reset();
+    _amplitudeTimer?.cancel();
     if (_isRecording) {
       unawaited(_audioRecorder.stop());
     }
@@ -1400,6 +1523,12 @@ class AudioRecorderViewState extends State<AudioRecorderView>
       unawaited(_audioPlayer.stop());
     }
     if (_recordingPath != null) {
+      if (Get.isRegistered<HiveService>()) {
+        AudioSpectrumWaveform.deleteWaveform(
+          Get.find<HiveService>(),
+          _recordingPath!,
+        );
+      }
       final file = File(_recordingPath!);
       if (file.existsSync()) {
         file.delete();
@@ -1409,7 +1538,6 @@ class AudioRecorderViewState extends State<AudioRecorderView>
   }
 
   void _resetStateForNewRecording() {
-    _animationController.reset();
     setState(() {
       _isRecording = false;
       _isPaused = false;
@@ -1418,253 +1546,301 @@ class AudioRecorderViewState extends State<AudioRecorderView>
       _recordingPath = null;
       _recordingDuration = Duration.zero;
       _playbackPosition = Duration.zero;
+      _recordedAmplitudes.clear();
+      _liveEqualizerLevels = List<double>.filled(_liveBarCount, 0.06);
+      _playbackSpectrumBars = List<double>.filled(_playbackBarCount, 0.08);
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = AppTheme.colorsOf(context);
-    return ListView(
-      controller: widget.scrollController,
-      children: [
-        SizedBox(height: 16.h),
-        if (_isStopped)
-          Text(
-            AppConstants.listen,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: colors.success,
-              fontFamily: AppConstants.font,
-              fontWeight: FontWeight.w600,
-              decoration: TextDecoration.none,
-              fontSize: 16.sp,
-            ),
-          )
-        else if (_isRecording && !_isPaused)
-          Text(
-            AppConstants.recording,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: colors.error,
-              fontFamily: AppConstants.font,
-              fontWeight: FontWeight.w600,
-              decoration: TextDecoration.none,
-              fontSize: 16.sp,
-            ),
-          )
-        else if (_isPaused)
-            Text(
-              AppConstants.paused,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: colors.grey1,
-                fontFamily: AppConstants.font,
-                fontWeight: FontWeight.w600,
-                decoration: TextDecoration.none,
-                fontSize: 16.sp,
-              ),
-            ),
+    final double playbackProgress = _recordingDuration.inMilliseconds > 0
+        ? (_playbackPosition.inMilliseconds / _recordingDuration.inMilliseconds)
+            .clamp(0.0, 1.0)
+        : 0.0;
 
-        if (_isStopped)
-          Text(
-            '${_formatDuration(_playbackPosition)} / ${_formatDuration(_recordingDuration)}',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: AppConstants.font,
-              fontSize: 40.sp, // Slightly smaller to accommodate dual durations
-              color: colors.grey10,
-              fontWeight: FontWeight.w600,
-              decoration: TextDecoration.none,
-            ),
-          )
-        else
-          Text(
-            _formatDuration(_recordingDuration),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: AppConstants.font,
-              fontSize: 48.sp,
-              color: colors.grey10,
-              fontWeight: FontWeight.w600,
-              decoration: TextDecoration.none,
+    return CustomScrollView(
+      controller: widget.scrollController,
+      slivers: [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 12.h),
+            child: Column(
+              children: [
+                if (_isStopped) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      _buildHeaderCircleButton(
+                        backgroundColor: colors.grey4,
+                        icon: Icons.delete_outline_rounded,
+                        iconColor: _appleRecordRed,
+                        onPressed: () => discardRecording(showDialog: true),
+                      ),
+                      _buildHeaderCircleButton(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        icon: Icons.check_rounded,
+                        iconColor: colors.grey8,
+                        onPressed: _addRecording,
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 12.h),
+                  Text(
+                    AppConstants.listen,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: colors.grey1,
+                      fontFamily: AppConstants.font,
+                      fontWeight: FontWeight.w500,
+                      decoration: TextDecoration.none,
+                      fontSize: 13.sp,
+                    ),
+                  ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    '${_formatDuration(_playbackPosition)} / ${_formatDuration(_recordingDuration)}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: AppConstants.font,
+                      fontSize: 18.sp,
+                      color: colors.grey10,
+                      fontWeight: FontWeight.w600,
+                      fontFeatures: const [ui.FontFeature.tabularFigures()],
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ] else if (_isRecording) ...[
+                  SizedBox(height: 16.h),
+                  Text(
+                    _isPaused ? AppConstants.paused : 'Recording',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: _isPaused ? colors.grey1 : _appleRecordRed,
+                      fontFamily: AppConstants.font,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.none,
+                      fontSize: 14.sp,
+                    ),
+                  ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    _formatDuration(_recordingDuration),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: AppConstants.font,
+                      fontSize: 18.sp,
+                      color: colors.grey10,
+                      fontWeight: FontWeight.w600,
+                      fontFeatures: const [ui.FontFeature.tabularFigures()],
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ] else ...[
+                  SizedBox(height: 16.h),
+                  Text(
+                    _formatDuration(_recordingDuration),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: AppConstants.font,
+                      fontSize: 15.sp,
+                      color: colors.grey1,
+                      fontWeight: FontWeight.w500,
+                      fontFeatures: const [ui.FontFeature.tabularFigures()],
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ],
+                Expanded(
+                  child: Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8.w),
+                      child: _isStopped
+                          ? AudioSpectrumWaveform(
+                              levels: _playbackSpectrumBars,
+                              progress: playbackProgress,
+                              activeColor: colors.grey10,
+                              inactiveColor: colors.grey3,
+                              playheadColor: _appleRecordRed,
+                              height: 92.h,
+                              onSeek: _seekToProgress,
+                            )
+                          : _isRecording
+                              ? AudioSpectrumWaveform(
+                                  levels: _liveEqualizerLevels,
+                                  activeColor:
+                                      _isPaused ? colors.grey1 : _appleRecordRed,
+                                  inactiveColor: colors.grey3,
+                                  height: 92.h,
+                                )
+                              : Text(
+                                  'Start Audio Recording',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontFamily: AppConstants.font,
+                                    fontSize: 16.sp,
+                                    color: colors.grey2,
+                                    fontWeight: FontWeight.w500,
+                                    decoration: TextDecoration.none,
+                                  ),
+                                ),
+                    ),
+                  ),
+                ),
+                if (_isStopped)
+                  _buildPreviewControls(colors)
+                else
+                  _buildRecordingControls(colors),
+              ],
             ),
           ),
-
-        if (!_isStopped) SizedBox(height: 32.h),
-        if (!_isStopped) _buildRecordingControls(colors),
-        if (_isStopped) SizedBox(height: 16.h),
-        if (_isStopped) _buildPreviewControls(colors),
+        ),
       ],
     );
   }
 
   Widget _buildRecordingControls(AppThemeColors colors) {
-    final bool isActivelyRecording = _isRecording && !_isPaused;
-
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Spacer(flex: 3),
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                // Wave animation
-                if (isActivelyRecording)
-                  AnimatedBuilder(
-                    animation: _animationController,
-                    builder: (context, child) {
-                      return Transform.scale(
-                        scale: 1 + _animationController.value * 1.2,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: colors.error.withOpacity(
-                                0.4 - (_animationController.value * 0.4)),
-                          ),
-                          child: SizedBox(
-                            width: 80.w,
-                            height: 80.w,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                // The button itself
-                GestureDetector(
-                  onTap: _toggleRecording,
-                  onLongPressStart: (_) => unawaited(_handleRecordPressStart()),
-                  onLongPressEnd: (_) => unawaited(_handleRecordPressEnd()),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isActivelyRecording
-                          ? colors.error.withOpacity(0.7)
-                          : colors.error,
-                    ),
-                    child: SizedBox(
-                      width: 80.w,
-                      height: 80.w,
-                      child: Icon(
-                        isActivelyRecording ? Icons.pause : Icons.mic,
-                        color: colors.grey10,
-                        size: 36.sp,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+    if (!_isRecording) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: 12.h),
+        child: GestureDetector(
+          onTap: () => unawaited(_startRecording()),
+          child: Container(
+            width: 68.w,
+            height: 68.w,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: colors.grey3,
+                width: 2.5,
+              ),
             ),
-            Expanded(
-              flex: 3,
-              child: _isRecording
-                  ? Align(
-                alignment: Alignment.center,
-                child: TextButton(
-                  onPressed: _stopRecording,
-                  child: Text(
-                    AppConstants.stop,
-                    style: TextStyle(
-                      color: colors.grey10,
-                      fontSize: 18.sp,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: AppConstants.font,
-                    ),
-                  ),
-                ),
-              )
-                  : const SizedBox(),
+            padding: EdgeInsets.all(4.w),
+            child: const DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _appleRecordRed,
+              ),
             ),
-          ],
-        ),
-        SizedBox(height: 16.h),
-        Text(
-          _isPaused
-              ? AppConstants.tapOrHoldToResume
-              : (isActivelyRecording
-              ? AppConstants.tapOrReleaseToPause
-              : AppConstants.tapAndHold),
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: colors.grey1,
-            fontFamily: AppConstants.font,
-            fontWeight: FontWeight.w500,
-            decoration: TextDecoration.none,
-            fontSize: 14.sp,
           ),
         ),
-      ],
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: 12.h),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: EdgeInsets.only(right: 24.w),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: colors.grey4,
+                  ),
+                  child: SizedBox(
+                    width: 44.w,
+                    height: 44.w,
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      icon: Icon(
+                        _isPaused
+                            ? Icons.play_arrow_rounded
+                            : Icons.pause_rounded,
+                        color: colors.grey10,
+                        size: 24.sp,
+                      ),
+                      onPressed: () {
+                        if (_isPaused) {
+                          unawaited(_resumeRecording());
+                        } else {
+                          unawaited(_pauseRecording());
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => unawaited(_stopRecording()),
+            child: Container(
+              width: 68.w,
+              height: 68.w,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: colors.grey3,
+                  width: 2.5,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Container(
+                width: 24.w,
+                height: 24.w,
+                decoration: BoxDecoration(
+                  color: _appleRecordRed,
+                  borderRadius: BorderRadius.circular(6.r),
+                ),
+              ),
+            ),
+          ),
+          const Expanded(child: SizedBox()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderCircleButton({
+    required Color backgroundColor,
+    required IconData icon,
+    required Color iconColor,
+    required VoidCallback onPressed,
+  }) {
+    return IconButton(
+      icon: Icon(
+        icon,
+        color: iconColor,
+        size: 28,
+      ),
+      onPressed: onPressed,
+      style: ButtonStyle(
+        backgroundColor: WidgetStateProperty.all(backgroundColor),
+      ),
     );
   }
 
   Widget _buildPreviewControls(AppThemeColors colors) {
-    return Column(
-      children: [
-        Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: colors.grey3,
-              ),
-              child: SizedBox(
-                width: 80.w,
-                height: 80.w,
-                child: IconButton(
-                  icon: Icon(
-                    _isPlayingPreview
-                        ? Icons.pause_rounded
-                        : Icons.play_arrow_rounded,
-                    color: colors.grey10,
-                    size: 36.sp,
-                  ),
-                  onPressed: _togglePreview,
-                ),
-              ),
+    return Padding(
+      padding: EdgeInsets.only(bottom: 12.h),
+      child: Center(
+        child: GestureDetector(
+          onTap: () => unawaited(_togglePreview()),
+          child: Container(
+            width: 64.w,
+            height: 64.w,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colors.grey10,
             ),
-          ],
+            child: Icon(
+              _isPlayingPreview
+                  ? Icons.pause_rounded
+                  : Icons.play_arrow_rounded,
+              color: colors.grey8,
+              size: 32.sp,
+            ),
+          ),
         ),
-        SizedBox(height: 24.h),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: colors.error,
-              ),
-              child: SizedBox(
-                width: 44.w,
-                height: 44.w,
-                child: IconButton(
-                  icon: Icon(
-                    Icons.delete_outline_rounded,
-                    color: colors.grey10,
-                    size: 24.sp,
-                  ),
-                  onPressed: () => discardRecording(showDialog: true),
-                ),
-              ),
-            ),
-            SizedBox(width: 8.w),
-            CustomButton(
-              onPressed: _addRecording,
-              borderRadius: 56,
-              text: AppConstants.add,
-              icon: Icons.add,
-              iconSize: 24,
-              color: Theme.of(context).primaryColor,
-              textColor: colors.grey8,
-              textPadding: EdgeInsets.symmetric(
-                horizontal: 16.w,
-                vertical: 8.h,
-              ),
-            ),
-          ],
-        )
-      ],
+      ),
     );
   }
 }
@@ -1703,6 +1879,13 @@ class MoodSelectorViewState extends State<MoodSelectorView>
     _currentMoodIndex = widget.initialMoodIndex ?? 3;
     _lastSliderValue = _currentMoodIndex.toDouble();
     _targetTurns = _currentMoodIndex.toDouble();
+    if (widget.initialMoodIndex == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          widget.onMoodChanged?.call(3);
+        }
+      });
+    }
   }
 
 
@@ -1796,131 +1979,157 @@ class MoodSelectorViewState extends State<MoodSelectorView>
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 32.h),
+                  padding: EdgeInsets.fromLTRB(24.w, 68.h, 24.w, 12.h),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Center(
-                        child: SizedBox(
-                          height: 32.h,
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 500),
-                            layoutBuilder: (currentChild, previousChildren) {
-                              return Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  ...previousChildren,
-                                  if (currentChild != null) currentChild,
-                                ],
-                              );
-                            },
-                            transitionBuilder: (child, animation) {
-                              return FadeTransition(
-                                opacity: animation,
-                                child: SlideTransition(
-                                  position: Tween<Offset>(
-                                    begin: const Offset(0, 0.2),
-                                    end: Offset.zero,
-                                  ).animate(CurvedAnimation(
-                                    parent: animation,
-                                    curve: Curves.easeOutCubic,
-                                  )),
-                                  child: child,
-                                ),
-                              );
-                            },
-                            child: Text(
-                              selectedMood['label']!,
-                              key: ValueKey(selectedMood['label']),
-                              style: TextStyle(
-                                color: currentAccent,
-                                fontSize: 20.sp,
-                                fontWeight: FontWeight.w700,
-                                fontFamily: AppConstants.font,
-                                decoration: TextDecoration.none,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                          ),
+                      Text(
+                        'How are you feeling?',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: colors.grey10,
+                          fontSize: 21.sp,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: AppConstants.font,
+                          decoration: TextDecoration.none,
+                          letterSpacing: -0.4,
                         ),
                       ),
-                      SizedBox(height: 24.h),
-                      Center(
-                        child: AnimatedRotation(
-                          turns: _targetTurns,
-                          duration: const Duration(milliseconds: 700),
-                          curve: Curves.easeOutBack,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              // Lush Glow behind the icon
-                              Container(
-                                width: 150.w,
-                                height: 150.w,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: currentAccent.withOpacity(isDark ? 0.25 : 0.15),
-                                      blurRadius: 50,
-                                      spreadRadius: 15,
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Center(
+                              child: AnimatedRotation(
+                                turns: _targetTurns,
+                                duration: const Duration(milliseconds: 700),
+                                curve: Curves.easeOutBack,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    // Lush Glow behind the icon
+                                    Container(
+                                      width: 168.w,
+                                      height: 168.w,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: currentAccent.withOpacity(
+                                                isDark ? 0.25 : 0.15),
+                                            blurRadius: 50,
+                                            spreadRadius: 15,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    RepaintBoundary(
+                                      child: IndexedStack(
+                                        index: moodIndex,
+                                        alignment: Alignment.center,
+                                        children:
+                                            List.generate(_moods.length, (idx) {
+                                          return Obx(() {
+                                            final HomeController controller =
+                                                Get.find();
+                                            final rasterizedImage =
+                                                controller.moodImagesLarge[idx];
+
+                                            if (rasterizedImage != null) {
+                                              return RawImage(
+                                                image: rasterizedImage,
+                                                width: 180.w,
+                                                height: 180.w,
+                                                filterQuality:
+                                                    ui.FilterQuality.high,
+                                              );
+                                            }
+
+                                            return MoodHelper.buildMoodSvg(
+                                              idx,
+                                              width: 180.w,
+                                              height: 180.w,
+                                            );
+                                          });
+                                        }),
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
-                              RepaintBoundary(
-                                child: IndexedStack(
-                                  index: moodIndex,
-                                  alignment: Alignment.center,
-                                  children: List.generate(_moods.length, (idx) {
-                                    return Obx(() {
-                                      final HomeController controller = Get.find();
-                                      final rasterizedImage = controller.moodImagesLarge[idx];
-
-                                      if (rasterizedImage != null) {
-                                        return RawImage(
-                                          image: rasterizedImage,
-                                          width: 160.w,
-                                          height: 160.h,
-                                          filterQuality: ui.FilterQuality.high,
-                                        );
-                                      }
-
-                                      return MoodHelper.buildMoodSvg(
-                                        idx,
-                                        width: 160.w,
-                                        height: 160.h,
-                                      );
-                                    });
-                                  }),
+                            ),
+                            SizedBox(height: 18.h),
+                            Center(
+                              child: SizedBox(
+                                height: 36.h,
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 500),
+                                  layoutBuilder:
+                                      (currentChild, previousChildren) {
+                                    return Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        ...previousChildren,
+                                        if (currentChild != null) currentChild,
+                                      ],
+                                    );
+                                  },
+                                  transitionBuilder: (child, animation) {
+                                    return FadeTransition(
+                                      opacity: animation,
+                                      child: SlideTransition(
+                                        position: Tween<Offset>(
+                                          begin: const Offset(0, 0.2),
+                                          end: Offset.zero,
+                                        ).animate(CurvedAnimation(
+                                          parent: animation,
+                                          curve: Curves.easeOutCubic,
+                                        )),
+                                        child: child,
+                                      ),
+                                    );
+                                  },
+                                  child: Text(
+                                    selectedMood['label']!,
+                                    key: ValueKey(selectedMood['label']),
+                                    style: TextStyle(
+                                      color: currentAccent,
+                                      fontSize: 22.sp,
+                                      fontWeight: FontWeight.w700,
+                                      fontFamily: AppConstants.font,
+                                      decoration: TextDecoration.none,
+                                      letterSpacing: -0.4,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
-                      SizedBox(height: 20.h),
                       SizedBox(
-                        height: 72.h,
+                        height: 92.h,
                         child: CustomSliderWithTooltip(
                           min: 0,
                           max: 6,
+                          divisions: 6,
                           initialValue: _lastSliderValue,
                           showValueTooltip: false,
                           minLabel: AppConstants.veryUnpleasant,
                           maxLabel: AppConstants.veryPleasant,
                           labelTextStyle: TextStyle(
-                            color: currentAccent.withOpacity(isDark ? 0.6 : 0.7),
-                            fontSize: 11.sp,
-                            fontWeight: FontWeight.w700,
+                            color: currentAccent.withOpacity(isDark ? 0.65 : 0.72),
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w600,
                             fontFamily: AppConstants.font,
+                            decoration: TextDecoration.none,
+                            letterSpacing: 0.3,
                           ),
                           activeColor: currentAccent,
                           unfocusedActiveColor: currentAccent.withOpacity(0.8),
                           inactiveColor: inactiveColor,
                           dividerColor: isDark ? Colors.white : currentAccent.withOpacity(0.8),
-                          focusedTrackHeight: 22.h,
-                          unfocusedTrackHeight: 18.h,
+                          focusedTrackHeight: 34.h,
+                          unfocusedTrackHeight: 28.h,
                           onChanged: (value) {
                             setState(() {
                               _lastSliderValue = value;
@@ -1942,7 +2151,7 @@ class MoodSelectorViewState extends State<MoodSelectorView>
           ),
           if (widget.initialMoodIndex != null)
             Positioned(
-              top: 16.h,
+              top: 8.h,
               right: 16.w,
               child: TextButton(
                 onPressed: () {
