@@ -1178,6 +1178,28 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
             top: 0,
             height: topBlurHeight,
             child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Theme.of(context).scaffoldBackgroundColor,
+                      Theme.of(context)
+                          .scaffoldBackgroundColor
+                          .withValues(alpha: 0.0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            height: topBlurHeight,
+            child: IgnorePointer(
               child: ProgressiveEdgeBlur(
                 edge: ProgressiveBlurEdge.top,
                 sigma: 12,

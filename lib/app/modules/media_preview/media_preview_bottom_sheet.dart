@@ -114,30 +114,96 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
     _pageController = PageController(initialPage: _currentIndex);
   }
 
+  int _decodeTargetWidth(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    return (mq.size.width * mq.devicePixelRatio).round().clamp(1080, 1920);
+  }
+
+  ImageProvider? _imageProviderFor(MediaItem item, int decodeWidth) {
+    if (item.asset is AssetEntity) {
+      return AssetEntityImageProvider(
+        item.asset as AssetEntity,
+        isOriginal: false,
+        thumbnailSize: ThumbnailSize.square(decodeWidth),
+      );
+    }
+    if (item.asset is CapturedPhoto) {
+      return ResizeImage.resizeIfNeeded(
+        decodeWidth,
+        null,
+        FileImage(File((item.asset as CapturedPhoto).file.path)),
+      );
+    }
+    return null;
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Preload content here, as context is available.
     if (!_isPreloadingInitiated) {
-      _preloadInitialContent();
       _isPreloadingInitiated = true;
+      _applyImmediateColorsIfPossible(_currentIndex);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _preloadInitialContent();
+        }
+      });
     }
   }
 
-  void _preloadInitialContent() {
-    // We want the UI to be interactive immediately, so we don't wait for this.
-    // Fetch the color for the initial item.
-    _updateBackgroundColor(_currentIndex);
+  void _applyImmediateColorsIfPossible(int index) {
+    if (index < 0 || index >= _editableMediaItems.length) return;
+    final colors = _resolveInstantColors(_editableMediaItems[index]);
+    if (colors != null) {
+      _colorCache[index] = colors;
+      _vibrantColor = colors[0];
+      _dominantColor = colors[1];
+    }
+  }
 
-    // Pre-load colors and images for adjacent items to make scrolling smooth.
-    if (_currentIndex > 0) {
-      _updateBackgroundColor(_currentIndex - 1);
-      _precacheImage(_currentIndex - 1);
+  List<Color>? _resolveInstantColors(MediaItem item) {
+    if (item.kind == MediaPreviewKind.mood) {
+      final moodIdx =
+          (item.asset as int).clamp(0, AppConstants.moods.length - 1);
+      final appColors = AppTheme.colorsOf(context);
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      final moodColors =
+          MoodHelper.getMoodThemeColors(moodIdx, appColors, isDark);
+      return [moodColors[1], moodColors[2]];
     }
-    if (_currentIndex < _editableMediaItems.length - 1) {
-      _updateBackgroundColor(_currentIndex + 1);
-      _precacheImage(_currentIndex + 1);
+    if (item.kind == MediaPreviewKind.location) {
+      return const [Color(0xFF4F7EA8), Color(0xFF1F3549)];
     }
+    if (item.kind == MediaPreviewKind.recording) {
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      return isDark
+          ? const [Color(0xFF1C1C24), Color(0xFF0A0A0F)]
+          : const [Color(0xFFFFFFFF), Color(0xFFF2F2F7)];
+    }
+    if (item.kind == MediaPreviewKind.audio) {
+      return [Colors.deepPurple.shade900, Colors.black87];
+    }
+    return null;
+  }
+
+  void _preloadInitialContent() {
+    if (!_colorCache.containsKey(_currentIndex)) {
+      unawaited(_updateBackgroundColor(_currentIndex));
+    }
+    _precacheImage(_currentIndex);
+
+    // Defer adjacent palette/image preloads until after the opening slide finishes.
+    Future.delayed(const Duration(milliseconds: 280), () {
+      if (!mounted) return;
+      if (_currentIndex > 0) {
+        unawaited(_updateBackgroundColor(_currentIndex - 1));
+        _precacheImage(_currentIndex - 1);
+      }
+      if (_currentIndex < _editableMediaItems.length - 1) {
+        unawaited(_updateBackgroundColor(_currentIndex + 1));
+        _precacheImage(_currentIndex + 1);
+      }
+    });
   }
 
   @override
@@ -146,30 +212,23 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
     super.dispose();
   }
 
-  /// Pre-caches a specific image to improve scrolling performance.
+  /// Pre-caches a screen-sized resized image provider matching display decode keys.
   void _precacheImage(int index) {
-    if (index < 0 || index >= _editableMediaItems.length) return;
-
+    if (!mounted || index < 0 || index >= _editableMediaItems.length) return;
     final item = _editableMediaItems[index];
-    if (item.kind == MediaPreviewKind.image) {
-      ImageProvider? imageProvider;
-      try {
-        if (item.asset is AssetEntity) {
-          imageProvider =
-              AssetEntityImageProvider(item.asset as AssetEntity, isOriginal: true);
-        } else if (item.asset is CapturedPhoto) {
-          imageProvider = FileImage(File((item.asset as CapturedPhoto).file.path));
-        }
-        if (imageProvider != null && mounted) {
-          precacheImage(imageProvider, context);
-        }
-      } catch (e) {
-        debugPrint("Error creating image provider for precaching: $e");
+    if (item.kind != MediaPreviewKind.image) return;
+
+    try {
+      final provider = _imageProviderFor(item, _decodeTargetWidth(context));
+      if (provider != null) {
+        unawaited(precacheImage(provider, context));
       }
+    } catch (e) {
+      debugPrint("Error creating image provider for precaching: $e");
     }
   }
 
-  /// Extracts colors from a media item to create a gradient.
+  /// Extracts ambient palette colors from a media item without heavy full-res decoding.
   Future<void> _updateBackgroundColor(int index) async {
     if (index < 0 ||
         index >= _editableMediaItems.length ||
@@ -190,112 +249,57 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
 
     try {
       _processingIndexes.add(index);
-
       final item = _editableMediaItems[index];
 
-      if (item.kind == MediaPreviewKind.mood) {
-        final moodIdx =
-            (item.asset as int).clamp(0, AppConstants.moods.length - 1);
-        final appColors = AppTheme.colorsOf(context);
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        final moodColors =
-            MoodHelper.getMoodThemeColors(moodIdx, appColors, isDark);
-        final colors = [moodColors[1], moodColors[2]];
-        _colorCache[index] = colors;
+      final instant = _resolveInstantColors(item);
+      if (instant != null) {
+        _colorCache[index] = instant;
         if (mounted && index == _currentIndex) {
           setState(() {
-            _vibrantColor = colors[0];
-            _dominantColor = colors[1];
+            _vibrantColor = instant[0];
+            _dominantColor = instant[1];
           });
         }
-        _processingIndexes.remove(index);
         return;
       }
 
-      if (item.kind == MediaPreviewKind.location) {
-        const locationColors = [Color(0xFF4F7EA8), Color(0xFF1F3549)];
-        _colorCache[index] = locationColors;
-        if (mounted && index == _currentIndex) {
-          setState(() {
-            _vibrantColor = locationColors[0];
-            _dominantColor = locationColors[1];
-          });
-        }
-        _processingIndexes.remove(index);
-        return;
-      }
-
-      // Handle audio files differently to avoid thumbnail generation errors
-      if (item.kind == MediaPreviewKind.recording) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        final recordingColors = isDark
-            ? const [Color(0xFF1C1C24), Color(0xFF0A0A0F)]
-            : const [Color(0xFFFFFFFF), Color(0xFFF2F2F7)];
-        _colorCache[index] = recordingColors;
-        if (mounted && index == _currentIndex) {
-          setState(() {
-            _vibrantColor = recordingColors[0];
-            _dominantColor = recordingColors[1];
-          });
-        }
-        _processingIndexes.remove(index);
-        return;
-      }
-
-      if (item.kind == MediaPreviewKind.audio) {
-        final audioColors = [Colors.deepPurple.shade900, Colors.black87];
-        _colorCache[index] = audioColors;
-        if (mounted && index == _currentIndex) {
-          setState(() {
-            _vibrantColor = audioColors[0];
-            _dominantColor = audioColors[1];
-          });
-        }
-        _processingIndexes.remove(index);
-        return;
-      }
-
-      Uint8List? imageData;
       ImageProvider? imageProvider;
 
       if (item.asset is AssetEntity) {
         final asset = item.asset as AssetEntity;
-        imageData = await asset.thumbnailDataWithSize(
-          const ThumbnailSize(400, 400),
-          quality: 90,
+        final Uint8List? thumbData = await asset.thumbnailDataWithSize(
+          const ThumbnailSize(96, 96),
+          quality: 60,
         );
+        if (thumbData != null) {
+          imageProvider = MemoryImage(thumbData);
+        }
       } else if (item.asset is CapturedPhoto) {
         final file = File((item.asset as CapturedPhoto).file.path);
         if (item.type == AssetType.video) {
-          imageData = await VideoThumbnail.thumbnailData(
+          final Uint8List videoThumb = await VideoThumbnail.thumbnailData(
             video: file.path,
-            maxWidth: 400,
-            maxHeight: 400,
-            quality: 90,
+            maxWidth: 96,
+            maxHeight: 96,
+            quality: 60,
           );
-        } else {
-          final bytes = await file.readAsBytes();
-          final codec = await ui.instantiateImageCodec(
-            bytes,
-            targetWidth: 400,
-            targetHeight: 400,
+          if (videoThumb.isNotEmpty) {
+            imageProvider = MemoryImage(videoThumb);
+          }
+        } else if (file.existsSync()) {
+          imageProvider = ResizeImage(
+            FileImage(file),
+            width: 64,
+            height: 64,
           );
-          final frame = await codec.getNextFrame();
-          final data =
-          await frame.image.toByteData(format: ui.ImageByteFormat.png);
-          imageData = data?.buffer.asUint8List();
         }
-      }
-
-      if (imageData != null) {
-        imageProvider = MemoryImage(imageData);
       }
 
       if (imageProvider != null && mounted) {
         final palette = await PaletteGenerator.fromImageProvider(
           imageProvider,
-          size: const Size(75, 75),
-          maximumColorCount: 15,
+          size: const Size(48, 48),
+          maximumColorCount: 8,
         );
 
         if (mounted) {
@@ -335,65 +339,86 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
         });
       }
     } finally {
-      if (mounted) {
-        _processingIndexes.remove(index);
-      }
+      _processingIndexes.remove(index);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BackdropFilter(
-      filter: ui.ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              _vibrantColor.withOpacity(0.7),
-              _dominantColor.withOpacity(0.8)
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+    final decodeWidth = _decodeTargetWidth(context);
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: RepaintBoundary(
+            child: DecoratedBox(
+              decoration: const BoxDecoration(color: Colors.black),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 350),
+                curve: Curves.easeOutCubic,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      _vibrantColor.withOpacity(0.82),
+                      _dominantColor.withOpacity(0.92),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
-        child: Scaffold(
-            backgroundColor: Colors.transparent,
-            body: SafeArea(
-                child: Stack(
-                  children: [
-                    PageView.builder(
-                      controller: _pageController,
-                      itemCount: _editableMediaItems.length,
-                      onPageChanged: (index) {
-                        setState(() {
-                          _currentIndex = index;
-                        });
-                        // Update background and precache for smooth scrolling.
-                        _updateBackgroundColor(index);
-                        if (index > 0) {
-                          _updateBackgroundColor(index - 1);
-                          _precacheImage(index - 1);
-                        }
-                        if (index < _editableMediaItems.length - 1) {
-                          _updateBackgroundColor(index + 1);
-                          _precacheImage(index + 1);
-                        }
-                      },
-                      itemBuilder: (context, index) {
-                        final item = _editableMediaItems[index];
-                        return Padding(
-                          padding: EdgeInsets.all(8.w),
-                          child: Center(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(16.0),
-                              child: _buildMediaContent(item, index),
-                            ),
+        Scaffold(
+          backgroundColor: Colors.transparent,
+          body: SafeArea(
+            bottom: false,
+            child: Stack(
+              children: [
+                PageView.builder(
+                  controller: _pageController,
+                  itemCount: _editableMediaItems.length,
+                  onPageChanged: (index) {
+                    final cachedColors = _colorCache[index];
+                    setState(() {
+                      _currentIndex = index;
+                      if (cachedColors != null) {
+                        _vibrantColor = cachedColors[0];
+                        _dominantColor = cachedColors[1];
+                      }
+                    });
+                    if (cachedColors == null) {
+                      unawaited(_updateBackgroundColor(index));
+                    }
+                    if (index > 0) {
+                      if (!_colorCache.containsKey(index - 1)) {
+                        unawaited(_updateBackgroundColor(index - 1));
+                      }
+                      _precacheImage(index - 1);
+                    }
+                    if (index < _editableMediaItems.length - 1) {
+                      if (!_colorCache.containsKey(index + 1)) {
+                        unawaited(_updateBackgroundColor(index + 1));
+                      }
+                      _precacheImage(index + 1);
+                    }
+                  },
+                  itemBuilder: (context, index) {
+                    final item = _editableMediaItems[index];
+                    return Padding(
+                      padding: EdgeInsets.all(8.w),
+                      child: Center(
+                        child: RepaintBoundary(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(16.0),
+                            child: _buildMediaContent(item, index, decodeWidth),
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
                     Positioned(
                       top: 10.h,
                       left: 10.w,
@@ -486,16 +511,18 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
                           ],
                         ),
                       ),
-                    if (_editableMediaItems.length > 1)
-                      Positioned(
-                        bottom: 20.h,
-                        left: 0,
-                        right: 0,
-                        child: _buildPageIndicator(),
-                      ),
-                  ],
-                ))),
-      ),
+                      if (_editableMediaItems.length > 1)
+                        Positioned(
+                          bottom: MediaQuery.of(context).padding.bottom + 16.h,
+                          left: 0,
+                          right: 0,
+                          child: _buildPageIndicator(),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+      ],
     );
   }
 
@@ -538,7 +565,7 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
     }
   }
 
-  Widget _buildMediaContent(MediaItem item, int index) {
+  Widget _buildMediaContent(MediaItem item, int index, int decodeWidth) {
     switch (item.kind) {
       case MediaPreviewKind.video:
         return VideoPlayerItem(
@@ -556,17 +583,13 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
       case MediaPreviewKind.mood:
         return _MoodPreviewItem(moodIndex: item.asset as int);
       case MediaPreviewKind.image:
-        return _buildImageItem(item);
+        return _buildImageItem(item, decodeWidth);
     }
   }
 
-  Widget _buildImageItem(MediaItem item) {
-    ImageProvider imageProvider;
-    if (item.asset is AssetEntity) {
-      imageProvider = AssetEntityImageProvider(item.asset, isOriginal: true);
-    } else if (item.asset is CapturedPhoto) {
-      imageProvider = FileImage(File((item.asset as CapturedPhoto).file.path));
-    } else {
+  Widget _buildImageItem(MediaItem item, int decodeWidth) {
+    final imageProvider = _imageProviderFor(item, decodeWidth);
+    if (imageProvider == null) {
       return const Center(child: Text(AppConstants.unsupportedImageType));
     }
 
@@ -577,6 +600,7 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
       child: Image(
         image: imageProvider,
         fit: BoxFit.contain,
+        gaplessPlayback: true,
         frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
           if (wasSynchronouslyLoaded) {
             return child;
