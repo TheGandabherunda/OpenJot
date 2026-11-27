@@ -163,9 +163,9 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
   double _fullSheetFraction([double? bodyHeight]) {
     final availableHeight = bodyHeight ??
         (_bodyHeight > 0 ? _bodyHeight : MediaQuery.of(context).size.height);
-    if (availableHeight <= 0) return 0.86;
+    if (availableHeight <= 0) return 0.75;
     return ((availableHeight - _toolbarReservedHeight.h) / availableHeight)
-        .clamp(0.55, 0.90);
+        .clamp(0.55, 0.75);
   }
 
   bool get _hasAnyItem =>

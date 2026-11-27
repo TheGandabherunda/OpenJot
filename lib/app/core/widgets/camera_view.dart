@@ -99,6 +99,8 @@ class _CameraViewState extends State<CameraView> {
     if (_capturedImage == null) {
       return LayoutBuilder(
         builder: (context, constraints) {
+          final cardWidth =
+              (constraints.maxWidth - 8.w).clamp(1.0, double.infinity);
           return CustomScrollView(
             controller: widget.scrollController,
             slivers: [
@@ -114,8 +116,15 @@ class _CameraViewState extends State<CameraView> {
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
-                            Center(
-                              child: CameraPreview(controller),
+                            Positioned.fill(
+                              child: FittedBox(
+                                fit: BoxFit.cover,
+                                clipBehavior: Clip.hardEdge,
+                                child: SizedBox(
+                                  width: cardWidth,
+                                  child: CameraPreview(controller),
+                                ),
+                              ),
                             ),
                             Positioned(
                               bottom: 20.h,
