@@ -501,6 +501,7 @@ class SettingsScreenController extends GetxController {
             if (success) {
               _loadSettings();
               changeTheme(theme.value);
+              Get.updateLocale(AppTranslations.resolveLocale(localeCode.value));
 
               if (Get.isRegistered<HomeController>()) {
                 Get.delete<HomeController>(force: true);

@@ -422,7 +422,12 @@ class _JournalTileContent extends StatelessWidget {
                   ),
                 if (entry.tags.isNotEmpty)
                   Padding(
-                    padding: EdgeInsets.fromLTRB(10.w, 0, 10.w, 8.h),
+                    padding: EdgeInsets.fromLTRB(
+                      10.w,
+                      plainText.isNotEmpty ? 0 : (hasTopCard ? 10.h : 12.h),
+                      10.w,
+                      8.h,
+                    ),
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(

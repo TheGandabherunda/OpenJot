@@ -796,24 +796,29 @@ class HiveService extends GetxService {
     return false;
   }
 
-  static Future<void> _runCreateZipInIsolate(
+  @visibleForTesting
+  static Future<void> createZipInIsolate(
     String targetZipPath,
     List<(String, String)> archiveItems,
   ) {
     return Isolate.run(() {
       final encoder = ZipFileEncoder();
       encoder.create(targetZipPath);
-      for (final item in archiveItems) {
-        final file = File(item.$1);
-        if (file.existsSync()) {
-          encoder.addFile(file, item.$2);
+      try {
+        for (final item in archiveItems) {
+          final file = File(item.$1);
+          if (file.existsSync()) {
+            encoder.addFileSync(file, item.$2);
+          }
         }
+      } finally {
+        encoder.closeSync();
       }
-      encoder.close();
     });
   }
 
-  static Future<void> _runExtractZipInIsolate(
+  @visibleForTesting
+  static Future<void> extractZipInIsolate(
     String zipPath,
     String destPath,
   ) {
@@ -898,6 +903,7 @@ class HiveService extends GetxService {
 
     String? zipPath;
     String? encryptedBackupPath;
+    String? manifestPath;
     Directory? appDocDir;
     try {
       onStatusUpdate?.call(AppConstants.takingBackup.tr);
@@ -917,6 +923,9 @@ class HiveService extends GetxService {
 
       debugPrint("Starting memory-safe backup process to: $zipPath");
       onProgress?.call(0.0);
+
+      await journalsBox.flush();
+      await settingsBox.flush();
 
       // 1. Collect files to archive (compression runs off the UI isolate)
       final filesToArchive = <({String sourcePath, String archivePath})>[];
@@ -1070,7 +1079,8 @@ class HiveService extends GetxService {
       };
 
       final manifestJson = jsonEncode(rootManifest);
-      final manifestFile = File(p.join(tempDir.path, 'media_manifest.json'));
+      manifestPath = p.join(tempDir.path, 'media_manifest.json');
+      final manifestFile = File(manifestPath);
       await manifestFile.writeAsString(manifestJson);
       queueArchiveFile(manifestFile.path, 'media_manifest.json');
 
@@ -1079,7 +1089,7 @@ class HiveService extends GetxService {
       final archiveItems = filesToArchive
           .map<(String, String)>((e) => (e.sourcePath, e.archivePath))
           .toList();
-      await _runCreateZipInIsolate(targetZipPath, archiveItems);
+      await createZipInIsolate(targetZipPath, archiveItems);
 
       // 6. Export using file_picker (optionally AES-256-GCM encrypting the zip on disk off the UI thread)
       final Uint8List outputBytes;
@@ -1127,6 +1137,10 @@ class HiveService extends GetxService {
       }
       if (encryptedBackupPath != null) {
         final f = File(encryptedBackupPath);
+        if (await f.exists()) await f.delete();
+      }
+      if (manifestPath != null) {
+        final f = File(manifestPath);
         if (await f.exists()) await f.delete();
       }
     }
@@ -1246,12 +1260,25 @@ class HiveService extends GetxService {
           AppConstants.encryptionWrappedDekKey: encryptionWrappedDek,
           AppConstants.encryptionBiometricEnabledKey: encryptionBiometricEnabled,
           AppConstants.appLockEnabledKey: appLockEnabled,
+          if (appLockPin != null) AppConstants.appLockPinKey: appLockPin,
         };
       }
 
       // Extract zip in a background isolate so spinner animates smoothly
-      await _runExtractZipInIsolate(zipToExtract.path, tempDir.path);
+      await extractZipInIsolate(zipToExtract.path, tempDir.path);
       onProgress?.call(0.3);
+
+      final extractedJournalsFile = File(
+        p.join(tempDir.path, '${AppConstants.journalsBoxName}${AppConstants.hiveExtension}'),
+      );
+      final extractedSettingsFile = File(
+        p.join(tempDir.path, '${AppConstants.settingsBoxName}${AppConstants.hiveExtension}'),
+      );
+      if (!await extractedJournalsFile.exists() &&
+          !await extractedSettingsFile.exists()) {
+        CustomToast.showToast(AppConstants.invalidBackupFile.tr);
+        return false;
+      }
 
       // Close Hive before replacing files
       await Hive.close();
@@ -1273,6 +1300,7 @@ class HiveService extends GetxService {
       for (final key in _nonPortableSettingKeys) {
         await settingsBox.delete(key);
       }
+      await settingsBox.flush();
 
       // Re-initialize Hive unencrypted first (SKIP GC during restore to prevent race condition)
       await init(runGC: false);
@@ -1442,6 +1470,9 @@ class HiveService extends GetxService {
         }
         await _rewriteJournalsBox(cipherKey: preservedDek);
       }
+
+      await journalsBox.flush();
+      await settingsBox.flush();
 
       CustomToast.showToast(AppConstants.restoreSuccess.tr);
       return true;
