@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -26,6 +25,7 @@ import 'package:open_jot/app/core/widgets/write_journal_toolbar.dart';
 import 'package:open_jot/app/core/widgets/write_journal_toolbar_content.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.dart';
+import 'package:open_jot/app/utils/bloub_mood.dart';
 import 'package:open_jot/app/utils/custom_toast.dart';
 import 'package:open_jot/app/utils/foss_location.dart';
 import 'package:open_jot/app/utils/mood_helper.dart';
@@ -1294,7 +1294,6 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
         final moodIdx = item.payload as int;
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final moodColors = MoodHelper.getMoodThemeColors(moodIdx, colors, isDark);
-        final rasterized = _homeController.moodImagesLarge[moodIdx];
         content = Container(
           decoration: MoodHelper.buildMoodWashDecoration(
             moodColors[0],
@@ -1306,19 +1305,10 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (rasterized != null)
-                  RawImage(
-                    image: rasterized,
-                    width: 72.w,
-                    height: 72.w,
-                    filterQuality: ui.FilterQuality.medium,
-                  )
-                else
-                  MoodHelper.buildMoodSvg(
-                    moodIdx,
-                    width: 72.w,
-                    height: 72.w,
-                  ),
+                AnimatedBloubMood(
+                  moodProgress: moodIdx.toDouble(),
+                  size: 80.w,
+                ),
                 SizedBox(height: 10.h),
                 Text(
                   (AppConstants.moods[moodIdx]['label'] ?? '').tr,

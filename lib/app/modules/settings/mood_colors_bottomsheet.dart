@@ -9,6 +9,7 @@ import 'package:open_jot/app/core/theme.dart';
 import 'package:open_jot/app/core/widgets/app_alert_dialog.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/settings/settings_controller.dart';
+import 'package:open_jot/app/utils/bloub_mood.dart';
 import 'package:open_jot/app/utils/mood_helper.dart';
 
 class MoodColorsBottomSheet extends StatefulWidget {
@@ -29,9 +30,8 @@ class _MoodColorsBottomSheetState extends State<MoodColorsBottomSheet> {
   late List<MoodPalette> _draftPalettes;
   final HomeController _homeController = Get.find<HomeController>();
 
-  // Cached pre-rasterized images for 100% lag-free rendering
+  // Cached pre-rasterized images for 100% lag-free rendering in the strip
   final Map<int, ui.Image> _draftImagesSmall = {};
-  final Map<int, ui.Image> _draftImagesLarge = {};
 
   bool _isSaving = false;
 
@@ -76,7 +76,6 @@ class _MoodColorsBottomSheetState extends State<MoodColorsBottomSheet> {
 
     // Seed immediately from HomeController's pre-rasterized caches (0ms overhead on open!)
     _draftImagesSmall.addAll(_homeController.moodImages);
-    _draftImagesLarge.addAll(_homeController.moodImagesLarge);
   }
 
   bool get _hasUnsavedChanges {
@@ -112,12 +111,10 @@ class _MoodColorsBottomSheetState extends State<MoodColorsBottomSheet> {
       final pictureInfo = await vg.loadPicture(loader, null);
 
       final small = await _renderPictureToImage(pictureInfo, 66.0);
-      final large = await _renderPictureToImage(pictureInfo, 480.0);
 
       if (mounted) {
         setState(() {
           _draftImagesSmall[moodIndex] = small;
-          _draftImagesLarge[moodIndex] = large;
         });
       }
     } catch (_) {}
@@ -298,8 +295,6 @@ class _MoodColorsBottomSheetState extends State<MoodColorsBottomSheet> {
     final currentAccent = currentDraftPalette.accentColor;
     final moodInfo = AppConstants.moods[_selectedMoodIndex];
 
-    final largePreviewImage = _draftImagesLarge[_selectedMoodIndex];
-
     return WillPopScope(
       onWillPop: () async {
         if (!_hasUnsavedChanges) return true;
@@ -365,41 +360,67 @@ class _MoodColorsBottomSheetState extends State<MoodColorsBottomSheet> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                      // --- 1. Minimal Centered Preview (Mood SVG + Mood Label only) ---
-                      Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SizedBox(
-                              width: 68.w,
-                              height: 68.w,
-                              child: largePreviewImage != null
-                                  ? RawImage(
-                                      image: largePreviewImage,
-                                      width: 68.w,
-                                      height: 68.w,
-                                      filterQuality: FilterQuality.medium,
-                                    )
-                                  : MoodHelper.buildMoodSvgForPalette(
-                                      _selectedMoodIndex,
-                                      currentDraftPalette,
-                                      width: 68.w,
-                                      height: 68.w,
-                                    ),
+                      // --- 1. Minimal Centered Preview (Mood Wash + Bloub + Mood Label) ---
+                      Builder(
+                        builder: (context) {
+                          final baseColor = currentDraftPalette.accentColor;
+                          final hsl = HSLColor.fromColor(baseColor);
+                          final darkShade = hsl
+                              .withLightness(0.20)
+                              .withSaturation((hsl.saturation * 0.95).clamp(0.4, 0.95))
+                              .toColor();
+                          final lightShade = hsl
+                              .withLightness(0.97)
+                              .withSaturation((hsl.saturation * 0.6).clamp(0.2, 0.7))
+                              .toColor();
+                          final washColors = currentDraftPalette.accent
+                                      .toUpperCase() ==
+                                  MoodHelper.defaultPalettes[_selectedMoodIndex]
+                                      .accent
+                                      .toUpperCase()
+                              ? MoodHelper.getMoodThemeColors(
+                                  _selectedMoodIndex,
+                                  colors,
+                                  isDark,
+                                )
+                              : (isDark
+                                  ? [lightShade, baseColor, darkShade]
+                                  : [darkShade, baseColor, lightShade]);
+                          return Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 88.w,
+                                  height: 88.w,
+                                  padding: EdgeInsets.all(10.w),
+                                  decoration: MoodHelper.buildMoodWashDecoration(
+                                    washColors[0],
+                                    washColors[1],
+                                    washColors[2],
+                                    isDark: isDark,
+                                    borderRadius: BorderRadius.circular(24.r),
+                                  ),
+                                  child: AnimatedBloubMood(
+                                    moodProgress: _selectedMoodIndex.toDouble(),
+                                    size: 68.w,
+                                  ),
+                                ),
+                                SizedBox(height: 8.h),
+                                Text(
+                                  (moodInfo['label'] ?? '').tr,
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontSize: 16.sp,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: AppConstants.font,
+                                    letterSpacing: -0.3,
+                                  ),
+                                ),
+                              ],
                             ),
-                            SizedBox(height: 8.h),
-                            Text(
-                              (moodInfo['label'] ?? '').tr,
-                              style: TextStyle(
-                                color: textColor,
-                                fontSize: 16.sp,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: AppConstants.font,
-                                letterSpacing: -0.3,
-                              ),
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
                       SizedBox(height: 20.h),
 
@@ -454,9 +475,18 @@ class _MoodColorsBottomSheetState extends State<MoodColorsBottomSheet> {
                                         ]
                                       : null,
                                 ),
-                                child: SizedBox(
+                                child: Container(
                                   width: 28.w,
                                   height: 28.w,
+                                  padding: isDark ? EdgeInsets.all(2.w) : EdgeInsets.zero,
+                                  decoration: isDark
+                                      ? BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: _draftPalettes[index]
+                                              .midColor
+                                              .withOpacity(0.55),
+                                        )
+                                      : null,
                                   child: smallImage != null
                                       ? RawImage(
                                           image: smallImage,

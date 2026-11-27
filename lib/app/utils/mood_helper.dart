@@ -1,11 +1,10 @@
-import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
-import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/theme.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
+import 'package:open_jot/app/utils/bloub_mood.dart';
 
 class MoodPalette {
   final String dark;
@@ -148,24 +147,18 @@ class MoodHelper {
   /// Current active palettes for moods 0..6
   static List<MoodPalette> get palettes => List.unmodifiable(_currentPalettes);
 
-  static String? _templateSvg;
   static final Map<int, String> _coloredSvgCache = {};
 
-  /// Pre-loads template and colors all mood SVGs.
-  static Future<void> init([String? templateSvg]) async {
-    _templateSvg = templateSvg ?? _templateSvg;
-    _templateSvg ??= await rootBundle.loadString(AppConstants.moodSvgPath);
-
+  /// Loads custom mood palettes and generates Bloub mood SVGs.
+  static Future<void> init([String? unusedTemplate]) async {
     await _loadCustomPalettesFromSettings();
-    _populateCache(_templateSvg!);
+    _populateCache();
   }
 
   /// Reloads custom mood colors from Hive settings (e.g. after backup restore).
   static Future<void> reloadFromSettings() async {
     await _loadCustomPalettesFromSettings();
-    if (_templateSvg != null) {
-      _populateCache(_templateSvg!);
-    }
+    _populateCache();
   }
 
   static Future<void> _loadCustomPalettesFromSettings() async {
@@ -199,55 +192,25 @@ class MoodHelper {
     await hiveService.setCustomMoodPalettes(map);
   }
 
-  static void _populateCache(String template) {
+  static void _populateCache() {
     for (int i = 0; i < _currentPalettes.length; i++) {
-      _coloredSvgCache[i] = _colorSvg(template, i);
+      _coloredSvgCache[i] = BloubGeometry.buildSvgString(i);
     }
   }
 
-  static String _colorSvg(String template, int moodIndex) {
-    final palette = _currentPalettes[moodIndex.clamp(0, _currentPalettes.length - 1)];
-
-    // Scope mask/clip/gradient IDs to avoid collisions when multiple SVGs render
-    var result = template.replaceAll('_mood', '_mood_$moodIndex');
-
-    result = result
-        .replaceAll(basePalette.dark, palette.dark)
-        .replaceAll(basePalette.accent, palette.accent)
-        .replaceAll(basePalette.mid, palette.mid)
-        .replaceAll(basePalette.light, palette.light)
-        .replaceAll(basePalette.veryLight, palette.veryLight);
-
-    return result;
-  }
-
-  /// Returns the colored SVG XML string for the specified mood index.
+  /// Returns the flat black Bloub SVG XML string for the specified mood index.
   static String getMoodSvgString(int moodIndex) {
     final clamped = moodIndex.clamp(0, _currentPalettes.length - 1);
-    final cached = _coloredSvgCache[clamped];
-    if (cached != null) {
-      return cached;
-    }
-
-    if (_templateSvg != null) {
-      _coloredSvgCache[clamped] = _colorSvg(_templateSvg!, clamped);
-      return _coloredSvgCache[clamped]!;
-    }
-
-    return '';
+    return _coloredSvgCache.putIfAbsent(
+      clamped,
+      () => BloubGeometry.buildSvgString(clamped),
+    );
   }
 
-  /// Returns recolored SVG string for any custom MoodPalette on-the-fly.
+  /// Returns the Bloub SVG string for [moodIndex].
   static String getSvgStringForPalette(int moodIndex, MoodPalette palette) {
-    if (_templateSvg == null) return '';
-    var result = _templateSvg!.replaceAll('_mood', '_mood_$moodIndex');
-    result = result
-        .replaceAll(basePalette.dark, palette.dark)
-        .replaceAll(basePalette.accent, palette.accent)
-        .replaceAll(basePalette.mid, palette.mid)
-        .replaceAll(basePalette.light, palette.light)
-        .replaceAll(basePalette.veryLight, palette.veryLight);
-    return result;
+    final clamped = moodIndex.clamp(0, _currentPalettes.length - 1);
+    return BloubGeometry.buildSvgString(clamped);
   }
 
   /// Builds SvgPicture widget for any custom MoodPalette on-the-fly.
@@ -274,9 +237,7 @@ class MoodHelper {
       _currentPalettes[i] = newPalettes[i];
     }
 
-    if (_templateSvg != null) {
-      _populateCache(_templateSvg!);
-    }
+    _populateCache();
 
     await _savePalettesToSettings();
 
@@ -291,9 +252,7 @@ class MoodHelper {
     final clamped = moodIndex.clamp(0, _currentPalettes.length - 1);
     _currentPalettes[clamped] = palette;
 
-    if (_templateSvg != null) {
-      _coloredSvgCache[clamped] = _colorSvg(_templateSvg!, clamped);
-    }
+    _coloredSvgCache[clamped] = BloubGeometry.buildSvgString(clamped);
 
     await _savePalettesToSettings();
 
@@ -309,9 +268,7 @@ class MoodHelper {
       _currentPalettes[i] = themePalettes[i];
     }
 
-    if (_templateSvg != null) {
-      _populateCache(_templateSvg!);
-    }
+    _populateCache();
 
     await _savePalettesToSettings();
 
@@ -327,9 +284,7 @@ class MoodHelper {
       _currentPalettes[i] = defaultPalettes[i];
     }
 
-    if (_templateSvg != null) {
-      _populateCache(_templateSvg!);
-    }
+    _populateCache();
 
     if (Get.isRegistered<HiveService>()) {
       await Get.find<HiveService>().clearCustomMoodPalettes();

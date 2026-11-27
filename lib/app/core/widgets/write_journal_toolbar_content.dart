@@ -24,6 +24,7 @@ import 'package:open_jot/app/core/widgets/custom_slider.dart';
 import 'package:open_jot/app/core/widgets/location_map_view.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/media_preview/media_preview_bottom_sheet.dart';
+import 'package:open_jot/app/utils/bloub_mood.dart';
 import 'package:open_jot/app/utils/mood_helper.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -1868,9 +1869,6 @@ class MoodSelectorViewState extends State<MoodSelectorView>
   late int _currentMoodIndex;
   late double _lastSliderValue;
 
-  // Track total turns for smooth continuous rotation
-  double _targetTurns = 0.0;
-
   static const List<Map<String, String>> _moods = AppConstants.moods;
 
   @override
@@ -1878,7 +1876,6 @@ class MoodSelectorViewState extends State<MoodSelectorView>
     super.initState();
     _currentMoodIndex = widget.initialMoodIndex ?? 3;
     _lastSliderValue = _currentMoodIndex.toDouble();
-    _targetTurns = _currentMoodIndex.toDouble();
     if (widget.initialMoodIndex == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -1886,12 +1883,6 @@ class MoodSelectorViewState extends State<MoodSelectorView>
         }
       });
     }
-  }
-
-
-  void _updateRotation(int newIndex) {
-    // Ensuring an integer number of turns ensures the logo is perfectly upright at each stop.
-    _targetTurns = newIndex.toDouble();
   }
 
   @override
@@ -1999,62 +1990,37 @@ class MoodSelectorViewState extends State<MoodSelectorView>
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Center(
-                              child: AnimatedRotation(
-                                turns: _targetTurns,
-                                duration: const Duration(milliseconds: 700),
-                                curve: Curves.easeOutBack,
-                                child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    // Lush Glow behind the icon
-                                    Container(
-                                      width: 168.w,
-                                      height: 168.w,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: currentAccent.withOpacity(
-                                                isDark ? 0.25 : 0.15),
-                                            blurRadius: 50,
-                                            spreadRadius: 15,
-                                          ),
-                                        ],
-                                      ),
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // Lush Glow behind the Bloub
+                                  Container(
+                                    width: 168.w,
+                                    height: 168.w,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: currentAccent.withOpacity(
+                                              isDark ? 0.25 : 0.15),
+                                          blurRadius: 50,
+                                          spreadRadius: 15,
+                                        ),
+                                      ],
                                     ),
-                                    RepaintBoundary(
-                                      child: IndexedStack(
-                                        index: moodIndex,
-                                        alignment: Alignment.center,
-                                        children:
-                                            List.generate(_moods.length, (idx) {
-                                          return Obx(() {
-                                            final HomeController controller =
-                                                Get.find();
-                                            final rasterizedImage =
-                                                controller.moodImagesLarge[idx];
-
-                                            if (rasterizedImage != null) {
-                                              return RawImage(
-                                                image: rasterizedImage,
-                                                width: 180.w,
-                                                height: 180.w,
-                                                filterQuality:
-                                                    ui.FilterQuality.high,
-                                              );
-                                            }
-
-                                            return MoodHelper.buildMoodSvg(
-                                              idx,
-                                              width: 180.w,
-                                              height: 180.w,
-                                            );
-                                          });
-                                        }),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                  TweenAnimationBuilder<double>(
+                                    tween: Tween<double>(end: displayIndex),
+                                    duration: const Duration(milliseconds: 260),
+                                    curve: Curves.easeOutCubic,
+                                    builder: (context, animatedProgress, _) {
+                                      return AnimatedBloubMood(
+                                        moodProgress: animatedProgress,
+                                        size: 180.w,
+                                      );
+                                    },
+                                  ),
+                                ],
                               ),
                             ),
                             SizedBox(height: 18.h),
@@ -2136,7 +2102,6 @@ class MoodSelectorViewState extends State<MoodSelectorView>
                               final newIndex = value.round();
                               if (newIndex != _currentMoodIndex) {
                                 widget.onMoodChanged?.call(newIndex);
-                                _updateRotation(newIndex);
                                 _currentMoodIndex = newIndex;
                               }
                             });

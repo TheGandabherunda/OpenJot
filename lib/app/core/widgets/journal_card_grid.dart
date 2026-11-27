@@ -41,7 +41,7 @@ class JournalMoodCardContent extends StatelessWidget {
       isDark,
     );
     final label = (AppConstants.moods[moodIndex]['label'] ?? '').tr;
-    final iconSize = compact ? 44.w : 60.w;
+    final iconSize = compact ? 68.w : 104.w;
 
     final iconWidget = Obx(() {
       final rasterized = homeController.moodImagesLarge[moodIndex] ??
@@ -80,21 +80,26 @@ class JournalMoodCardContent extends StatelessWidget {
 
     return Container(
       decoration: decoration,
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             iconWidget,
             if (label.isNotEmpty) ...[
-              SizedBox(height: 8.h),
-              Text(
-                label,
-                style: TextStyle(
-                  color: moodColors[0],
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: AppConstants.font,
-                  letterSpacing: -0.2,
+              SizedBox(height: 4.h),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: moodColors[0],
+                    fontSize: 15.sp,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: AppConstants.font,
+                    letterSpacing: -0.2,
+                  ),
                 ),
               ),
             ],

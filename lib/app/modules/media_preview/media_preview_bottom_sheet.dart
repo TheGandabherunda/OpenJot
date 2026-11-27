@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +11,7 @@ import 'package:get_thumbnail_video/video_thumbnail.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/widgets/audio_spectrum_waveform.dart';
-import 'package:open_jot/app/modules/home/home_controller.dart';
+import 'package:open_jot/app/utils/bloub_mood.dart';
 import 'package:open_jot/app/utils/custom_toast.dart';
 import 'package:open_jot/app/utils/foss_location.dart';
 import 'package:open_jot/app/utils/mood_helper.dart';
@@ -583,7 +582,10 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
       case MediaPreviewKind.location:
         return _LocationPreviewItem(location: item.asset as SelectedLocation);
       case MediaPreviewKind.mood:
-        return _MoodPreviewItem(moodIndex: item.asset as int);
+        return _MoodPreviewItem(
+          moodIndex: item.asset as int,
+          isActive: index == _currentIndex,
+        );
       case MediaPreviewKind.image:
         return _buildImageItem(item, decodeWidth);
     }
@@ -1463,8 +1465,12 @@ class _LocationPreviewItemState extends State<_LocationPreviewItem> {
 
 class _MoodPreviewItem extends StatelessWidget {
   final int moodIndex;
+  final bool isActive;
 
-  const _MoodPreviewItem({required this.moodIndex});
+  const _MoodPreviewItem({
+    required this.moodIndex,
+    this.isActive = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1473,7 +1479,6 @@ class _MoodPreviewItem extends StatelessWidget {
     final safeIdx = moodIndex.clamp(0, AppConstants.moods.length - 1);
     final moodColors = MoodHelper.getMoodThemeColors(safeIdx, appColors, isDark);
     final label = (AppConstants.moods[safeIdx]['label'] ?? '').tr;
-    final homeController = Get.find<HomeController>();
 
     return AspectRatio(
       aspectRatio: 1.0,
@@ -1490,23 +1495,11 @@ class _MoodPreviewItem extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Obx(() {
-                final rasterized = homeController.moodImagesLarge[safeIdx] ??
-                    homeController.moodImages[safeIdx];
-                if (rasterized != null) {
-                  return RawImage(
-                    image: rasterized,
-                    width: 150.w,
-                    height: 150.w,
-                    filterQuality: ui.FilterQuality.high,
-                  );
-                }
-                return MoodHelper.buildMoodSvg(
-                  safeIdx,
-                  width: 150.w,
-                  height: 150.w,
-                );
-              }),
+              AnimatedBloubMood(
+                moodProgress: safeIdx.toDouble(),
+                size: 164.w,
+                animate: isActive,
+              ),
               if (label.isNotEmpty) ...[
                 SizedBox(height: 16.h),
                 Text(

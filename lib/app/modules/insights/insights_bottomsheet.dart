@@ -14,6 +14,7 @@ import 'package:open_jot/app/core/models/journal_entry.dart';
 import 'package:open_jot/app/core/translations/app_translations.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/read_journal/read_journal_bottom_sheet.dart';
+import '../../utils/bloub_mood.dart';
 import '../../utils/mood_helper.dart';
 
 import '../../core/theme.dart';
@@ -717,14 +718,14 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                 return RawImage(
                   image: rasterizedImage,
                   width: 12.w,
-                  height: 12.h,
+                  height: 12.w,
                   filterQuality: ui.FilterQuality.high,
                 );
               }
               return MoodHelper.buildMoodSvg(
                 moodIndex,
                 width: 12.w,
-                height: 12.h,
+                height: 12.w,
               );
             }),
           ),
@@ -934,14 +935,23 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
     );
   }
 
-  Widget _buildCenteredMoodSummary(int moodIndex, String description, AppThemeColors colors) {
+  Widget _buildCenteredMoodSummary(
+      int moodIndex, String description, AppThemeColors colors) {
+    final safeIdx = moodIndex.clamp(0, AppConstants.moods.length - 1);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final moodColors = MoodHelper.getMoodThemeColors(safeIdx, colors, isDark);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildMoodIcon(moodIndex, 64.w),
+        AnimatedBloubMood(
+          moodProgress: safeIdx.toDouble(),
+          size: 88.w,
+          fillColor: moodColors[1],
+        ),
         SizedBox(height: 12.h),
         Text(
-          "${AppConstants.mostly.tr} ${(AppConstants.moods[moodIndex]['label'] ?? '').tr}",
+          "${AppConstants.mostly.tr} ${(AppConstants.moods[safeIdx]['label'] ?? '').tr}",
           style: TextStyle(
             color: colors.grey10,
             fontSize: 20.sp,
@@ -1030,26 +1040,6 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
       grouped[year]!.add(entry);
     }
     return grouped;
-  }
-
-  Widget _buildMoodIcon(int moodIndex, double size) {
-    final HomeController controller = Get.find();
-    return Obx(() {
-      final rasterizedImage = controller.moodImages[moodIndex];
-      if (rasterizedImage != null) {
-        return RawImage(
-          image: rasterizedImage,
-          width: size,
-          height: size,
-          filterQuality: ui.FilterQuality.high,
-        );
-      }
-      return MoodHelper.buildMoodSvg(
-        moodIndex,
-        width: size,
-        height: size,
-      );
-    });
   }
 
   void _onEntryTap(BuildContext context, JournalEntry entry) {
