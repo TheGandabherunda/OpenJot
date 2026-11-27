@@ -17,7 +17,7 @@ class AboutScreen extends StatefulWidget {
 }
 
 class _AboutScreenState extends State<AboutScreen> {
-  String _appVersion = 'Loading...';
+  String _appVersion = AppConstants.loading.tr;
 
   @override
   void initState() {
@@ -50,7 +50,7 @@ class _AboutScreenState extends State<AboutScreen> {
       }
     } catch (e) {
       CustomToast.showToast(
-        "Could not launch URL",
+        AppConstants.couldNotLaunchUrl.tr,
         backgroundColor: appColors.grey7,
         textColor: appColors.grey10,
       );
@@ -74,7 +74,7 @@ class _AboutScreenState extends State<AboutScreen> {
           },
         ),
         title: Text(
-          'About OpenJot',
+          AppConstants.aboutApp.tr,
           style: TextStyle(
             fontFamily: AppConstants.font,
             letterSpacing: -0.2,
@@ -118,7 +118,7 @@ class _AboutScreenState extends State<AboutScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Version: $_appVersion',
+                    AppConstants.versionPrefix.tr.replaceFirst('%s', _appVersion),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontFamily: AppConstants.font,
@@ -132,7 +132,7 @@ class _AboutScreenState extends State<AboutScreen> {
             ),
             const SizedBox(height: 32),
             Text(
-              'A minimal, open-source journal to log your thoughts, moods, and memories. All your data stays on your device.',
+              AppConstants.aboutSubtitle.tr,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: AppConstants.font,
@@ -144,7 +144,7 @@ class _AboutScreenState extends State<AboutScreen> {
             ),
             const SizedBox(height: 32),
             Text(
-              'Key Features',
+              AppConstants.keyFeatures.tr,
               textAlign: TextAlign.start,
               style: TextStyle(
                 fontFamily: AppConstants.font,
@@ -155,21 +155,19 @@ class _AboutScreenState extends State<AboutScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            const Column(
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                FeatureText(text: '• Clean, distraction-free writing experience.'),
-                FeatureText(
-                    text: '• Add photos, voice notes, and music to your entries.'),
-                FeatureText(text: '• Record your mood alongside your journals.'),
-                FeatureText(text: '• Personalize with different text styles.'),
-                FeatureText(
-                    text: '• Works fully offline, your data stays on your device.'),
+                FeatureText(text: AppConstants.aboutFeature1.tr),
+                FeatureText(text: AppConstants.aboutFeature2.tr),
+                FeatureText(text: AppConstants.aboutFeature3.tr),
+                FeatureText(text: AppConstants.aboutFeature4.tr),
+                FeatureText(text: AppConstants.aboutFeature5.tr),
               ],
             ),
             const SizedBox(height: 32),
             Text(
-              'Open Source',
+              AppConstants.openSource.tr,
               textAlign: TextAlign.start,
               style: TextStyle(
                 fontFamily: AppConstants.font,
@@ -181,7 +179,7 @@ class _AboutScreenState extends State<AboutScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'OpenJot is an open-source application. The source code is publicly available for anyone to inspect, modify, and contribute. We believe in transparency and community collaboration.',
+              AppConstants.openSourceDesc.tr,
               textAlign: TextAlign.start,
               style: TextStyle(
                 fontFamily: AppConstants.font,
@@ -193,7 +191,7 @@ class _AboutScreenState extends State<AboutScreen> {
             ),
             const SizedBox(height: 32),
             Text(
-              'Data Privacy',
+              AppConstants.dataPrivacy.tr,
               textAlign: TextAlign.start,
               style: TextStyle(
                 fontFamily: AppConstants.font,
@@ -205,7 +203,7 @@ class _AboutScreenState extends State<AboutScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'We value your privacy. OpenJot does not collect, store, or transmit any of your personal data. All your journal entries, including text, images, and audio files, are stored exclusively on your device.',
+              AppConstants.dataPrivacyDesc.tr,
               textAlign: TextAlign.start,
               style: TextStyle(
                 fontFamily: AppConstants.font,
@@ -217,7 +215,7 @@ class _AboutScreenState extends State<AboutScreen> {
             ),
             const SizedBox(height: 32),
             Text(
-              'Links',
+              AppConstants.linksTitle.tr,
               textAlign: TextAlign.start,
               style: TextStyle(
                 fontFamily: AppConstants.font,
@@ -232,7 +230,7 @@ class _AboutScreenState extends State<AboutScreen> {
               children: [
                 ListTile(
                   title: Text(
-                    'Source Code on GitHub',
+                    AppConstants.sourceCodeOnGithub.tr,
                     style: TextStyle(
                       fontFamily: AppConstants.font,
                       letterSpacing: -0.2,
@@ -248,7 +246,7 @@ class _AboutScreenState extends State<AboutScreen> {
                 ),
                 ListTile(
                   title: Text(
-                    'Send Feedback',
+                    AppConstants.sendFeedback.tr,
                     style: TextStyle(
                       fontFamily: AppConstants.font,
                       letterSpacing: -0.2,

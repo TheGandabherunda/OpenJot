@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/core/translations/app_translations.dart';
 
 /// Shows an OpenJot-styled custom calendar date picker modal matching the app's
 /// Apple-inspired typography, segmented controls, and theme palette.
@@ -21,7 +22,7 @@ Future<DateTime?> showCustomDatePicker({
   return showGeneralDialog<DateTime>(
     context: context,
     barrierDismissible: true,
-    barrierLabel: 'Dismiss',
+    barrierLabel: AppConstants.dismiss.tr,
     barrierColor: Colors.black.withOpacity(0.45),
     transitionDuration: const Duration(milliseconds: 220),
     pageBuilder: (dialogContext, _, __) {
@@ -58,7 +59,7 @@ Future<TimeOfDay?> showCustomTimePicker({
   return showGeneralDialog<TimeOfDay>(
     context: context,
     barrierDismissible: true,
-    barrierLabel: 'Dismiss',
+    barrierLabel: AppConstants.dismiss.tr,
     barrierColor: Colors.black.withOpacity(0.45),
     transitionDuration: const Duration(milliseconds: 220),
     pageBuilder: (dialogContext, _, __) {
@@ -143,15 +144,13 @@ class _CustomDatePickerDialog extends StatefulWidget {
 }
 
 class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
-  static const List<String> _weekdayLabels = [
-    'S',
-    'M',
-    'T',
-    'W',
-    'T',
-    'F',
-    'S',
-  ];
+  List<String> get _weekdayLabels {
+    return AppTranslations.weekdayShortNames().map((name) {
+      final t = name.trim();
+      if (t.isEmpty) return '';
+      return String.fromCharCode(t.runes.first);
+    }).toList();
+  }
 
   late DateTime _selectedDate;
   late DateTime _displayedMonth;
@@ -255,7 +254,7 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  DateFormat('EEE, MMM d, y').format(_selectedDate),
+                  AppTranslations.formatDate(_selectedDate, 'EEE, MMM d, y'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: AppConstants.font,
@@ -293,13 +292,13 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
                               color: palette.controlSurface,
-                              borderRadius: const BorderRadius.horizontal(
-                                left: Radius.circular(50),
-                                right: Radius.circular(6),
+                              borderRadius: const BorderRadiusDirectional.horizontal(
+                                start: Radius.circular(50),
+                                end: Radius.circular(6),
                               ),
                             ),
                             child: Text(
-                              DateFormat('MMMM y').format(_displayedMonth),
+                              AppTranslations.formatDate(_displayedMonth, 'MMMM y'),
                               style: TextStyle(
                                 fontFamily: AppConstants.font,
                                 fontSize: 14.5.sp,
@@ -316,16 +315,18 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
                               color: palette.controlSurface,
-                              borderRadius: const BorderRadius.horizontal(
-                                left: Radius.circular(6),
-                                right: Radius.circular(50),
+                              borderRadius: const BorderRadiusDirectional.horizontal(
+                                start: Radius.circular(6),
+                                end: Radius.circular(50),
                               ),
                             ),
                             child: AnimatedRotation(
                               turns: _isPickingMonthYear ? 0.25 : 0.0,
                               duration: const Duration(milliseconds: 180),
                               child: Icon(
-                                Icons.chevron_right_rounded,
+                                Directionality.of(context) == TextDirection.rtl
+                                    ? Icons.chevron_left_rounded
+                                    : Icons.chevron_right_rounded,
                                 size: 19.sp,
                                 color: colors.primary,
                               ),
@@ -340,23 +341,27 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
                         children: [
                           _buildNavChevronPill(
                             palette: palette,
-                            icon: Icons.chevron_left_rounded,
+                            icon: Directionality.of(context) == TextDirection.rtl
+                                ? Icons.chevron_right_rounded
+                                : Icons.chevron_left_rounded,
                             enabled: _canGoMonth(-1),
-                            borderRadius: const BorderRadius.horizontal(
-                              left: Radius.circular(50),
-                              right: Radius.circular(6),
-                            ),
+                            borderRadius: const BorderRadiusDirectional.horizontal(
+                              start: Radius.circular(50),
+                              end: Radius.circular(6),
+                            ).resolve(Directionality.of(context)),
                             onTap: () => _shiftMonth(-1),
                           ),
                           SizedBox(width: 2.w),
                           _buildNavChevronPill(
                             palette: palette,
-                            icon: Icons.chevron_right_rounded,
+                            icon: Directionality.of(context) == TextDirection.rtl
+                                ? Icons.chevron_left_rounded
+                                : Icons.chevron_right_rounded,
                             enabled: _canGoMonth(1),
-                            borderRadius: const BorderRadius.horizontal(
-                              left: Radius.circular(6),
-                              right: Radius.circular(50),
-                            ),
+                            borderRadius: const BorderRadiusDirectional.horizontal(
+                              start: Radius.circular(6),
+                              end: Radius.circular(50),
+                            ).resolve(Directionality.of(context)),
                             onTap: () => _shiftMonth(1),
                           ),
                         ],
@@ -385,7 +390,7 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
                           borderRadius: BorderRadius.circular(50),
                         ),
                         child: Text(
-                          'Today',
+                          AppConstants.today.tr,
                           style: TextStyle(
                             fontFamily: AppConstants.font,
                             fontSize: 13.5.sp,
@@ -425,7 +430,7 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
                         shape: const StadiumBorder(),
                       ),
                       child: Text(
-                        AppConstants.cancel,
+                        AppConstants.cancel.tr,
                         style: TextStyle(
                           fontFamily: AppConstants.font,
                           fontSize: 14.sp,
@@ -458,7 +463,7 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
                           borderRadius: BorderRadius.circular(50),
                         ),
                         child: Text(
-                          AppConstants.done,
+                          AppConstants.done.tr,
                           style: TextStyle(
                             fontFamily: AppConstants.font,
                             fontSize: 14.sp,
@@ -561,7 +566,7 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
                       .map(
                         (m) => Center(
                           child: Text(
-                            m,
+                            m.tr,
                             style: TextStyle(
                               fontFamily: AppConstants.font,
                               fontSize: 17.sp,
@@ -647,13 +652,16 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
               .map(
                 (label) => Expanded(
                   child: Center(
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        fontFamily: AppConstants.font,
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w600,
-                        color: colors.grey2,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontFamily: AppConstants.font,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w600,
+                          color: colors.grey2,
+                        ),
                       ),
                     ),
                   ),
@@ -816,7 +824,7 @@ class _CustomTimePickerDialogState extends State<_CustomTimePickerDialog> {
     final colors = palette.themeColors;
     final formattedHour = _hour12.toString();
     final formattedMinute = _minute.toString().padLeft(2, '0');
-    final periodLabel = _isPm ? 'PM' : 'AM';
+    final periodLabel = AppTranslations.dayPeriodLabel(_isPm);
 
     return Center(
       child: Padding(
@@ -840,7 +848,7 @@ class _CustomTimePickerDialogState extends State<_CustomTimePickerDialog> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Select Time',
+                      AppConstants.selectTime.tr,
                       style: TextStyle(
                         fontFamily: AppConstants.font,
                         fontSize: 16.sp,
@@ -965,16 +973,25 @@ class _CustomTimePickerDialogState extends State<_CustomTimePickerDialog> {
                                   _isPm = idx == 1;
                                 });
                               },
-                              children: ['AM', 'PM']
+                              children: [
+                                AppTranslations.dayPeriodLabel(false),
+                                AppTranslations.dayPeriodLabel(true),
+                              ]
                                   .map(
                                     (pLabel) => Center(
-                                      child: Text(
-                                        pLabel,
-                                        style: TextStyle(
-                                          fontFamily: AppConstants.font,
-                                          fontSize: 17.sp,
-                                          fontWeight: FontWeight.w700,
-                                          color: colors.grey10,
+                                      child: Padding(
+                                        padding: EdgeInsets.symmetric(horizontal: 4.w),
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            pLabel,
+                                            style: TextStyle(
+                                              fontFamily: AppConstants.font,
+                                              fontSize: 17.sp,
+                                              fontWeight: FontWeight.w700,
+                                              color: colors.grey10,
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -1003,7 +1020,7 @@ class _CustomTimePickerDialogState extends State<_CustomTimePickerDialog> {
                             borderRadius: BorderRadius.circular(50),
                           ),
                           child: Text(
-                            'Now',
+                            AppConstants.now.tr,
                             style: TextStyle(
                               fontFamily: AppConstants.font,
                               fontSize: 13.5.sp,
@@ -1026,7 +1043,7 @@ class _CustomTimePickerDialogState extends State<_CustomTimePickerDialog> {
                         shape: const StadiumBorder(),
                       ),
                       child: Text(
-                        AppConstants.cancel,
+                        AppConstants.cancel.tr,
                         style: TextStyle(
                           fontFamily: AppConstants.font,
                           fontSize: 14.sp,
@@ -1048,7 +1065,7 @@ class _CustomTimePickerDialogState extends State<_CustomTimePickerDialog> {
                           borderRadius: BorderRadius.circular(50),
                         ),
                         child: Text(
-                          AppConstants.done,
+                          AppConstants.done.tr,
                           style: TextStyle(
                             fontFamily: AppConstants.font,
                             fontSize: 14.sp,

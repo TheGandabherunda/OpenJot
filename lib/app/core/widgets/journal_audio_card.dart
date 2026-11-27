@@ -153,7 +153,7 @@ class JournalMusicCardContent extends StatelessWidget {
       titleColor: Colors.white,
       subtitle: hasDuration
           ? formatAudioDuration(duration!)
-          : AppConstants.audioTrack,
+          : AppConstants.audioTrack.tr,
       subtitleColor: Colors.white.withOpacity(0.72),
       compact: compact,
     );

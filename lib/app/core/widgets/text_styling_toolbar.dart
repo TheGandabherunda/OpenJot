@@ -124,18 +124,18 @@ class TextStylingToolbar extends StatelessWidget {
     VoidCallback onTap,
     bool isPin,
   ) {
-    BorderRadius? borderRadius;
+    BorderRadiusGeometry? borderRadius;
     if (!isPin) {
       if (index == 0) {
-        borderRadius = const BorderRadius.horizontal(
-          left: Radius.circular(50),
-          right: Radius.circular(16),
+        borderRadius = const BorderRadiusDirectional.horizontal(
+          start: Radius.circular(50),
+          end: Radius.circular(16),
         );
       } else if (index == 7) {
         // 7 is the last index (rtl)
-        borderRadius = const BorderRadius.horizontal(
-          left: Radius.circular(16),
-          right: Radius.circular(50),
+        borderRadius = const BorderRadiusDirectional.horizontal(
+          start: Radius.circular(16),
+          end: Radius.circular(50),
         );
       } else {
         borderRadius = BorderRadius.circular(6);

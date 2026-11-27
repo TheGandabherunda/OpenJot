@@ -660,6 +660,11 @@ class HiveService extends GetxService {
   Future<void> setHideInsightsStats(bool value) =>
       settingsBox.put(AppConstants.hideInsightsStatsKey, value);
 
+  String get localeCode =>
+      settingsBox.get(AppConstants.appLocaleKey, defaultValue: 'system') as String;
+  Future<void> setLocaleCode(String code) =>
+      settingsBox.put(AppConstants.appLocaleKey, code);
+
   // --- Custom Mood Palettes (Preserved across backups/restores) ---
   static const String customMoodPalettesKey = 'custom_mood_palettes';
 
@@ -887,7 +892,7 @@ class HiveService extends GetxService {
   }) async {
     final bool permissionsGranted = await _requestPermissions();
     if (!permissionsGranted) {
-      CustomToast.showToast(AppConstants.storagePermissionsRequired);
+      CustomToast.showToast(AppConstants.storagePermissionsRequired.tr);
       return false;
     }
 
@@ -895,7 +900,7 @@ class HiveService extends GetxService {
     String? encryptedBackupPath;
     Directory? appDocDir;
     try {
-      onStatusUpdate?.call(AppConstants.takingBackup);
+      onStatusUpdate?.call(AppConstants.takingBackup.tr);
       // Allow dialog frame to paint cleanly before synchronous/heavy zip I/O.
       await Future<void>.delayed(const Duration(milliseconds: 50));
       appDocDir = await getApplicationDocumentsDirectory();
@@ -1079,7 +1084,7 @@ class HiveService extends GetxService {
       // 6. Export using file_picker (optionally AES-256-GCM encrypting the zip on disk off the UI thread)
       final Uint8List outputBytes;
       if (isEncryptedExport) {
-        onStatusUpdate?.call(AppConstants.encryptingBackup);
+        onStatusUpdate?.call(AppConstants.encryptingBackup.tr);
         await Future<void>.delayed(const Duration(milliseconds: 50));
         encryptedBackupPath = p.join((await getTemporaryDirectory()).path, exportFileName);
         await CryptoService.encryptBackupFile(
@@ -1092,9 +1097,9 @@ class HiveService extends GetxService {
         outputBytes = await File(zipPath).readAsBytes();
       }
 
-      onStatusUpdate?.call(AppConstants.savingBackup);
+      onStatusUpdate?.call(AppConstants.savingBackup.tr);
       final selectedUri = await FilePicker.saveFile(
-        dialogTitle: AppConstants.selectBackupFolder,
+        dialogTitle: AppConstants.selectBackupFolder.tr,
         fileName: exportFileName,
         bytes: outputBytes,
       );
@@ -1103,12 +1108,12 @@ class HiveService extends GetxService {
         return false;
       }
 
-      CustomToast.showToast(AppConstants.backupCreatedSuccess);
+      CustomToast.showToast(AppConstants.backupCreatedSuccess.tr);
       return true;
 
     } catch (e) {
       debugPrint("Backup failed with exception: $e");
-      CustomToast.showToast(AppConstants.backupFailed.replaceFirst('%s', e.toString()));
+      CustomToast.showToast(AppConstants.backupFailed.tr.replaceFirst('%s', e.toString()));
       return false;
     } finally {
       // Guaranteed Cleanup: Ensure no massive zip or staging files remain
@@ -1134,7 +1139,7 @@ class HiveService extends GetxService {
   }) async {
     final bool permissionsGranted = await _requestPermissions();
     if (!permissionsGranted) {
-      CustomToast.showToast(AppConstants.restorePermissionsRequired);
+      CustomToast.showToast(AppConstants.restorePermissionsRequired.tr);
       return false;
     }
 
@@ -1150,7 +1155,7 @@ class HiveService extends GetxService {
       );
       if (file == null) return false;
 
-      onLoadingStateChanged?.call(true, AppConstants.preparingBackup);
+      onLoadingStateChanged?.call(true, AppConstants.preparingBackup.tr);
       await Future<void>.delayed(const Duration(milliseconds: 50));
 
       File selectedFile;
@@ -1185,7 +1190,7 @@ class HiveService extends GetxService {
 
       if (CryptoService.isEncryptedHeaderPrefix(headerBytes)) {
         if (onRequestBackupPassword == null) {
-          CustomToast.showToast(AppConstants.encryptedBackupPasswordRequired);
+          CustomToast.showToast(AppConstants.encryptedBackupPasswordRequired.tr);
           return false;
         }
         final decryptedPath = p.join(
@@ -1202,7 +1207,7 @@ class HiveService extends GetxService {
           if (password == null || password.isEmpty) {
             return false;
           }
-          onLoadingStateChanged?.call(true, AppConstants.decryptingBackup);
+          onLoadingStateChanged?.call(true, AppConstants.decryptingBackup.tr);
           await Future<void>.delayed(const Duration(milliseconds: 50));
           try {
             await CryptoService.decryptBackupFile(
@@ -1212,20 +1217,20 @@ class HiveService extends GetxService {
             );
             decryptedOk = true;
           } on InvalidCipherTextException {
-            passwordError = AppConstants.incorrectBackupPassword;
+            passwordError = AppConstants.incorrectBackupPassword.tr;
           }
         }
-        onLoadingStateChanged?.call(true, AppConstants.restoringBackup);
+        onLoadingStateChanged?.call(true, AppConstants.restoringBackup.tr);
         await Future<void>.delayed(const Duration(milliseconds: 50));
         zipToExtract = decryptedZipFile;
       } else if (headerBytes.length >= 2 &&
           headerBytes[0] == 0x50 &&
           headerBytes[1] == 0x4B) {
-        onLoadingStateChanged?.call(true, AppConstants.restoringBackup);
+        onLoadingStateChanged?.call(true, AppConstants.restoringBackup.tr);
         await Future<void>.delayed(const Duration(milliseconds: 50));
         zipToExtract = selectedFile;
       } else {
-        CustomToast.showToast(AppConstants.invalidBackupFile);
+        CustomToast.showToast(AppConstants.invalidBackupFile.tr);
         return false;
       }
 
@@ -1438,7 +1443,7 @@ class HiveService extends GetxService {
         await _rewriteJournalsBox(cipherKey: preservedDek);
       }
 
-      CustomToast.showToast(AppConstants.restoreSuccess);
+      CustomToast.showToast(AppConstants.restoreSuccess.tr);
       return true;
     } catch (e) {
       debugPrint("Restore failed with exception: $e");
@@ -1458,7 +1463,7 @@ class HiveService extends GetxService {
           await init();
         }
       }
-      CustomToast.showToast(AppConstants.restoreFailed.replaceFirst('%s', e.toString()));
+      CustomToast.showToast(AppConstants.restoreFailed.tr.replaceFirst('%s', e.toString()));
       return false;
     } finally {
       onLoadingStateChanged?.call(false, '');

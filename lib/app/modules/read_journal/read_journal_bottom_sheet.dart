@@ -15,6 +15,7 @@ import 'package:photo_manager/photo_manager.dart';
 import '../../core/constants.dart';
 import '../../core/models/journal_entry.dart';
 import '../../core/theme.dart';
+import '../../core/translations/app_translations.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/journal_card_grid.dart';
 import '../../core/widgets/journal_quill_styles.dart';
@@ -218,7 +219,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
           size: 28.w,
         ),
         Text(
-          DateFormat('EEEE, MMM d').format(_currentEntry.createdAt),
+          AppTranslations.formatDate(_currentEntry.createdAt, 'EEEE, MMM d'),
           style: TextStyle(
             fontSize: 16.sp,
             fontWeight: FontWeight.w500,
@@ -229,7 +230,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
         ),
         CustomButton(
           onPressed: _onEditPressed,
-          text: AppConstants.edit,
+          text: AppConstants.edit.tr,
           color: Colors.transparent,
           textColor: appThemeColors.grey10,
           textSize: 16.sp,
@@ -279,7 +280,7 @@ class ReadJournalBottomSheetState extends State<ReadJournalBottomSheet> {
             children: _currentEntry.tags
                 .map(
                   (tag) => Padding(
-                    padding: EdgeInsets.only(right: 8.w),
+                    padding: EdgeInsetsDirectional.only(end: 8.w),
                     child: Container(
                       padding:
                           EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),

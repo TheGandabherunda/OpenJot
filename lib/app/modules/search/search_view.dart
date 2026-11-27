@@ -228,7 +228,7 @@ class _SearchViewState extends State<SearchView> {
                   fontFamily: AppConstants.font,
                   letterSpacing: -0.2),
               decoration: InputDecoration(
-                hintText: AppConstants.searchJournalsHint,
+                hintText: AppConstants.searchJournalsHint.tr,
                 hintStyle: TextStyle(
                     color: appThemeColors.grey3,
                     fontFamily: AppConstants.font,
@@ -265,56 +265,56 @@ class _SearchViewState extends State<SearchView> {
               child: Wrap(
                 spacing: 8.w,
                 children: [
-                  _buildFilterChip(AppConstants.bookmark, _isBookmarked,
+                  _buildFilterChip(AppConstants.bookmark.tr, _isBookmarked,
                           (selected) {
                         setState(() {
                           _isBookmarked = selected;
                           _applyFilters();
                         });
                       }),
-                  _buildFilterChip(AppConstants.reflection, _isReflection,
+                  _buildFilterChip(AppConstants.reflection.tr, _isReflection,
                           (selected) {
                         setState(() {
                           _isReflection = selected;
                           _applyFilters();
                         });
                       }),
-                  _buildFilterChip(AppConstants.drafts, _isDraft,
+                  _buildFilterChip(AppConstants.drafts.tr, _isDraft,
                           (selected) {
                         setState(() {
                           _isDraft = selected;
                           _applyFilters();
                         });
                       }),
-                  _buildFilterChip(AppConstants.textOnly, _isTextOnly,
+                  _buildFilterChip(AppConstants.textOnly.tr, _isTextOnly,
                           (selected) {
                         setState(() {
                           _isTextOnly = selected;
                           _applyFilters();
                         });
                       }),
-                  _buildFilterChip(AppConstants.withMedia, _isMediaOnly,
+                  _buildFilterChip(AppConstants.withMedia.tr, _isMediaOnly,
                           (selected) {
                         setState(() {
                           _isMediaOnly = selected;
                           _applyFilters();
                         });
                       }),
-                  _buildFilterChip(AppConstants.withMood, _withMood,
+                  _buildFilterChip(AppConstants.withMood.tr, _withMood,
                           (selected) {
                         setState(() {
                           _withMood = selected;
                           _applyFilters();
                         });
                       }),
-                  _buildFilterChip(AppConstants.withLocation, _withLocation,
+                  _buildFilterChip(AppConstants.withLocation.tr, _withLocation,
                           (selected) {
                         setState(() {
                           _withLocation = selected;
                           _applyFilters();
                         });
                       }),
-                  _buildFilterChip(AppConstants.tags, _isTagsFilterActive,
+                  _buildFilterChip(AppConstants.tags.tr, _isTagsFilterActive,
                           (selected) {
                         setState(() {
                           _isTagsFilterActive = selected;
@@ -349,7 +349,7 @@ class _SearchViewState extends State<SearchView> {
             child: _filteredEntries.isEmpty
                 ? Center(
               child: Text(
-                AppConstants.noResultsFound,
+                AppConstants.noResultsFound.tr,
                 style: TextStyle(
                   fontFamily: AppConstants.font,
                   letterSpacing: -0.2,
@@ -395,7 +395,7 @@ class _SearchViewState extends State<SearchView> {
                             bottom: 16.h,
                             top: showYearDivider ? 0 : 8.h),
                         child: Text(
-                          DateFormat('MMMM').format(entry.createdAt),
+                          AppConstants.months[entry.createdAt.month - 1].tr,
                           style: TextStyle(
                             fontFamily: AppConstants.font,
                             fontWeight: FontWeight.w600,

@@ -5,7 +5,9 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/core/constants.dart';
+import 'package:open_jot/app/core/translations/app_translations.dart';
 import 'package:open_jot/app/modules/settings/about_screen.dart';
+import 'package:open_jot/app/modules/settings/language_bottomsheet.dart';
 import 'package:open_jot/app/modules/settings/settings_controller.dart';
 import 'package:open_jot/app/modules/settings/terms_and_conditions_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -26,7 +28,7 @@ class SettingsBottomSheet extends StatefulWidget {
 
 class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
   final SettingsScreenController controller = Get.put(SettingsScreenController());
-  String _appVersion = AppConstants.loading;
+  String _appVersion = AppConstants.loading.tr;
 
   @override
   void initState() {
@@ -57,7 +59,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Text(
-              AppConstants.changeTheme,
+              AppConstants.changeTheme.tr,
               style: TextStyle(
                 fontSize: 16.sp,
                 letterSpacing: -0.2,
@@ -69,7 +71,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
             Material(
               color: Colors.transparent,
               child: ListTile(
-                title: Text(AppConstants.themeLight,
+                title: Text(AppConstants.themeLight.tr,
                     style: TextStyle(
                         letterSpacing: -0.2,
                         color: appThemeColors.grey10,
@@ -88,7 +90,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
             Material(
               color: Colors.transparent,
               child: ListTile(
-                title: Text(AppConstants.themeDark,
+                title: Text(AppConstants.themeDark.tr,
                     style: TextStyle(
                         letterSpacing: -0.2,
                         color: appThemeColors.grey10,
@@ -107,7 +109,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
             Material(
               color: Colors.transparent,
               child: ListTile(
-                title: Text(AppConstants.themeSystem,
+                title: Text(AppConstants.themeSystem.tr,
                     style: TextStyle(
                         letterSpacing: -0.2,
                         color: appThemeColors.grey10,
@@ -132,28 +134,28 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
     showCupertinoModalPopup(
       context: context,
       builder: (BuildContext context) => CupertinoActionSheet(
-        title: const Text(AppConstants.autoDeleteDrafts,
-            style: TextStyle(fontFamily: AppConstants.font)),
+        title: Text(AppConstants.autoDeleteDrafts.tr,
+            style: const TextStyle(fontFamily: AppConstants.font)),
         actions: <CupertinoActionSheetAction>[
           CupertinoActionSheetAction(
-            child: const Text(AppConstants.days7,
-                style: TextStyle(fontFamily: AppConstants.font)),
+            child: Text(AppConstants.days7.tr,
+                style: const TextStyle(fontFamily: AppConstants.font)),
             onPressed: () {
               controller.setAutoDeleteDrafts(7);
               Navigator.pop(context);
             },
           ),
           CupertinoActionSheetAction(
-            child: const Text(AppConstants.never,
-                style: TextStyle(fontFamily: AppConstants.font)),
+            child: Text(AppConstants.never.tr,
+                style: const TextStyle(fontFamily: AppConstants.font)),
             onPressed: () {
               controller.setAutoDeleteDrafts(-1);
               Navigator.pop(context);
             },
           ),
           CupertinoActionSheetAction(
-            child: const Text(AppConstants.custom,
-                style: TextStyle(fontFamily: AppConstants.font)),
+            child: Text(AppConstants.custom.tr,
+                style: const TextStyle(fontFamily: AppConstants.font)),
             onPressed: () {
               Navigator.pop(context);
               _showCustomDaysDialog();
@@ -165,8 +167,8 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
           onPressed: () {
             Navigator.pop(context);
           },
-          child: const Text(AppConstants.cancel,
-              style: TextStyle(fontFamily: AppConstants.font)),
+          child: Text(AppConstants.cancel.tr,
+              style: const TextStyle(fontFamily: AppConstants.font)),
         ),
       ),
     );
@@ -185,7 +187,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
 
     showAppAlertDialog<void>(
       context: context,
-      title: AppConstants.enterCustomDays,
+      title: AppConstants.enterCustomDays.tr,
       content: Container(
         height: 48.h,
         alignment: Alignment.center,
@@ -213,7 +215,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
           ),
           cursorColor: appThemeColors.primary,
           decoration: InputDecoration(
-            hintText: AppConstants.customDaysExample,
+            hintText: AppConstants.customDaysExample.tr,
             hintStyle: TextStyle(
               color: appThemeColors.grey2,
               fontFamily: AppConstants.font,
@@ -231,11 +233,11 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
       ),
       actionsBuilder: (dialogContext) => [
         AppAlertAction(
-          label: AppConstants.cancel,
+          label: AppConstants.cancel.tr,
           onPressed: () => Navigator.pop(dialogContext),
         ),
         AppAlertAction(
-          label: AppConstants.save,
+          label: AppConstants.save.tr,
           isDefault: true,
           onPressed: () {
             final val = int.tryParse(textController.text.trim());
@@ -262,7 +264,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
 
     showAppAlertDialog<void>(
       context: context,
-      title: AppConstants.hideStats,
+      title: AppConstants.hideStats.tr,
       content: ClipRRect(
         borderRadius: BorderRadius.circular(16.r),
         child: Container(
@@ -273,7 +275,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
             children: [
               Obx(
                 () => _buildDialogTile(
-                  label: AppConstants.hideHomeStats,
+                  label: AppConstants.hideHomeStats.tr,
                   value: controller.hideHomeStats.value,
                   onChanged: controller.toggleHideHomeStats,
                   appThemeColors: appThemeColors,
@@ -283,7 +285,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
               ),
               Obx(
                 () => _buildDialogTile(
-                  label: AppConstants.hideInsightsStats,
+                  label: AppConstants.hideInsightsStats.tr,
                   value: controller.hideInsightsStats.value,
                   onChanged: controller.toggleHideInsightsStats,
                   appThemeColors: appThemeColors,
@@ -297,7 +299,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
       ),
       actionsBuilder: (dialogContext) => [
         AppAlertAction(
-          label: AppConstants.done,
+          label: AppConstants.done.tr,
           isDefault: true,
           onPressed: () => Navigator.pop(dialogContext),
         ),
@@ -383,7 +385,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
               onPressed: () => Navigator.of(context).pop(),
             ),
             title: Text(
-              AppConstants.importFromAnotherApp,
+              AppConstants.importFromAnotherApp.tr,
               style: TextStyle(
                 color: appThemeColors.grey10,
                 fontSize: 17.sp,
@@ -413,7 +415,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                     },
                   ),
                   _buildImportGridItem(
-                    title: "Ask Support",
+                    title: AppConstants.askSupport.tr,
                     icon: Icons.contact_support_rounded,
                     onTap: () {
                       Navigator.pop(context);
@@ -435,7 +437,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                     SizedBox(width: 12.w),
                     Expanded(
                       child: Text(
-                        "Other app formats may not support all features. If you encounter issues or formats change, please raise an issue report so we can fix it.",
+                        AppConstants.importSupportNote.tr,
                         style: TextStyle(
                           fontSize: 13.sp,
                           color: appThemeColors.grey10.withOpacity(0.7),
@@ -629,7 +631,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             title: Text(
-              AppConstants.settings,
+              AppConstants.settings.tr,
               style: TextStyle(
                 color: appThemeColors.grey10,
                 fontSize: 17.sp,
@@ -658,7 +660,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 child: Column(
                   children: [
                     _buildListTile(
-                      title: AppConstants.dailyReminder,
+                      title: AppConstants.dailyReminder.tr,
                       icon: Icons.notifications_rounded,
                       appThemeColors: appThemeColors,
                       backgroundColor: tileBackgroundColor,
@@ -709,7 +711,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                       },
                     ),
                     _buildListTile(
-                      title: AppConstants.autoDeleteDrafts,
+                      title: AppConstants.autoDeleteDrafts.tr,
                       icon: Icons.auto_delete_rounded,
                       appThemeColors: appThemeColors,
                       backgroundColor: tileBackgroundColor,
@@ -717,18 +719,25 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                       trailing: (() {
                         final days = controller.autoDeleteDraftsDays.value;
                         String display = days == -1
-                            ? AppConstants.never
+                            ? AppConstants.never.tr
                             : (days == 7
-                            ? AppConstants.days7
-                            : "$days ${AppConstants.days}");
+                            ? AppConstants.days7.tr
+                            : "$days ${AppConstants.days.tr}");
                         return Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(display,
+                            ConstrainedBox(
+                              constraints: BoxConstraints(maxWidth: 110.w),
+                              child: Text(
+                                display,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                     color: appThemeColors.grey2,
                                     fontSize: 14.sp,
-                                    fontFamily: AppConstants.font)),
+                                    fontFamily: AppConstants.font),
+                              ),
+                            ),
                             SizedBox(width: 8.w),
                             Icon(Icons.arrow_forward_ios_rounded,
                                 size: 16, color: appThemeColors.grey2),
@@ -738,8 +747,8 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                       onTap: _showAutoDeleteOptions,
                     ),
                     _buildListTile(
-                      title: AppConstants.databaseEncryption,
-                      subtitle: AppConstants.databaseEncryptionDesc,
+                      title: AppConstants.databaseEncryption.tr,
+                      subtitle: AppConstants.databaseEncryptionDesc.tr,
                       icon: Icons.enhanced_encryption_rounded,
                       appThemeColors: appThemeColors,
                       backgroundColor: tileBackgroundColor,
@@ -753,7 +762,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                     ),
                     if (controller.dbEncryption.value) ...[
                       _buildListTile(
-                        title: AppConstants.changeMasterPassword,
+                        title: AppConstants.changeMasterPassword.tr,
                         icon: Icons.password_rounded,
                         appThemeColors: appThemeColors,
                         backgroundColor: tileBackgroundColor,
@@ -764,7 +773,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                       ),
                       if (controller.canUseBiometrics.value)
                         _buildListTile(
-                          title: AppConstants.biometricUnlock,
+                          title: AppConstants.biometricUnlock.tr,
                           icon: Icons.fingerprint_rounded,
                           appThemeColors: appThemeColors,
                           backgroundColor: tileBackgroundColor,
@@ -778,7 +787,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                         ),
                     ] else ...[
                       _buildListTile(
-                        title: AppConstants.appLock,
+                        title: AppConstants.appLock.tr,
                         icon: Icons.lock_rounded,
                         appThemeColors: appThemeColors,
                         backgroundColor: tileBackgroundColor,
@@ -794,7 +803,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                       ),
                       if (controller.appLock.value)
                         _buildListTile(
-                          title: AppConstants.changePin,
+                          title: AppConstants.changePin.tr,
                           icon: Icons.password_rounded,
                           appThemeColors: appThemeColors,
                           backgroundColor: tileBackgroundColor,
@@ -814,7 +823,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 child: Column(
                   children: [
                     _buildListTile(
-                      title: AppConstants.onThisDay,
+                      title: AppConstants.onThisDay.tr,
                       icon: Icons.history_rounded,
                       appThemeColors: appThemeColors,
                       backgroundColor: tileBackgroundColor,
@@ -828,7 +837,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                     ),
                     if (controller.onThisDay.value)
                       _buildListTile(
-                        title: AppConstants.excludeEntries,
+                        title: AppConstants.excludeEntries.tr,
                         icon: Icons.notifications_off_rounded,
                         appThemeColors: appThemeColors,
                         backgroundColor: tileBackgroundColor,
@@ -864,7 +873,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 child: Column(
                   children: [
                     _buildListTile(
-                      title: AppConstants.hideStats,
+                      title: AppConstants.hideStats.tr,
                       icon: Icons.visibility_off_rounded,
                       appThemeColors: appThemeColors,
                       backgroundColor: tileBackgroundColor,
@@ -884,7 +893,47 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 child: Column(
                   children: [
                     _buildListTile(
-                      title: AppConstants.theme,
+                      title: AppConstants.language.tr,
+                      icon: Icons.language_rounded,
+                      appThemeColors: appThemeColors,
+                      backgroundColor: tileBackgroundColor,
+                      textColor: textColor,
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: 140.w),
+                            child: Text(
+                              AppTranslations.displayNameForCode(
+                                  controller.localeCode.value),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: appThemeColors.grey2,
+                                fontSize: 14.sp,
+                                fontFamily: AppConstants.font,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 8.w),
+                          const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                        ],
+                      ),
+                      onTap: () {
+                        showCupertinoModalBottomSheet(
+                          context: context,
+                          expand: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) => const SafeArea(
+                            bottom: false,
+                            child: LanguageBottomSheet(),
+                          ),
+                        );
+                      },
+                      showDivider: true,
+                    ),
+                    _buildListTile(
+                      title: AppConstants.theme.tr,
                       icon: Icons.style_rounded,
                       appThemeColors: appThemeColors,
                       backgroundColor: tileBackgroundColor,
@@ -894,7 +943,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                       showDivider: true,
                     ),
                     _buildListTile(
-                      title: AppConstants.moodColors,
+                      title: AppConstants.moodColors.tr,
                       icon: Icons.palette_rounded,
                       appThemeColors: appThemeColors,
                       backgroundColor: tileBackgroundColor,
@@ -937,7 +986,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                       showDivider: true,
                     ),
                     _buildListTile(
-                      title: AppConstants.pitchBlack,
+                      title: AppConstants.pitchBlack.tr,
                       icon: Icons.nightlight_rounded,
                       appThemeColors: appThemeColors,
                       backgroundColor: tileBackgroundColor,
@@ -962,7 +1011,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 child: Column(
                   children: [
                     _buildListTile(
-                      title: AppConstants.backup,
+                      title: AppConstants.backup.tr,
                       icon: Icons.cloud_upload_rounded,
                       appThemeColors: appThemeColors,
                       backgroundColor: tileBackgroundColor,
@@ -971,7 +1020,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                       onTap: () => controller.backup(),
                     ),
                     _buildListTile(
-                      title: AppConstants.restore,
+                      title: AppConstants.restore.tr,
                       icon: Icons.cloud_download_rounded,
                       appThemeColors: appThemeColors,
                       backgroundColor: tileBackgroundColor,
@@ -981,7 +1030,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                       showDivider: true,
                     ),
                     _buildListTile(
-                      title: AppConstants.importFromAnotherApp,
+                      title: AppConstants.importFromAnotherApp.tr,
                       icon: Icons.download_rounded,
                       appThemeColors: appThemeColors,
                       backgroundColor: tileBackgroundColor,
@@ -1001,7 +1050,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                 child: Column(
                   children: [
                     _buildListTile(
-                      title: AppConstants.termsNConditions,
+                      title: AppConstants.termsNConditions.tr,
                       icon: Icons.article_rounded,
                       appThemeColors: appThemeColors,
                       backgroundColor: tileBackgroundColor,
@@ -1011,7 +1060,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                           Get.to(() => const TermsAndConditionsScreen()),
                     ),
                     _buildListTile(
-                      title: AppConstants.privacyPolicy,
+                      title: AppConstants.privacyPolicy.tr,
                       icon: Icons.policy_rounded,
                       appThemeColors: appThemeColors,
                       backgroundColor: tileBackgroundColor,
@@ -1021,7 +1070,7 @@ class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
                           'https://thegandabherunda.github.io/OpenJot/privacy_policy'),
                     ),
                     _buildListTile(
-                      title: AppConstants.about,
+                      title: AppConstants.about.tr,
                       icon: Icons.info_rounded,
                       appThemeColors: appThemeColors,
                       backgroundColor: tileBackgroundColor,

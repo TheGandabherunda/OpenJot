@@ -339,6 +339,127 @@ class AppConstants {
       'encryptionBiometricEnabled';
   static const String hideHomeStatsKey = 'hideHomeStats';
   static const String hideInsightsStatsKey = 'hideInsightsStats';
+  static const String appLocaleKey = 'appLocale';
+
+  // Language & Localization
+  static const String language = "Language";
+  static const String selectLanguage = "Select Language";
+  static const String systemDefault = "System Default";
+  static const String searchLanguagesHint = "Search languages...";
+  static const String languageChanged = "Language changed to %s.";
+
+  // Additional UI Strings (previously inline literals)
+  static const String journalEntryEmpty = "Journal entry cannot be empty";
+  static const String discardDateConfirm = "Discard the selected date/time for this entry?";
+  static const String addMediaLocationMoodFirst = "Add media, location, or mood first";
+  static const String newEntry = "New Entry";
+  static const String location = "Location";
+  static const String record = "Record";
+  static const String selectMomentsToJournal = "Select moments to journal";
+  static const String addMomentsFromMenu = "Add media, location, recording, or mood from menu";
+  static const String writeSomething = "Write Something";
+  static const String saveWithoutWriting = "Save Without Writing";
+  static const String oneLocation = "1 Location";
+  static const String mediaCount = "%d Media";
+  static const String recordingLabel = "Recording";
+  static const String startAudioRecording = "Start Audio Recording";
+  static const String howAreYouFeeling = "How are you feeling?";
+  static const String stateOfMind = "State of Mind";
+  static const String generatingPdf = "Generating PDF...";
+  static const String voiceRecording = "Voice Recording";
+  static const String audioRecording = "Audio Recording";
+  static const String couldNotLoadAudio = "Could not load audio file.";
+  static const String noRemindersSet = "No reminders set.";
+  static const String draftsNeverDeleted = "Drafts will never be deleted";
+  static const String draftsDeletedAfterDays = "Drafts will be deleted after %d days";
+  static const String dismiss = "Dismiss";
+  static const String selectTime = "Select Time";
+  static const String now = "Now";
+  static const String searchPlacesHint = "Search places, shops...";
+  static const String locationPermissionDenied = "Location permission denied.";
+  static const String failedGetCurrentLocation = "Failed to get current location.";
+  static const String authenticateToUnlock = "Please authenticate to unlock the app";
+  static const String encryptDatabase = "Encrypt Database";
+  static const String disableEncryption = "Disable Encryption";
+  static const String backupPasswordTitle = "Backup Password";
+  static const String changeMasterPasswordDesc =
+      "Enter your current master password and choose a new password (minimum 6 characters).";
+  static const String disableEncryptionDesc =
+      "Enter your master password to decrypt your database on disk and turn off encryption.";
+  static const String enableEncryptionDesc =
+      "Protect all journal notes locally with AES-256-GCM encryption. If you forget your master password, your encrypted data cannot be recovered.";
+  static const String verifyForBiometricsDesc =
+      "Enter your master password once to store an unlock key in secure hardware storage for biometric quick-unlock.";
+  static const String createBackupPasswordDesc =
+      "Set a strong password to encrypt this .openjot backup. You will need this password to restore it on any device.";
+  static const String enterBackupPasswordDesc =
+      "Enter the password used when this .openjot backup was created.";
+  static const String encryptDatabaseAction = "Encrypt Database";
+  static const String updatePasswordAction = "Update Password";
+  static const String decryptAndDisable = "Decrypt & Disable";
+  static const String enableBiometricsAction = "Enable Biometrics";
+  static const String createBackupAction = "Create Backup";
+  static const String decryptBackupAction = "Decrypt Backup";
+  static const String newMasterPasswordHint = "New master password";
+  static const String backupPasswordHint = "Backup password";
+  static const String masterPasswordHint = "Master password";
+  static const String enterCurrentMasterPasswordError = "Please enter your current master password.";
+  static const String passwordEmptyError = "Password cannot be empty.";
+  static const String passwordMinLengthError = "Password must be at least 6 characters long.";
+  static const String passwordsDoNotMatchError = "Passwords do not match.";
+  static const String currentMasterPasswordHint = "Current master password";
+  static const String confirmPasswordHint = "Confirm password";
+  static const String excludeUnsavedChangesMessage =
+      "You have unsaved changes. Are you sure you want to discard them and exit?";
+  static const String sortDefault = "Default";
+  static const String sortMutedFirst = "Muted first";
+  static const String sortUnmutedFirst = "Unmuted first";
+  static const String moodUnsavedChangesMessage =
+      "You have unsaved mood color changes. Would you like to save them before closing?";
+  static const String askSupport = "Ask Support";
+  static const String importSupportNote =
+      "Other app formats may not support all features. If you encounter issues or formats change, please raise an issue report so we can fix it.";
+  static const String extractingBackup = "Extracting backup...";
+  static const String parsingDatabase = "Parsing database...";
+  static const String dailyYouDbNotFound = "Daily You database not found in backup.";
+  static const String versionPrefix = "Version: %s";
+  static const String aboutSubtitle =
+      "A minimal, open-source journal to log your thoughts, moods, and memories. All your data stays on your device.";
+  static const String keyFeatures = "Key Features";
+  static const String aboutFeature1 = "• Clean, distraction-free writing experience.";
+  static const String aboutFeature2 = "• Add photos, voice notes, and music to your entries.";
+  static const String aboutFeature3 = "• Record your mood alongside your journals.";
+  static const String aboutFeature4 = "• Personalize with different text styles.";
+  static const String aboutFeature5 = "• Works fully offline, your data stays on your device.";
+  static const String openSource = "Open Source";
+  static const String openSourceDesc =
+      "OpenJot is an open-source application. The source code is publicly available for anyone to inspect, modify, and contribute. We believe in transparency and community collaboration.";
+  static const String dataPrivacy = "Data Privacy";
+  static const String dataPrivacyDesc =
+      "We value your privacy. OpenJot does not collect, store, or transmit any of your personal data. All your journal entries, including text, images, and audio files, are stored exclusively on your device.";
+  static const String linksTitle = "Links";
+  static const String sourceCodeOnGithub = "Source Code on GitHub";
+  static const String sendFeedback = "Send Feedback";
+  static const String couldNotLaunchUrl = "Could not launch URL";
+  static const String termsIntro =
+      "Welcome to OpenJot! This document outlines the terms and conditions for using our application. By using OpenJot, you agree to these terms.";
+  static const String termsSectionDataPrivacy = "Data Storage and Privacy";
+  static const String termsSectionDataPrivacyBody =
+      "OpenJot is designed to be a private space for your thoughts. All journal entries, including text, images, audio files, and other media, are stored exclusively on your local device. The application does not collect, store, or transmit any of your personal data to any external servers. We have no access to your content.";
+  static const String termsSectionUserContent = "User-Generated Content";
+  static const String termsSectionUserContentBody =
+      "You are solely responsible for the content you create and store within OpenJot. This includes any text, images, audio recordings, and other files you add to your journal entries. You are responsible for ensuring you have the necessary rights to use any content you import into the app.";
+  static const String termsSectionDisclaimer = "Disclaimer of Warranty";
+  static const String termsSectionDisclaimerBody =
+      "OpenJot is provided \"as is\" without any warranties, express or implied. We do not guarantee that the app will be error-free or uninterrupted. You use the application at your own risk.";
+  static const String termsSectionLiability = "Limitation of Liability";
+  static const String termsSectionLiabilityBody =
+      "In no event shall the developers of OpenJot be liable for any direct, indirect, incidental, special, or consequential damages, including but not limited to, loss of data, arising out of the use or inability to use this application.";
+  static const String termsSectionThirdParty = "Third-Party Libraries";
+  static const String termsSectionThirdPartyBody =
+      "This application utilizes the following third-party libraries, each governed by its own license:";
+  static const String couldNotRestoreNoMedia = "Database restored. No media found in backup.";
+  static const String audioFallbackLabel = "Audio";
   static const String storagePermissionsRequired =
       "Storage and media permissions are required to create a backup.";
   static const String selectBackupFolder = 'Select a folder to save the backup';

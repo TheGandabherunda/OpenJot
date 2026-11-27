@@ -79,7 +79,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
     final password = _passwordController.text;
     if (password.isEmpty || _isUnlocking) {
       if (password.isEmpty) {
-        setState(() => _errorMessage = AppConstants.enterMasterPasswordHint);
+        setState(() => _errorMessage = AppConstants.enterMasterPasswordHint.tr);
       }
       return;
     }
@@ -98,7 +98,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
     } else {
       setState(() {
         _isUnlocking = false;
-        _errorMessage = AppConstants.incorrectMasterPassword;
+        _errorMessage = AppConstants.incorrectMasterPassword.tr;
       });
     }
   }
@@ -133,7 +133,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
       await _completeUnlock();
     } else {
       setState(() {
-        _errorMessage = AppConstants.incorrectPin;
+        _errorMessage = AppConstants.incorrectPin.tr;
         _enteredPin = '';
       });
     }
@@ -182,7 +182,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
             ),
             SizedBox(height: 20.h),
             Text(
-              AppConstants.hello,
+              AppConstants.hello.tr,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: AppConstants.font,
@@ -193,7 +193,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
             ),
             SizedBox(height: 8.h),
             Text(
-              AppConstants.enterMasterPasswordHint,
+              AppConstants.enterMasterPasswordHint.tr,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: AppConstants.font,
@@ -204,7 +204,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
             SizedBox(height: 28.h),
             SegmentedPasswordInput(
               controller: _passwordController,
-              hint: AppConstants.enterMasterPassword,
+              hint: AppConstants.enterMasterPassword.tr,
               obscure: _obscurePassword,
               onToggleObscure: () =>
                   setState(() => _obscurePassword = !_obscurePassword),
@@ -260,7 +260,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
                     )
                   : CustomButton(
                       onPressed: _unlockWithMasterPassword,
-                      text: AppConstants.unlockButton,
+                      text: AppConstants.unlockButton.tr,
                       color: appColors.primary,
                       textColor: appColors.onPrimary,
                       expandWidth: true,
@@ -280,7 +280,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
                   size: 22,
                 ),
                 label: Text(
-                  AppConstants.unlockWithBiometrics,
+                  AppConstants.unlockWithBiometrics.tr,
                   style: TextStyle(
                     fontFamily: AppConstants.font,
                     color: appColors.grey10,
@@ -301,7 +301,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
       children: [
         const Spacer(flex: 2),
         Text(
-          AppConstants.hello,
+          AppConstants.hello.tr,
           style: TextStyle(
             fontFamily: AppConstants.font,
             color: appColors.grey10,
@@ -311,7 +311,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
         ),
         SizedBox(height: 12.h),
         Text(
-          AppConstants.enterYourPin,
+          AppConstants.enterYourPin.tr,
           style: TextStyle(
             fontFamily: AppConstants.font,
             color: appColors.grey10,
@@ -346,7 +346,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
         TextButton(
           onPressed: _authenticateWithBiometrics,
           child: Text(
-            AppConstants.useBiometrics,
+            AppConstants.useBiometrics.tr,
             style: TextStyle(
               fontFamily: AppConstants.font,
               color: appColors.grey10,

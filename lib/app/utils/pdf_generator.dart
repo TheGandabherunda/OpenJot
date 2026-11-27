@@ -2,8 +2,10 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import 'package:get_thumbnail_video/video_thumbnail.dart';
 import 'package:intl/intl.dart' as intl;
+import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/models/journal_entry.dart';
 import 'package:open_jot/app/utils/mood_helper.dart';
 import 'package:pdf/pdf.dart';
@@ -505,7 +507,7 @@ class PdfGenerator {
         for (final r in entry.recordings)
           item(r.name, fmt(r.duration)),
         for (final a in entry.galleryAudios)
-          item(a.title ?? 'Audio',
+          item(a.title ?? AppConstants.audioFallbackLabel.tr,
               fmt(Duration(seconds: a.duration))),
       ],
     );

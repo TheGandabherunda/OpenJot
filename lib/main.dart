@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:get/get.dart';
@@ -13,6 +12,7 @@ import 'package:open_jot/app/core/services/app_lock_service.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/services/notification_service.dart';
 import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/core/translations/app_translations.dart';
 import 'package:open_jot/app/core/widgets/progressive_edge_blur.dart';
 import 'package:open_jot/app/routes/app_pages.dart';
 import 'package:open_jot/app/utils/mood_helper.dart';
@@ -165,15 +165,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       theme: AppTheme.lightTheme(),
       darkTheme: AppTheme.darkTheme(),
       themeMode: themeMode,
+      translations: AppTranslations(),
+      locale: AppTranslations.resolveLocale(hiveService.localeCode),
+      fallbackLocale: const Locale('en', 'US'),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
-        FlutterQuillLocalizations.delegate,
+        FallbackQuillLocalizationsDelegate(),
       ],
-      supportedLocales: const [
-        Locale('en', ''),
-      ],
+      supportedLocales: AppTranslations.supportedLocales,
     );
   }
 }

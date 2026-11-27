@@ -34,7 +34,7 @@ class BookmarksView extends GetView<HomeController> {
         surfaceTintColor: Colors.transparent,
         iconTheme: IconThemeData(color: appThemeColors.grey1),
         title: Text(
-          AppConstants.bookmark,
+          AppConstants.bookmark.tr,
           style: TextStyle(
             fontFamily: AppConstants.font,
             color: appThemeColors.grey10,
@@ -53,7 +53,7 @@ class BookmarksView extends GetView<HomeController> {
         if (bookmarks.isEmpty) {
           return Center(
             child: Text(
-              AppConstants.noBookmarksYet,
+              AppConstants.noBookmarksYet.tr,
               style: TextStyle(
                 fontFamily: AppConstants.font,
                 letterSpacing: -0.2,

@@ -18,6 +18,7 @@ import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/models/journal_entry.dart';
 import 'package:open_jot/app/core/services/permission_service.dart';
 import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/core/translations/app_translations.dart';
 import 'package:open_jot/app/core/widgets/app_alert_dialog.dart';
 import 'package:open_jot/app/core/widgets/custom_button.dart';
 import 'package:open_jot/app/core/widgets/custom_datetime_picker.dart';
@@ -415,7 +416,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     try {
       if (!_isSavedOrDiscarded && _hasUnsavedChanges) {
         _saveEntry(isDraft: true);
-        CustomToast.showToast(AppConstants.draftSaved);
+        CustomToast.showToast(AppConstants.draftSaved.tr);
       }
     } catch (e) {
       debugPrint("Auto-draft save failed in dispose: $e");
@@ -519,7 +520,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
 
     if (isTextEmpty && isMediaEmpty && !hasMetadata) {
       CustomToast.showToast(
-        'Journal entry cannot be empty',
+        AppConstants.journalEntryEmpty.tr,
       );
       return;
     }
@@ -936,15 +937,15 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
   Future<bool> _showDiscardDialog() async {
     final result = await showAppAlertDialog<bool>(
       context: context,
-      title: AppConstants.discardSelectionsTitle,
-      message: AppConstants.discardSelectionsMessage,
+      title: AppConstants.discardSelectionsTitle.tr,
+      message: AppConstants.discardSelectionsMessage.tr,
       actionsBuilder: (dialogContext) => [
         AppAlertAction(
-          label: AppConstants.cancel,
+          label: AppConstants.cancel.tr,
           onPressed: () => Navigator.pop(dialogContext, false),
         ),
         AppAlertAction(
-          label: AppConstants.discard,
+          label: AppConstants.discard.tr,
           isDestructive: true,
           onPressed: () => Navigator.pop(dialogContext, true),
         ),
@@ -1230,12 +1231,14 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16.r),
         ),
-        position: RelativeRect.fromLTRB(
-          position.dx + (renderBox.size.width / 2) - 100.w,
-          position.dy + renderBox.size.height + 10.h,
-          MediaQuery.of(context).size.width -
-              (position.dx + renderBox.size.width + 16.w),
-          position.dy + renderBox.size.height + 200.h,
+        position: RelativeRect.fromRect(
+          Rect.fromLTWH(
+            position.dx,
+            position.dy + renderBox.size.height + 10.h,
+            renderBox.size.width,
+            renderBox.size.height,
+          ),
+          Offset.zero & MediaQuery.of(context).size,
         ),
         items: [
           PopupMenuItem(
@@ -1244,7 +1247,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  AppConstants.todayDate,
+                  AppConstants.todayDate.tr,
                   style: TextStyle(
                     fontSize: 16.sp,
                     fontWeight: FontWeight.w400,
@@ -1253,7 +1256,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                   ),
                 ),
                 Text(
-                  DateFormat('MMM d  •  h:mm a').format(DateTime.now()),
+                  '${AppTranslations.formatDate(DateTime.now(), 'MMM d')}  •  ${AppTranslations.formatJm(DateTime.now())}',
                   style: TextStyle(
                     fontSize: 14.sp,
                     fontWeight: FontWeight.w400,
@@ -1279,7 +1282,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  AppConstants.customDate,
+                  AppConstants.customDate.tr,
                   style: TextStyle(
                     fontSize: 16.sp,
                     fontWeight: FontWeight.w400,
@@ -1289,7 +1292,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                 ),
                 if (_isCustomDate)
                   Text(
-                    DateFormat('MMM d  •  h:mm a').format(_selectedDate),
+                    '${AppTranslations.formatDate(_selectedDate, 'MMM d')}  •  ${AppTranslations.formatJm(_selectedDate)}',
                     style: TextStyle(
                       fontSize: 14.sp,
                       color: appThemeColors.grey1,
@@ -1356,7 +1359,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
         alignment: Alignment.center,
         children: [
           Align(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: GestureDetector(
               onTap: () {
                 setState(() {
@@ -1391,13 +1394,13 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                 children: [
                   _buildHeaderPillSegment(
                     appThemeColors: appThemeColors,
-                    borderRadius: const BorderRadius.horizontal(
-                      left: Radius.circular(50),
-                      right: Radius.circular(6),
-                    ),
+                    borderRadius: const BorderRadiusDirectional.horizontal(
+                      start: Radius.circular(50),
+                      end: Radius.circular(6),
+                    ).resolve(Directionality.of(context)),
                     onTap: () => unawaited(_showCalendarPicker()),
                     child: Text(
-                      DateFormat('MMM d').format(_selectedDate),
+                      AppTranslations.formatDate(_selectedDate, 'MMM d'),
                       style: pillTextStyle,
                     ),
                   ),
@@ -1407,7 +1410,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                     borderRadius: BorderRadius.circular(6),
                     onTap: () => unawaited(_showTimeSelector()),
                     child: Text(
-                      DateFormat('h:mm a').format(_selectedDate),
+                      AppTranslations.formatJm(_selectedDate),
                       style: pillTextStyle,
                     ),
                   ),
@@ -1423,10 +1426,10 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                         appThemeColors: appThemeColors,
                         borderRadius: isMenuOpen
                             ? BorderRadius.circular(50)
-                            : const BorderRadius.horizontal(
-                                left: Radius.circular(6),
-                                right: Radius.circular(50),
-                              ),
+                            : const BorderRadiusDirectional.horizontal(
+                                start: Radius.circular(6),
+                                end: Radius.circular(50),
+                              ).resolve(Directionality.of(context)),
                         padding: EdgeInsets.symmetric(horizontal: 10.w),
                         onTap: () => _showHeaderMoreMenu(appThemeColors),
                         child: AnimatedSwitcher(
@@ -1454,12 +1457,12 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
             ),
           ),
           Align(
-            alignment: Alignment.centerRight,
+            alignment: AlignmentDirectional.centerEnd,
             child: CustomButton(
               onPressed: _onDonePressed,
               text: widget.entry != null
-                  ? AppConstants.updateButton
-                  : AppConstants.done,
+                  ? AppConstants.updateButton.tr
+                  : AppConstants.done.tr,
               color: Colors.transparent,
               textColor: appThemeColors.grey10,
               textSize: 16.sp,
@@ -1604,7 +1607,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
           focusNode: _focusNode,
           scrollController: _editorScrollController,
           config: quill.QuillEditorConfig(
-            placeholder: AppConstants.startWriting,
+            placeholder: AppConstants.startWriting.tr,
             customStyles: buildJournalQuillStyles(
               context,
               appThemeColors,
@@ -1639,7 +1642,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
                       Icon(Icons.add, size: 14.sp, color: appThemeColors.grey1),
                       SizedBox(width: 4.w),
                       Text(
-                        AppConstants.addTags,
+                        AppConstants.addTags.tr,
                         style: TextStyle(
                           color: appThemeColors.grey1,
                           fontSize: 12.sp,
@@ -1715,7 +1718,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
 
     showAppAlertDialog<void>(
       context: context,
-      title: AppConstants.addTags,
+      title: AppConstants.addTags.tr,
       content: Container(
         height: 48.h,
         padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -1773,11 +1776,11 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
       ),
       actionsBuilder: (dialogContext) => [
         AppAlertAction(
-          label: AppConstants.cancel,
+          label: AppConstants.cancel.tr,
           onPressed: () => Navigator.pop(dialogContext),
         ),
         AppAlertAction(
-          label: AppConstants.add,
+          label: AppConstants.add.tr,
           isDefault: true,
           onPressed: () {
             _addTag(_tagController.text);
@@ -2125,21 +2128,21 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     // Show Dialog for physical back button
     final action = await showAppAlertDialog<String>(
       context: context,
-      title: AppConstants.unsavedChanges,
-      message: AppConstants.unsavedChangesMessage,
+      title: AppConstants.unsavedChanges.tr,
+      message: AppConstants.unsavedChangesMessage.tr,
       actionsBuilder: (dialogContext) => [
         AppAlertAction(
-          label: AppConstants.saveAsDraft,
+          label: AppConstants.saveAsDraft.tr,
           isDefault: true,
           onPressed: () => Navigator.pop(dialogContext, 'draft'),
         ),
         AppAlertAction(
-          label: AppConstants.discardChanges,
+          label: AppConstants.discardChanges.tr,
           isDestructive: true,
           onPressed: () => Navigator.pop(dialogContext, 'discard'),
         ),
         AppAlertAction(
-          label: AppConstants.cancel,
+          label: AppConstants.cancel.tr,
           onPressed: () => Navigator.pop(dialogContext, 'cancel'),
         ),
       ],
@@ -2156,7 +2159,7 @@ class WriteJournalBottomSheetState extends State<WriteJournalBottomSheet>
     } else if (action == 'draft') {
       _isSavedOrDiscarded = true;
       _saveEntry(isDraft: true);
-      CustomToast.showToast(AppConstants.draftSaved);
+      CustomToast.showToast(AppConstants.draftSaved.tr);
       return true; // Allow pop
     }
 

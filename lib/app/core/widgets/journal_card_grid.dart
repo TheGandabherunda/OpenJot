@@ -40,7 +40,7 @@ class JournalMoodCardContent extends StatelessWidget {
       appThemeColors,
       isDark,
     );
-    final label = AppConstants.moods[moodIndex]['label'] ?? '';
+    final label = (AppConstants.moods[moodIndex]['label'] ?? '').tr;
     final iconSize = compact ? 44.w : 60.w;
 
     final iconWidget = Obx(() {
@@ -211,9 +211,10 @@ class JournalCardGrid extends StatelessWidget {
             buildCardContentAt(index, compact: compact),
             if (overlay != null) overlay,
             if (onRemoveCard != null && overlay == null)
-              Positioned(
+              Positioned.directional(
+                textDirection: Directionality.of(context),
                 top: 4.w,
-                right: 4.w,
+                end: 4.w,
                 child: GestureDetector(
                   onTap: () => onRemoveCard!(index),
                   child: Container(
@@ -384,7 +385,7 @@ Future<SelectedLocation?> showLocationPickerModal(
             onPressed: () => Navigator.of(modalContext).pop(),
           ),
           title: Text(
-            'Location',
+            AppConstants.location.tr,
             style: TextStyle(
               color: colors.grey10,
               fontSize: 17.sp,
@@ -446,7 +447,7 @@ Future<int?> showMoodPickerModal(
             onPressed: () => Navigator.of(modalContext).pop(),
           ),
           title: Text(
-            'State of Mind',
+            AppConstants.stateOfMind.tr,
             style: TextStyle(
               color: colors.grey10,
               fontSize: 17.sp,
@@ -459,7 +460,7 @@ Future<int?> showMoodPickerModal(
             TextButton(
               onPressed: () => Navigator.of(modalContext).pop(selectedMood),
               child: Text(
-                AppConstants.done,
+                AppConstants.done.tr,
                 style: TextStyle(
                   color: colors.primary,
                   fontFamily: AppConstants.font,

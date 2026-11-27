@@ -83,7 +83,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
           },
         ),
         title: Text(
-          'Terms & Conditions',
+          AppConstants.termsNConditions.tr,
           style: TextStyle(
             fontFamily: AppConstants.font,
             letterSpacing: -0.2,
@@ -100,7 +100,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Welcome to OpenJot! This document outlines the terms and conditions for using our application. By using OpenJot, you agree to these terms.',
+              AppConstants.termsIntro.tr,
               style: TextStyle(
                 fontFamily: AppConstants.font,
                 letterSpacing: -0.2,
@@ -112,10 +112,10 @@ class TermsAndConditionsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 32),
 
-            const SectionTitle(title: 'Data Storage and Privacy'),
+            SectionTitle(title: AppConstants.termsSectionDataPrivacy.tr),
             const SizedBox(height: 12),
             Text(
-              'OpenJot is designed to be a private space for your thoughts. All journal entries, including text, images, audio files, and other media, are stored exclusively on your local device. The application does not collect, store, or transmit any of your personal data to any external servers. We have no access to your content.',
+              AppConstants.termsSectionDataPrivacyBody.tr,
               style: TextStyle(
                 fontFamily: AppConstants.font,
                 letterSpacing: -0.2,
@@ -126,10 +126,10 @@ class TermsAndConditionsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 32),
 
-            const SectionTitle(title: 'User-Generated Content'),
+            SectionTitle(title: AppConstants.termsSectionUserContent.tr),
             const SizedBox(height: 12),
             Text(
-              'You are solely responsible for the content you create and store within OpenJot. This includes any text, images, audio recordings, and other files you add to your journal entries. You are responsible for ensuring you have the necessary rights to use any content you import into the app.',
+              AppConstants.termsSectionUserContentBody.tr,
               style: TextStyle(
                 fontFamily: AppConstants.font,
                 letterSpacing: -0.2,
@@ -140,10 +140,10 @@ class TermsAndConditionsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 32),
 
-            const SectionTitle(title: 'Disclaimer of Warranty'),
+            SectionTitle(title: AppConstants.termsSectionDisclaimer.tr),
             const SizedBox(height: 12),
             Text(
-              'OpenJot is provided "as is" without any warranties, express or implied. We do not guarantee that the app will be error-free or uninterrupted. You use the application at your own risk.',
+              AppConstants.termsSectionDisclaimerBody.tr,
               style: TextStyle(
                 fontFamily: AppConstants.font,
                 letterSpacing: -0.2,
@@ -154,10 +154,10 @@ class TermsAndConditionsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 32),
 
-            const SectionTitle(title: 'Limitation of Liability'),
+            SectionTitle(title: AppConstants.termsSectionLiability.tr),
             const SizedBox(height: 12),
             Text(
-              'In no event shall the developers of OpenJot be liable for any direct, indirect, incidental, special, or consequential damages, including but not limited to, loss of data, arising out of the use or inability to use this application.',
+              AppConstants.termsSectionLiabilityBody.tr,
               style: TextStyle(
                 fontFamily: AppConstants.font,
                 letterSpacing: -0.2,
@@ -168,10 +168,10 @@ class TermsAndConditionsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 32),
 
-            const SectionTitle(title: 'Third-Party Libraries'),
+            SectionTitle(title: AppConstants.termsSectionThirdParty.tr),
             const SizedBox(height: 12),
             Text(
-              'This application utilizes the following third-party libraries, each governed by its own license:',
+              AppConstants.termsSectionThirdPartyBody.tr,
               style: TextStyle(
                 fontFamily: AppConstants.font,
                 letterSpacing: -0.2,

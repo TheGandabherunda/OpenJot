@@ -48,7 +48,7 @@ class _VerifyPinBottomSheetState extends State<VerifyPinBottomSheet> {
       Get.back(result: true); // Return true on success
     } else {
       setState(() {
-        _errorMessage = AppConstants.incorrectPin;
+        _errorMessage = AppConstants.incorrectPin.tr;
         _enteredPin = '';
       });
     }
@@ -70,7 +70,7 @@ class _VerifyPinBottomSheetState extends State<VerifyPinBottomSheet> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            AppConstants.verifyYourPin,
+            AppConstants.verifyYourPin.tr,
             style: TextStyle(
               fontFamily: AppConstants.font,
               color: appColors.grey10,

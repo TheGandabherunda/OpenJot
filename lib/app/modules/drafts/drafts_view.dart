@@ -34,7 +34,7 @@ class DraftsView extends GetView<HomeController> {
         surfaceTintColor: Colors.transparent,
         iconTheme: IconThemeData(color: appThemeColors.grey1),
         title: Text(
-          AppConstants.drafts,
+          AppConstants.drafts.tr,
           style: TextStyle(
             fontFamily: AppConstants.font,
             color: appThemeColors.grey10,
@@ -51,7 +51,7 @@ class DraftsView extends GetView<HomeController> {
         if (drafts.isEmpty) {
           return Center(
             child: Text(
-              AppConstants.noDraftsYet,
+              AppConstants.noDraftsYet.tr,
               style: TextStyle(
                 fontFamily: AppConstants.font,
                 letterSpacing: -0.2,

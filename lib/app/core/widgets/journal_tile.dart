@@ -23,6 +23,7 @@ import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 
 import '../services/hive_service.dart';
 import '../constants.dart';
+import '../translations/app_translations.dart';
 import '../models/journal_entry.dart';
 import '../theme.dart';
 import 'journal_card_grid.dart';
@@ -142,15 +143,15 @@ class _JournalTileState extends State<JournalTile> {
   void _onDeletePressed() {
     showAppAlertDialog<void>(
       context: context,
-      title: AppConstants.pleaseConfirm,
-      message: AppConstants.confirmDeleteJournalEntry,
+      title: AppConstants.pleaseConfirm.tr,
+      message: AppConstants.confirmDeleteJournalEntry.tr,
       actionsBuilder: (dialogContext) => [
         AppAlertAction(
-          label: AppConstants.cancel,
+          label: AppConstants.cancel.tr,
           onPressed: () => Navigator.pop(dialogContext),
         ),
         AppAlertAction(
-          label: AppConstants.delete,
+          label: AppConstants.delete.tr,
           isDefault: true,
           isDestructive: true,
           onPressed: () {
@@ -193,11 +194,14 @@ class _JournalTileState extends State<JournalTile> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16.r),
       ),
-      position: RelativeRect.fromLTRB(
-        position.dx - renderBox.size.width * 2,
-        position.dy + renderBox.size.height,
-        position.dx,
-        position.dy + renderBox.size.height * 2,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(
+          position.dx,
+          position.dy + renderBox.size.height,
+          renderBox.size.width,
+          renderBox.size.height,
+        ),
+        Offset.zero & MediaQuery.of(context).size,
       ),
       items: [
         PopupMenuItem(
@@ -206,7 +210,7 @@ class _JournalTileState extends State<JournalTile> {
             children: [
               Icon(Icons.edit, color: appThemeColors.grey10),
               SizedBox(width: 8.w),
-              Text(AppConstants.edit,
+              Text(AppConstants.edit.tr,
                   style: TextStyle(
                       color: appThemeColors.grey10,
                       fontFamily: AppConstants.font,
@@ -231,8 +235,8 @@ class _JournalTileState extends State<JournalTile> {
               SizedBox(width: 8.w),
               Text(
                 widget.entry.isBookmarked
-                    ? AppConstants.removeBookmark
-                    : AppConstants.bookmark,
+                    ? AppConstants.removeBookmark.tr
+                    : AppConstants.bookmark.tr,
                 style: TextStyle(
                     color: appThemeColors.grey10,
                     fontFamily: AppConstants.font,
@@ -252,7 +256,7 @@ class _JournalTileState extends State<JournalTile> {
               Icon(Icons.share_outlined,
                   color: appThemeColors.grey10),
               SizedBox(width: 8.w),
-              Text(AppConstants.share,
+              Text(AppConstants.share.tr,
                   style: TextStyle(
 
                       color: appThemeColors.grey10,
@@ -272,7 +276,7 @@ class _JournalTileState extends State<JournalTile> {
               Icon(Icons.save_outlined,
                   color: appThemeColors.grey10),
               SizedBox(width: 8.w),
-              Text(AppConstants.saveAsPdf,
+              Text(AppConstants.saveAsPdf.tr,
                   style: TextStyle(
                       color: appThemeColors.grey10,
                       fontFamily: AppConstants.font,
@@ -291,7 +295,7 @@ class _JournalTileState extends State<JournalTile> {
               Icon(Icons.delete_outline_outlined,
                   color: appThemeColors.error),
               SizedBox(width: 8.w),
-              Text(AppConstants.delete,
+              Text(AppConstants.delete.tr,
                   style: TextStyle(
                       color: appThemeColors.error,
                       fontFamily: AppConstants.font,
@@ -309,7 +313,7 @@ class _JournalTileState extends State<JournalTile> {
       } else if (value == 'share') {
         _onSharePressed();
       } else if (value == 'pdf') {
-        final loadingToast = CustomToast.showLoadingToast('Generating PDF...');
+        final loadingToast = CustomToast.showLoadingToast(AppConstants.generatingPdf.tr);
         try {
           await PdfGenerator.generateAndSharePdf(widget.entry);
         } catch (e, stack) {
@@ -352,8 +356,6 @@ class _JournalTileContent extends StatelessWidget {
     required this.homeController,
     required this.onMenuPressed,
   });
-
-  static final DateFormat _tileDateFormat = DateFormat('MMM d  •  h:mm a');
 
   @override
   Widget build(BuildContext context) {
@@ -425,7 +427,7 @@ class _JournalTileContent extends StatelessWidget {
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: entry.tags.map((tag) => Padding(
-                          padding: EdgeInsets.only(right: 6.w),
+                          padding: EdgeInsetsDirectional.only(end: 6.w),
                           child: Container(
                             padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
                             decoration: BoxDecoration(
@@ -496,88 +498,95 @@ class _JournalTileContent extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Row(
-              children: [
-                Text(
-                  _tileDateFormat.format(entry.createdAt),
-                  style: TextStyle(
-                    fontFamily: AppConstants.font,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 14.sp,
-                    color: footerTextColor ?? appThemeColors.grey3,
-                    letterSpacing: -0.2,
+            Expanded(
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      '${AppTranslations.formatDate(entry.createdAt, 'MMM d')}  •  ${AppTranslations.formatJm(entry.createdAt)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppConstants.font,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14.sp,
+                        color: footerTextColor ?? appThemeColors.grey3,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
                   ),
-                ),
-                // [FIXED] Replaced `VerticalDivider` (which requires IntrinsicHeight) with a fixed Container.
-                if (hasFooterBadges) ...[
-                  Container(
-                    width: 1.w,
-                    height: 16.h,
-                    color: dividerColor ?? appThemeColors.grey5,
-                    margin: EdgeInsets.symmetric(horizontal: 8.w),
-                  ),
-                  Row(
-                    children: [
-                      if (entry.isReflection)
-                        Container(
-                          margin: EdgeInsets.only(
-                            right: entry.isDraft ? 8.w : 0,
-                          ),
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 8.w, vertical: 2.h),
-                          decoration: BoxDecoration(
-                            color: reflectionBackground ??
-                                appThemeColors.grey5,
-                            borderRadius: BorderRadius.circular(24.r),
-                          ),
-                          child: Text(
-                            AppConstants.reflection,
-                            style: TextStyle(
-                              color: appThemeColors.grey10,
-                              fontSize: 12.sp,
-                              fontFamily: AppConstants.font,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: -0.2,
+                  // [FIXED] Replaced `VerticalDivider` (which requires IntrinsicHeight) with a fixed Container.
+                  if (hasFooterBadges) ...[
+                    Container(
+                      width: 1.w,
+                      height: 16.h,
+                      color: dividerColor ?? appThemeColors.grey5,
+                      margin: EdgeInsets.symmetric(horizontal: 8.w),
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (entry.isReflection)
+                          Container(
+                            margin: EdgeInsetsDirectional.only(
+                              end: entry.isDraft ? 8.w : 0,
+                            ),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 8.w, vertical: 2.h),
+                            decoration: BoxDecoration(
+                              color: reflectionBackground ??
+                                  appThemeColors.grey5,
+                              borderRadius: BorderRadius.circular(24.r),
+                            ),
+                            child: Text(
+                              AppConstants.reflection.tr,
+                              style: TextStyle(
+                                color: appThemeColors.grey10,
+                                fontSize: 12.sp,
+                                fontFamily: AppConstants.font,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: -0.2,
+                              ),
                             ),
                           ),
-                        ),
-                      if (entry.isDraft)
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 8.w, vertical: 2.h),
-                          decoration: BoxDecoration(
-                            color: reflectionBackground ??
-                                appThemeColors.grey5,
-                            borderRadius: BorderRadius.circular(24.r),
-                          ),
-                          child: Text(
-                            AppConstants.draft,
-                            style: TextStyle(
-                              color: appThemeColors.grey10,
-                              fontSize: 12.sp,
-                              fontFamily: AppConstants.font,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: -0.2,
+                        if (entry.isDraft)
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 8.w, vertical: 2.h),
+                            decoration: BoxDecoration(
+                              color: reflectionBackground ??
+                                  appThemeColors.grey5,
+                              borderRadius: BorderRadius.circular(24.r),
+                            ),
+                            child: Text(
+                              AppConstants.draft.tr,
+                              style: TextStyle(
+                                color: appThemeColors.grey10,
+                                fontSize: 12.sp,
+                                fontFamily: AppConstants.font,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: -0.2,
+                              ),
                             ),
                           ),
-                        ),
-                      if (entry.isBookmarked)
-                        Padding(
-                          padding: EdgeInsets.only(
-                            left: entry.isReflection || entry.isDraft
-                                ? 8.w
-                                : 0,
+                        if (entry.isBookmarked)
+                          Padding(
+                            padding: EdgeInsetsDirectional.only(
+                              start: entry.isReflection || entry.isDraft
+                                  ? 8.w
+                                  : 0,
+                            ),
+                            child: Icon(
+                              Icons.bookmark_rounded,
+                              color: appThemeColors.grey2,
+                              size: 22.w,
+                            ),
                           ),
-                          child: Icon(
-                            Icons.bookmark_rounded,
-                            color: appThemeColors.grey2,
-                            size: 22.w,
-                          ),
-                        ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
             if (showMenuIcon)
               GestureDetector(

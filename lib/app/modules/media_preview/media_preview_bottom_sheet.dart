@@ -419,9 +419,10 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
                     );
                   },
                 ),
-                    Positioned(
+                    Positioned.directional(
+                      textDirection: Directionality.of(context),
                       top: 10.h,
-                      left: 10.w,
+                      start: 10.w,
                       child: IconButton(
                         icon:
                         const Icon(Icons.close, color: Colors.white, size: 28),
@@ -433,9 +434,10 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
                       ),
                     ),
                     if (_canEditCurrentItem() || widget.onRemove != null)
-                      Positioned(
+                      Positioned.directional(
+                        textDirection: Directionality.of(context),
                         top: 10.h,
-                        right: 10.w,
+                        end: 10.w,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -460,7 +462,7 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
                                       ),
                                       SizedBox(width: 6.w),
                                       Text(
-                                        AppConstants.edit,
+                                        AppConstants.edit.tr,
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontSize: 15.sp,
@@ -590,7 +592,7 @@ class MediaPreviewBottomSheetState extends State<MediaPreviewBottomSheet> {
   Widget _buildImageItem(MediaItem item, int decodeWidth) {
     final imageProvider = _imageProviderFor(item, decodeWidth);
     if (imageProvider == null) {
-      return const Center(child: Text(AppConstants.unsupportedImageType));
+      return Center(child: Text(AppConstants.unsupportedImageType.tr));
     }
 
     return InteractiveViewer(
@@ -755,15 +757,15 @@ class VideoPlayerItemState extends State<VideoPlayerItem> {
     }
 
     if (_hasError || _controller == null || !_controller!.value.isInitialized) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, color: Colors.white, size: 48),
-            SizedBox(height: 8),
+            const Icon(Icons.error_outline, color: Colors.white, size: 48),
+            const SizedBox(height: 8),
             Text(
-              AppConstants.couldNotLoadVideo,
-              style: TextStyle(color: Colors.white),
+              AppConstants.couldNotLoadVideo.tr,
+              style: const TextStyle(color: Colors.white),
             ),
           ],
         ),
@@ -1035,7 +1037,7 @@ class AudioPlayerItemState extends State<AudioPlayerItem> {
             Icon(Icons.error_outline, color: statusFgColor, size: 48),
             const SizedBox(height: 8),
             Text(
-              "Could not load audio file.",
+              AppConstants.couldNotLoadAudio.tr,
               style: TextStyle(color: statusFgColor),
             ),
           ],
@@ -1043,7 +1045,9 @@ class AudioPlayerItemState extends State<AudioPlayerItem> {
       );
     }
 
-    String title = _isVoiceRecording ? 'Voice Recording' : 'Audio Recording';
+    String title = _isVoiceRecording
+        ? AppConstants.voiceRecording.tr
+        : AppConstants.audioRecording.tr;
     if (widget.item.asset is AssetEntity) {
       title = (widget.item.asset as AssetEntity).title ?? title;
     } else if (widget.item.asset is CapturedPhoto) {
@@ -1315,7 +1319,7 @@ class _LocationPreviewItemState extends State<_LocationPreviewItem> {
       await launchUrl(uri);
     } else if (mounted) {
       CustomToast.showToast(
-        AppConstants.couldNotOpenMap,
+        AppConstants.couldNotOpenMap.tr,
         backgroundColor: Colors.black87,
         textColor: Colors.white,
       );
@@ -1468,7 +1472,7 @@ class _MoodPreviewItem extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final safeIdx = moodIndex.clamp(0, AppConstants.moods.length - 1);
     final moodColors = MoodHelper.getMoodThemeColors(safeIdx, appColors, isDark);
-    final label = AppConstants.moods[safeIdx]['label'] ?? '';
+    final label = (AppConstants.moods[safeIdx]['label'] ?? '').tr;
     final homeController = Get.find<HomeController>();
 
     return AspectRatio(

@@ -68,7 +68,7 @@ class _OnboardingContent extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.sp),
             child: Text(
-              AppConstants.welcomeToOpenJot,
+              AppConstants.welcomeToOpenJot.tr,
               style: TextStyle(
                 fontFamily: AppConstants.font,
                 fontWeight: FontWeight.bold,
@@ -89,7 +89,7 @@ class _OnboardingContent extends StatelessWidget {
             iconColor: appThemeColors.primary,
             textColor: appThemeColors.grey1,
             iconSize: 32.sp,
-            title: AppConstants.feature1,
+            title: AppConstants.feature1.tr,
             icon: Icons.auto_fix_high_outlined,
             fontSize: 16.sp,
           ),
@@ -100,7 +100,7 @@ class _OnboardingContent extends StatelessWidget {
             iconColor: appThemeColors.primary,
             textColor: appThemeColors.grey1,
             iconSize: 32.sp,
-            title: AppConstants.feature2,
+            title: AppConstants.feature2.tr,
             icon: Icons.sentiment_satisfied_alt_rounded,
             fontSize: 16.sp,
           ),
@@ -112,7 +112,7 @@ class _OnboardingContent extends StatelessWidget {
             textColor: appThemeColors.grey1,
             iconSize: 32.sp,
             fontSize: 16.sp,
-            title: AppConstants.feature3,
+            title: AppConstants.feature3.tr,
             icon: Icons.lock_outlined,
           ),
         ),
@@ -129,7 +129,7 @@ class _OnboardingContent extends StatelessWidget {
                 child: SizedBox(
                   width: double.infinity,
                   child: CustomButton(
-                    text: AppConstants.continueButton,
+                    text: AppConstants.continueButton.tr,
                     color: appThemeColors.primary,
                     textColor: appThemeColors.onPrimary,
                     onPressed: () {

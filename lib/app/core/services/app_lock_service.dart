@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/services/crypto_service.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:pointycastle/api.dart' show InvalidCipherTextException;
@@ -24,7 +25,7 @@ class AppLockService extends GetxService {
   Future<bool> authenticate() async {
     try {
       return await _auth.authenticate(
-        localizedReason: 'Please authenticate to unlock the app',
+        localizedReason: AppConstants.authenticateToUnlock.tr,
         biometricOnly: true,
         persistAcrossBackgrounding: true,
       );

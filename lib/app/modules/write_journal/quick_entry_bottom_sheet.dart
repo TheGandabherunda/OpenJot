@@ -16,6 +16,7 @@ import 'package:open_jot/app/core/models/journal_entry.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/services/permission_service.dart';
 import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/core/translations/app_translations.dart';
 import 'package:open_jot/app/core/widgets/app_alert_dialog.dart';
 import 'package:open_jot/app/core/widgets/custom_datetime_picker.dart';
 import 'package:open_jot/app/core/widgets/journal_audio_card.dart';
@@ -233,19 +234,19 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
     if (_selectedLocation != null) {
       parts.add(
         FossLocation.getCachedPlaceName(_selectedLocation!.coordinates) ??
-            '1 Location',
+            AppConstants.oneLocation.tr,
       );
     }
     final visualCount = _previewImages.length + _previewPhotos.length;
     if (visualCount > 0) {
-      parts.add('$visualCount Media');
+      parts.add(AppConstants.mediaCount.tr.replaceFirst('%d', '$visualCount'));
     }
     final audioCount = _previewAudios.length + _previewRecordings.length;
     if (audioCount > 0) {
-      parts.add('$audioCount ${audioCount == 1 ? 'Audio' : 'Audios'}');
+      parts.add('$audioCount ${(audioCount == 1 ? AppConstants.audio : AppConstants.audios).tr}');
     }
     if (_selectedMoodIndex != null) {
-      parts.add(AppConstants.moods[_selectedMoodIndex!]['label'] ?? 'Mood');
+      parts.add((AppConstants.moods[_selectedMoodIndex!]['label'] ?? AppConstants.mood).tr);
     }
     if (parts.isEmpty) {
       return null;
@@ -260,15 +261,15 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
     if (!_hasAnyItem) {
       final discard = await showAppAlertDialog<bool>(
         context: context,
-        title: AppConstants.discardChanges,
-        message: 'Discard the selected date/time for this entry?',
+        title: AppConstants.discardChanges.tr,
+        message: AppConstants.discardDateConfirm.tr,
         actionsBuilder: (dialogContext) => [
           AppAlertAction(
-            label: AppConstants.cancel,
+            label: AppConstants.cancel.tr,
             onPressed: () => Navigator.pop(dialogContext, false),
           ),
           AppAlertAction(
-            label: AppConstants.discard,
+            label: AppConstants.discard.tr,
             isDestructive: true,
             onPressed: () => Navigator.pop(dialogContext, true),
           ),
@@ -279,21 +280,21 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
 
     final action = await showAppAlertDialog<String>(
       context: context,
-      title: AppConstants.unsavedChanges,
-      message: AppConstants.unsavedChangesMessage,
+      title: AppConstants.unsavedChanges.tr,
+      message: AppConstants.unsavedChangesMessage.tr,
       actionsBuilder: (dialogContext) => [
         AppAlertAction(
-          label: AppConstants.saveAsDraft,
+          label: AppConstants.saveAsDraft.tr,
           isDefault: true,
           onPressed: () => Navigator.pop(dialogContext, 'draft'),
         ),
         AppAlertAction(
-          label: AppConstants.discardChanges,
+          label: AppConstants.discardChanges.tr,
           isDestructive: true,
           onPressed: () => Navigator.pop(dialogContext, 'discard'),
         ),
         AppAlertAction(
-          label: AppConstants.cancel,
+          label: AppConstants.cancel.tr,
           onPressed: () => Navigator.pop(dialogContext, 'cancel'),
         ),
       ],
@@ -308,7 +309,7 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
     } else if (action == 'draft') {
       _isSavedOrDiscarded = true;
       _saveEntry(isDraft: true);
-      CustomToast.showToast(AppConstants.draftSaved);
+      CustomToast.showToast(AppConstants.draftSaved.tr);
       return true;
     }
 
@@ -486,15 +487,15 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
   Future<bool> _showSheetDiscardDialog() async {
     final result = await showAppAlertDialog<bool>(
       context: context,
-      title: AppConstants.discardSelectionsTitle,
-      message: AppConstants.discardSelectionsMessage,
+      title: AppConstants.discardSelectionsTitle.tr,
+      message: AppConstants.discardSelectionsMessage.tr,
       actionsBuilder: (dialogContext) => [
         AppAlertAction(
-          label: AppConstants.cancel,
+          label: AppConstants.cancel.tr,
           onPressed: () => Navigator.pop(dialogContext, false),
         ),
         AppAlertAction(
-          label: AppConstants.discard,
+          label: AppConstants.discard.tr,
           isDestructive: true,
           onPressed: () => Navigator.pop(dialogContext, true),
         ),
@@ -601,7 +602,7 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
 
   void _saveWithoutWriting() {
     if (!_hasAnyItem) {
-      CustomToast.showToast('Add media, location, or mood first');
+      CustomToast.showToast(AppConstants.addMediaLocationMoodFirst.tr);
       return;
     }
 
@@ -659,7 +660,7 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
                 onPressed: _handleClose,
               ),
               title: Text(
-                'New Entry',
+                AppConstants.newEntry.tr,
                 style: TextStyle(
                   color: colors.grey10,
                   fontSize: 17.sp,
@@ -712,14 +713,16 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
                                     decoration: BoxDecoration(
                                       color: pillBg,
                                       borderRadius:
-                                          const BorderRadius.horizontal(
-                                        left: Radius.circular(50),
-                                        right: Radius.circular(6),
+                                          const BorderRadiusDirectional.horizontal(
+                                        start: Radius.circular(50),
+                                        end: Radius.circular(6),
                                       ),
                                     ),
                                     child: Text(
-                                      DateFormat('EEEE, MMM d')
-                                          .format(_selectedDate),
+                                      AppTranslations.formatDate(
+                                        _selectedDate,
+                                        'EEEE, MMM d',
+                                      ),
                                       style: pillStyle,
                                     ),
                                   ),
@@ -736,14 +739,13 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
                                     decoration: BoxDecoration(
                                       color: pillBg,
                                       borderRadius:
-                                          const BorderRadius.horizontal(
-                                        left: Radius.circular(6),
-                                        right: Radius.circular(50),
+                                          const BorderRadiusDirectional.horizontal(
+                                        start: Radius.circular(6),
+                                        end: Radius.circular(50),
                                       ),
                                     ),
                                     child: Text(
-                                      DateFormat('h:mm a')
-                                          .format(_selectedDate),
+                                      AppTranslations.formatJm(_selectedDate),
                                       style: pillStyle,
                                     ),
                                   ),
@@ -1115,18 +1117,21 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16.r),
       ),
-      position: RelativeRect.fromLTRB(
-        position.dx - renderBox.size.width * 2,
-        position.dy + renderBox.size.height + 8,
-        position.dx + renderBox.size.width,
-        position.dy + renderBox.size.height * 2,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(
+          position.dx,
+          position.dy + renderBox.size.height + 8,
+          renderBox.size.width,
+          renderBox.size.height,
+        ),
+        Offset.zero & MediaQuery.of(context).size,
       ),
       items: [
         PopupMenuItem(
           value: 'media',
           child: _buildMenuOptionRow(
             colors: colors,
-            label: 'Media',
+            label: AppConstants.media.tr,
             icon: Icons.perm_media_rounded,
           ),
         ),
@@ -1135,7 +1140,7 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
           value: 'location',
           child: _buildMenuOptionRow(
             colors: colors,
-            label: 'Location',
+            label: AppConstants.location.tr,
             icon: Icons.location_on_rounded,
           ),
         ),
@@ -1144,7 +1149,7 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
           value: 'record',
           child: _buildMenuOptionRow(
             colors: colors,
-            label: 'Record',
+            label: AppConstants.record.tr,
             icon: Icons.mic_rounded,
           ),
         ),
@@ -1153,7 +1158,7 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
           value: 'mood',
           child: _buildMenuOptionRow(
             colors: colors,
-            label: 'Mood',
+            label: AppConstants.mood.tr,
             icon: Icons.sentiment_satisfied_rounded,
           ),
         ),
@@ -1262,7 +1267,7 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
         if (item.payload is AssetEntity) {
           final asset = item.payload as AssetEntity;
           content = JournalMusicCardContent(
-            title: asset.title ?? AppConstants.audioTrack,
+            title: asset.title ?? AppConstants.audioTrack.tr,
             duration: Duration(seconds: asset.duration),
           );
         } else {
@@ -1316,7 +1321,7 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
                   ),
                 SizedBox(height: 10.h),
                 Text(
-                  AppConstants.moods[moodIdx]['label'] ?? '',
+                  (AppConstants.moods[moodIdx]['label'] ?? '').tr,
                   style: TextStyle(
                     fontFamily: AppConstants.font,
                     fontSize: 16.sp,
@@ -1395,7 +1400,7 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
               ),
               SizedBox(height: 14.h),
               Text(
-                'Select moments to journal',
+                AppConstants.selectMomentsToJournal.tr,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: AppConstants.font,
@@ -1407,7 +1412,7 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
               ),
               SizedBox(height: 6.h),
               Text(
-                'Add media, location, recording, or mood from menu',
+                AppConstants.addMomentsFromMenu.tr,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: AppConstants.font,
@@ -1452,7 +1457,7 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
                 ),
               ),
               child: Text(
-                'Write Something',
+                AppConstants.writeSomething.tr,
                 style: TextStyle(
                   fontFamily: AppConstants.font,
                   fontSize: 16.sp,
@@ -1466,7 +1471,7 @@ class _QuickEntryBottomSheetState extends State<QuickEntryBottomSheet>
           TextButton(
             onPressed: _saveWithoutWriting,
             child: Text(
-              'Save Without Writing',
+              AppConstants.saveWithoutWriting.tr,
               style: TextStyle(
                 fontFamily: AppConstants.font,
                 fontSize: 15.sp,

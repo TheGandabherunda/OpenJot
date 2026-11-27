@@ -126,22 +126,21 @@ class _MoodColorsBottomSheetState extends State<MoodColorsBottomSheet> {
   Future<bool> _showUnsavedChangesDialog() async {
     final result = await showAppAlertDialog<String>(
       context: context,
-      title: AppConstants.unsavedChanges,
-      message:
-          "You have unsaved mood color changes. Would you like to save them before closing?",
+      title: AppConstants.unsavedChanges.tr,
+      message: AppConstants.moodUnsavedChangesMessage.tr,
       actionsBuilder: (dialogContext) => [
         AppAlertAction(
-          label: AppConstants.save,
+          label: AppConstants.save.tr,
           isDefault: true,
           onPressed: () => Navigator.pop(dialogContext, 'save'),
         ),
         AppAlertAction(
-          label: AppConstants.discard,
+          label: AppConstants.discard.tr,
           isDestructive: true,
           onPressed: () => Navigator.pop(dialogContext, 'discard'),
         ),
         AppAlertAction(
-          label: AppConstants.cancel,
+          label: AppConstants.cancel.tr,
           onPressed: () => Navigator.pop(dialogContext, 'cancel'),
         ),
       ],
@@ -162,15 +161,15 @@ class _MoodColorsBottomSheetState extends State<MoodColorsBottomSheet> {
   void _confirmReset(BuildContext context, AppThemeColors colors) {
     showAppAlertDialog<void>(
       context: context,
-      title: AppConstants.resetMoodColors,
-      message: AppConstants.resetMoodColorsConfirm,
+      title: AppConstants.resetMoodColors.tr,
+      message: AppConstants.resetMoodColorsConfirm.tr,
       actionsBuilder: (dialogContext) => [
         AppAlertAction(
-          label: AppConstants.cancel,
+          label: AppConstants.cancel.tr,
           onPressed: () => Navigator.pop(dialogContext),
         ),
         AppAlertAction(
-          label: AppConstants.reset,
+          label: AppConstants.reset.tr,
           isDestructive: true,
           onPressed: () {
             Navigator.pop(dialogContext);
@@ -322,7 +321,7 @@ class _MoodColorsBottomSheetState extends State<MoodColorsBottomSheet> {
             onPressed: _handleClose,
           ),
           title: Text(
-            AppConstants.moodColors,
+            AppConstants.moodColors.tr,
             style: TextStyle(
               color: textColor,
               fontSize: 17.sp,
@@ -337,13 +336,13 @@ class _MoodColorsBottomSheetState extends State<MoodColorsBottomSheet> {
                 Icons.refresh_rounded,
                 color: colors.grey2,
               ),
-              tooltip: AppConstants.reset,
+              tooltip: AppConstants.reset.tr,
               onPressed: () => _confirmReset(context, colors),
             ),
             TextButton(
               onPressed: _saveAndClose,
               child: Text(
-                AppConstants.save,
+                AppConstants.save.tr,
                 style: TextStyle(
                   color: colors.primary,
                   fontFamily: AppConstants.font,
@@ -390,7 +389,7 @@ class _MoodColorsBottomSheetState extends State<MoodColorsBottomSheet> {
                             ),
                             SizedBox(height: 8.h),
                             Text(
-                              moodInfo['label'] ?? '',
+                              (moodInfo['label'] ?? '').tr,
                               style: TextStyle(
                                 color: textColor,
                                 fontSize: 16.sp,

@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:open_jot/app/core/constants.dart';
@@ -137,7 +138,7 @@ class _LocationMapViewState extends State<LocationMapView>
     } else {
       if (mounted) {
         setState(() {
-          _permissionMessage = 'Location permission denied.';
+          _permissionMessage = AppConstants.locationPermissionDenied.tr;
         });
       }
     }
@@ -171,7 +172,7 @@ class _LocationMapViewState extends State<LocationMapView>
         if (mounted) {
           setState(() {
             _isLoading = false;
-            _permissionMessage = 'Failed to get current location.';
+            _permissionMessage = AppConstants.failedGetCurrentLocation.tr;
           });
         }
       }
@@ -179,7 +180,7 @@ class _LocationMapViewState extends State<LocationMapView>
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _permissionMessage = 'Failed to get current location: $e';
+          _permissionMessage = '${AppConstants.failedGetCurrentLocation.tr} ($e)';
         });
       }
     }
@@ -402,17 +403,17 @@ class _LocationMapViewState extends State<LocationMapView>
                                 controller: _searchController,
                                 onChanged: _onSearchChanged,
                                 decoration: InputDecoration(
-                                  hintText: 'Search places, shops...',
+                                  hintText: AppConstants.searchPlacesHint.tr,
                                   hintStyle: TextStyle(
                                     color: colors.grey2,
                                     fontSize: 14.sp,
                                   ),
                                   prefixIcon: Padding(
-                                    padding: EdgeInsets.only(left: 12.w, right: 4.w),
+                                    padding: EdgeInsetsDirectional.only(start: 12.w, end: 4.w),
                                     child: Icon(Icons.search_rounded, color: colors.grey1),
                                   ),
                                   suffixIcon: Padding(
-                                    padding: EdgeInsets.only(right: 8.w),
+                                    padding: EdgeInsetsDirectional.only(end: 8.w),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
@@ -545,9 +546,9 @@ class _LocationMapViewState extends State<LocationMapView>
                       padding: EdgeInsets.symmetric(horizontal: 14.w),
                       decoration: BoxDecoration(
                         color: colors.grey8,
-                        borderRadius: const BorderRadius.horizontal(
-                          left: Radius.circular(50),
-                          right: Radius.circular(16),
+                        borderRadius: const BorderRadiusDirectional.horizontal(
+                          start: Radius.circular(50),
+                          end: Radius.circular(16),
                         ),
                       ),
                       alignment: Alignment.center,
@@ -563,14 +564,14 @@ class _LocationMapViewState extends State<LocationMapView>
                       padding: EdgeInsets.symmetric(horizontal: 20.w),
                       decoration: BoxDecoration(
                         color: colors.grey8,
-                        borderRadius: const BorderRadius.horizontal(
-                          left: Radius.circular(16),
-                          right: Radius.circular(50),
+                        borderRadius: const BorderRadiusDirectional.horizontal(
+                          start: Radius.circular(16),
+                          end: Radius.circular(50),
                         ),
                       ),
                       child: Center(
                         child: Text(
-                          AppConstants.add,
+                          AppConstants.add.tr,
                           textAlign: TextAlign.center,
                           textHeightBehavior: const TextHeightBehavior(
                             applyHeightToFirstAscent: false,

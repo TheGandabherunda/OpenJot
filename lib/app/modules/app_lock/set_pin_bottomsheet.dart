@@ -65,7 +65,7 @@ class _SetPinBottomSheetState extends State<SetPinBottomSheet> {
       Get.back(result: true);
     } else {
       CustomToast.showToast(
-        AppConstants.pinsDoNotMatch,
+        AppConstants.pinsDoNotMatch.tr,
         backgroundColor: appColors.grey7,
         textColor: appColors.grey10,
       );
@@ -95,7 +95,7 @@ class _SetPinBottomSheetState extends State<SetPinBottomSheet> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            _isConfirming ? AppConstants.confirmPin : AppConstants.setAPin,
+            _isConfirming ? AppConstants.confirmPin.tr : AppConstants.setAPin.tr,
             style: TextStyle(
               fontFamily: AppConstants.font,
               color: appColors.grey10,
@@ -118,8 +118,8 @@ class _SetPinBottomSheetState extends State<SetPinBottomSheet> {
                 ? (_isConfirming ? _onSetPin : _onContinue)
                 : null,
             text: _isConfirming
-                ? AppConstants.setPin
-                : AppConstants.continueButton,
+                ? AppConstants.setPin.tr
+                : AppConstants.continueButton.tr,
             color: appColors.primary,
             textColor: appColors.onPrimary,
             textPadding: CustomButton.defaultTextPadding,

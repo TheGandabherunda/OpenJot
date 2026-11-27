@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/modules/bookmarks/bookmarks_view.dart';
 import 'package:open_jot/app/modules/drafts/drafts_view.dart';
@@ -20,6 +20,7 @@ import 'package:open_jot/app/modules/write_journal/write_journal_bottom_sheet.da
 import '../../core/constants.dart';
 import '../../core/services/shared_services.dart';
 import '../../core/theme.dart';
+import '../../core/translations/app_translations.dart';
 import '../../core/widgets/app_alert_dialog.dart';
 import '../../core/widgets/custom_icon_button.dart';
 import '../../core/widgets/journal_tile.dart';
@@ -77,9 +78,6 @@ class _HomeScreenStack extends StatefulWidget {
 
 class _HomeScreenStackState extends State<_HomeScreenStack>
     with TickerProviderStateMixin {
-  static final DateFormat _monthFormat = DateFormat('MMMM');
-  static final DateFormat _tileDateFormat = DateFormat('dd,MMM');
-
   final _shareService = ShareService();
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _listKey = GlobalKey();
@@ -314,12 +312,15 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: colors.grey10,
-            fontFamily: AppConstants.font,
-            letterSpacing: -0.2,
+        Flexible(
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: colors.grey10,
+              fontFamily: AppConstants.font,
+              letterSpacing: -0.2,
+            ),
           ),
         ),
         SizedBox(width: 8.w),
@@ -334,6 +335,8 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         _menuKey.currentContext!.findRenderObject() as RenderBox;
     final position = renderBox.localToGlobal(Offset.zero);
 
+    final double menuTop = position.dy + renderBox.size.height + 12.h;
+
     _isMenuOpen.value = true;
 
     showMenu<String>(
@@ -343,55 +346,67 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16.r),
       ),
-      position: RelativeRect.fromLTRB(
-        position.dx - renderBox.size.width * 2,
-        position.dy + renderBox.size.height + 16,
-        position.dx,
-        position.dy + renderBox.size.height * 2,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(
+          position.dx,
+          menuTop,
+          renderBox.size.width,
+          renderBox.size.height,
+        ),
+        Offset.zero & MediaQuery.of(context).size,
       ),
       items: [
         TappablePopupMenuEntry(
-          onTap: () => _showSortSubmenu(context, position, renderBox),
+          onTap: (itemContext) => _showSortSubmenu(context, itemContext, menuTop),
           child: Obx(
             () => Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.keyboard_arrow_left_rounded,
-                      color: appThemeColors.grey10,
-                    ),
-                    SizedBox(width: 8.w),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          AppConstants.sortBy,
-                          style: TextStyle(
-                            color: appThemeColors.grey10,
-                            fontFamily: AppConstants.font,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                        SizedBox(
-                          width: 68.w,
-                          child: Text(
-                            widget.controller.currentSortTypeDisplayName,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12.sp,
-                              color: appThemeColors.grey2,
-                              fontFamily: AppConstants.font,
-                              letterSpacing: -0.2,
+                Flexible(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Directionality.of(context) == TextDirection.rtl
+                            ? Icons.keyboard_arrow_right_rounded
+                            : Icons.keyboard_arrow_left_rounded,
+                        color: appThemeColors.grey10,
+                      ),
+                      SizedBox(width: 8.w),
+                      Flexible(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              AppConstants.sortBy.tr,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: appThemeColors.grey10,
+                                fontFamily: AppConstants.font,
+                                letterSpacing: -0.2,
+                              ),
                             ),
-                          ),
+                            ConstrainedBox(
+                              constraints: BoxConstraints(maxWidth: 110.w),
+                              child: Text(
+                                widget.controller.currentSortTypeDisplayName,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12.sp,
+                                  color: appThemeColors.grey2,
+                                  fontFamily: AppConstants.font,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
+                SizedBox(width: 8.w),
                 Icon(Icons.sort, color: appThemeColors.grey10),
               ],
             ),
@@ -401,7 +416,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         PopupMenuItem(
           value: 'bookmarks',
           child: _buildPopupMenuRow(
-            label: AppConstants.bookmark,
+            label: AppConstants.bookmark.tr,
             icon: Icons.bookmark_outline_rounded,
             colors: appThemeColors,
           ),
@@ -410,7 +425,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         PopupMenuItem(
           value: 'drafts',
           child: _buildPopupMenuRow(
-            label: AppConstants.drafts,
+            label: AppConstants.drafts.tr,
             icon: Icons.edit_document,
             colors: appThemeColors,
           ),
@@ -419,7 +434,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         PopupMenuItem(
           value: 'insights',
           child: _buildPopupMenuRow(
-            label: AppConstants.insights,
+            label: AppConstants.insights.tr,
             icon: Icons.insights_outlined,
             colors: appThemeColors,
           ),
@@ -428,7 +443,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         PopupMenuItem(
           value: 'reflections',
           child: _buildPopupMenuRow(
-            label: AppConstants.reflections,
+            label: AppConstants.reflections.tr,
             icon: Icons.self_improvement_rounded,
             colors: appThemeColors,
           ),
@@ -437,7 +452,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         PopupMenuItem(
           value: 'settings',
           child: _buildPopupMenuRow(
-            label: AppConstants.settings,
+            label: AppConstants.settings.tr,
             icon: Icons.settings_outlined,
             colors: appThemeColors,
           ),
@@ -463,14 +478,64 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
   }
 
   void _showSortSubmenu(
-      BuildContext context, Offset position, RenderBox renderBox) {
+    BuildContext context,
+    BuildContext itemContext,
+    double menuTop,
+  ) {
     final appThemeColors = AppTheme.colorsOf(context);
-    final subMenuPosition = RelativeRect.fromLTRB(
-      position.dx - 294,
-      position.dy + renderBox.size.height + 16,
-      position.dx,
-      position.dy,
-    );
+    final screenSize = MediaQuery.of(context).size;
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+
+    final itemBox = itemContext.findRenderObject() as RenderBox?;
+    if (itemBox == null) return;
+    final itemTopLeft = itemBox.localToGlobal(Offset.zero);
+    final double mainMenuLeft = itemTopLeft.dx;
+    final double mainMenuRight = itemTopLeft.dx + itemBox.size.width;
+    final double sortTop = menuTop;
+
+    final double gap = 3.w;
+    final double maxSubmenuWidth;
+    final RelativeRect subMenuPosition;
+
+    if (isRtl) {
+      // RTL: open to the right of the already-open dropdown.
+      final double targetLeft =
+          (mainMenuRight + gap).clamp(16.w, screenSize.width - 90.w);
+      maxSubmenuWidth =
+          (screenSize.width - targetLeft - 20.w).clamp(96.w, 175.w);
+      subMenuPosition = RelativeRect.fromLTRB(
+        targetLeft,
+        sortTop,
+        targetLeft + 100.0, // left < right forces grow-right from targetLeft
+        screenSize.height - sortTop,
+      );
+    } else {
+      // Normal LTR: open to the left of the already-open dropdown.
+      final double targetRight =
+          (mainMenuLeft - gap).clamp(90.w, screenSize.width - 16.w);
+      maxSubmenuWidth = (targetRight - 20.w).clamp(96.w, 175.w);
+      final double distFromRight = screenSize.width - targetRight;
+      subMenuPosition = RelativeRect.fromLTRB(
+        distFromRight + 100.0, // left > right forces grow-left from targetRight
+        sortTop,
+        distFromRight,
+        screenSize.height - sortTop,
+      );
+    }
+
+    Widget sortLabel(String text) => ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxSubmenuWidth),
+          child: Text(
+            text,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: appThemeColors.grey10,
+              fontFamily: AppConstants.font,
+              letterSpacing: -0.2,
+            ),
+          ),
+        );
 
     showMenu<String>(
       context: context,
@@ -483,86 +548,37 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       items: [
         PopupMenuItem(
           value: 'time',
-          child: Text(
-            AppConstants.entryTime,
-            style: TextStyle(
-              color: appThemeColors.grey10,
-              fontFamily: AppConstants.font,
-              letterSpacing: -0.2,
-            ),
-          ),
+          child: sortLabel(AppConstants.entryTime.tr),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'bookmark',
-          child: Text(
-            AppConstants.bookmarkFirst,
-            style: TextStyle(
-              color: appThemeColors.grey10,
-              fontFamily: AppConstants.font,
-              letterSpacing: -0.2,
-            ),
-          ),
+          child: sortLabel(AppConstants.bookmarkFirst.tr),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'reflection',
-          child: Text(
-            AppConstants.reflectionFirst,
-            style: TextStyle(
-              color: appThemeColors.grey10,
-              fontFamily: AppConstants.font,
-              letterSpacing: -0.2,
-            ),
-          ),
+          child: sortLabel(AppConstants.reflectionFirst.tr),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'media',
-          child: Text(
-            AppConstants.withMediaFirst,
-            style: TextStyle(
-              color: appThemeColors.grey10,
-              fontFamily: AppConstants.font,
-              letterSpacing: -0.2,
-            ),
-          ),
+          child: sortLabel(AppConstants.withMediaFirst.tr),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'text',
-          child: Text(
-            AppConstants.textOnlyFirst,
-            style: TextStyle(
-              color: appThemeColors.grey10,
-              fontFamily: AppConstants.font,
-              letterSpacing: -0.2,
-            ),
-          ),
+          child: sortLabel(AppConstants.textOnlyFirst.tr),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'location',
-          child: Text(
-            AppConstants.withLocationFirst,
-            style: TextStyle(
-              color: appThemeColors.grey10,
-              fontFamily: AppConstants.font,
-              letterSpacing: -0.2,
-            ),
-          ),
+          child: sortLabel(AppConstants.withLocationFirst.tr),
         ),
         PopupMenuDivider(height: 1, color: appThemeColors.grey6),
         PopupMenuItem(
           value: 'mood',
-          child: Text(
-            AppConstants.withMoodFirst,
-            style: TextStyle(
-              color: appThemeColors.grey10,
-              fontFamily: AppConstants.font,
-              letterSpacing: -0.2,
-            ),
-          ),
+          child: sortLabel(AppConstants.withMoodFirst.tr),
         ),
       ],
     ).then((sortValue) {
@@ -679,7 +695,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         curve: Curves.easeInOutCubic,
       );
     } else {
-      CustomToast.showToast(AppConstants.noEntriesForMonth);
+      CustomToast.showToast(AppConstants.noEntriesForMonth.tr);
     }
   }
 
@@ -709,7 +725,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
     showAppAlertDialog<void>(
       context: context,
       barrierDismissible: true,
-      title: AppConstants.selectMonthAndYear,
+      title: AppConstants.selectMonthAndYear.tr,
       content: SizedBox(
         height: 200.h,
         child: Row(
@@ -727,7 +743,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                 children: AppConstants.months
                     .map((m) => Center(
                           child: Text(
-                            m,
+                            m.tr,
                             style: TextStyle(
                               color: appThemeColors.grey10,
                               fontFamily: AppConstants.font,
@@ -769,11 +785,11 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
       ),
       actionsBuilder: (dialogContext) => [
         AppAlertAction(
-          label: AppConstants.cancel,
+          label: AppConstants.cancel.tr,
           onPressed: () => Navigator.pop(dialogContext),
         ),
         AppAlertAction(
-          label: AppConstants.done,
+          label: AppConstants.done.tr,
           isDefault: true,
           onPressed: () {
             Navigator.pop(dialogContext);
@@ -878,6 +894,9 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
         SizedBox(height: 4.h),
         Text(
           label,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontFamily: AppConstants.font,
             fontWeight: FontWeight.w500,
@@ -961,7 +980,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                       children: [
                         Expanded(
                           child: _buildStatItem(
-                            AppConstants.entriesThisYear,
+                            AppConstants.entriesThisYear.tr,
                             widget.controller.totalEntriesThisYear.toString(),
                             Icons.web_stories,
                           ),
@@ -973,7 +992,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                         ),
                         Expanded(
                           child: _buildStatItem(
-                            AppConstants.wordsWritten,
+                            AppConstants.wordsWritten.tr,
                             widget.controller.totalWordsWritten.toString(),
                             Icons.format_quote_rounded,
                           ),
@@ -985,7 +1004,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                         ),
                         Expanded(
                           child: _buildStatItem(
-                            AppConstants.daysJournaled,
+                            AppConstants.daysJournaled.tr,
                             widget.controller.daysJournaled.toString(),
                             Icons.calendar_today_rounded,
                           ),
@@ -1018,7 +1037,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                             ),
                             SizedBox(height: 24.h),
                             Text(
-                              AppConstants.jotYourThoughts,
+                              AppConstants.jotYourThoughts.tr,
                               style: TextStyle(
                                 fontFamily: AppConstants.font,
                                 fontWeight: FontWeight.w600,
@@ -1030,7 +1049,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                               textAlign: TextAlign.center,
                             ),
                             Text(
-                              AppConstants.tapToCreateJournal,
+                              AppConstants.tapToCreateJournal.tr,
                               style: TextStyle(
                                 fontFamily: AppConstants.font,
                                 fontWeight: FontWeight.w500,
@@ -1102,7 +1121,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                         : (index == 0 ? 0 : 8.h),
                                   ),
                                   child: Text(
-                                    _monthFormat.format(entry.createdAt),
+                                    AppConstants.months[entry.createdAt.month - 1].tr,
                                     style: TextStyle(
                                       fontFamily: AppConstants.font,
                                       fontWeight: FontWeight.w600,
@@ -1231,12 +1250,12 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                         icon: Icons.search_rounded,
                         iconSize: iconSize,
                         size: buttonSize,
-                        borderRadius: BorderRadius.only(
-                          topLeft: outerRadius,
-                          bottomLeft: outerRadius,
-                          topRight: innerRadius,
-                          bottomRight: innerRadius,
-                        ),
+                        borderRadius: BorderRadiusDirectional.only(
+                          topStart: outerRadius,
+                          bottomStart: outerRadius,
+                          topEnd: innerRadius,
+                          bottomEnd: innerRadius,
+                        ).resolve(Directionality.of(context)),
                         onTap: () => Get.to(() => const SearchView()),
                       ),
                       SizedBox(width: 3.w),
@@ -1253,12 +1272,12 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                             size: buttonSize,
                             borderRadius: isMenuOpen
                                 ? BorderRadius.circular(buttonSize / 2)
-                                : BorderRadius.only(
-                                    topLeft: innerRadius,
-                                    bottomLeft: innerRadius,
-                                    topRight: outerRadius,
-                                    bottomRight: outerRadius,
-                                  ),
+                                : BorderRadiusDirectional.only(
+                                    topStart: innerRadius,
+                                    bottomStart: innerRadius,
+                                    topEnd: outerRadius,
+                                    bottomEnd: outerRadius,
+                                  ).resolve(Directionality.of(context)),
                             onTap: () => _showPopupMenu(context),
                           );
                         },
@@ -1347,7 +1366,7 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                         valueListenable: _scrubDate,
                         builder: (context, date, _) {
                           if (date == null) return const SizedBox.shrink();
-                          final monthStr = DateFormat('MMMM').format(date);
+                          final monthStr = AppConstants.months[date.month - 1].tr;
                           final yearStr = DateFormat('yyyy').format(date);
 
                           return Column(
@@ -1392,8 +1411,9 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
 
             final (:trackTop, :trackHeight) = _scrollTrackMetrics(context);
 
-            return Positioned(
-              right: 0,
+            return Positioned.directional(
+              textDirection: Directionality.of(context),
+              end: 0,
               top: trackTop,
               width: 48.w,
               height: trackHeight,
@@ -1435,10 +1455,11 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                       return const SizedBox.shrink();
                                     }
                                     final String formattedDate =
-                                        _tileDateFormat.format(date);
+                                        AppTranslations.formatDate(date, 'dd,MMM');
 
-                                    return Positioned(
-                                      right: 3.w,
+                                    return Positioned.directional(
+                                      textDirection: Directionality.of(context),
+                                      end: 3.w,
                                       width: 36.w,
                                       height: badgeHeight,
                                       top: badgeTop,
@@ -1472,8 +1493,9 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                     );
                                   },
                                 ),
-                              Positioned(
-                                right: 0,
+                              Positioned.directional(
+                                textDirection: Directionality.of(context),
+                                end: 0,
                                 top: thumbCenterY -
                                     (circleSize / 2) -
                                     touchPaddingY.h,
@@ -1503,9 +1525,9 @@ class _HomeScreenStackState extends State<_HomeScreenStack>
                                     }
                                   },
                                   child: Align(
-                                    alignment: Alignment.centerRight,
+                                    alignment: AlignmentDirectional.centerEnd,
                                     child: Padding(
-                                      padding: EdgeInsets.only(right: 3.w),
+                                      padding: EdgeInsetsDirectional.only(end: 3.w),
                                       child: Opacity(
                                         opacity: opacity,
                                         child: AnimatedContainer(
@@ -1600,7 +1622,7 @@ class TappablePopupMenuEntry extends PopupMenuEntry<Never> {
   @override
   final double height = kMinInteractiveDimension;
 
-  final VoidCallback onTap;
+  final void Function(BuildContext itemContext) onTap;
   final Widget child;
 
   @override
@@ -1614,7 +1636,7 @@ class _TappablePopupMenuEntryState extends State<TappablePopupMenuEntry> {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: widget.onTap,
+      onTap: () => widget.onTap(context),
       child: Container(
         height: widget.height,
         padding: const EdgeInsets.symmetric(horizontal: 16.0),

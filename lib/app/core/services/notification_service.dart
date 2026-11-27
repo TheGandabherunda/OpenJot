@@ -152,14 +152,14 @@ class NotificationService {
     }
     await flutterLocalNotificationsPlugin.zonedSchedule(
       id: id,
-      title: AppConstants.notificationTitle,
-      body: AppConstants.notificationBody,
+      title: AppConstants.notificationTitle.tr,
+      body: AppConstants.notificationBody.tr,
       scheduledDate: scheduledDateTime,
-      notificationDetails: const NotificationDetails(
+      notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           AppConstants.notificationChannelId,
-          AppConstants.notificationChannelName,
-          channelDescription: AppConstants.notificationChannelDescription,
+          AppConstants.notificationChannelName.tr,
+          channelDescription: AppConstants.notificationChannelDescription.tr,
           importance: Importance.max,
           priority: Priority.high,
         ),
@@ -276,16 +276,17 @@ class NotificationService {
         print("[NotificationService] Scheduling 'On This Day' for $scheduledDateTime");
       }
 
-      String title = AppConstants.onThisDayNotificationTitle;
+      String title = AppConstants.onThisDayNotificationTitle.tr;
       String body;
       String? largeIconPath;
 
       final bool hasMedia = memories.any((e) => e.cameraPhotos.isNotEmpty || e.galleryImages.isNotEmpty);
 
       if (memories.length == 1) {
-        body = hasMedia
-            ? AppConstants.onThisDaySingleEntryWithMedia
-            : AppConstants.onThisDaySingleEntry;
+        body = (hasMedia
+                ? AppConstants.onThisDaySingleEntryWithMedia
+                : AppConstants.onThisDaySingleEntry)
+            .tr;
         if (hasMedia) {
           final entryWithMedia = memories.firstWhere((e) => e.cameraPhotos.isNotEmpty || e.galleryImages.isNotEmpty);
           if (entryWithMedia.cameraPhotos.isNotEmpty) {
@@ -293,8 +294,9 @@ class NotificationService {
           }
         }
       } else {
-        body = AppConstants.onThisDayMultipleEntries;
-        title = AppConstants.onThisDayGroupedNotification.replaceFirst('%d', memories.length.toString());
+        body = AppConstants.onThisDayMultipleEntries.tr;
+        title = AppConstants.onThisDayGroupedNotification.tr
+            .replaceFirst('%d', memories.length.toString());
       }
 
       final payload = jsonEncode({
@@ -304,8 +306,8 @@ class NotificationService {
 
       final androidDetails = AndroidNotificationDetails(
         AppConstants.onThisDayChannelId,
-        AppConstants.onThisDayChannelName,
-        channelDescription: AppConstants.onThisDayChannelDescription,
+        AppConstants.onThisDayChannelName.tr,
+        channelDescription: AppConstants.onThisDayChannelDescription.tr,
         importance: Importance.max,
         priority: Priority.high,
         largeIcon: largeIconPath != null ? FilePathAndroidBitmap(largeIconPath) : null,

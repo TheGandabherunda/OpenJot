@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/theme.dart';
+import 'package:open_jot/app/core/translations/app_translations.dart';
 import 'package:open_jot/app/core/widgets/custom_datetime_picker.dart';
 import 'package:open_jot/app/modules/settings/settings_controller.dart';
 
@@ -54,7 +55,7 @@ class RemindersBottomSheet extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          AppConstants.reminders,
+          AppConstants.reminders.tr,
           style: TextStyle(
             color: textColor,
             fontSize: 17.sp,
@@ -86,7 +87,7 @@ class RemindersBottomSheet extends StatelessWidget {
                       child: Padding(
                         padding: EdgeInsets.only(top: 40.h),
                         child: Text(
-                          "No reminders set.",
+                          AppConstants.noRemindersSet.tr,
                           style: TextStyle(
                             color: appThemeColors.grey3,
                             fontSize: 16.sp,
@@ -105,7 +106,7 @@ class RemindersBottomSheet extends StatelessWidget {
                         final time = controller.reminderTimes[index];
                         final now = DateTime.now();
                         final dt = DateTime(now.year, now.month, now.day, time.hour, time.minute);
-                        final timeStr = DateFormat.jm().format(dt);
+                        final timeStr = AppTranslations.formatJm(dt);
 
                         final isLast = index == controller.reminderTimes.length - 1;
 

@@ -79,63 +79,63 @@ class _MasterPasswordBottomSheetState extends State<MasterPasswordBottomSheet> {
   String get _title {
     switch (widget.mode) {
       case MasterPasswordSheetMode.enableEncryption:
-        return 'Encrypt Database';
+        return AppConstants.encryptDatabase.tr;
       case MasterPasswordSheetMode.changePassword:
-        return AppConstants.changeMasterPassword;
+        return AppConstants.changeMasterPassword.tr;
       case MasterPasswordSheetMode.disableEncryption:
-        return 'Disable Encryption';
+        return AppConstants.disableEncryption.tr;
       case MasterPasswordSheetMode.verifyForBiometrics:
-        return AppConstants.biometricUnlock;
+        return AppConstants.biometricUnlock.tr;
       case MasterPasswordSheetMode.createBackupPassword:
-        return 'Backup Password';
+        return AppConstants.backupPasswordTitle.tr;
       case MasterPasswordSheetMode.enterBackupPassword:
-        return 'Encrypted Backup';
+        return AppConstants.encryptedBackup.tr;
     }
   }
 
   String get _subtitle {
     switch (widget.mode) {
       case MasterPasswordSheetMode.enableEncryption:
-        return 'Protect all journal notes locally with AES-256-GCM encryption. If you forget your master password, your encrypted data cannot be recovered.';
+        return AppConstants.enableEncryptionDesc.tr;
       case MasterPasswordSheetMode.changePassword:
-        return 'Enter your current master password and choose a new password (minimum 6 characters).';
+        return AppConstants.changeMasterPasswordDesc.tr;
       case MasterPasswordSheetMode.disableEncryption:
-        return 'Enter your master password to decrypt your database on disk and turn off encryption.';
+        return AppConstants.disableEncryptionDesc.tr;
       case MasterPasswordSheetMode.verifyForBiometrics:
-        return 'Enter your master password once to store an unlock key in secure hardware storage for biometric quick-unlock.';
+        return AppConstants.verifyForBiometricsDesc.tr;
       case MasterPasswordSheetMode.createBackupPassword:
-        return 'Set a strong password to encrypt this .openjot backup. You will need this password to restore it on any device.';
+        return AppConstants.createBackupPasswordDesc.tr;
       case MasterPasswordSheetMode.enterBackupPassword:
-        return 'Enter the password used when this .openjot backup was created.';
+        return AppConstants.enterBackupPasswordDesc.tr;
     }
   }
 
   String get _primaryButtonText {
     switch (widget.mode) {
       case MasterPasswordSheetMode.enableEncryption:
-        return 'Encrypt Database';
+        return AppConstants.encryptDatabaseAction.tr;
       case MasterPasswordSheetMode.changePassword:
-        return 'Update Password';
+        return AppConstants.updatePasswordAction.tr;
       case MasterPasswordSheetMode.disableEncryption:
-        return 'Decrypt & Disable';
+        return AppConstants.decryptAndDisable.tr;
       case MasterPasswordSheetMode.verifyForBiometrics:
-        return 'Enable Biometrics';
+        return AppConstants.enableBiometricsAction.tr;
       case MasterPasswordSheetMode.createBackupPassword:
-        return 'Create Backup';
+        return AppConstants.createBackupAction.tr;
       case MasterPasswordSheetMode.enterBackupPassword:
-        return 'Decrypt Backup';
+        return AppConstants.decryptBackupAction.tr;
     }
   }
 
   String get _passwordHint {
     switch (widget.mode) {
       case MasterPasswordSheetMode.changePassword:
-        return 'New master password';
+        return AppConstants.newMasterPasswordHint.tr;
       case MasterPasswordSheetMode.createBackupPassword:
       case MasterPasswordSheetMode.enterBackupPassword:
-        return 'Backup password';
+        return AppConstants.backupPasswordHint.tr;
       default:
-        return 'Master password';
+        return AppConstants.masterPasswordHint.tr;
     }
   }
 
@@ -146,24 +146,24 @@ class _MasterPasswordBottomSheetState extends State<MasterPasswordBottomSheet> {
     final confirm = _confirmCtrl.text;
 
     if (_needsCurrentField && currentPw.isEmpty) {
-      setState(() => _errorText = 'Please enter your current master password.');
+      setState(() => _errorText = AppConstants.enterCurrentMasterPasswordError.tr);
       return;
     }
 
     if (password.isEmpty) {
-      setState(() => _errorText = 'Password cannot be empty.');
+      setState(() => _errorText = AppConstants.passwordEmptyError.tr);
       return;
     }
 
     if (_needsConfirmField) {
       if (password.length < 6) {
         setState(
-          () => _errorText = 'Password must be at least 6 characters long.',
+          () => _errorText = AppConstants.passwordMinLengthError.tr,
         );
         return;
       }
       if (password != confirm) {
-        setState(() => _errorText = 'Passwords do not match.');
+        setState(() => _errorText = AppConstants.passwordsDoNotMatchError.tr);
         return;
       }
     }
@@ -299,7 +299,7 @@ class _MasterPasswordBottomSheetState extends State<MasterPasswordBottomSheet> {
                       alignment: Alignment.center,
                       children: [
                         Align(
-                          alignment: Alignment.centerLeft,
+                          alignment: AlignmentDirectional.centerStart,
                           child: IconButton(
                             onPressed: _isBusy
                                 ? null
@@ -344,7 +344,7 @@ class _MasterPasswordBottomSheetState extends State<MasterPasswordBottomSheet> {
                   if (_needsCurrentField) ...[
                     SegmentedPasswordInput(
                       controller: _currentCtrl,
-                      hint: 'Current master password',
+                      hint: AppConstants.currentMasterPasswordHint.tr,
                       obscure: _obscureCurrent,
                       onToggleObscure: () =>
                           setState(() => _obscureCurrent = !_obscureCurrent),
@@ -382,7 +382,7 @@ class _MasterPasswordBottomSheetState extends State<MasterPasswordBottomSheet> {
                     SizedBox(height: gap),
                     SegmentedPasswordInput(
                       controller: _confirmCtrl,
-                      hint: 'Confirm password',
+                      hint: AppConstants.confirmPasswordHint.tr,
                       obscure: _obscureConfirm,
                       onToggleObscure: () =>
                           setState(() => _obscureConfirm = !_obscureConfirm),
@@ -418,7 +418,7 @@ class _MasterPasswordBottomSheetState extends State<MasterPasswordBottomSheet> {
                           SizedBox(width: 12.w),
                           Expanded(
                             child: Text(
-                              AppConstants.biometricUnlock,
+                              AppConstants.biometricUnlock.tr,
                               style: TextStyle(
                                 fontFamily: AppConstants.font,
                                 color: appColors.grey10,
@@ -534,15 +534,15 @@ class SegmentedPasswordInput extends StatelessWidget {
     final outerRadius = Radius.circular(26.r);
     final innerRadius = Radius.circular(8.r);
 
-    final inputRadius = BorderRadius.horizontal(
-      left: outerRadius,
-      right: innerRadius,
-    );
+    final inputRadius = BorderRadiusDirectional.horizontal(
+      start: outerRadius,
+      end: innerRadius,
+    ).resolve(Directionality.of(context));
 
-    final buttonRadius = BorderRadius.horizontal(
-      left: innerRadius,
-      right: outerRadius,
-    );
+    final buttonRadius = BorderRadiusDirectional.horizontal(
+      start: innerRadius,
+      end: outerRadius,
+    ).resolve(Directionality.of(context));
 
     return SizedBox(
       height: 52.h,
@@ -667,7 +667,7 @@ class BackupOptionsBottomSheet extends StatelessWidget {
                   alignment: Alignment.center,
                   children: [
                     Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerStart,
                       child: IconButton(
                         onPressed: () => Navigator.of(context).pop(),
                         icon: Icon(
@@ -677,7 +677,7 @@ class BackupOptionsBottomSheet extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      AppConstants.backup,
+                      AppConstants.backup.tr,
                       style: TextStyle(
                         fontFamily: AppConstants.font,
                         color: appColors.grey10,
@@ -694,8 +694,8 @@ class BackupOptionsBottomSheet extends StatelessWidget {
                 appColors: appColors,
                 tileBg: tileBg,
                 icon: Icons.enhanced_encryption_rounded,
-                title: AppConstants.encryptedBackup,
-                subtitle: AppConstants.encryptedBackupDesc,
+                title: AppConstants.encryptedBackup.tr,
+                subtitle: AppConstants.encryptedBackupDesc.tr,
                 borderRadius: BorderRadius.only(
                   topLeft: outerRadius,
                   topRight: outerRadius,
@@ -710,8 +710,8 @@ class BackupOptionsBottomSheet extends StatelessWidget {
                 appColors: appColors,
                 tileBg: tileBg,
                 icon: Icons.folder_zip_rounded,
-                title: AppConstants.standardBackup,
-                subtitle: AppConstants.standardBackupDesc,
+                title: AppConstants.standardBackup.tr,
+                subtitle: AppConstants.standardBackupDesc.tr,
                 borderRadius: BorderRadius.only(
                   topLeft: innerRadius,
                   topRight: innerRadius,

@@ -6,6 +6,7 @@ import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/services/app_lock_service.dart';
 import 'package:open_jot/app/core/services/hive_service.dart';
 import 'package:open_jot/app/core/services/daily_you_migration_service.dart';
+import 'package:open_jot/app/core/translations/app_translations.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -38,6 +39,7 @@ class SettingsScreenController extends GetxController {
   var autoDeleteDraftsDays = 7.obs;
   var hideHomeStats = false.obs;
   var hideInsightsStats = false.obs;
+  var localeCode = 'system'.obs;
 
   @override
   void onInit() {
@@ -62,6 +64,7 @@ class SettingsScreenController extends GetxController {
     biometricUnlock.value = _hiveService.encryptionBiometricEnabled;
     hideHomeStats.value = _hiveService.hideHomeStats;
     hideInsightsStats.value = _hiveService.hideInsightsStats;
+    localeCode.value = _hiveService.localeCode;
   }
 
   Future<bool> checkAndRequestNotificationPermissions() async {
@@ -69,7 +72,7 @@ class SettingsScreenController extends GetxController {
     final bool permissionsGranted = await _notificationService.requestPermissions();
     if (!permissionsGranted) {
       CustomToast.showToast(
-        AppConstants.notificationPermissionRequired,
+        AppConstants.notificationPermissionRequired.tr,
         backgroundColor: appColors.grey10,
         textColor: appColors.grey8,
       );
@@ -106,14 +109,14 @@ class SettingsScreenController extends GetxController {
         _hiveService.setOnThisDay(true);
         _notificationService.checkForOnThisDayMemories(force: true);
         CustomToast.showToast(
-          AppConstants.onThisDayOn,
+          AppConstants.onThisDayOn.tr,
           backgroundColor: appColors.grey10,
           textColor: appColors.grey8,
         );
       } else {
         onThisDay.value = false;
         CustomToast.showToast(
-          AppConstants.notificationPermissionRequired,
+          AppConstants.notificationPermissionRequired.tr,
           backgroundColor: appColors.grey10,
           textColor: appColors.grey8,
         );
@@ -123,7 +126,7 @@ class SettingsScreenController extends GetxController {
       _hiveService.setOnThisDay(false);
       _notificationService.cancelOnThisDayNotification();
       CustomToast.showToast(
-        AppConstants.onThisDayOff,
+        AppConstants.onThisDayOff.tr,
         backgroundColor: appColors.grey10,
         textColor: appColors.grey8,
       );
@@ -140,7 +143,7 @@ class SettingsScreenController extends GetxController {
     }
 
     CustomToast.showToast(
-      AppConstants.saveExclusions,
+      AppConstants.saveExclusions.tr,
       backgroundColor: appColors.grey10,
       textColor: appColors.grey8,
     );
@@ -152,8 +155,8 @@ class SettingsScreenController extends GetxController {
     _hiveService.setAutoDeleteDraftsDays(days);
 
     String message = days == -1
-        ? "Drafts will never be deleted"
-        : "Drafts will be deleted after $days days";
+        ? AppConstants.draftsNeverDeleted.tr
+        : AppConstants.draftsDeletedAfterDays.tr.replaceFirst('%d', '$days');
 
     CustomToast.showToast(
       message,
@@ -186,7 +189,23 @@ class SettingsScreenController extends GetxController {
     Get.changeThemeMode(themeMode);
 
     CustomToast.showToast(
-      AppConstants.themeChanged.replaceFirst('%s', themeValue),
+      AppConstants.themeChanged.tr.replaceFirst('%s', themeValue.tr),
+      backgroundColor: appColors.grey10,
+      textColor: appColors.grey8,
+    );
+  }
+
+  void changeLanguage(String code) {
+    final appColors = AppTheme.colorsOf(Get.context!);
+    localeCode.value = code;
+    _hiveService.setLocaleCode(code);
+
+    final targetLocale = AppTranslations.resolveLocale(code);
+    Get.updateLocale(targetLocale);
+
+    final displayName = AppTranslations.displayNameForCode(code);
+    CustomToast.showToast(
+      AppConstants.languageChanged.tr.replaceFirst('%s', displayName),
       backgroundColor: appColors.grey10,
       textColor: appColors.grey8,
     );
@@ -271,7 +290,7 @@ class SettingsScreenController extends GetxController {
       );
       if (result == true) {
         CustomToast.showToast(
-          AppConstants.pinChangedSuccess,
+          AppConstants.pinChangedSuccess.tr,
           backgroundColor: appColors.grey10,
           textColor: appColors.grey8,
         );
@@ -303,9 +322,10 @@ class SettingsScreenController extends GetxController {
     if (result == true) {
       _loadSettings();
       CustomToast.showToast(
-        enable
-            ? AppConstants.databaseEncryptedSuccess
-            : AppConstants.databaseDecryptedSuccess,
+        (enable
+                ? AppConstants.databaseEncryptedSuccess
+                : AppConstants.databaseDecryptedSuccess)
+            .tr,
         backgroundColor: appColors.grey10,
         textColor: appColors.grey8,
       );
@@ -322,7 +342,7 @@ class SettingsScreenController extends GetxController {
 
     if (result == true) {
       CustomToast.showToast(
-        AppConstants.masterPasswordChangedSuccess,
+        AppConstants.masterPasswordChangedSuccess.tr,
         backgroundColor: appColors.grey10,
         textColor: appColors.grey8,
       );
@@ -426,7 +446,7 @@ class SettingsScreenController extends GetxController {
       if (backupPassword == null || backupPassword.isEmpty) return;
     }
 
-    _setLoadingOverlay(true, AppConstants.takingBackup);
+    _setLoadingOverlay(true, AppConstants.takingBackup.tr);
     try {
       await _hiveService.backupData(
         encryptionPassword: backupPassword,
@@ -453,15 +473,15 @@ class SettingsScreenController extends GetxController {
   Future<void> restore() async {
     await showAppAlertDialog<void>(
       context: Get.context!,
-      title: AppConstants.confirmRestoreTitle,
-      message: AppConstants.confirmRestoreMessage,
+      title: AppConstants.confirmRestoreTitle.tr,
+      message: AppConstants.confirmRestoreMessage.tr,
       actionsBuilder: (dialogContext) => [
         AppAlertAction(
-          label: AppConstants.cancel,
+          label: AppConstants.cancel.tr,
           onPressed: () => Navigator.of(dialogContext).pop(),
         ),
         AppAlertAction(
-          label: AppConstants.restoreButton,
+          label: AppConstants.restoreButton.tr,
           isDefault: true,
           isDestructive: true,
           onPressed: () async {
@@ -499,12 +519,12 @@ class SettingsScreenController extends GetxController {
       final file = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: ['zip'],
-        dialogTitle: AppConstants.selectDailyYouBackup,
+        dialogTitle: AppConstants.selectDailyYouBackup.tr,
       );
 
       if (file == null) return;
 
-      _setLoadingOverlay(true, AppConstants.importingBackup);
+      _setLoadingOverlay(true, AppConstants.importingBackup.tr);
       await Future<void>.delayed(const Duration(milliseconds: 50));
 
       String zipPath;
@@ -529,7 +549,7 @@ class SettingsScreenController extends GetxController {
 
       if (importedCount > 0) {
         CustomToast.showToast(
-          AppConstants.importSuccess.replaceFirst('%d', importedCount.toString()),
+          AppConstants.importSuccess.tr.replaceFirst('%d', importedCount.toString()),
           backgroundColor: appColors.grey10,
           textColor: appColors.grey8,
         );
@@ -538,7 +558,7 @@ class SettingsScreenController extends GetxController {
         }
       } else {
         CustomToast.showToast(
-          AppConstants.noEntriesToImport,
+          AppConstants.noEntriesToImport.tr,
           backgroundColor: appColors.grey10,
           textColor: appColors.grey8,
         );
@@ -546,7 +566,7 @@ class SettingsScreenController extends GetxController {
     } catch (e) {
       _setLoadingOverlay(false);
       CustomToast.showToast(
-        AppConstants.importFailed.replaceFirst('%s', e.toString()),
+        AppConstants.importFailed.tr.replaceFirst('%s', e.toString()),
         backgroundColor: appColors.grey10,
         textColor: appColors.grey8,
       );

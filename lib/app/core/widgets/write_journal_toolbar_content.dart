@@ -268,11 +268,11 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
     final yesterday = DateTime(now.year, now.month, now.day - 1);
 
     if (date == today) {
-      return AppConstants.today;
+      return AppConstants.today.tr;
     } else if (date == yesterday) {
-      return AppConstants.yesterday;
+      return AppConstants.yesterday.tr;
     } else {
-      return '${AppConstants.months[date.month - 1]} ${date.day}, ${date.year}';
+      return '${AppConstants.months[date.month - 1].tr} ${date.day}, ${date.year}';
     }
   }
 
@@ -490,7 +490,7 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
                         ),
                         SizedBox(width: 6.w),
                         Text(
-                          AppConstants.browse,
+                          AppConstants.browse.tr,
                           style: TextStyle(
                             color: colors.grey10,
                             fontSize: 13.sp,
@@ -521,8 +521,8 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
             final isSelected = album == _selectedAlbum;
 
             // Provide a friendly name for the album
-            String albumName = album.isAll ? AppConstants.all : album.name;
-            if (albumName.isEmpty) albumName = AppConstants.folder;
+            String albumName = album.isAll ? AppConstants.all.tr : album.name;
+            if (albumName.isEmpty) albumName = AppConstants.folder.tr;
 
             return Padding(
               padding: EdgeInsets.only(right: 8.w),
@@ -611,8 +611,9 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
       final Map<IconData, String> contentMap = {
         Icons.format_quote_rounded: AppConstants.contentForQuote,
       };
-      final contentText = contentMap[widget.selectedToolbarIcon] ??
-          AppConstants.noContentSelected;
+      final contentText = (contentMap[widget.selectedToolbarIcon] ??
+              AppConstants.noContentSelected)
+          .tr;
       content = ListView(
         controller: widget.scrollController,
         padding: EdgeInsets.zero,
@@ -643,7 +644,7 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
                   0: Padding(
                     padding: EdgeInsets.symmetric(vertical: 8.h),
                     child: Text(
-                      AppConstants.photos,
+                      AppConstants.photos.tr,
                       style: TextStyle(
                         color: colors.grey10,
                         decoration: TextDecoration.none,
@@ -655,7 +656,7 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
                   1: Padding(
                     padding: EdgeInsets.symmetric(vertical: 8.h),
                     child: Text(
-                      AppConstants.videos,
+                      AppConstants.videos.tr,
                       style: TextStyle(
                         color: colors.grey10,
                         decoration: TextDecoration.none,
@@ -667,7 +668,7 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
                   2: Padding(
                     padding: EdgeInsets.symmetric(vertical: 8.h),
                     child: Text(
-                      AppConstants.audio,
+                      AppConstants.audio.tr,
                       style: TextStyle(
                         color: colors.grey10,
                         decoration: TextDecoration.none,
@@ -725,7 +726,7 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
                           hasScrollBody: false,
                           child: Center(
                             child: Text(
-                              AppConstants.noMediaFound.replaceFirst(
+                              AppConstants.noMediaFound.tr.replaceFirst(
                                   '%s',
                                   _getTabName(_selectedSegment).toLowerCase()),
                               style: TextStyle(
@@ -803,14 +804,14 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
                                   decoration: BoxDecoration(
                                     color: Theme.of(context).primaryColor,
                                     borderRadius:
-                                        const BorderRadius.horizontal(
-                                      left: Radius.circular(50),
-                                      right: Radius.circular(16),
+                                        const BorderRadiusDirectional.horizontal(
+                                      start: Radius.circular(50),
+                                      end: Radius.circular(16),
                                     ),
                                   ),
                                   child: Center(
                                     child: Text(
-                                      AppConstants.add,
+                                      AppConstants.add.tr,
                                       textAlign: TextAlign.center,
                                       textHeightBehavior:
                                           const TextHeightBehavior(
@@ -836,9 +837,9 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
                                   decoration: BoxDecoration(
                                     color: Theme.of(context).primaryColor,
                                     borderRadius:
-                                        const BorderRadius.horizontal(
-                                      left: Radius.circular(16),
-                                      right: Radius.circular(50),
+                                        const BorderRadiusDirectional.horizontal(
+                                      start: Radius.circular(16),
+                                      end: Radius.circular(50),
                                     ),
                                   ),
                                   child: Center(
@@ -1095,7 +1096,7 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          AppConstants.permissionRequired.replaceFirst(
+          AppConstants.permissionRequired.tr.replaceFirst(
               '%s', _getTabName(_selectedSegment).toLowerCase()),
           textAlign: TextAlign.center,
           style: TextStyle(
@@ -1109,9 +1110,9 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
           onPressed: () {
             unawaited(openAppSettings());
           },
-          child: const Text(
-            AppConstants.openSettings,
-            style: TextStyle(
+          child: Text(
+            AppConstants.openSettings.tr,
+            style: const TextStyle(
               decoration: TextDecoration.none,
               fontFamily: AppConstants.font,
             ),
@@ -1124,11 +1125,11 @@ class WriteJournalToolbarContentState extends State<WriteJournalToolbarContent> 
   String _getTabName(int index) {
     switch (index) {
       case 0:
-        return AppConstants.photos;
+        return AppConstants.photos.tr;
       case 1:
-        return AppConstants.videos;
+        return AppConstants.videos.tr;
       case 2:
-        return AppConstants.audio;
+        return AppConstants.audio.tr;
       default:
         return '';
     }
@@ -1488,15 +1489,15 @@ class AudioRecorderViewState extends State<AudioRecorderView> {
     if (showDialog) {
       unawaited(showAppAlertDialog<void>(
         context: context,
-        title: AppConstants.deleteRecordingTitle,
-        message: AppConstants.deleteRecordingMessage,
+        title: AppConstants.deleteRecordingTitle.tr,
+        message: AppConstants.deleteRecordingMessage.tr,
         actionsBuilder: (dialogContext) => [
           AppAlertAction(
-            label: AppConstants.cancel,
+            label: AppConstants.cancel.tr,
             onPressed: () => Navigator.pop(dialogContext),
           ),
           AppAlertAction(
-            label: AppConstants.discard,
+            label: AppConstants.discard.tr,
             isDestructive: true,
             onPressed: () {
               Navigator.pop(dialogContext);
@@ -1587,7 +1588,7 @@ class AudioRecorderViewState extends State<AudioRecorderView> {
                   ),
                   SizedBox(height: 12.h),
                   Text(
-                    AppConstants.listen,
+                    AppConstants.listen.tr,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: colors.grey1,
@@ -1613,7 +1614,9 @@ class AudioRecorderViewState extends State<AudioRecorderView> {
                 ] else if (_isRecording) ...[
                   SizedBox(height: 16.h),
                   Text(
-                    _isPaused ? AppConstants.paused : 'Recording',
+                    _isPaused
+                        ? AppConstants.paused.tr
+                        : AppConstants.recordingLabel.tr,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: _isPaused ? colors.grey1 : _appleRecordRed,
@@ -1674,7 +1677,7 @@ class AudioRecorderViewState extends State<AudioRecorderView> {
                                   height: 92.h,
                                 )
                               : Text(
-                                  'Start Audio Recording',
+                                  AppConstants.startAudioRecording.tr,
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontFamily: AppConstants.font,
@@ -1734,9 +1737,9 @@ class AudioRecorderViewState extends State<AudioRecorderView> {
         children: [
           Expanded(
             child: Align(
-              alignment: Alignment.centerRight,
+              alignment: AlignmentDirectional.centerEnd,
               child: Padding(
-                padding: EdgeInsets.only(right: 24.w),
+                padding: EdgeInsetsDirectional.only(end: 24.w),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
@@ -1980,7 +1983,7 @@ class MoodSelectorViewState extends State<MoodSelectorView>
                   child: Column(
                     children: [
                       Text(
-                        'How are you feeling?',
+                        AppConstants.howAreYouFeeling.tr,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: colors.grey10,
@@ -2086,7 +2089,7 @@ class MoodSelectorViewState extends State<MoodSelectorView>
                                     );
                                   },
                                   child: Text(
-                                    selectedMood['label']!,
+                                    selectedMood['label']!.tr,
                                     key: ValueKey(selectedMood['label']),
                                     style: TextStyle(
                                       color: currentAccent,
@@ -2111,8 +2114,8 @@ class MoodSelectorViewState extends State<MoodSelectorView>
                           divisions: 6,
                           initialValue: _lastSliderValue,
                           showValueTooltip: false,
-                          minLabel: AppConstants.veryUnpleasant,
-                          maxLabel: AppConstants.veryPleasant,
+                          minLabel: AppConstants.veryUnpleasant.tr,
+                          maxLabel: AppConstants.veryPleasant.tr,
                           labelTextStyle: TextStyle(
                             color: currentAccent.withOpacity(isDark ? 0.65 : 0.72),
                             fontSize: 12.sp,
@@ -2162,7 +2165,7 @@ class MoodSelectorViewState extends State<MoodSelectorView>
                   padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                 ),
                 child: Text(
-                  AppConstants.clear,
+                  AppConstants.clear.tr,
                   style: TextStyle(
                     fontSize: 16.sp,
                     fontWeight: FontWeight.w700,

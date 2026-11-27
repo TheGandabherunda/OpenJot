@@ -76,16 +76,15 @@ class _ExcludeEntriesBottomSheetState extends State<ExcludeEntriesBottomSheet> {
   Future<bool> _showUnsavedChangesDialog() async {
     final result = await showAppAlertDialog<bool>(
       context: context,
-      title: AppConstants.unsavedChanges,
-      message:
-          "You have unsaved changes. Are you sure you want to discard them and exit?",
+      title: AppConstants.unsavedChanges.tr,
+      message: AppConstants.excludeUnsavedChangesMessage.tr,
       actionsBuilder: (dialogContext) => [
         AppAlertAction(
-          label: AppConstants.cancel,
+          label: AppConstants.cancel.tr,
           onPressed: () => Navigator.pop(dialogContext, false),
         ),
         AppAlertAction(
-          label: AppConstants.discard,
+          label: AppConstants.discard.tr,
           isDestructive: true,
           onPressed: () => Navigator.pop(dialogContext, true),
         ),
@@ -236,7 +235,7 @@ class _ExcludeEntriesBottomSheetState extends State<ExcludeEntriesBottomSheet> {
           elevation: 0,
           scrolledUnderElevation: 0,
           title: Text(
-            AppConstants.excludeEntries,
+            AppConstants.excludeEntries.tr,
             style: TextStyle(
               color: appThemeColors.grey10,
               fontSize: 17.sp,
@@ -260,7 +259,7 @@ class _ExcludeEntriesBottomSheetState extends State<ExcludeEntriesBottomSheet> {
                 Navigator.pop(context);
               },
               child: Text(
-                AppConstants.save,
+                AppConstants.save.tr,
                 style: TextStyle(
                   color: appThemeColors.primary,
                   fontFamily: AppConstants.font,
@@ -284,7 +283,7 @@ class _ExcludeEntriesBottomSheetState extends State<ExcludeEntriesBottomSheet> {
                           fontFamily: AppConstants.font,
                           letterSpacing: -0.2),
                       decoration: InputDecoration(
-                        hintText: AppConstants.searchJournalsHint,
+                        hintText: AppConstants.searchJournalsHint.tr,
                         hintStyle: TextStyle(
                             color: appThemeColors.grey3,
                             fontFamily: AppConstants.font,
@@ -328,18 +327,21 @@ class _ExcludeEntriesBottomSheetState extends State<ExcludeEntriesBottomSheet> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16.r),
                           ),
-                          position: RelativeRect.fromLTRB(
-                            position.dx - 150.w,
-                            position.dy + renderBox.size.height + 8.h,
-                            MediaQuery.of(context).size.width - (position.dx + renderBox.size.width),
-                            position.dy + renderBox.size.height + 200.h,
+                          position: RelativeRect.fromRect(
+                            Rect.fromLTWH(
+                              position.dx,
+                              position.dy + renderBox.size.height + 8.h,
+                              renderBox.size.width,
+                              renderBox.size.height,
+                            ),
+                            Offset.zero & MediaQuery.of(context).size,
                           ),
                           items: [
-                            _buildSortMenuItem(SortOption.none, 'Default', appThemeColors),
+                            _buildSortMenuItem(SortOption.none, AppConstants.sortDefault.tr, appThemeColors),
                             PopupMenuDivider(height: 1, color: appThemeColors.grey6),
-                            _buildSortMenuItem(SortOption.mutedFirst, 'Muted first', appThemeColors),
+                            _buildSortMenuItem(SortOption.mutedFirst, AppConstants.sortMutedFirst.tr, appThemeColors),
                             PopupMenuDivider(height: 1, color: appThemeColors.grey6),
-                            _buildSortMenuItem(SortOption.unmutedFirst, 'Unmuted first', appThemeColors),
+                            _buildSortMenuItem(SortOption.unmutedFirst, AppConstants.sortUnmutedFirst.tr, appThemeColors),
                           ],
                         ).then((option) {
                           if (option != null) {
@@ -367,49 +369,49 @@ class _ExcludeEntriesBottomSheetState extends State<ExcludeEntriesBottomSheet> {
                 child: Wrap(
                   spacing: 8.w,
                   children: [
-                    _buildFilterChip(AppConstants.bookmark, _isBookmarked,
+                    _buildFilterChip(AppConstants.bookmark.tr, _isBookmarked,
                             (selected) {
                           setState(() {
                             _isBookmarked = selected;
                             _applyFilters();
                           });
                         }),
-                    _buildFilterChip(AppConstants.reflection, _isReflection,
+                    _buildFilterChip(AppConstants.reflection.tr, _isReflection,
                             (selected) {
                           setState(() {
                             _isReflection = selected;
                             _applyFilters();
                           });
                         }),
-                    _buildFilterChip(AppConstants.drafts, _isDraft,
+                    _buildFilterChip(AppConstants.drafts.tr, _isDraft,
                             (selected) {
                           setState(() {
                             _isDraft = selected;
                             _applyFilters();
                           });
                         }),
-                    _buildFilterChip(AppConstants.textOnly, _isTextOnly,
+                    _buildFilterChip(AppConstants.textOnly.tr, _isTextOnly,
                             (selected) {
                           setState(() {
                             _isTextOnly = selected;
                             _applyFilters();
                           });
                         }),
-                    _buildFilterChip(AppConstants.withMedia, _isMediaOnly,
+                    _buildFilterChip(AppConstants.withMedia.tr, _isMediaOnly,
                             (selected) {
                           setState(() {
                             _isMediaOnly = selected;
                             _applyFilters();
                           });
                         }),
-                    _buildFilterChip(AppConstants.withMood, _withMood,
+                    _buildFilterChip(AppConstants.withMood.tr, _withMood,
                             (selected) {
                           setState(() {
                             _withMood = selected;
                             _applyFilters();
                           });
                         }),
-                    _buildFilterChip(AppConstants.withLocation, _withLocation,
+                    _buildFilterChip(AppConstants.withLocation.tr, _withLocation,
                             (selected) {
                           setState(() {
                             _withLocation = selected;
@@ -424,7 +426,7 @@ class _ExcludeEntriesBottomSheetState extends State<ExcludeEntriesBottomSheet> {
               child: _filteredEntries.isEmpty
                   ? Center(
                 child: Text(
-                  AppConstants.noResultsFound,
+                  AppConstants.noResultsFound.tr,
                   style: TextStyle(
                     fontFamily: AppConstants.font,
                     letterSpacing: -0.2,
@@ -473,7 +475,7 @@ class _ExcludeEntriesBottomSheetState extends State<ExcludeEntriesBottomSheet> {
                               bottom: 16.h,
                               top: showYearDivider ? 0 : 8.h),
                           child: Text(
-                            DateFormat('MMMM').format(entry.createdAt),
+                            AppConstants.months[entry.createdAt.month - 1].tr,
                             style: TextStyle(
                               fontFamily: AppConstants.font,
                               fontWeight: FontWeight.w600,

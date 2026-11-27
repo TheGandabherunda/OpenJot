@@ -7,10 +7,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:open_jot/app/core/constants.dart';
 import 'package:open_jot/app/core/models/journal_entry.dart';
+import 'package:open_jot/app/core/translations/app_translations.dart';
 import 'package:open_jot/app/modules/home/home_controller.dart';
 import 'package:open_jot/app/modules/read_journal/read_journal_bottom_sheet.dart';
 import '../../utils/mood_helper.dart';
@@ -99,7 +100,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
           elevation: 0,
           centerTitle: true,
           title: Text(
-            AppConstants.insights,
+            AppConstants.insights.tr,
             style: TextStyle(
               color: appThemeColors.grey10,
               fontWeight: FontWeight.w600,
@@ -158,7 +159,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          AppConstants.stats,
+          AppConstants.stats.tr,
           style: TextStyle(
             fontSize: 20.sp,
             fontWeight: FontWeight.bold,
@@ -181,7 +182,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                   borderRadius: BorderRadius.circular(16.r),
                 ),
                 child: _buildStatItem(
-                  AppConstants.wordsWritten,
+                  AppConstants.wordsWritten.tr,
                   Obx(() => Text(controller.totalWordsWritten.toString())),
                   Icons.format_quote_rounded,
                   appThemeColors,
@@ -198,7 +199,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                   borderRadius: BorderRadius.circular(16.r),
                 ),
                 child: _buildStatItem(
-                  AppConstants.daysJournaled,
+                  AppConstants.daysJournaled.tr,
                   Obx(() => Text(controller.daysJournaled.toString())),
                   Icons.calendar_today_rounded,
                   appThemeColors,
@@ -248,8 +249,12 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
               children: [
                 InkWell(
                   onTap: () => _changeYear(-1),
-                  child: Icon(Icons.chevron_left,
-                      color: appThemeColors.grey2, size: 24.sp),
+                  child: Icon(
+                      Directionality.of(context) == TextDirection.rtl
+                          ? Icons.chevron_right
+                          : Icons.chevron_left,
+                      color: appThemeColors.grey2,
+                      size: 24.sp),
                 ),
                 RichText(
                   text: TextSpan(
@@ -267,7 +272,7 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                         ),
                       ),
                       TextSpan(
-                        text: ' ($totalEntries ${AppConstants.entriesSuffix})',
+                        text: ' ($totalEntries ${AppConstants.entriesSuffix.tr.trim()})',
                         style: TextStyle(
                           fontWeight: FontWeight.w500,
                           fontSize: 12.sp,
@@ -279,8 +284,12 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                 ),
                 InkWell(
                   onTap: () => _changeYear(1),
-                  child: Icon(Icons.chevron_right,
-                      color: appThemeColors.grey2, size: 24.sp),
+                  child: Icon(
+                      Directionality.of(context) == TextDirection.rtl
+                          ? Icons.chevron_left
+                          : Icons.chevron_right,
+                      color: appThemeColors.grey2,
+                      size: 24.sp),
                 ),
               ],
             ),
@@ -336,7 +345,13 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                     ),
                     SizedBox(height: 4.h),
                     Text(
-                      DateFormat('MMM').format(DateTime(0, month))[0],
+                      () {
+                        final abbr = AppTranslations.formatDate(
+                          DateTime(0, month),
+                          'MMM',
+                        );
+                        return abbr.isNotEmpty ? abbr.substring(0, 1) : '';
+                      }(),
                       style: TextStyle(
                         fontSize: 10.sp,
                         color: appThemeColors.grey2,
@@ -410,18 +425,23 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              AppConstants.calendar,
-              style: TextStyle(
-                fontSize: 20.sp,
-                fontWeight: FontWeight.bold,
-                color: appThemeColors.grey10,
-                fontFamily: AppConstants.font,
-                letterSpacing: -0.2,
+            Expanded(
+              child: Text(
+                AppConstants.calendar.tr,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 20.sp,
+                  fontWeight: FontWeight.bold,
+                  color: appThemeColors.grey10,
+                  fontFamily: AppConstants.font,
+                  letterSpacing: -0.2,
+                ),
               ),
             ),
-            SizedBox(
-              width: 200.w,
+            SizedBox(width: 8.w),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: 220.w),
               child: CupertinoSlidingSegmentedControl<CalendarType>(
                 backgroundColor: appThemeColors.grey5,
                 thumbColor: appThemeColors.grey7,
@@ -436,34 +456,43 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                 children: {
                   CalendarType.standard: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 4.w),
-                    child: Text(
-                      AppConstants.standard,
-                      style: TextStyle(
-                        fontSize: 12.sp,
-                        fontFamily: AppConstants.font,
-                        color: appThemeColors.grey10,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        AppConstants.standard.tr,
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          fontFamily: AppConstants.font,
+                          color: appThemeColors.grey10,
+                        ),
                       ),
                     ),
                   ),
                   CalendarType.media: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 4.w),
-                    child: Text(
-                      AppConstants.media,
-                      style: TextStyle(
-                        fontSize: 12.sp,
-                        fontFamily: AppConstants.font,
-                        color: appThemeColors.grey10,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        AppConstants.media.tr,
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          fontFamily: AppConstants.font,
+                          color: appThemeColors.grey10,
+                        ),
                       ),
                     ),
                   ),
                   CalendarType.mood: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 4.w),
-                    child: Text(
-                      AppConstants.mood,
-                      style: TextStyle(
-                        fontSize: 12.sp,
-                        fontFamily: AppConstants.font,
-                        color: appThemeColors.grey10,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        AppConstants.mood.tr,
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          fontFamily: AppConstants.font,
+                          color: appThemeColors.grey10,
+                        ),
                       ),
                     ),
                   ),
@@ -486,11 +515,15 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                 children: [
                   InkWell(
                     onTap: () => _changeMonth(-1),
-                    child: Icon(Icons.chevron_left,
-                        color: appThemeColors.grey2, size: 24.sp),
+                    child: Icon(
+                        Directionality.of(context) == TextDirection.rtl
+                            ? Icons.chevron_right
+                            : Icons.chevron_left,
+                        color: appThemeColors.grey2,
+                        size: 24.sp),
                   ),
                   Text(
-                    DateFormat('MMMM yyyy').format(_calendarDate),
+                    '${AppConstants.months[_calendarDate.month - 1].tr} ${_calendarDate.year}',
                     style: TextStyle(
                       fontSize: 16.sp,
                       fontWeight: FontWeight.bold,
@@ -501,15 +534,19 @@ class _InsightsBottomSheetState extends State<InsightsBottomSheet> {
                   ),
                   InkWell(
                     onTap: () => _changeMonth(1),
-                    child: Icon(Icons.chevron_right,
-                        color: appThemeColors.grey2, size: 24.sp),
+                    child: Icon(
+                        Directionality.of(context) == TextDirection.rtl
+                            ? Icons.chevron_left
+                            : Icons.chevron_right,
+                        color: appThemeColors.grey2,
+                        size: 24.sp),
                   ),
                 ],
               ),
               SizedBox(height: 16.h),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+                children: AppTranslations.weekdayShortNames()
                     .map((day) => Text(day,
                     style: TextStyle(
                         color: appThemeColors.grey2,
@@ -721,7 +758,7 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
     final appThemeColors = AppTheme.colorsOf(context);
     final HomeController controller = Get.find();
 
-    final String title = DateFormat('MMMM d').format(widget.date);
+    final String title = AppTranslations.formatDate(widget.date, 'MMMM d');
 
     return Material(
       child: Scaffold(
@@ -775,7 +812,7 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
           if (entriesToShow.isEmpty) {
             return Center(
               child: Text(
-                AppConstants.noEntriesForDate,
+                AppConstants.noEntriesForDate.tr,
                 style: TextStyle(
                   color: appThemeColors.grey2,
                   fontSize: 16.sp,
@@ -811,7 +848,7 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
                         _ViewType.tiles: Padding(
                           padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                           child: Text(
-                            AppConstants.tiles,
+                            AppConstants.tiles.tr,
                             style: TextStyle(
                               fontSize: 14.sp,
                               fontFamily: AppConstants.font,
@@ -822,7 +859,7 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
                         _ViewType.graph: Padding(
                           padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                           child: Text(
-                            AppConstants.graph,
+                            AppConstants.graph.tr,
                             style: TextStyle(
                               fontSize: 14.sp,
                               fontFamily: AppConstants.font,
@@ -878,7 +915,7 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
               ),
             ),
             if (avgMoodIndex != null && widget.calendarType == CalendarType.mood) ...[
-              Center(child: _buildCenteredMoodSummary(avgMoodIndex, AppConstants.averageForThisDay, colors)),
+              Center(child: _buildCenteredMoodSummary(avgMoodIndex, AppConstants.averageForThisDay.tr, colors)),
               SizedBox(height: 32.h),
             ],
             Container(
@@ -904,7 +941,7 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
         _buildMoodIcon(moodIndex, 64.w),
         SizedBox(height: 12.h),
         Text(
-          "${AppConstants.mostly} ${AppConstants.moods[moodIndex]['label']}",
+          "${AppConstants.mostly.tr} ${(AppConstants.moods[moodIndex]['label'] ?? '').tr}",
           style: TextStyle(
             color: colors.grey10,
             fontSize: 20.sp,
@@ -961,7 +998,7 @@ class _EntriesForDateBottomSheetState extends State<EntriesForDateBottomSheet> {
               ),
             ),
             if (avgMoodIndex != null && widget.calendarType == CalendarType.mood) ...[
-              Center(child: _buildCenteredMoodSummary(avgMoodIndex, AppConstants.averageForThisDay, appThemeColors)),
+              Center(child: _buildCenteredMoodSummary(avgMoodIndex, AppConstants.averageForThisDay.tr, appThemeColors)),
               SizedBox(height: 32.h),
             ],
             ...entriesInYear.map((entry) {
@@ -1118,11 +1155,11 @@ class _MoodGraphState extends State<MoodGraph> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _timeLabel('12 AM', appThemeColors),
-            _timeLabel('6 AM', appThemeColors),
-            _timeLabel('12 PM', appThemeColors),
-            _timeLabel('6 PM', appThemeColors),
-            _timeLabel('11:59 PM', appThemeColors),
+            _timeLabel(AppTranslations.formatJm(DateTime(2024, 1, 1, 0, 0)), appThemeColors),
+            _timeLabel(AppTranslations.formatJm(DateTime(2024, 1, 1, 6, 0)), appThemeColors),
+            _timeLabel(AppTranslations.formatJm(DateTime(2024, 1, 1, 12, 0)), appThemeColors),
+            _timeLabel(AppTranslations.formatJm(DateTime(2024, 1, 1, 18, 0)), appThemeColors),
+            _timeLabel(AppTranslations.formatJm(DateTime(2024, 1, 1, 23, 59)), appThemeColors),
           ],
         ),
       ],
@@ -1188,8 +1225,8 @@ class _MoodGraphState extends State<MoodGraph> {
 
     final hour = item.timeInMinutes ~/ 60;
     final minute = item.timeInMinutes % 60;
-    final timeStr = DateFormat('h:mm a').format(DateTime(2024, 1, 1, hour, minute));
-    final moodLabel = AppConstants.moods[item.moodIndex.clamp(0, 6)]['label'];
+    final timeStr = AppTranslations.formatJm(DateTime(2024, 1, 1, hour, minute));
+    final moodLabel = AppConstants.moods[item.moodIndex.clamp(0, 6)]['label']?.tr;
 
     final accentColor = MoodHelper.getAccentColor(item.moodIndex);
 
@@ -1244,13 +1281,16 @@ class _MoodGraphState extends State<MoodGraph> {
                         ],
                       ),
                     ),
-                    Padding(
-                      padding: EdgeInsets.only(left: arrowRelativeX - 6.w),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: CustomPaint(
-                          size: Size(12.w, 6.h),
-                          painter: _TooltipArrowPainter(color: accentColor),
+                    Directionality(
+                      textDirection: TextDirection.ltr,
+                      child: Padding(
+                        padding: EdgeInsets.only(left: arrowRelativeX - 6.w),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: CustomPaint(
+                            size: Size(12.w, 6.h),
+                            painter: _TooltipArrowPainter(color: accentColor),
+                          ),
                         ),
                       ),
                     ),

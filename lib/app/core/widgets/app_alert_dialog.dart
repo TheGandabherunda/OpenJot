@@ -262,19 +262,21 @@ class AppAlertDialog extends StatelessWidget {
           child: Center(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 12.w),
-              child: Text(
-                action.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: AppConstants.font,
-                  color: fg,
-                  fontSize: 14.5.sp,
-                  fontWeight:
-                      (action.isDefault || action.isDestructive)
-                          ? FontWeight.w600
-                          : FontWeight.w500,
-                  letterSpacing: -0.2,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  action.label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontFamily: AppConstants.font,
+                    color: fg,
+                    fontSize: 14.5.sp,
+                    fontWeight:
+                        (action.isDefault || action.isDestructive)
+                            ? FontWeight.w600
+                            : FontWeight.w500,
+                    letterSpacing: -0.2,
+                  ),
                 ),
               ),
             ),

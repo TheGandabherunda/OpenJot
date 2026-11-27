@@ -33,14 +33,14 @@ class HomeController extends GetxController {
   final hideHomeStats = false.obs;
   final hideInsightsStats = false.obs;
   final Map<String, String> _sortTypeDisplayNames = {
-    'time': 'Entry time',
-    'bookmark': 'Bookmark first',
-    'reflection': 'Reflection first',
-    'media': 'With media first',
-    'text': 'Text only first',
-    'location': 'With location first',
-    'mood': 'With mood first',
-    'tags': 'With tags first',
+    'time': AppConstants.entryTime,
+    'bookmark': AppConstants.bookmarkFirst,
+    'reflection': AppConstants.reflectionFirst,
+    'media': AppConstants.withMediaFirst,
+    'text': AppConstants.textOnlyFirst,
+    'location': AppConstants.withLocationFirst,
+    'mood': AppConstants.withMoodFirst,
+    'tags': AppConstants.withTagsFirst,
   };
 
   List<String> get allUniqueTags {
@@ -55,7 +55,7 @@ class HomeController extends GetxController {
   }
 
   String get currentSortTypeDisplayName =>
-      _sortTypeDisplayNames[currentSortType.value] ?? 'Entry time';
+      (_sortTypeDisplayNames[currentSortType.value] ?? AppConstants.entryTime).tr;
 
   @override
   void onInit() {

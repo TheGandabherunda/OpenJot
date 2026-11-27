@@ -26,7 +26,7 @@ class DailyYouMigrationService extends GetxService {
     int importedCount = 0;
 
     try {
-      onStatusUpdate?.call("Extracting backup...");
+      onStatusUpdate?.call(AppConstants.extractingBackup.tr);
       tempDir = Directory(p.join((await getTemporaryDirectory()).path, 'daily_you_import_${DateTime.now().millisecondsSinceEpoch}'));
       await tempDir.create(recursive: true);
 
@@ -35,10 +35,10 @@ class DailyYouMigrationService extends GetxService {
 
       final dbPath = p.join(tempDir.path, 'daily_you.db');
       if (!await File(dbPath).exists()) {
-        throw Exception("Daily You database not found in backup.");
+        throw Exception(AppConstants.dailyYouDbNotFound.tr);
       }
 
-      onStatusUpdate?.call("Parsing database...");
+      onStatusUpdate?.call(AppConstants.parsingDatabase.tr);
       db = await openDatabase(dbPath, readOnly: true);
 
       // Fetch entries
